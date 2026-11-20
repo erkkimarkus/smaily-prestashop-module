@@ -45,6 +45,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
  * keeps what any of its events saw: a consent change or a checkout. A check registered with
  * atEnd() runs before the rows are written, so it can confirm what another module stored during the
  * request. A shop whose contact sync is not active gets no row: its handler would only skip it.
+ * A listener registered with listen() gets each merged event after its row, that shop's too.
  *
  * At shutdown the rows are written; then, where the server can send the response before the
  * request ends (fastcgi_finish_request() or litespeed_finish_request()), the response goes out and
@@ -75,6 +76,9 @@ final class ContactEvents
     /** @var list<callable(): void> */
     private array $checks = [];
 
+    /** @var list<callable(int, ?string, array<string, mixed>): int> */
+    private array $listeners = [];
+
     private bool $scheduled = false;
 
     /**
@@ -100,10 +104,6 @@ final class ContactEvents
      */
     public function add(int $idShop, int $idLang, array $payload): void
     {
-        if (!$this->settings->syncActive($idShop)) {
-            return;
-        }
-
         $key = $idShop . ':' . self::address((string) $payload['email']);
         $this->events[$key] = [
             'id_shop' => $idShop,
@@ -125,9 +125,22 @@ final class ContactEvents
     }
 
     /**
-     * Runs the checks and writes one row per shop and address.
+     * Hands $listener each event of the request when it ends, merged per shop and address, also the
+     * events of a shop whose contact sync is not active: $listener($idShop, $language, $payload)
+     * gets the shop, the language's ISO code (null when unknown) and the `contact.sync` payload, and
+     * returns the number of queue rows it wrote.
      *
-     * @return int the number of rows written
+     * @param callable(int, ?string, array<string, mixed>): int $listener
+     */
+    public function listen(callable $listener): void
+    {
+        $this->listeners[] = $listener;
+    }
+
+    /**
+     * Runs the checks, writes one row per shop and address, and hands each event to the listeners.
+     *
+     * @return int the number of rows written, the listeners' included
      */
     public function commit(): int
     {
@@ -143,17 +156,28 @@ final class ContactEvents
 
         $events = $this->events;
         $this->events = [];
+        $written = 0;
         foreach ($events as $event) {
-            $this->queue->enqueue(
-                ContactSyncHandler::EVENT_TYPE,
-                $event['id_shop'],
-                $event['payload'],
-                self::entityId((string) $event['payload']['email']),
-                $event['language']
-            );
+            if ($this->settings->syncActive($event['id_shop'])) {
+                $this->queue->enqueue(
+                    ContactSyncHandler::EVENT_TYPE,
+                    $event['id_shop'],
+                    $event['payload'],
+                    self::entityId((string) $event['payload']['email']),
+                    $event['language']
+                );
+                ++$written;
+            }
+            foreach ($this->listeners as $listener) {
+                try {
+                    $written += $listener($event['id_shop'], $event['language'], $event['payload']);
+                } catch (\Throwable $error) {
+                    Log::failure('a contact event listener', $error);
+                }
+            }
         }
 
-        return count($events);
+        return $written;
     }
 
     /**
