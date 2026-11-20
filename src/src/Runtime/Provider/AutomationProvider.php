@@ -29,14 +29,55 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartAutomation;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\FirstOrder\FirstOrderAutomation;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeAutomation;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowResolverInterface;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
- * Registers the services and hook listeners of the store automations.
+ * Registers the services of the store automations' routing: the Automations settings, the mapping
+ * rows, the router, the trigger sender and the workflow list. Each store automation then registers
+ * its own services and listeners from a class of its own, listed in AUTOMATIONS.
  */
 final class AutomationProvider implements ProviderInterface
 {
+    /**
+     * @var list<class-string<ProviderInterface>>
+     */
+    public const AUTOMATIONS = [
+        WelcomeAutomation::class,
+        FirstOrderAutomation::class,
+        AbandonedCartAutomation::class,
+    ];
+
     public function register(Services $services): void
     {
+        $services->set(AutomationSettings::class, fn (): AutomationSettings => new AutomationSettings());
+        $services->set(MappingRepository::class, fn (): MappingRepository => new MappingRepository());
+        $services->set(Router::class, fn (Services $services): Router => new Router(
+            $services->get(AutomationSettings::class),
+            $services->get(StoreLayout::class),
+            $services->get(MappingRepository::class),
+            [$services->get(AccountStore::class), 'find']
+        ));
+        $services->set(WorkflowResolverInterface::class, fn (Services $services): Router => $services->get(Router::class));
+        $services->set(TriggerSender::class, fn (Services $services): TriggerSender => new TriggerSender(
+            $services->get(Router::class),
+            $services->get(Transport::class)
+        ));
+        $services->set(WorkflowList::class, fn (Services $services): WorkflowList => new WorkflowList($services->get(Transport::class)));
+
+        foreach (self::AUTOMATIONS as $automation) {
+            (new $automation())->register($services);
+        }
     }
 }
