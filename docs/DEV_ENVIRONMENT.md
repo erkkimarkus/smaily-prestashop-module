@@ -105,6 +105,11 @@ gaps:
 - Some test does not restore the cron tokens it found. After a full suite run, the dev shop refuses
   the cron or tick token it had before; read the new token from the `configuration` table.
 
+One test drives the shop's own web server over HTTP (`AfterResponseSessionTest`: a login and a
+registration on a request that works after its response). It reaches the web server on port 80 of the
+container where PHPUnit runs, and it is skipped where that server cannot send a response early (Apache
+with mod_php).
+
 Page traffic in the dev shop runs the fallback tick, and with it the daily update check against the
 real GitHub (`api.github.com`, no store data). Two tests pin the tick's full job list
 (`SchedulerProviderTest`, `PendingMigrationTest`): a change that registers a scheduler job edits both.
