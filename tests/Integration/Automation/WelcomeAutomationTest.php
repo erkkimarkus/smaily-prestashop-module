@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Automation;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\EntityLabel;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
@@ -13,6 +14,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -114,6 +116,27 @@ final class WelcomeAutomationTest extends IntegrationTestCase
             'first_name' => 'Testfirst',
             'last_name' => 'Testlast',
         ], $address);
+    }
+
+    /**
+     * An address longer than the queue's entity column (ARCHITECTURE 2.2): the contact row and the
+     * welcome row carry its keyed hash, which the Log shows as 12 characters, and the address
+     * itself still reaches Smaily.
+     */
+    public function testALongAddressIsStoredUnderItsKeyedHashOnBothRows(): void
+    {
+        $address = 'shopper.having.a.very.long.invented.name@a-long-subdomain.example.test';
+        self::assertSame(70, strlen($address));
+        $this->fire('actionCustomerAccountAdd', ['newCustomer' => $this->customer(strtoupper($address), true)]);
+        $this->endRequest();
+
+        $rows = $this->rows();
+        self::assertSame(['contact.sync', WelcomeTrigger::EVENT_TYPE], array_column($rows, 'event_type'));
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], array_column($rows, 'status'));
+        self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', (string) $rows[0]['entity_id']);
+        self::assertSame([ContactEntity::of($address), ContactEntity::of($address)], array_column($rows, 'entity_id'));
+        self::assertSame(substr((string) $rows[0]['entity_id'], 0, 12) . '…', EntityLabel::forDisplay($rows[0]['entity_id']));
+        self::assertSame($address, $this->autoresponderRequests()[0]['body']['addresses'][0]['email']);
     }
 
     public function testARegistrationWithoutTheBoxSendsNoWelcome(): void

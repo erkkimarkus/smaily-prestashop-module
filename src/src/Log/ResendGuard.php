@@ -51,8 +51,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *  - `queued`: such a later row waits in the queue, for example the one a "Send again" of this row
  *    added. The contact gets that row, so this one is not queued a second time. It has no sentence
  *    of its own.
- * A row without an entity (an address longer than the entity column) cannot be compared with later
- * rows and gets neither of the last two refusals.
+ * A row without an entity cannot be compared with later rows and gets neither of the last two
+ * refusals; a contact's row always has one (Queue\ContactEntity).
  */
 final class ResendGuard
 {

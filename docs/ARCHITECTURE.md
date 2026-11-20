@@ -101,7 +101,8 @@ src/
     Http/                     Transport (interface), SymfonyTransport, Response, NetworkException
     Smaily/                   Client, Account, AccountStore, Crypto, Exception/*
     Queue/                    EventQueue (with deleteClosed()), Flusher, RetryPolicy, Failure,
-                              Skipped, Pending, HandlerInterface; Handler/ContactSyncHandler
+                              Skipped, Pending, HandlerInterface, ContactEntity;
+                              Handler/ContactSyncHandler
     Scheduler/                Tick, TickReport, TickState, Job, Deadline, Lock, Door,
                               DoorFrontController, TrafficTick, QueueJanitor
     Scope/                    StoreLayout, AccountResolver, Scope, ScopeResolver
@@ -348,7 +349,7 @@ Column rules of `Install\Schema`:
 
 | Table | Purpose | Columns (level of detail for review) | Indexes |
 |---|---|---|---|
-| `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.trigger`, `engine.identity_merge`, `engine.profiling_consent` | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
+| `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.welcome`, `automation.first_order`, `automation.abandoned_cart`; stage 5 adds `engine.identity_merge` and `engine.profiling_consent` | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
 | `smaily_connect_ingest_queue` | Engine ingest: `catalog`, `catalog_remove`, `customers`, `orders` | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (a catalog row is a marker; the payload is built at flush, see `woo:docs/LESSONS.md` §2.24), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
 | `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
@@ -391,6 +392,14 @@ Magento's unified Log does (`magento:Controller/Adminhtml/Log/*`).
   queue are written by Story 5.2.
 - A row that the Log's "Send again" queued carries the record `_resend` in its payload (section
   10.8).
+- `entity_id` of a contact's row (a contact sync or an automation) comes from
+  `Queue\ContactEntity::of()`, Magento's rule: an address of at most 64 characters is the entity
+  as the row's writer holds it (a contact sync stores it trimmed and in lower case); a longer
+  address is its keyed hash, 64 hex characters, HMAC-SHA256 over `smaily-connect-address|` and the
+  address, trimmed and in lower case, with the shop's `_NEW_COOKIE_KEY_` (section 2.3). Every
+  spelling of a long address has the same entity, so the rows of one contact match each other
+  (section 10.8). The hash changes when `parameters.php` gets a new key; rows written before and
+  after that no longer match.
 
 **The cart tracker after an upgrade** (`smaily_connect_cart`, Story 1.7). The migration copies every
 `smaily_cart` row that names a cart (`id_cart` not `NULL`) with `INSERT IGNORE`: `status` =
@@ -2091,9 +2100,7 @@ has one owner:
 - **Done.** As built: section 10.8, and the queue columns in section 2.2. The Story also wrote the
   Estonian units of its texts (section 10.4 leaves them to the sweep otherwise).
 - **Left open.** "Send again" and "Retry" of ingest rows wait for the ingest queue (Story 5.2). A
-  reason code that Magento has no sentence for shows as stored. The address of an event row longer
-  than 64 characters is stored without an entity (section 2.2 names a keyed hash), so the resend
-  guard cannot compare such a row with later rows.
+  reason code that Magento has no sentence for shows as stored.
 
 ### Story 3.5 — Translation sweep (stage 3)
 

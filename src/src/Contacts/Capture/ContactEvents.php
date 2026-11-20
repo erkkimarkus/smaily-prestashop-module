@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
@@ -163,7 +164,7 @@ final class ContactEvents
                     ContactSyncHandler::EVENT_TYPE,
                     $event['id_shop'],
                     $event['payload'],
-                    self::entityId((string) $event['payload']['email']),
+                    ContactEntity::of(self::address((string) $event['payload']['email'])),
                     $event['language']
                 );
                 ++$written;
@@ -248,16 +249,6 @@ final class ContactEvents
     private static function address(string $email): string
     {
         return strtolower(trim($email));
-    }
-
-    /**
-     * The row's entity id: the address, or null when it is longer than the column holds.
-     */
-    private static function entityId(string $email): ?string
-    {
-        $address = self::address($email);
-
-        return strlen($address) <= 64 ? $address : null;
     }
 
     private static function language(int $idLang): ?string

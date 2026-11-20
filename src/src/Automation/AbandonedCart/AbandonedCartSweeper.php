@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -133,7 +134,7 @@ class AbandonedCartSweeper
             || ($address['id_customer'] !== null && isset($blocking['customers'][$address['id_customer']]));
         $this->tracker->open($idCart, $idShop, $address['id_customer'], $address['email'], (int) $cart['id_lang'], (string) $cart['date_upd']);
         $language = $this->scopes->resolve($idShop, (int) $cart['id_lang'])->language();
-        $entity = strlen($address['email']) <= 64 ? $address['email'] : null;
+        $entity = ContactEntity::of($address['email']);
 
         if ($blocked) {
             $this->tracker->skip($idCart, self::SKIPPED_RECENTLY_REMINDED);

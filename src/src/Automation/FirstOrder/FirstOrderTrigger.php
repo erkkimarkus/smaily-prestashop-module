@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 
@@ -120,7 +121,7 @@ final class FirstOrderTrigger
             self::EVENT_TYPE,
             $idShop,
             ['email' => $email, 'id_cart' => (int) $order->id_cart, 'fields' => $fields + Trigger::marker(Trigger::FIRST_ORDER)],
-            strlen($email) <= 64 ? $email : null,
+            ContactEntity::of($email),
             $language !== '' ? $language : null
         );
     }

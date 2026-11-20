@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -109,7 +110,7 @@ final class WelcomeTrigger
             self::EVENT_TYPE,
             $idShop,
             ['email' => $email, 'fields' => $fields + Trigger::marker(Trigger::WELCOME)],
-            strlen($email) <= 64 ? $email : null,
+            ContactEntity::of($email),
             $language
         );
 
