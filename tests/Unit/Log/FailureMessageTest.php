@@ -35,6 +35,10 @@ final class FailureMessageTest extends TestCase
             FailureMessage::forDisplay('no_marketing_consent', $estonian)
         );
         self::assertSame('ET: Skipped: this shopper unsubscribed in Smaily. Nothing was sent.', FailureMessage::forDisplay('unsubscribed_in_smaily', $estonian));
+        self::assertSame(
+            'ET: Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
+            FailureMessage::forDisplay('stale_subscription', $estonian)
+        );
         self::assertSame('contact_sync_off', FailureMessage::forDisplay('contact_sync_off', $estonian), 'a code without a sentence shows as stored');
     }
 
@@ -43,7 +47,7 @@ final class FailureMessageTest extends TestCase
         $same = static fn (string $text): string => $text;
 
         self::assertSame(['no_marketing_consent'], FailureMessage::codesShowing('marketing EMAILS', $same));
-        self::assertSame(['no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'no_workflow'], FailureMessage::codesShowing('Nothing was sent', $same));
+        self::assertSame(['no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'no_workflow', 'stale_subscription'], FailureMessage::codesShowing('Nothing was sent', $same));
         self::assertSame([], FailureMessage::codesShowing('HTTP 503', $same));
         self::assertSame([], FailureMessage::codesShowing('', $same));
     }

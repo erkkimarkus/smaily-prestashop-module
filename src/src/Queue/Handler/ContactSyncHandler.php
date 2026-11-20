@@ -58,8 +58,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * Smaily answers one code for a whole request, so a group that it refuses as invalid data (203) goes
  * again one contact per request, and only the refused contact fails (Magento PRO-3753). Any other
  * failure of the wire is the outcome of every row of the group. A row that cannot go ends skipped
- * with a reason code: its shop's contact sync is off, the contact is outside the shop's audience, or
- * its account is missing or has no credentials. A reason never names the contact.
+ * with a reason code: its shop's contact sync is off, the contact is outside the shop's audience,
+ * the row would put a stale subscription into Smaily (Contacts\StaleSubscription, asked at every
+ * attempt, so a retry never undoes a later delivered consent change), or its account is missing or
+ * has no credentials. A reason never names the contact.
  *
  * exchanges() gives each sent row its own contact of the request body, never the contacts posted
  * with it, and the answer to that request.
@@ -71,6 +73,8 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
     public const SKIPPED_SYNC_OFF = 'contact_sync_off';
 
     public const SKIPPED_NOT_IN_AUDIENCE = 'not_in_audience';
+
+    public const SKIPPED_STALE_SUBSCRIPTION = 'stale_subscription';
 
     public const SKIPPED_NO_ACCOUNT = 'no_account';
 
@@ -86,20 +90,30 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
 
     private Transport $transport;
 
+    /** @var callable(array<int, array<string, mixed>>): list<int> */
+    private $stale;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
-    public function __construct(ScopeResolver $scopes, ContactsSettings $settings, SubscriberPayloadBuilder $builder, Transport $transport)
+    /**
+     * @param callable(array<int, array<string, mixed>>): list<int> $stale the ids of the stale rows
+     *                                                                     among queue rows by id
+     *                                                                     (StaleSubscription::among())
+     */
+    public function __construct(ScopeResolver $scopes, ContactsSettings $settings, SubscriberPayloadBuilder $builder, Transport $transport, callable $stale)
     {
         $this->scopes = $scopes;
         $this->settings = $settings;
         $this->builder = $builder;
         $this->transport = $transport;
+        $this->stale = $stale;
     }
 
     public function handle(array $events): array
     {
         $this->exchanges = [];
+        $stale = array_flip(($this->stale)(array_column($events, null, 'id')));
         $outcomes = [];
         /** @var array<string, array{client: Client, contacts: array<int, array<string, string|int>>}> $groups */
         $groups = [];
@@ -120,6 +134,10 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
             $audience = new ContactAudience($this->settings->mode($idShop));
             if (!$audience->syncs($payload['source'], $payload['subscribed'], $payload['consent_changed'], $payload['checkout'], $payload['guest'])) {
                 $outcomes[$id] = new Skipped(self::SKIPPED_NOT_IN_AUDIENCE);
+                continue;
+            }
+            if (isset($stale[$id])) {
+                $outcomes[$id] = new Skipped(self::SKIPPED_STALE_SUBSCRIPTION);
                 continue;
             }
             $scope = $scopes[$idShop . ':' . $payload['id_lang']] ??= $this->scopes->resolve($idShop, $payload['id_lang']);

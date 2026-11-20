@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCart
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
 /**
  * What a row's stored `last_error` says to the merchant, as the Magento connector's Log words it.
@@ -40,16 +41,18 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
  * A refusal that was parked at once is stored as `permanent_http_<code>: <message>` or
  * `permanent_envelope_<code>: <message>` (Queue\Failure): the list and Details show the message,
  * and Details show the class beside it. A skip is stored as a reason code; the codes of REASONS
- * show as Magento's sentence, in the admin's language, and any other code shows as stored.
+ * show as Magento's sentence, in the admin's language, and any other code shows as stored. Magento
+ * has no stale contact sync; that sentence follows its sentence for a replaced profiling choice.
  */
 final class FailureMessage
 {
-    /** The sentence of each skip reason that Magento words, by reason code. */
+    /** The sentence of each skip reason that has one, by reason code. */
     public const REASONS = [
         MarketingConsent::SKIPPED_NO_MARKETING_CONSENT => 'Skipped: this shopper has not agreed to marketing emails in the store, and is not a subscribed contact in Smaily. Nothing was sent.',
         MarketingConsent::SKIPPED_UNSUBSCRIBED_IN_SMAILY => 'Skipped: this shopper unsubscribed in Smaily. Nothing was sent.',
         AbandonedCartSweeper::SKIPPED_RECENTLY_REMINDED => 'Skipped: this address already got an abandoned-cart reminder for another cart in the last 24 hours. Nothing was sent.',
         Router::SKIPPED_NO_WORKFLOW => 'Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.',
+        ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION => 'Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
     ];
 
     private const CLASS_PATTERN = '/^(' . Failure::CLASS_REGEX . '):\s*/';

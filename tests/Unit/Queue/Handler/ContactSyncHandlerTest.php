@@ -49,6 +49,12 @@ final class ContactSyncHandlerTest extends TestCase
     /** @var callable(list<array<string, mixed>>): Response */
     private $answer;
 
+    /** @var list<int> the ids that the stale check answers */
+    private array $stale = [];
+
+    /** @var list<list<int>> the row ids of each question to the stale check */
+    private array $askedForStale = [];
+
     protected function setUp(): void
     {
         $this->answer = static fn (array $contacts): Response => new Response(200, '{"code": 101, "message": "OK"}');
@@ -129,6 +135,45 @@ final class ContactSyncHandlerTest extends TestCase
 
         self::assertTrue($outcome->isPermanent());
         self::assertSame('permanent_http_401: Smaily API credentials were rejected', $outcome->reason());
+    }
+
+    /**
+     * A row that the stale check names (Contacts\StaleSubscription) is closed without a request,
+     * whatever attempt it is; the rows around it go as before, and the check is asked once for the
+     * batch.
+     */
+    public function testSkipsARowThatWouldPutAStaleSubscriptionIntoSmaily(): void
+    {
+        $this->stale = [2];
+
+        $outcomes = $this->handler()->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['consent_changed' => true])),
+            ['attempts' => '3'] + $this->row(2, 1, $this->payload('shopper2@example.test', ['consent_changed' => true])),
+            $this->row(3, 1, $this->payload('shopper2@example.test', ['subscribed' => false, 'consent_changed' => true])),
+        ]);
+
+        self::assertSame([[1, 2, 3]], $this->askedForStale);
+        self::assertInstanceOf(Skipped::class, $outcomes[2]);
+        self::assertSame(ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION, $outcomes[2]->reason());
+        self::assertSame([1 => true, 3 => true], [1 => $outcomes[1], 3 => $outcomes[3]]);
+        self::assertCount(1, $this->requests);
+        self::assertSame(
+            [['shopper1@example.test', 0], ['shopper2@example.test', 1]],
+            array_map(static fn (array $contact): array => [$contact['email'], $contact['is_unsubscribed']], $this->requests[0]['contacts']),
+            'no request marks the stale row\'s contact subscribed'
+        );
+    }
+
+    public function testAStaleRowOfAShopWhoseContactSyncIsOffKeepsThatReason(): void
+    {
+        $this->stale = [1];
+
+        $outcomes = $this->handler([1 => [ContactsSettings::ENABLED => '0']])->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['consent_changed' => true])),
+        ]);
+
+        self::assertSame(ContactSyncHandler::SKIPPED_SYNC_OFF, $outcomes[1]->reason());
+        self::assertSame([], $this->requests);
     }
 
     public function testSkipsTheRowsOfAShopWhoseContactSyncIsOff(): void
@@ -339,7 +384,12 @@ final class ContactSyncHandlerTest extends TestCase
             $scopes,
             new FakeContactsSettings([0 => self::SETTINGS] + $settings),
             new SubscriberPayloadBuilder(static fn (int $idShop): string => 'shop' . $idShop . '.example.test'),
-            $this->transport()
+            $this->transport(),
+            function (array $rows): array {
+                $this->askedForStale[] = array_keys($rows);
+
+                return $this->stale;
+            }
         );
     }
 

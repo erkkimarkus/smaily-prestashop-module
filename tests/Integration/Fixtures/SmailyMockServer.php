@@ -129,6 +129,14 @@ final class SmailyMockServer
     }
 
     /**
+     * Whether contact writes (`POST contact.php`) answer HTTP 500.
+     */
+    public function failContactWrites(bool $fail): void
+    {
+        $this->writeState(['contact_writes_fail' => $fail] + $this->state());
+    }
+
+    /**
      * The rows of the action log that history.php answers from.
      *
      * @param list<array{seq_id: int, email: string, action: string}> $rows

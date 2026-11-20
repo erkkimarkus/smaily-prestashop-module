@@ -19,7 +19,8 @@
  * - GET  /api/workflows.php?trigger_type=  the workflows of that trigger type, all without it, as
  *                               Smaily lists them: {"id", "title", "trigger_type", "is_enabled"}.
  * - GET  /api/autoresponder.php?status=  the workflows of that status, all without it.
- * - POST /api/contact.php      one contact or a list; each needs an email, else code 203.
+ * - POST /api/contact.php      one contact or a list; each needs an email, else code 203; while
+ *                               contact writes fail, HTTP 500.
  * - POST /api/autoresponder.php `addresses`, each with an email, else code 203; `autoresponder` is
  *                               optional (without it Smaily starts its "opted in" workflows).
  * - Anything else: HTTP 404.
@@ -135,6 +136,11 @@ if ($method === 'GET' && $path === '/api/workflows.php') {
 }
 
 if ($method === 'POST' && $path === '/api/contact.php') {
+    if (!empty($state['contact_writes_fail'])) {
+        $answer(500, ['message' => 'Internal Server Error']);
+
+        return true;
+    }
     $contacts = is_array($body) && isset($body['email']) ? [$body] : $body;
     $answer(200, $hasEmails($contacts) ? ['code' => 101, 'message' => 'OK'] : ['code' => 203, 'message' => 'Invalid data']);
 

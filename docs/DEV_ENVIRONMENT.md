@@ -186,7 +186,9 @@ The guard covers page requests. A command that you run with `docker compose exec
 PHPUnit) reads its own environment: give it the proxy with
 `-e https_proxy=http://127.0.0.1:3128 -e http_proxy=http://127.0.0.1:3128 -e no_proxy=localhost,127.0.0.1`.
 The mock's state (the requests it received, the workflows it lists) is `/tmp/smaily-mock/state.json`
-in the container. The guard is not installed in the shop of `tests/ci/validate.sh`.
+in the container. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
+write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for
+a single-contact read. The guard is not installed in the shop of `tests/ci/validate.sh`.
 
 ## 5. PrestaShop 8
 

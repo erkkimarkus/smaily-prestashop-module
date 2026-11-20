@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\StaleSubscription;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -44,10 +45,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *    (the privacy Story writes it, ARCHITECTURE 11.2);
  *  - `superseded`: a later row of the same event type for the same contact in the same shop was
  *    delivered. For an automation that is a later message of the same kind. A contact sync repeats
- *    a state and may go again, with one exception: a row that would mark the contact subscribed
- *    (its payload has `consent_changed` and `subscribed`) is not sent after a later delivered row
- *    that carried a consent change, because it would put a stale subscription into Smaily. A row
- *    that unsubscribes is never refused for this;
+ *    a state and may go again, with one exception: a row that would put a stale subscription into
+ *    Smaily. Contacts\StaleSubscription decides that, for this guard and for the queue's handler
+ *    alike, so a row that the guard clears is not skipped as stale when it is sent;
  *  - `queued`: such a later row waits in the queue, for example the one a "Send again" of this row
  *    added. The contact gets that row, so this one is not queued a second time. It has no sentence
  *    of its own.
@@ -116,7 +116,8 @@ final class ResendGuard
 
     /**
      * The failed rows that a later row of their kind stands in the way of: one read of the queue's
-     * (`entity_id`, `event_type`, `status`) index for all of them.
+     * (`entity_id`, `event_type`, `status`) index for all of them, and StaleSubscription's read for
+     * the contact syncs.
      *
      * @param array<int, array<string, mixed>> $rows
      *
@@ -149,31 +150,16 @@ final class ResendGuard
                 }
                 if ($other['status'] !== EventQueue::STATUS_SENT) {
                     $refused[$id] ??= self::REASON_QUEUED;
-                } elseif (self::supersedes($row, $other)) {
+                } elseif ($row['event_type'] !== ContactSyncHandler::EVENT_TYPE) {
                     $refused[$id] = self::REASON_SUPERSEDED;
                 }
             }
         }
+        $contactSyncs = array_filter($rows, static fn (array $row): bool => $row['event_type'] === ContactSyncHandler::EVENT_TYPE);
+        foreach (StaleSubscription::among($contactSyncs) as $id) {
+            $refused[$id] = self::REASON_SUPERSEDED;
+        }
 
         return $refused;
-    }
-
-    /**
-     * Whether the delivered later row $other makes sending $row again wrong.
-     *
-     * @param array<string, mixed> $row
-     * @param array<string, mixed> $other
-     */
-    private static function supersedes(array $row, array $other): bool
-    {
-        if ($row['event_type'] !== ContactSyncHandler::EVENT_TYPE) {
-            return true;
-        }
-        $payload = json_decode((string) ($row['payload'] ?? ''), true);
-        $later = json_decode((string) ($other['payload'] ?? ''), true);
-
-        return ($payload['consent_changed'] ?? false) === true
-            && ($payload['subscribed'] ?? false) === true
-            && ($later['consent_changed'] ?? false) === true;
     }
 }
