@@ -114,6 +114,24 @@ showed.
   `ps_hook_alias` is an assumption.
 - No override, no `actionCustomerAccountUpdate` or `actionNewsletterRegistrationAfter` hook.
 
+## Loaded into a database
+
+On 2026-11-20 every SQL file of this folder was loaded into a flashlight shop on PrestaShop 8.0.0
+(PHP 8.0.30) and 9.2.0, after the matching release was installed from its git tag, and that shop was
+then upgraded to 3.0.0. Every statement ran without error and every file gave the state it describes;
+no file needed a correction.
+
+- `1.6.2-configured.sql`: the 1.6.2 release itself does not install cleanly on 8.0.0 or 9.2.0 with
+  debug mode on (as in the flashlight images): `prestashop:module install` stops with "Hook with the
+  name footerBefore has been registered by SmailyForPrestashop, but the corresponding method
+  hookFooterBefore has not been defined" after it wrote the `module` row and the tab. Part 2 of the
+  file then supplies the version, the hooks and the tab. Loaded this way, the six hooks resolve to
+  `displayBackOfficeHeader`, `displayFooterBefore`, `displayLeftColumn`, `displayRightColumn`,
+  `actionFrontControllerSetMedia` and `actionCustomerAccountAdd`, as the file assumes. Without debug
+  mode the install was not tried.
+- The 2.2.0 install copied the override file on both versions; it matched the hash of the
+  `override-2.x…` file.
+
 ## Multistore fixtures
 
 The two `2.2.0-multistore-*.sql` files add shop 2 themselves: a `shop` row copied from shop 1 and a
