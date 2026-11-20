@@ -31,6 +31,9 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Installer;
+use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 class SmailyForPrestaShop extends Module
 {
@@ -83,9 +86,9 @@ class SmailyForPrestaShop extends Module
 
     public function uninstall(): bool
     {
-        $installer = new Installer();
+        $uninstaller = new Uninstaller(Services::instance(), new LegacyOverride(_PS_OVERRIDE_DIR_));
 
-        return $installer->uninstall() && parent::uninstall();
+        return $uninstaller->uninstall() && parent::uninstall();
     }
 
     public function getContent(): void
