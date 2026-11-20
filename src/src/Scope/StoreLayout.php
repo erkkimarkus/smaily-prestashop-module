@@ -74,6 +74,44 @@ class StoreLayout extends Settings
     }
 
     /**
+     * Whether the shop layout was chosen: the upgrade or the Initial setup stored one. A fresh
+     * install stores none until the merchant answers.
+     */
+    public function layoutChosen(): bool
+    {
+        return $this->get(self::SEPARATE_STORES) !== null;
+    }
+
+    public function setSeparateStores(bool $separate): bool
+    {
+        return $this->set(self::SEPARATE_STORES, $separate ? '1' : '0');
+    }
+
+    /**
+     * Stores the language mode of a shop (0 = the global scope).
+     */
+    public function setLanguageMode(string $mode, int $idShop): bool
+    {
+        if (!in_array($mode, self::MODES, true)) {
+            throw new \InvalidArgumentException('Unknown language mode.');
+        }
+
+        return $this->set(self::LANGUAGE_MODE, $mode, $idShop);
+    }
+
+    /**
+     * Stores the ISO code of the fallback language of a shop (0 = the global scope).
+     */
+    public function setFallbackLanguage(string $isoCode, int $idShop): bool
+    {
+        if (preg_match('/^[a-z]{2}$/', $isoCode) !== 1) {
+            throw new \InvalidArgumentException('A fallback language is a two-letter ISO code.');
+        }
+
+        return $this->set(self::FALLBACK_LANGUAGE, $isoCode, $idShop);
+    }
+
+    /**
      * The shop's language mode, else the global one; `single` when none is stored.
      */
     public function languageMode(int $idShop): string
