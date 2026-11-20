@@ -4,6 +4,11 @@ declare(strict_types=1);
 namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController;
@@ -26,8 +31,8 @@ use Twig\Environment;
  * On PrestaShop 8.2.8 the container of an admin controller is a service locator that holds what
  * Symfony's AbstractController subscribes to and no "translator" (facts file 6.6); every page and
  * every JSON error answered HTTP 500 there. These tests give each controller such a locator, on
- * whichever PrestaShop the suite runs: every page renders with its title and its notices, and
- * every JSON error path answers with its worded error.
+ * whichever PrestaShop the suite runs: every page renders with its title and its notices, every
+ * JSON error path answers with its worded error, and so does each endpoint of the Settings page.
  *
  * Twig, the authorization checker and the CSRF token manager are stand-ins; the browser check of
  * the pages covers the real ones.
@@ -141,6 +146,40 @@ final class ControllerContainerTest extends IntegrationTestCase
         self::assertSame($answer['error']['message'], $answer['error']['fields'][0]['message']);
     }
 
+    /**
+     * The Settings page's endpoints, each with a request that changes nothing and calls no Smaily:
+     * [action, route, body, HTTP status, error code or null, error message or null].
+     *
+     * @return array<string, array{class-string<AbstractJsonAction>, string, array<string, mixed>, int, string|null, string|null}>
+     */
+    public function settingsEndpoints(): array
+    {
+        return [
+            'save' => [SaveTab::class, 'smailyforprestashop_api_settings_save', ['tab' => 'no-such-tab'], 400, 'unknown_tab', 'Saving failed.'],
+            'test-connection' => [TestConnection::class, 'smailyforprestashop_api_settings_test', [], 422, 'invalid_fields', 'Please fill in the subdomain, username and password.'],
+            'layout' => [ChangeLayout::class, 'smailyforprestashop_api_settings_layout', ['shape' => 'no-such-shape'], 422, 'invalid_fields', 'Pick how your shops are run.'],
+            'contact-import' => [ContactImportAction::class, 'smailyforprestashop_api_settings_import', ['action' => 'no-such-action'], 400, 'unknown_action', 'Saving failed.'],
+            'contact-import-progress' => [ContactImportProgress::class, 'smailyforprestashop_api_settings_import_progress', [], 200, null, null],
+        ];
+    }
+
+    /**
+     * @dataProvider settingsEndpoints
+     *
+     * @param class-string<AbstractJsonAction> $action
+     * @param array<string, mixed> $body
+     */
+    public function testASettingsEndpointAnswersInWords(string $action, string $route, array $body, int $status, ?string $code, ?string $message): void
+    {
+        $response = $this->execute(new $action(), $this->locator(), $body, ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => $route]);
+
+        $answer = json_decode((string) $response->getContent(), true);
+        self::assertSame($status, $response->getStatusCode());
+        self::assertSame($code === null, $answer['ok']);
+        self::assertSame($code, $answer['error']['code'] ?? null);
+        self::assertSame($message, $answer['error']['message'] ?? null);
+    }
+
     public function testAnEndpointThatThrowsAnswersInWords(): void
     {
         $failing = new class extends AbstractJsonAction {
@@ -183,11 +222,12 @@ final class ControllerContainerTest extends IntegrationTestCase
 
     /**
      * @param array<string, mixed> $body
+     * @param array<string, string> $route
      */
-    private function execute(AbstractJsonAction $action, ServiceLocator $locator, array $body): JsonResponse
+    private function execute(AbstractJsonAction $action, ServiceLocator $locator, array $body, array $route = self::SETUP_ROUTE): JsonResponse
     {
         $action->setContainer($locator);
-        $request = new Request([], [], self::SETUP_ROUTE, [], [], [], (string) json_encode($body));
+        $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
         $request->headers->set('X-Smaily-Token', 'page-token');
 
         return $action->execute($request);
