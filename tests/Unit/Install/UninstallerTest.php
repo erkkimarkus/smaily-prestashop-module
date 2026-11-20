@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Install;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 
@@ -20,8 +21,14 @@ final class UninstallerTest extends TestCase
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(__DIR__ . '/../../../src/src'));
         foreach ($files as $file) {
             if ($file->getExtension() === 'php') {
-                preg_match_all('/SMAILY_CONNECT_[A-Z_]*[A-Z]/', (string) file_get_contents($file->getPathname()), $matches);
+                $code = (string) file_get_contents($file->getPathname());
+                preg_match_all('/SMAILY_CONNECT_[A-Z_]*[A-Z]/', $code, $matches);
                 $named = array_merge($named, $matches[0]);
+                // A settings key spelled as the prefix constant and its suffix: self::PREFIX . 'TICK_STATE'.
+                preg_match_all('/PREFIX \\. \'([A-Z_]*[A-Z])\'/', $code, $matches);
+                foreach ($matches[1] as $suffix) {
+                    $named[] = Settings::PREFIX . $suffix;
+                }
             }
         }
         $named = array_unique($named);
