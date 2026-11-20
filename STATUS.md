@@ -23,16 +23,6 @@ cherry-pick (run the host unit tests after each; push to `origin`).
 |---|---|---|
 | `worktree-agent-ad9811a9450936b49` | Settings: Connection, Contacts, RSS; deletes the legacy 2.x admin page | Screenshots in `build/screens/3.3/` |
 
-**DEFECT TO VERIFY AND FIX FIRST (reported by the first-order worker, observed
-on 9.2.0):** the after-response work — `Scheduler\TrafficTick::afterResponse()`
-and, by the same pattern, `Contacts\Capture\ContactEvents::afterResponse()` —
-runs in a PHP shutdown function and calls `fastcgi_finish_request()` before
-PrestaShop's cookie destructor has written the session. When a tick was due
-on the request, a shopper who registered or logged in got no session id in
-the cookie and was logged out on the next request. Reproduce on 8.x and
-9.2.0, fix (write the cookie before finishing the request), add a browser
-test of login and registration with a due tick. Nothing ships before this.
-
 A branch with no commits beyond its base was interrupted: dispatch that
 Story again from its section in `docs/ARCHITECTURE.md` 13. Leftover docker
 stacks of those workers are named `smaily-presta-fo*`, `-dash*`, `-s33*`.
