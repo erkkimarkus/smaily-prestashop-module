@@ -32,11 +32,15 @@ if (!defined('_PS_VERSION_')) {
 /**
  * The durable queue of marketing events to Smaily, in the table smaily_connect_event_queue.
  *
- * A flush claims due rows with a token of its own: one UPDATE moves them to `processing` under that
- * token, and the flush then reads back only the rows that carry it. Two flushes that start at once
- * therefore never hold the same row, without SKIP LOCKED (which needs MySQL 8 or MariaDB 10.6). A
+ * A flush claims due rows with a token of its own: it reads the ids of due rows, moves those that
+ * are still pending to `processing` under its token in one UPDATE, and then reads back only the rows
+ * that carry the token. Two flushes that start at once therefore never hold the same row, without
+ * SKIP LOCKED (which needs MySQL 8 or MariaDB 10.6); the one that comes second claims fewer rows. A
  * claim older than 10 minutes belongs to a flush that died, and goes back to `pending`. An outcome
  * is recorded only on a row that still carries the token it was claimed with.
+ *
+ * Every write names its rows by primary key, so concurrent flushes lock rows in one order and do not
+ * deadlock each other.
  *
  * Times are UTC, read from the clock this queue is given.
  */
@@ -109,19 +113,26 @@ final class EventQueue
      */
     public function claim(int $limit): array
     {
-        $token = self::quote(bin2hex(random_bytes(16)));
         $now = $this->time(0);
+        $condition = sprintf(
+            '`status` = %s AND (`next_retry_at` IS NULL OR `next_retry_at` <= %s)',
+            self::quote(self::STATUS_PENDING),
+            $now
+        );
+        $ids = $this->ids($condition . ' ORDER BY `id` LIMIT ' . $limit);
+        if ($ids === []) {
+            return [];
+        }
+
+        $token = self::quote(bin2hex(random_bytes(16)));
         \Db::getInstance()->execute(sprintf(
-            'UPDATE %s SET `status` = %s, `claim_token` = %s, `updated_at` = %s'
-            . ' WHERE `status` = %s AND (`next_retry_at` IS NULL OR `next_retry_at` <= %s)'
-            . ' ORDER BY `id` LIMIT %d',
+            'UPDATE %s SET `status` = %s, `claim_token` = %s, `updated_at` = %s WHERE `id` IN (%s) AND %s',
             self::table(),
             self::quote(self::STATUS_PROCESSING),
             $token,
             $now,
-            self::quote(self::STATUS_PENDING),
-            $now,
-            $limit
+            implode(', ', $ids),
+            $condition
         ));
 
         $rows = \Db::getInstance()->executeS(
@@ -135,21 +146,26 @@ final class EventQueue
 
     /**
      * Returns the rows whose claim is older than CLAIM_TIMEOUT_SECONDS to `pending`.
-     *
-     * @return int the number of rows returned
      */
-    public function requeueStale(): int
+    public function requeueStale(): void
     {
-        $db = \Db::getInstance();
-        $db->execute(sprintf(
-            'UPDATE %s SET `status` = %s, `claim_token` = NULL WHERE `status` = %s AND `updated_at` <= %s',
-            self::table(),
-            self::quote(self::STATUS_PENDING),
+        $condition = sprintf(
+            '`status` = %s AND `updated_at` <= %s',
             self::quote(self::STATUS_PROCESSING),
             $this->time(-self::CLAIM_TIMEOUT_SECONDS)
-        ));
+        );
+        $ids = $this->ids($condition);
+        if ($ids === []) {
+            return;
+        }
 
-        return (int) $db->Affected_Rows();
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET `status` = %s, `claim_token` = NULL WHERE `id` IN (%s) AND %s',
+            self::table(),
+            self::quote(self::STATUS_PENDING),
+            implode(', ', $ids),
+            $condition
+        ));
     }
 
     /**
@@ -232,6 +248,22 @@ final class EventQueue
             implode(', ', $ids),
             implode(', ', array_unique($tokens))
         ));
+    }
+
+    /**
+     * The ids of the rows that $condition selects, read without a lock.
+     *
+     * @return list<int>
+     */
+    private function ids(string $condition): array
+    {
+        $rows = \Db::getInstance()->executeS(
+            sprintf('SELECT `id` FROM %s WHERE %s', self::table(), $condition),
+            true,
+            false
+        );
+
+        return is_array($rows) ? array_map(static fn (array $row): int => (int) $row['id'], $rows) : [];
     }
 
     /**

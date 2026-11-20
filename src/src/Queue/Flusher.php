@@ -61,7 +61,8 @@ final class Flusher
     /**
      * Sends one batch of due rows.
      *
-     * @return int the number of rows claimed; 0 when nothing was due
+     * @return int the number of rows claimed; 0 when nothing was due, or when a concurrent flush
+     *             claimed the due rows first
      */
     public function flush(int $limit = self::BATCH_SIZE): int
     {
