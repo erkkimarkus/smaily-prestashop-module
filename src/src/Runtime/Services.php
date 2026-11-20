@@ -50,6 +50,7 @@ final class Services
         Provider\QueueProvider::class,
         Provider\SchedulerProvider::class,
         Provider\ScopeProvider::class,
+        Provider\ContactSyncProvider::class,
         Provider\ContactsProvider::class,
         Provider\AutomationProvider::class,
         Provider\EngineProvider::class,
