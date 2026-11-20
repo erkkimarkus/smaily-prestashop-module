@@ -30,6 +30,8 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\CheckoutBox;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\CheckoutBoxSetting;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\CustomerCapture;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\NewsletterBlockCapture;
@@ -38,7 +40,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TrafficTick;
 
 /**
- * Registers the capture of store changes as `contact.sync` rows (ARCHITECTURE 6.3).
+ * Registers the capture of store changes as `contact.sync` rows (ARCHITECTURE 6.3) and the
+ * module's own newsletter box (6.1).
  */
 final class ContactsProvider implements ProviderInterface
 {
@@ -83,5 +86,11 @@ final class ContactsProvider implements ProviderInterface
         $services->listen('actionNewsletterRegistrationBefore', static function (array $params) use ($block): void {
             $block()->unsubscribing($params);
         });
+
+        $services->set(CheckoutBox::class, fn (): CheckoutBox => new CheckoutBox(
+            new CheckoutBoxSetting(),
+            static fn (): bool => (bool) \Module::isEnabled('ps_emailsubscription')
+        ));
+        $services->listen('additionalCustomerFormFields', static fn (): ?array => $services->get(CheckoutBox::class)->fields());
     }
 }
