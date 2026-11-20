@@ -228,6 +228,38 @@ final class EventQueue
     }
 
     /**
+     * Deletes up to $limit rows, oldest first, that are in the closed status $status (sent, skipped
+     * or failed) and last changed more than $ageSeconds ago.
+     *
+     * @return int the number of rows deleted
+     */
+    public function deleteClosed(string $status, int $ageSeconds, int $limit): int
+    {
+        if (!in_array($status, [self::STATUS_SENT, self::STATUS_SKIPPED, self::STATUS_FAILED], true)) {
+            throw new \InvalidArgumentException(sprintf('The status "%s" is not a closed one.', $status));
+        }
+
+        $condition = sprintf(
+            '`status` = %s AND `updated_at` < %s',
+            self::quote($status),
+            $this->time(-$ageSeconds)
+        );
+        $ids = $this->ids($condition . ' ORDER BY `id` LIMIT ' . $limit);
+        if ($ids === []) {
+            return 0;
+        }
+
+        \Db::getInstance()->execute(sprintf(
+            'DELETE FROM %s WHERE `id` IN (%s) AND %s',
+            self::table(),
+            implode(', ', $ids),
+            $condition
+        ));
+
+        return (int) \Db::getInstance()->Affected_Rows();
+    }
+
+    /**
      * Sets $assignments on the rows that still carry the claim they were read with, and releases
      * the claim.
      *
