@@ -1051,3 +1051,222 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/*
+ * Dashboard content (views/templates/admin/dashboard/): the verdict, the status pill, the
+ * connection card bodies, the tile values and Recent activity, as Magento's Dashboard draws them.
+ * Status colours are PrestaShop's success, warning and danger; a pill or a verdict tints its
+ * background with its own status colour.
+ */
+.smaily-ui .smaily-verdict {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: rgba(112, 181, 128, .1);
+  border: 1px solid var(--smaily-success);
+  border-left-width: 5px;
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-verdict--warning {
+  background: var(--smaily-warning-tint);
+  border-color: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-verdict--danger {
+  background: var(--smaily-danger-tint);
+  border-color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-verdict__dot {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  background: var(--smaily-success);
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-verdict--warning .smaily-verdict__dot {
+  background: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-verdict--danger .smaily-verdict__dot {
+  background: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-verdict__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.smaily-ui .smaily-verdict__kicker {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+}
+
+.smaily-ui .smaily-verdict__text {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.smaily-ui .smaily-verdict__action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.smaily-ui a.btn-danger.smaily-verdict__action,
+.smaily-ui a.btn-danger.smaily-verdict__action:hover {
+  color: #fff;
+}
+
+.smaily-ui .smaily-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--smaily-text);
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 11px;
+}
+
+.smaily-ui .smaily-pill__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  background: var(--smaily-muted);
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-pill--active,
+.smaily-ui .smaily-pill--sent {
+  background: rgba(112, 181, 128, .12);
+  border-color: var(--smaily-success);
+}
+
+.smaily-ui .smaily-pill--pending {
+  background: var(--smaily-warning-tint);
+  border-color: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-pill--failed {
+  background: var(--smaily-danger-tint);
+  border-color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-pill--active .smaily-pill__dot,
+.smaily-ui .smaily-pill--sent .smaily-pill__dot {
+  background: var(--smaily-success);
+}
+
+.smaily-ui .smaily-pill--pending .smaily-pill__dot {
+  background: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-pill--failed .smaily-pill__dot {
+  background: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-connection__sub {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-connection__note {
+  margin: -6px 0 8px;
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-connection__hint {
+  margin: 10px 0 6px;
+  font-size: 12px;
+}
+
+.smaily-ui .smaily-cron {
+  display: block;
+  padding: 6px 8px;
+  font-size: 11px;
+  word-break: break-all;
+  color: var(--smaily-text);
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 4px;
+}
+
+.smaily-ui .smaily-tiles {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+/* Catalog items shows only with a Campaign Intelligence connection, as in Magento. */
+.smaily-ui .smaily-tile:has(.smaily-tile__off) {
+  display: none;
+}
+
+.smaily-ui .smaily-tile {
+  position: relative;
+}
+
+.smaily-ui .smaily-tile:has(.smaily-tile__value--attention) {
+  border-top: 3px solid var(--smaily-danger);
+}
+
+.smaily-ui .smaily-tile__value {
+  display: block;
+  margin: 6px 0 4px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.smaily-ui .smaily-tile__value--attention {
+  color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-tile__caption {
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui a.smaily-tile__caption {
+  color: var(--smaily-brand-text);
+}
+
+.smaily-ui .smaily-tile__badge {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.6;
+  text-transform: uppercase;
+  background: var(--smaily-danger-tint);
+  border: 1px solid var(--smaily-danger);
+  border-radius: 4px;
+}
+
+.smaily-ui .smaily-activity__table {
+  margin: 0;
+}
+
+.smaily-ui .smaily-activity__table td {
+  vertical-align: middle;
+}
+
+.smaily-ui .smaily-empty {
+  margin: 0;
+  color: var(--smaily-muted);
+}
