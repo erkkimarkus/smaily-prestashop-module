@@ -53,13 +53,14 @@ final class LanguageKeyTest extends IntegrationTestCase
     }
 
     /**
-     * Db reports a failed statement as false, or throws in debug mode.
+     * Db reports a failed statement as false, or throws: a PrestaShopDatabaseException in debug
+     * mode, a PrestaShopException from PDO on PrestaShop 8.0.
      */
     private function executes(string $sql): bool
     {
         try {
             return (bool) self::db()->execute($sql);
-        } catch (\PrestaShopDatabaseException $exception) {
+        } catch (\PrestaShopException $exception) {
             return false;
         }
     }
