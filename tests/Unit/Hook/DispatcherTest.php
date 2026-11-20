@@ -55,7 +55,7 @@ final class DispatcherTest extends TestCase
         self::assertSame(['inert', 'before upgrade'], $ran);
     }
 
-    public function testOnlyTheFallbackTickListensBeforeTheUpgrade(): void
+    public function testOnlyTheFallbackTickAndTheUpgradeLineListenBeforeTheUpgrade(): void
     {
         $services = Services::fromProviders(Services::PROVIDERS);
 
@@ -66,7 +66,7 @@ final class DispatcherTest extends TestCase
             }
         }
 
-        self::assertSame(array_fill_keys(SchedulerProvider::TRAFFIC_HOOKS, 1), $listening);
+        self::assertSame(array_fill_keys(SchedulerProvider::TRAFFIC_HOOKS, 1) + ['displayBackOfficeHeader' => 1], $listening);
     }
 
     public function testPassesTheHookParametersToEachListener(): void
