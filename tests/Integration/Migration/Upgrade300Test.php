@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Migration;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
@@ -116,6 +117,18 @@ final class Upgrade300Test extends IntegrationTestCase
             ['code' => MigrationPlan::NOTICE_CRON_TOKEN_REPLACED, 'params' => ['key' => 'SMAILY_CART_CRON_TOKEN', 'id_shop_group' => 0, 'id_shop' => 0]],
             $this->notices()
         );
+    }
+
+    public function testATickTokenStoredBeforeTheUpgradeIsKept(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        LegacyStore::insertRows([[null, null, TickSettings::TICK_TOKEN, 'storedbeforetheupgrade']]);
+        $this->recordModuleVersion('2.2.0');
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame('storedbeforetheupgrade', LegacyStore::row(TickSettings::TICK_TOKEN));
+        self::assertSame(1, LegacyStore::countRows(TickSettings::TICK_TOKEN));
     }
 
     public function testEverySentCartHasItsAlreadyRemindedRow(): void
@@ -507,6 +520,8 @@ final class Upgrade300Test extends IntegrationTestCase
         foreach (self::TOKENS as $key) {
             self::assertGreaterThan(0, LegacyStore::countRows($key), $key . ' stays');
         }
+        self::assertSame(1, LegacyStore::countRows(TickSettings::TICK_TOKEN), 'the tick URL has its token');
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', (string) LegacyStore::row(TickSettings::TICK_TOKEN));
 
         $stored = $this->notices();
         foreach ($plan->notices() as $notice) {
@@ -567,13 +582,15 @@ final class Upgrade300Test extends IntegrationTestCase
     }
 
     /**
-     * What the migration produces, without row ids, dates, the migration's own progress record and
-     * the ciphertexts (each encryption differs); passwords as hashes.
+     * What the migration produces, without row ids, dates, the migration's own progress record, the
+     * ciphertexts (each encryption differs) and the tick token (each run creates another); passwords
+     * as hashes.
      *
      * @return array<string, mixed>
      */
     private function snapshot(): array
     {
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', (string) LegacyStore::row(TickSettings::TICK_TOKEN));
         $accounts = [];
         $store = Services::instance()->get(AccountStore::class);
         foreach (self::db()->executeS('SELECT `id_shop`, `language` FROM `' . _DB_PREFIX_ . 'smaily_connect_account` ORDER BY `id_shop`') ?: [] as $row) {
@@ -584,7 +601,7 @@ final class Upgrade300Test extends IntegrationTestCase
         return [
             'configuration' => self::masked(self::db()->executeS(
                 'SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `' . _DB_PREFIX_ . 'configuration`'
-                . ' WHERE (`name` LIKE \'SMAILY\\_%\' AND `name` <> \'' . Upgrade300::STATE_KEY . '\')'
+                . ' WHERE `name` LIKE \'SMAILY\\_%\' AND `name` NOT IN (\'' . Upgrade300::STATE_KEY . '\', \'' . TickSettings::TICK_TOKEN . '\')'
                 . ' ORDER BY `name`, `id_shop_group`, `id_shop`'
             ) ?: []),
             'accounts' => $accounts,

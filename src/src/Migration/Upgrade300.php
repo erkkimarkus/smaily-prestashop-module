@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Menu;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
@@ -63,6 +64,7 @@ final class Upgrade300
         'accounts',
         'mappings',
         'tokens',
+        'tick_token',
         'carts',
         'override',
         'tab',
@@ -345,6 +347,15 @@ final class Upgrade300
             }
         }
         self::reloadConfiguration();
+    }
+
+    /**
+     * Creates the tick URL's token unless one is stored, so that the Dashboard has the cron line
+     * of an upgraded store without a first request to the tick URL.
+     */
+    private function stepTickToken(): void
+    {
+        (new TickSettings())->token(TickSettings::TICK_TOKEN, 0);
     }
 
     /**

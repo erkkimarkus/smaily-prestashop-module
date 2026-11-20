@@ -315,7 +315,7 @@ writes.
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. |
 | `SMAILY_CONNECT_CART_FIELDS` | global or shop | Comma list of the abandoned-cart template fields, the known names of `first_name,last_name,name,description,sku,price,base_price,quantity` that the legacy list ticked, in that order. |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults. The migration writes each only when the legacy value is valid. |
-| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters, created on its first read (section 4.3). |
+| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); a fresh install creates it on its first read (section 4.3). |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
@@ -526,7 +526,7 @@ parameters:
 |---|---|
 | `…?fc=module&module=smailyforprestashop&controller=SmailyCustomerCron&token=<customer token>` | A door to the tick (section 4.3). Answers `text/plain`. |
 | `…controller=SmailyCartCron&token=<cart token>` | Same. |
-| `…controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>` | New in 3.0.0. Same. |
+| `…controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>` | New in 3.0.0. Same. The upgrade creates its token (section 3.7). |
 | `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code, still wired; Story 3.3 ports it with the same output contract and parameters. New parameters are additive only. |
 | Friendly URL forms of the three | Unchanged: the controller names stay. |
 
@@ -579,10 +579,12 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    `GET_LOCK('<db>_smaily_migration', 0)`; a second caller that cannot take the lock returns `false`
    at once, without work. Under the lock it reloads the configuration, checks the schema again, and
    runs the steps.
-3. The steps run in `Upgrade300::STEPS` order: `tables`, `hooks`, `notices`, `settings`, `accounts`,
-   `mappings`, `tokens`, `carts`, `override`, `tab` (the 1.6.x hidden tab, section 2.4), `verify`,
-   `finish`. `tables` (`CREATE TABLE IF NOT EXISTS`) and `hooks` run on every call. Every other step is
-   skipped once it succeeded.
+3. The steps run in `Upgrade300::STEPS` order: `tables`, `hooks`, `menu`, `notices`, `settings`,
+   `accounts`, `mappings`, `tokens`, `tick_token`, `carts`, `override`, `tab` (the 1.6.x hidden tab,
+   section 2.4), `verify`, `finish`. `tables` (`CREATE TABLE IF NOT EXISTS`) and `hooks` run on every
+   call. Every other step is skipped once it succeeded. `tick_token` creates the tick URL's token
+   unless one is stored, so the Dashboard has the cron line of an upgraded store at once (section
+   4.3); it changes no legacy token.
 4. `verify` checks that every account row decrypts to its legacy password and that every setting reads
    back from the table at its scope.
 5. `finish` deletes the legacy keys (not the two tokens) at every scope and calls
