@@ -19,8 +19,6 @@ require_once __DIR__ . '/../Migration/LegacyStore.php';
  */
 final class UninstallTest extends IntegrationTestCase
 {
-    private const OVERRIDE = _PS_OVERRIDE_DIR_ . LegacyOverride::RELATIVE_PATH;
-
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
@@ -28,8 +26,8 @@ final class UninstallTest extends IntegrationTestCase
                 self::console('install');
             }
             LegacyStore::restore();
-            if (is_file(self::OVERRIDE)) {
-                unlink(self::OVERRIDE);
+            if (is_file(self::overrideFile())) {
+                unlink(self::overrideFile());
             }
         }
         parent::tearDown();
@@ -63,6 +61,11 @@ final class UninstallTest extends IntegrationTestCase
             'SELECT COUNT(DISTINCT `id_hook`) FROM `' . _DB_PREFIX_ . 'hook_module` WHERE `id_module` = ' . self::moduleId(),
             false
         ));
+    }
+
+    private static function overrideFile(): string
+    {
+        return _PS_OVERRIDE_DIR_ . LegacyOverride::RELATIVE_PATH;
     }
 
     private static function moduleId(): int
@@ -100,17 +103,17 @@ final class UninstallTest extends IntegrationTestCase
 
     public function testRemovesOnlyTheOverrideThat2xShipped(): void
     {
-        if (!is_dir(dirname(self::OVERRIDE))) {
-            mkdir(dirname(self::OVERRIDE), 0755, true);
+        if (!is_dir(dirname(self::overrideFile()))) {
+            mkdir(dirname(self::overrideFile()), 0755, true);
         }
-        file_put_contents(self::OVERRIDE, "<?php\n// another module's override\n");
+        file_put_contents(self::overrideFile(), "<?php\n// another module's override\n");
         $uninstaller = new Uninstaller(Services::fromProviders([]), new LegacyOverride(_PS_OVERRIDE_DIR_));
 
         $uninstaller->uninstall();
-        self::assertFileExists(self::OVERRIDE);
+        self::assertFileExists(self::overrideFile());
 
-        copy(__DIR__ . '/../../fixtures/legacy/override-2.x.ps_emailsubscription.php.txt', self::OVERRIDE);
+        copy(__DIR__ . '/../../fixtures/legacy/override-2.x.ps_emailsubscription.php.txt', self::overrideFile());
         $uninstaller->uninstall();
-        self::assertFileDoesNotExist(self::OVERRIDE);
+        self::assertFileDoesNotExist(self::overrideFile());
     }
 }
