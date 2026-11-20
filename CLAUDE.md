@@ -2,8 +2,9 @@
 
 If you are a fresh agent picking up this repo: read this first, then
 `STATUS.md` (where we are now, and what the next session opens with), then
-what `docs/` holds (architecture and decision records land there as the
-foundation stage writes them). README gives the 30-second orientation of
+`docs/ARCHITECTURE.md` — the **binding design** of 3.0.0; its section 13 is
+the Story list, its section 15 the owner's decisions. `docs/DEV_ENVIRONMENT.md`
+holds the verified local setup. README gives the 30-second orientation of
 the module as it ships today (2.2.0).
 
 ## Mission
@@ -55,15 +56,17 @@ are written as finished-product public documentation. Internal process talk
    unified Log with retry. Only the technical stack and the visual shell come
    from what PrestaShop offers.
 4. **Shared contracts are byte-identical copies, never edited here.**
-   `RECENGINE_API_CONTRACT.md` v1.34.0 (source of truth: the engine repo
-   `../intelligence/`; copies in `../connect-woo/docs/` and
-   `../connect-magento/docs/`) and installation-report-v1 v1.0.1
-   (`../subscription/docs/contracts/`). Cross-connector rules:
+   `docs/RECENGINE_API_CONTRACT.md` v1.35.0 (source of truth: the engine
+   repo `../intelligence/docs/`; refresh by copying and checking with `cmp`)
+   and installation-report-v1 v1.0.1 (`../subscription/docs/contracts/`).
+   Cross-connector rules:
    - subscription status is sent only when it changes;
    - automations and imports never re-subscribe anyone;
-   - product keys carry a source prefix — **PrestaShop's prefix is not yet
-     agreed with the engine team** (open question in STATUS.md); do not
-     invent one;
+   - a product or order key sent to the engine is the engine's connection
+     prefix (`config.connection.prefix`, opaque — never parse or derive
+     it) plus the platform key; PrestaShop's platform namespace `ps-` is
+     proposed but **not yet agreed with the engine team** (ARCHITECTURE
+     8.2); do not ship it before that;
    - the abandoned-cart payload keeps the legacy template fields
      (`first_name`, `last_name`, `product_*_[1-10]`, `over_10_products`, …)
      with 10 product slots.
@@ -131,9 +134,16 @@ ask (Linear discipline below).
   cron hits a front-controller URL with its token. Anything periodic in v3
   (queue drain, imports, abandoned-cart detection, installation report)
   needs the same trigger, and the existing URLs must keep working (rule 2).
-- **No standard cookie-consent API.** Browse tracking cannot assume a
-  consent signal exists; how the module reads consent is an open question
-  in STATUS.md and a legal/consent one-way door.
+- **No standard cookie-consent API.** Owner's rule (2026-11-20): browse
+  tracking and recommendations are off until the merchant confirms in
+  Settings that the store's cookie banner covers them (the merchant carries
+  that responsibility); a store's `window.smailyConnect.consentOverride()`,
+  where defined, takes precedence. No consent-cookie rule, no vendor
+  adapters (ARCHITECTURE section 9). Changing this is a consent one-way
+  door.
+- **Configuration storage.** An empty value is stored as SQL `NULL`; an
+  "All shops" save leaves shop-specific rows in place
+  (`tests/fixtures/legacy/README.md`).
 - **Multishop × multilanguage scopes** are where upgrade inheritance bugs
   come from. `Configuration` values can be set per shop group, per shop and
   per language; the legacy module mostly wrote global values. Magento had
@@ -177,35 +187,33 @@ languages. New operational gotchas go into this file.
 
 ## Build / test commands
 
-As documented upstream (CONTRIBUTING.md, `.github/workflows/`,
-`src/composer.json`); **verification on this machine pending** — a parallel
-worker is verifying the dev environment, and this section is corrected from
-its result.
+Verified on 2026-11-20; the full recipe, ports and pitfalls are in
+`docs/DEV_ENVIRONMENT.md`.
 
-- Dependencies: `composer install --working-dir src/`
-- Unit tests (PHPUnit, `tests/Unit`, PHP 8.1+, no shop needed):
-  `src/vendor/bin/phpunit` — a test that needs the Smaily API uses
-  Symfony's mock HTTP transport.
-- Code style (CI gate): `cd src && vendor/bin/php-cs-fixer fix --dry-run
-  --diff --using-cache=no` (also `composer --working-dir src lint`; `fix`
-  applies it).
-- PHP syntax (CI gate): CI lints on PHP 8.0 (the lowest supported) and 8.5
-  with `prestashop/github-action-php-lint`. Local PHP accepts newer syntax
-  than 8.0 does — lint under 8.0 in Docker before calling work done.
-- Release zip: `composer --working-dir src package` (runs `bin/package.sh`,
-  writes `dist/smailyforprestashop.zip`); `release.yaml` builds and attaches
-  it when a GitHub release is published.
-- Install check on a fresh shop:
-  `PS_IMAGE=prestashop/prestashop-flashlight:9.2.0-nginx tests/ci/validate.sh`
-  (one `ok`/`FAIL` line per check; `KEEP=1` leaves the shop at
-  `http://localhost:8000`). CI runs it on PrestaShop 8.2.8 / PHP 8.0 and
-  9.2.0 / PHP 8.1.
-- Sandbox: `docker compose up -d` — PrestaShop 9.2.0 at
-  `http://localhost:8080`, admin at `/admin-dev`, phpMyAdmin at `:8888`,
-  MailHog at `:8025`; `src/` is bind-mounted as
-  `modules/smailyforprestashop`. Admin login: see CONTRIBUTING.md (do not
-  copy it into reports). Stop: `docker compose down --remove-orphans`;
-  reset (wipes the shop and its database): add `-v`.
+- Dependencies first (the shop mounts `src/` with its `vendor/`):
+  `composer install --working-dir src/`
+- Unit tests: `src/vendor/bin/phpunit`. Code style (CI gate):
+  `(cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)`
+  (set `PHP_CS_FIXER_IGNORE_ENV=1` on a PHP newer than it supports).
+- PHP syntax (CI gate): CI lints on PHP 8.0 and 8.5; local PHP accepts
+  newer syntax — lint under 8.0 in Docker before calling work done.
+- Dev shop: put `COMPOSE_PROJECT_NAME` and free ports (`PS_PORT`,
+  `PMA_PORT`, `MAILHOG_PORT`, `PS_IMAGE`) in `.env`, then
+  `docker compose up -d prestashop`. The shop does **not** install the
+  module itself: `docker compose exec -u www-data prestashop php bin/console
+  prestashop:module install smailyforprestashop`. Admin at
+  `/admin-dev/` (login: CONTRIBUTING.md; never copy it into reports).
+- `docker compose stop`/`start` keep the database; recreating the shop
+  container (`down` + `up`, a changed image, port or environment) restores
+  the demo database and drops the module install. `down -v` is a full
+  reset. Fixed `container_name` values allow one dev stack per machine.
+- Install check on a fresh shop (own project `ci`, port 8000):
+  `composer --working-dir src package`, then
+  `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx tests/ci/validate.sh`
+  and the same with `9.2.0-nginx`; `KEEP=1` leaves the shop up.
+- Release zip: `composer --working-dir src package` writes
+  `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
+  release.
 - `validate.yaml` runs on pull requests and pushes to `master` only; for a
   CI result on `v3` work, open a PR on the fork and read it with
   `gh pr checks <number> --watch`.
@@ -262,7 +270,7 @@ report, and the orchestrator writes it.
 2. **One-way doors interrupt.** Before any irreversible or expensive-to-undo
    commitment — persistent data schema, public or integration contracts
    (`RECENGINE_API_CONTRACT.md`, installation-report-v1, the engine key
-   prefix), releases reaching real stores, anything touching
+   namespace `ps-`), releases reaching real stores, anything touching
    deliverability or reputation, pricing, or legal/consent — halt, file a
    Linear gate issue in the Feature with the evidence and the proposed
    action, and wait for Erkki's approval. Reversible work proceeds at full
