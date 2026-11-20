@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 
 /**
  * Runs the background jobs that are due, whichever door started it: a cron URL or a visitor's
@@ -134,21 +135,8 @@ final class Tick
         }
     }
 
-    /**
-     * The message names the error's class and place only: an exception message can carry a
-     * secret or an address.
-     */
     public static function logFailure(string $job, \Throwable $error): void
     {
-        \PrestaShopLogger::addLog(
-            sprintf(
-                'Smaily Connect: the background job %s failed with %s at %s:%d',
-                $job,
-                get_class($error),
-                basename($error->getFile()),
-                $error->getLine()
-            ),
-            3
-        );
+        Log::failure('the background job ' . $job, $error);
     }
 }

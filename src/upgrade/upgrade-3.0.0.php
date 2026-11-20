@@ -26,6 +26,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
@@ -45,7 +46,7 @@ function upgrade_module_3_0_0($module)
     try {
         Services::instance()->get(Upgrade300::class)->runPending();
     } catch (Throwable $error) {
-        PrestaShopLogger::addLog(sprintf('Smaily Connect: the 3.0.0 upgrade could not start (%s)', get_class($error)), 3);
+        Log::failure('the start of the 3.0.0 upgrade', $error);
     }
 
     return true;

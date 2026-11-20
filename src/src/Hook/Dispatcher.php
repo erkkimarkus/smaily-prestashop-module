@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
@@ -109,22 +110,9 @@ final class Dispatcher
         return $result;
     }
 
-    /**
-     * The message names the error's class and place only: an exception message can carry a
-     * secret or an address.
-     */
     public static function logFailure(string $hook, \Throwable $error): void
     {
-        \PrestaShopLogger::addLog(
-            sprintf(
-                'Smaily Connect: a listener of %s failed with %s at %s:%d',
-                $hook,
-                get_class($error),
-                basename($error->getFile()),
-                $error->getLine()
-            ),
-            3
-        );
+        Log::failure('a listener of ' . $hook, $error);
     }
 
     /**
