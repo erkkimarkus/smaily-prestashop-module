@@ -54,6 +54,15 @@ final class SettingsTest extends IntegrationTestCase
         self::assertSame('shop', $this->settings->read(self::KEY, $this->shopId()));
     }
 
+    public function testReadsTheStoredValueAfterTheRequestDroppedItsLoadedConfiguration(): void
+    {
+        $this->settings->write(self::KEY, 'global', 0);
+        \Configuration::deleteByName(Settings::PREFIX . 'TEST_UNRELATED');
+
+        self::assertSame('global', $this->settings->read(self::KEY, 0));
+        self::assertSame('global', $this->settings->read(self::KEY, $this->shopId()));
+    }
+
     private function shopId(): int
     {
         return (int) \Configuration::get('PS_SHOP_DEFAULT');

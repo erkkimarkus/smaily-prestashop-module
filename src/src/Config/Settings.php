@@ -43,6 +43,10 @@ abstract class Settings
 
     protected function get(string $key, int $idShop = 0): ?string
     {
+        // hasKey() reads only the loaded configuration, which a deleteByName() of any key drops.
+        if (!\Configuration::configurationIsLoaded()) {
+            \Configuration::loadConfiguration();
+        }
         if ($idShop > 0 && \Configuration::hasKey($key, null, null, $idShop)) {
             return (string) \Configuration::get($key, null, null, $idShop);
         }
