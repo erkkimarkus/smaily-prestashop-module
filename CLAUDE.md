@@ -3,9 +3,11 @@
 If you are a fresh agent picking up this repo: read this first, then
 `STATUS.md` (where we are now, and what the next session opens with), then
 `docs/ARCHITECTURE.md` — the **binding design** of 3.0.0; its section 13 is
-the Story list, its section 15 the owner's decisions. `docs/DEV_ENVIRONMENT.md`
-holds the verified local setup. README gives the 30-second orientation of
-the module as it ships today (2.2.0).
+the Story list, its section 15 the owner's decisions.
+`docs/internal/spikes/platform-facts.md` holds the observed behaviour of
+PrestaShop 8 and 9; where it and ARCHITECTURE differ, the facts file wins.
+`docs/DEV_ENVIRONMENT.md` holds the verified local setup. README gives the
+30-second orientation of the module as it ships today (2.2.0).
 
 ## Mission
 
@@ -143,7 +145,11 @@ ask (Linear discipline below).
   door.
 - **Configuration storage.** An empty value is stored as SQL `NULL`; an
   "All shops" save leaves shop-specific rows in place
-  (`tests/fixtures/legacy/README.md`).
+  (`tests/fixtures/legacy/README.md`). A shop row that holds `NULL` does
+  not fall back to the global value, so removing a shop's value deletes
+  its row (ARCHITECTURE 2.1).
+- **Upgrade scripts.** A `false` return stores the new version and disables
+  the module for good; `upgrade-3.0.0.php` never fails (ARCHITECTURE 3.7).
 - **Multishop × multilanguage scopes** are where upgrade inheritance bugs
   come from. `Configuration` values can be set per shop group, per shop and
   per language; the legacy module mostly wrote global values. Magento had
@@ -175,7 +181,13 @@ Workers follow this discipline: minimum code that solves the task; touch
 only what the task requires; report unrelated bugs, dead code or style
 under FOLLOW-UPS instead of fixing them; match existing style; state
 assumptions; return a question instead of guessing on a genuinely
-ambiguous task.
+ambiguous task. Workers verify a claim by running it: a "green" in a report
+names the command and its counts (tests, assertions, checks).
+
+**The main class** `src/smailyforprestashop.php` changes after Story 1.1
+only for the wirings that ARCHITECTURE section 13 names (Stories 1.7, 2.3,
+3.1 and 5.5), each in a commit of its own; those Stories never run in
+parallel with each other.
 
 ## Keeping the docs current — part of every change
 
@@ -192,7 +204,12 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
 
 - Dependencies first (the shop mounts `src/` with its `vendor/`):
   `composer install --working-dir src/`
-- Unit tests: `src/vendor/bin/phpunit`. Code style (CI gate):
+- Tests are PHPUnit 9.6 on PHP 8.0+. On the host `src/vendor/bin/phpunit`
+  runs the unit tests and skips the integration tests. In the dev shop:
+  `docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop
+  php modules/smailyforprestashop/vendor/bin/phpunit --configuration
+  /smaily/phpunit.xml.dist` (`composer test` does not work there). Code
+  style (CI gate):
   `(cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)`
   (set `PHP_CS_FIXER_IGNORE_ENV=1` on a PHP newer than it supports).
 - PHP syntax (CI gate): CI lints on PHP 8.0 and 8.5; local PHP accepts
@@ -206,17 +223,21 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
 - `docker compose stop`/`start` keep the database; recreating the shop
   container (`down` + `up`, a changed image, port or environment) restores
   the demo database and drops the module install. `down -v` is a full
-  reset. Fixed `container_name` values allow one dev stack per machine.
-- Install check on a fresh shop (own project `ci`, port 8000):
-  `composer --working-dir src package`, then
+  reset. Stacks with different project names and ports run side by side.
+  Colima cannot mount a path under `/private/tmp`.
+- Install check on a fresh shop (project `ci`, port 8000; change them with
+  `COMPOSE_PROJECT_NAME` and `CI_PORT`): `composer --working-dir src
+  package` and `composer install --working-dir src`, then
   `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx tests/ci/validate.sh`
-  and the same with `9.2.0-nginx`; `KEEP=1` leaves the shop up.
+  and the same with `9.2.0-nginx`; it also runs the unit and integration
+  tests in the shop. `KEEP=1` leaves the shop up.
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.
-- `validate.yaml` runs on pull requests and pushes to `master` only; for a
-  CI result on `v3` work, open a PR on the fork and read it with
-  `gh pr checks <number> --watch`.
+- `validate.yaml` runs on pull requests and on pushes to `master` and `v3`,
+  once the fork's Actions are enabled (the owner enables them once in the
+  Actions tab; until then CI on `v3` is unverified). Read a PR's result
+  with `gh pr checks <number> --watch`.
 
 ## Commits
 
