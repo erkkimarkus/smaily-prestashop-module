@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Menu;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
@@ -56,6 +57,7 @@ final class Upgrade300
     public const STEPS = [
         'tables',
         'hooks',
+        'menu',
         'notices',
         'settings',
         'accounts',
@@ -245,6 +247,16 @@ final class Upgrade300
                 self::check((bool) $module->unregisterHook($hook));
             }
         }
+    }
+
+    /**
+     * Adds the admin menu of the main class's $tabs: PrestaShop installs a module's tabs on install
+     * only, not on an upgrade.
+     */
+    private function stepMenu(): void
+    {
+        $module = \Module::getInstanceByName(self::MODULE);
+        self::check($module instanceof \Module && Menu::install($module->getTabs()));
     }
 
     private function stepNotices(): void

@@ -15,9 +15,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\MigrationProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Admin\MenuTest;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/LegacyStore.php';
+require_once __DIR__ . '/../Admin/MenuTest.php';
 
 /**
  * A store that 2.x or 1.6.x left upgrades in place: the plan's settings, accounts, mapping rows and
@@ -176,6 +178,7 @@ final class Upgrade300Test extends IntegrationTestCase
         LegacyStore::clear();
         LegacyStore::loadFixture('2.2.0-configured.sql');
         $this->recordModuleVersion('2.2.0');
+        MenuTest::removeMenu();
         $legacy = $this->legacyRows();
 
         $failing = $this->upgrade(static function (string $step) use ($failingStep): void {
@@ -293,6 +296,23 @@ final class Upgrade300Test extends IntegrationTestCase
             array_values(array_intersect(array_map('strtolower', HookList::HOOKS), $this->registeredHooks()))
         );
         self::assertNotContains('displayfooterbefore', $this->registeredHooks());
+    }
+
+    public function testAStoreWithoutTheMenuGetsItUnderCustomers(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        MenuTest::removeMenu();
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame([
+            ['AdminSmailyConnect', 'AdminParentCustomer', 'smailyforprestashop_index', 'Smaily Connect'],
+            ['AdminSmailyConnectDashboard', 'AdminSmailyConnect', 'smailyforprestashop_dashboard', 'Dashboard'],
+            ['AdminSmailyConnectSetup', 'AdminSmailyConnect', 'smailyforprestashop_setup', 'Initial setup'],
+            ['AdminSmailyConnectSettings', 'AdminSmailyConnect', 'smailyforprestashop_settings', 'Settings'],
+            ['AdminSmailyConnectLog', 'AdminSmailyConnect', 'smailyforprestashop_log', 'Log'],
+        ], MenuTest::menu());
     }
 
     public function testTheHiddenAdminTabOf16xIsRemoved(): void
@@ -574,6 +594,7 @@ final class Upgrade300Test extends IntegrationTestCase
             ),
             'carts' => self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_connect_cart` ORDER BY `id_cart`'),
             'hooks' => $this->registeredHooks(),
+            'menu' => MenuTest::menu(),
         ];
     }
 
@@ -595,6 +616,7 @@ final class Upgrade300Test extends IntegrationTestCase
             ) ?: []),
             'tables' => $tables,
             'hooks' => $this->registeredHooks(),
+            'menu' => MenuTest::menu(),
         ];
     }
 
