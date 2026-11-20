@@ -70,6 +70,9 @@ final class Services
     /** @var array<string, list<callable(array<string, mixed>): mixed>> */
     private array $listeners = [];
 
+    /** @var array<string, list<callable(array<string, mixed>): mixed>> */
+    private array $beforeUpgrade = [];
+
     public static function instance(): self
     {
         if (self::$instance === null) {
@@ -115,10 +118,15 @@ final class Services
 
     /**
      * @param callable(array<string, mixed>): mixed $listener
+     * @param bool $beforeUpgrade whether the listener also runs while the stored schema version
+     *                            differs from the code's (Hook\Dispatcher); no other listener does then
      */
-    public function listen(string $hook, callable $listener): void
+    public function listen(string $hook, callable $listener, bool $beforeUpgrade = false): void
     {
         $this->listeners[$hook][] = $listener;
+        if ($beforeUpgrade) {
+            $this->beforeUpgrade[$hook][] = $listener;
+        }
     }
 
     /**
@@ -127,5 +135,15 @@ final class Services
     public function listeners(string $hook): array
     {
         return $this->listeners[$hook] ?? [];
+    }
+
+    /**
+     * The listeners of $hook that were registered to run also before the upgrade has finished.
+     *
+     * @return list<callable(array<string, mixed>): mixed>
+     */
+    public function listenersBeforeUpgrade(string $hook): array
+    {
+        return $this->beforeUpgrade[$hook] ?? [];
     }
 }

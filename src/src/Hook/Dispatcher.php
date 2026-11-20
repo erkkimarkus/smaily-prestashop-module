@@ -36,8 +36,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
  * Hands each hook call of the main class to the listeners that the providers registered for it.
  *
  * While the stored schema version differs from the one the code needs (files copied before
- * PrestaShop ran the upgrade), no listener runs and the hook returns null. A listener that throws
- * fails alone: the error is logged, the other listeners run, and the shop's request goes on.
+ * PrestaShop ran the upgrade, or a migration that stopped), only the listeners registered to run
+ * before the upgrade finishes run (`Services::listen($hook, $listener, true)`): the fallback tick's,
+ * which can finish the migration. A listener that throws fails alone: the error is logged, the other
+ * listeners run, and the shop's request goes on.
  *
  * The listeners' results combine: strings join (display hooks), arrays merge (moduleRoutes,
  * additionalCustomerFormFields), any other value replaces the previous one.
@@ -92,12 +94,11 @@ final class Dispatcher
      */
     public function run(string $hook, array $params)
     {
-        if (!($this->schemaIsCurrent)()) {
-            return null;
-        }
+        $services = ($this->services)();
+        $listeners = ($this->schemaIsCurrent)() ? $services->listeners($hook) : $services->listenersBeforeUpgrade($hook);
 
         $result = null;
-        foreach (($this->services)()->listeners($hook) as $listener) {
+        foreach ($listeners as $listener) {
             try {
                 $result = self::combine($result, $listener($params));
             } catch (\Throwable $error) {

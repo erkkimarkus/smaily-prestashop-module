@@ -56,6 +56,19 @@ final class ServicesTest extends TestCase
         self::assertSame([], $services->listeners('actionValidateOrder'));
     }
 
+    public function testAListenerWaitsForTheUpgradeUnlessItIsRegisteredToRunBeforeIt(): void
+    {
+        $services = new Services();
+        $inert = fn (): string => 'inert';
+        $early = fn (): string => 'early';
+        $services->listen('actionFrontControllerSetMedia', $inert);
+        $services->listen('actionFrontControllerSetMedia', $early, true);
+
+        self::assertSame([$inert, $early], $services->listeners('actionFrontControllerSetMedia'));
+        self::assertSame([$early], $services->listenersBeforeUpgrade('actionFrontControllerSetMedia'));
+        self::assertSame([], $services->listenersBeforeUpgrade('actionCartSave'));
+    }
+
     public function testLetsEveryProviderRegister(): void
     {
         $services = Services::fromProviders([RegistersAService::class]);

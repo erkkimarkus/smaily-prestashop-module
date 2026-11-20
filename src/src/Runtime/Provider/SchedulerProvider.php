@@ -52,7 +52,8 @@ final class SchedulerProvider implements ProviderInterface
     public const JOBS = 'smailyConnectTickJobs';
 
     /**
-     * The page hooks on which the fallback tick decides whether to run.
+     * The page hooks on which the fallback tick decides whether to run. Its listeners run also
+     * before the upgrade has finished, so that a page request can finish a pending migration.
      */
     public const TRAFFIC_HOOKS = ['actionFrontControllerSetMedia', 'actionAdminControllerSetMedia'];
 
@@ -85,7 +86,7 @@ final class SchedulerProvider implements ProviderInterface
         foreach (self::TRAFFIC_HOOKS as $hook) {
             $services->listen($hook, static function () use ($services): void {
                 $services->get(TrafficTick::class)->onRequest();
-            });
+            }, true);
         }
 
         $services->listen(self::JOBS, static fn (): Job => new Job('queue_flush', 60, 20, static function (Deadline $deadline) use ($services): void {

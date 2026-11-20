@@ -5,11 +5,15 @@ namespace Tests\Unit\Hook;
 
 use PHPUnit\Framework\TestCase;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
+use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
+use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\SchedulerProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
- * The dispatcher hands a hook call to the listeners that the providers registered, and only while
- * the stored schema version is the one the code needs.
+ * The dispatcher hands a hook call to the listeners that the providers registered. While the stored
+ * schema version is not the one the code needs, only the listeners registered to run before the
+ * upgrade finishes run: the fallback tick's, which can finish a pending migration.
  */
 final class DispatcherTest extends TestCase
 {
@@ -32,17 +36,37 @@ final class DispatcherTest extends TestCase
         self::assertNull($result);
     }
 
-    public function testDoesNotBuildTheServicesWhileTheSchemaIsNotCurrent(): void
+    public function testCallsOnlyTheListenersMadeToRunBeforeTheUpgradeWhileTheSchemaIsNotCurrent(): void
     {
-        $dispatcher = new Dispatcher(
-            fn (): bool => false,
-            function (): Services {
-                self::fail('The services were built while the schema was not current.');
-            },
-            fn (): bool => true
-        );
+        $services = new Services();
+        $ran = [];
+        $services->listen('actionFrontControllerSetMedia', function () use (&$ran): void {
+            $ran[] = 'inert';
+        });
+        $services->listen('actionFrontControllerSetMedia', function () use (&$ran): void {
+            $ran[] = 'before upgrade';
+        }, true);
 
-        self::assertNull($dispatcher->run('displayBackOfficeHeader', []));
+        $this->dispatcher(false, $services)->run('actionFrontControllerSetMedia', []);
+        self::assertSame(['before upgrade'], $ran);
+
+        $ran = [];
+        $this->dispatcher(true, $services)->run('actionFrontControllerSetMedia', []);
+        self::assertSame(['inert', 'before upgrade'], $ran);
+    }
+
+    public function testOnlyTheFallbackTickListensBeforeTheUpgrade(): void
+    {
+        $services = Services::fromProviders(Services::PROVIDERS);
+
+        $listening = [];
+        foreach (array_merge(HookList::HOOKS, [SchedulerProvider::JOBS, Uninstaller::BEFORE_REMOVAL]) as $hook) {
+            if ($services->listenersBeforeUpgrade($hook) !== []) {
+                $listening[$hook] = count($services->listenersBeforeUpgrade($hook));
+            }
+        }
+
+        self::assertSame(array_fill_keys(SchedulerProvider::TRAFFIC_HOOKS, 1), $listening);
     }
 
     public function testPassesTheHookParametersToEachListener(): void

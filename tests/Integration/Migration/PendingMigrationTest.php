@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Migration;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
@@ -11,13 +12,15 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickReport;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TrafficTick;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/LegacyStore.php';
 
 /**
  * A migration that stopped, or never started because the files were copied by FTP, completes from
- * the tick. Once the schema is current, the tick's migration job does no migration work.
+ * the tick: from each door with its token, and from the fallback tick after a page request. Once the
+ * schema is current, the tick's migration job does no migration work.
  */
 final class PendingMigrationTest extends IntegrationTestCase
 {
@@ -70,6 +73,37 @@ final class PendingMigrationTest extends IntegrationTestCase
                 self::assertSame(0, LegacyStore::countRows($key), $key . ' is deleted');
             }
         }
+    }
+
+    public function testAPageRequestCompletesAPendingMigrationAfterItsResponse(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        self::recordModuleVersion('2.2.0');
+        $services = Services::fromProviders(Services::PROVIDERS);
+        $shutdown = [];
+        $services->set(TrafficTick::class, function (Services $services) use (&$shutdown): TrafficTick {
+            return new TrafficTick(
+                $services->get(TickSettings::class),
+                fn (): Tick => $services->get(Tick::class),
+                'time',
+                function (): void {
+                },
+                function (callable $callback) use (&$shutdown): void {
+                    $shutdown[] = $callback;
+                }
+            );
+        });
+        $dispatcher = new Dispatcher([Schema::class, 'isCurrent'], fn (): Services => $services, function (string $hook, \Throwable $error): void {
+            self::fail(sprintf('A listener of %s failed with %s', $hook, get_class($error)));
+        });
+
+        $dispatcher->run('actionFrontControllerSetMedia', []);
+
+        self::assertFalse(Schema::isCurrent(), 'nothing runs during the request');
+        self::assertCount(1, $shutdown);
+        ($shutdown[0])();
+        self::assertTrue(Schema::isCurrent());
+        self::assertSame(0, LegacyStore::countRows('SMAILY_PASSWORD'));
     }
 
     public function testOnceTheSchemaIsCurrentTheMigrationJobDoesNoMigrationWork(): void
