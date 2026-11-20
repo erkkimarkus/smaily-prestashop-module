@@ -33,8 +33,9 @@ if (!defined('_PS_VERSION_')) {
  * The module's tables and the schema version that the runtime needs.
  *
  * A column change after release is a new upgrade script that raises VERSION, never an edit of a
- * table here that a store already has. While the stored version differs from VERSION, every hook
- * listener and the tick do nothing.
+ * table here that a store already has. While the stored version differs from VERSION, the hook
+ * listeners do nothing except those registered to run before the upgrade finishes (the fallback
+ * tick's), and the tick runs only the jobs made to run before it (the pending migration).
  */
 final class Schema
 {
