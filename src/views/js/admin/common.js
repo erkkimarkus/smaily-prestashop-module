@@ -103,6 +103,8 @@
           var error = new Error(answer && answer.error ? answer.error.message : root.getAttribute('data-label-error'));
           error.code = answer && answer.error ? answer.error.code : 'invalid_response';
           error.status = response.status;
+          // The fields at fault, where the endpoint names them ([{field, message}]).
+          error.fields = answer && answer.error ? answer.error.fields : undefined;
           throw error;
         });
       });

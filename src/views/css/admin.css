@@ -623,3 +623,431 @@
   margin: 0 0 18px;
   color: var(--smaily-muted);
 }
+
+/* The panels of the Initial setup and Settings (views/templates/admin/panel/). */
+.smaily-ui .smaily-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 780px;
+}
+
+.smaily-ui .smaily-panel .smaily-card h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.smaily-ui .smaily-panel .smaily-card > p,
+.smaily-ui .smaily-intro {
+  max-width: 680px;
+}
+
+.smaily-ui .smaily-intro {
+  margin: 0 0 16px;
+}
+
+.smaily-ui .smaily-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-note--strong {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--smaily-brand-text);
+}
+
+.smaily-ui .smaily-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.smaily-ui .smaily-field {
+  margin: 0 0 12px;
+}
+
+.smaily-ui .smaily-fields .smaily-field {
+  margin: 0;
+}
+
+.smaily-ui .smaily-field > label,
+.smaily-ui .smaily-checkboxes legend {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-subdomain-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.smaily-ui .smaily-subdomain-row .form-control {
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.smaily-ui .smaily-subdomain-suffix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--smaily-muted);
+  white-space: nowrap;
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-left: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.smaily-ui .form-control.is-invalid {
+  border-color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-field-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #c0392b;
+}
+
+.smaily-ui .smaily-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Choice cards (Magento's Radio Choice-Card). */
+.smaily-ui .smaily-choice {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  font-weight: 400;
+  cursor: pointer;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-choice.is-selected {
+  background: var(--smaily-tint);
+  border-color: var(--smaily-primary);
+  box-shadow: 0 0 0 1px var(--smaily-primary);
+}
+
+.smaily-ui .smaily-choice__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.smaily-ui .smaily-choice__radio {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  background: var(--smaily-surface);
+  border: 2px solid var(--smaily-muted);
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-choice.is-selected .smaily-choice__radio {
+  background: var(--smaily-primary);
+  border-color: var(--smaily-primary);
+  box-shadow: inset 0 0 0 3px var(--smaily-surface);
+}
+
+.smaily-ui .smaily-choice__input:focus-visible + .smaily-choice__radio {
+  outline: 2px solid var(--smaily-primary);
+  outline-offset: 2px;
+}
+
+.smaily-ui .smaily-choice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.smaily-ui .smaily-choice__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.smaily-ui .smaily-choice__title {
+  font-weight: 700;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-choice__badge {
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--smaily-tint-text);
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-tint-border);
+  border-radius: 3px;
+}
+
+.smaily-ui .smaily-choice__desc {
+  font-size: 13px;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-inline-toggle {
+  margin: 12px 0 0;
+}
+
+.smaily-ui .smaily-inline-toggle label,
+.smaily-ui .smaily-checkboxes__grid label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-checkboxes {
+  margin-top: 18px;
+}
+
+.smaily-ui .smaily-checkboxes legend {
+  width: auto;
+  border: 0;
+}
+
+.smaily-ui .smaily-checkboxes__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 8px 24px;
+}
+
+.smaily-ui .smaily-checkboxes__grid label {
+  font-weight: 400;
+}
+
+.smaily-ui .smaily-checkboxes input[type=checkbox],
+.smaily-ui .smaily-inline-toggle input {
+  accent-color: var(--smaily-primary);
+}
+
+/* Status pills. */
+.smaily-ui .smaily-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--smaily-muted);
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 999px;
+}
+
+.smaily-ui .smaily-pill[hidden] {
+  display: none;
+}
+
+.smaily-ui .smaily-pill__dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-pill--active {
+  color: #2e7d32;
+  background: #eaf6ec;
+  border-color: #b9dfc0;
+}
+
+.smaily-ui .smaily-pill--pending {
+  color: var(--smaily-tint-text);
+  background: var(--smaily-tint);
+  border-color: var(--smaily-tint-border);
+}
+
+.smaily-ui .smaily-pill--failed {
+  color: #c0392b;
+  background: var(--smaily-danger-tint);
+  border-color: #f5c2bd;
+}
+
+.smaily-ui .smaily-connection-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+/* Mode a: an account per language. */
+.smaily-ui .smaily-ml-region {
+  padding: 16px;
+  background: #faf6fe;
+  border: 1px dashed var(--smaily-primary);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-ml-region__kicker {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--smaily-brand-text);
+}
+
+.smaily-ui .smaily-ml-accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.smaily-ui .smaily-ml-account {
+  padding: 14px 16px;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-ml-account__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.smaily-ui .smaily-ml-account__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.smaily-ui .smaily-ml-account__chip {
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--smaily-on-primary);
+  background: var(--smaily-primary);
+  border-radius: 3px;
+}
+
+/* How the shops are run. */
+.smaily-ui .smaily-store-shape {
+  margin-bottom: 16px;
+}
+
+.smaily-ui .smaily-store-shape__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-store-shape__label,
+.smaily-ui .smaily-store-shape__shop {
+  font-size: 13px;
+  color: var(--smaily-muted);
+}
+
+/* The first contact import. */
+.smaily-ui .smaily-import__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.smaily-ui .smaily-progress {
+  height: 6px;
+  margin: 12px 0 6px;
+  overflow: hidden;
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 3px;
+}
+
+.smaily-ui .smaily-progress__fill {
+  width: 0;
+  height: 100%;
+  background: var(--smaily-primary);
+}
+
+.smaily-ui .smaily-import__line {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* The Overview's summary. */
+.smaily-ui .smaily-summary {
+  max-width: 780px;
+  margin-bottom: 16px;
+}
+
+.smaily-ui .smaily-summary__list {
+  margin: 0;
+}
+
+.smaily-ui .smaily-summary__row {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-summary__row:last-child {
+  border-bottom: 0;
+}
+
+.smaily-ui .smaily-summary__row dt {
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-summary__row dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.smaily-ui .smaily-summary__edit {
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-overview-links {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.smaily-ui .smaily-overview-links li {
+  margin-bottom: 6px;
+}
+
+@media (max-width: 1023px) {
+  .smaily-ui .smaily-fields,
+  .smaily-ui .smaily-summary__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
