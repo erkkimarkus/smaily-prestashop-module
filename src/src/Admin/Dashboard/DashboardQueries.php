@@ -1,0 +1,170 @@
+<?php
+/**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ */
+declare(strict_types=1);
+
+namespace PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
+
+/**
+ * The Dashboard's reads of the event queue, the job table and the account table: read-only SQL,
+ * each statement bounded by an index or by a row limit, so the page stays fast on a queue of a
+ * million rows. The queue classes have no such reads; a later clean-up can move them there.
+ *
+ * - contactSyncs(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one pass.
+ * - queuedToday(): `status` = pending and `created_at` from midnight UTC; the index (`status`,
+ *   `next_retry_at`) or (`created_at`), whichever the optimizer finds narrower.
+ * - failedSince(): `status` = failed, through the index (`status`, `next_retry_at`).
+ * - latestRows(), latestJobs(): the newest rows by primary key.
+ * - accountScopes(): the account table, one row per shop and language.
+ */
+final class DashboardQueries
+{
+    /** contactSyncs() reads at most this many of the newest queue rows. */
+    public const SYNC_SCAN_ROWS = 50000;
+
+    private const DAY = 86400;
+
+    /**
+     * The contact syncs that reached Smaily in the 30 days before $now. `more` is true when the
+     * newest SYNC_SCAN_ROWS rows were all younger than 30 days: older ones were not read, so the
+     * count is a lower bound.
+     *
+     * @return array{count: int, more: bool}
+     */
+    public function contactSyncs(int $now): array
+    {
+        $since = gmdate('Y-m-d H:i:s', $now - 30 * self::DAY);
+        $row = \Db::getInstance()->getRow(sprintf(
+            'SELECT SUM(t.`status` = %s AND t.`event_type` = %s AND t.`sent_at` >= %s) AS `delivered`,'
+            . ' COUNT(*) AS `scanned`, MIN(t.`created_at`) AS `oldest`'
+            . ' FROM (SELECT `status`, `event_type`, `sent_at`, `created_at` FROM %s ORDER BY `id` DESC LIMIT %d) t',
+            self::quote(EventQueue::STATUS_SENT),
+            self::quote(ContactSyncHandler::EVENT_TYPE),
+            self::quote($since),
+            self::table(EventQueue::TABLE),
+            self::SYNC_SCAN_ROWS
+        ), false);
+
+        return [
+            'count' => (int) ($row['delivered'] ?? 0),
+            'more' => (int) ($row['scanned'] ?? 0) === self::SYNC_SCAN_ROWS && (string) $row['oldest'] >= $since,
+        ];
+    }
+
+    /**
+     * The rows created since midnight UTC that wait for their first attempt or a retry.
+     */
+    public function queuedToday(int $now): int
+    {
+        return (int) \Db::getInstance()->getValue(sprintf(
+            'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `created_at` >= %s',
+            self::table(EventQueue::TABLE),
+            self::quote(EventQueue::STATUS_PENDING),
+            self::quote(gmdate('Y-m-d 00:00:00', $now))
+        ), false);
+    }
+
+    /**
+     * The rows parked as failed since $since.
+     */
+    public function failedSince(int $since): int
+    {
+        return (int) \Db::getInstance()->getValue(sprintf(
+            'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `updated_at` >= %s',
+            self::table(EventQueue::TABLE),
+            self::quote(EventQueue::STATUS_FAILED),
+            self::time($since)
+        ), false);
+    }
+
+    /**
+     * The newest queue rows, newest first: no payload, no request, no error text.
+     *
+     * @return list<array{event_type: string, entity_id: string|null, status: string, updated_at: string}>
+     */
+    public function latestRows(int $limit): array
+    {
+        return self::rows(sprintf(
+            'SELECT `event_type`, `entity_id`, `status`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
+            self::table(EventQueue::TABLE),
+            $limit
+        ));
+    }
+
+    /**
+     * The newest import jobs, newest first.
+     *
+     * @return list<array{type: string, status: string, counts: string|null, updated_at: string}>
+     */
+    public function latestJobs(int $limit): array
+    {
+        return self::rows(sprintf(
+            'SELECT `type`, `status`, `counts`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
+            self::table(JobStore::TABLE),
+            $limit
+        ));
+    }
+
+    /**
+     * The shop and language of each stored Smaily account.
+     *
+     * @return list<array{id_shop: string, language: string}>
+     */
+    public function accountScopes(): array
+    {
+        return self::rows('SELECT `id_shop`, `language` FROM ' . self::table('smaily_connect_account'));
+    }
+
+    /**
+     * @return list<array<string, string|null>>
+     */
+    private static function rows(string $sql): array
+    {
+        $rows = \Db::getInstance()->executeS($sql, true, false);
+
+        return is_array($rows) ? array_values($rows) : [];
+    }
+
+    private static function time(int $time): string
+    {
+        return self::quote(gmdate('Y-m-d H:i:s', $time));
+    }
+
+    private static function table(string $name): string
+    {
+        return '`' . _DB_PREFIX_ . $name . '`';
+    }
+
+    private static function quote(string $value): string
+    {
+        return '\'' . pSQL($value) . '\'';
+    }
+}
