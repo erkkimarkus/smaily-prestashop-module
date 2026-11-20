@@ -3,8 +3,9 @@
  * A Smaily API mock for `php -S`: the endpoints the module calls, answered as Smaily answers them.
  *
  * State lives in the JSON file that SMAILY_MOCK_STATE names: the API user's credentials, the
- * unsubscribers that the contact list returns, the action log that the history returns, and every
- * request received. SmailyMockServer writes
+ * unsubscribers that the contact list returns, the action log that the history returns, the
+ * workflows that the autoresponder list returns, and every request received, with the API user it
+ * named. SmailyMockServer writes
  * and reads it.
  *
  * - Wrong or missing credentials: HTTP 401.
@@ -38,6 +39,7 @@ $state['requests'][] = [
     'content_type' => $_SERVER['CONTENT_TYPE'] ?? null,
     'body' => $body,
     'authorized' => $authorized,
+    'username' => $_SERVER['PHP_AUTH_USER'] ?? null,
 ];
 file_put_contents($stateFile, json_encode($state));
 
@@ -87,6 +89,16 @@ if ($method === 'GET' && $path === '/api/history.php') {
     ));
     usort($rows, static fn (array $a, array $b): int => (int) $a['seq_id'] <=> (int) $b['seq_id']);
     $answer(200, array_slice($rows, 0, $limit));
+
+    return true;
+}
+
+if ($method === 'GET' && $path === '/api/autoresponder.php') {
+    $status = $_GET['status'] ?? null;
+    $answer(200, array_values(array_filter(
+        $state['workflows'] ?? [],
+        static fn (array $workflow): bool => $status === null || ($workflow['status'] ?? null) === $status
+    )));
 
     return true;
 }

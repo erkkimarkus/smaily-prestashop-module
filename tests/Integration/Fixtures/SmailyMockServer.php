@@ -120,7 +120,17 @@ final class SmailyMockServer
     }
 
     /**
-     * @return list<array{method: string, path: string, query: array<string, string>, content_type: ?string, body: mixed, authorized: bool}>
+     * The workflows that the autoresponder list answers with.
+     *
+     * @param list<array{id: int, name: string, status: string}> $workflows
+     */
+    public function setWorkflows(array $workflows): void
+    {
+        $this->writeState(['workflows' => $workflows] + $this->state());
+    }
+
+    /**
+     * @return list<array{method: string, path: string, query: array<string, string>, content_type: ?string, body: mixed, authorized: bool, username: ?string}>
      */
     public function requests(): array
     {
