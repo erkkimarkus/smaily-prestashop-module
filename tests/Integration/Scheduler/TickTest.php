@@ -137,6 +137,21 @@ final class TickTest extends IntegrationTestCase
         self::assertSame(['migration'], $this->ran);
     }
 
+    public function testATickThatFinishesTheUpgradeReportsThatItRanAndLeavesTheOtherJobsForTheNext(): void
+    {
+        $this->schemaIsCurrent = false;
+        $tick = $this->tick([new Job('migration', 60, 10, function (): void {
+            $this->ran[] = 'migration';
+            $this->schemaIsCurrent = true;
+        }, true), $this->job('queue', 60)]);
+
+        $report = $tick->run('cart_cron', 50);
+
+        self::assertSame(TickReport::RAN, $report->status());
+        self::assertSame(['migration'], $report->jobs());
+        self::assertSame(['migration'], $this->ran);
+    }
+
     public function testAStaleOnlyTickDoesNothingWhenAnotherTickRanRecently(): void
     {
         (new TickSettings())->saveState(TickState::fromJson(null)->withTick('tick', self::START - 59));

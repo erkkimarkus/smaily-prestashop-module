@@ -129,7 +129,9 @@ final class Tick
                 $ran[] = $job->name();
             }
 
-            return new TickReport($current ? TickReport::RAN : TickReport::INERT, $ran);
+            // A job that runs before the upgrade may have finished it: the report tells the state the
+            // tick ends in. The other jobs wait for the next tick.
+            return new TickReport(($this->schemaIsCurrent)() ? TickReport::RAN : TickReport::INERT, $ran);
         } finally {
             $this->lock->release();
         }

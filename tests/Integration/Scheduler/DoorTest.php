@@ -122,6 +122,17 @@ final class DoorTest extends IntegrationTestCase
         );
     }
 
+    public function testSaysWhichJobsRanWhenTheTickFinishedTheUpgrade(): void
+    {
+        $this->schemaIsCurrent = false;
+        $token = (new TickSettings())->token(TickSettings::CART_CRON_TOKEN, 1);
+        $migration = new Job('migration', 60, 10, function (): void {
+            $this->schemaIsCurrent = true;
+        }, true);
+
+        self::assertSame([200, 'OK: ran migration.'], $this->door($migration)->open(Door::CART_CRON, $token, 1, 30));
+    }
+
     public function testGivesTheTickFiftySecondsOrFiveLessThanTheRequestMayTake(): void
     {
         self::assertSame(50, Door::budget(0));
@@ -130,12 +141,16 @@ final class DoorTest extends IntegrationTestCase
         self::assertSame(1, Door::budget(3));
     }
 
-    private function door(): Door
+    private function door(?Job $firstJob = null): Door
     {
+        $jobs = [new Job('test_job', 60, 10, fn () => null)];
+        if ($firstJob !== null) {
+            array_unshift($jobs, $firstJob);
+        }
         $tick = new Tick(
             new Lock(),
             new TickSettings(),
-            [new Job('test_job', 60, 10, fn () => null)],
+            $jobs,
             fn (): bool => $this->schemaIsCurrent,
             fn (): float => microtime(true),
             function (): void {
