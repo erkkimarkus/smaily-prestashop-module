@@ -365,3 +365,51 @@ toggle), the catalog rows of section 7.
 - **`prestashop:module install` on an installed module** taking the upgrade path: read from code, not run.
 - **Back office in Estonian**: needs the `et` language installed (language pack download).
 - **LiteSpeed** (`litespeed_finish_request()`): no LiteSpeed image was available.
+
+## 6. Additions after stage 1
+
+Added on 2026-11-20 after Stories 1.1 to 1.7. Each item says how it is known. "Read from code" means
+the PrestaShop sources of the flashlight images `8.0.0-8.0-nginx` and `9.2.0-nginx`; the code is the
+same in both unless the item says otherwise.
+
+### 6.1 The configuration cache after a delete
+
+**Read from code** (8.0.0, 9.2.0; `classes/Configuration.php`). `deleteByName()` and
+`resetStaticCache()` both set the configuration caches to `null` and `$_initialized` to `false`.
+`hasKey()` is an `isset()` on those caches and never loads them, so after either call it is false for
+every key. `Configuration::get()` calls `loadConfiguration()` when `$_initialized` is false;
+`getGlobalValue()` goes through `get()`. So a module that asks `hasKey()` after a `deleteByName()` of
+any key, or after `resetStaticCache()`, must load the configuration first (`Config\Settings::get()`
+does; `Migration\Upgrade300` calls `loadConfiguration()` after `resetStaticCache()`).
+
+### 6.2 `PhpEncryption` keeps one engine per process
+
+**Read from code** (8.0.0, 9.2.0; `classes/PhpEncryption.php`). The engine is a `private static
+$engine`, and the constructor replaces it: `self::$engine = new $engineClass($hexString)`. A
+`new PhpEncryption($otherKey)` therefore changes the key that every later `PhpEncryption` call of the
+request uses, the shop's own cookie encryption included. `PhpEncryptionEngine` holds its key per
+object. `Smaily\Crypto` builds a `PhpEncryptionEngine` for each call.
+
+### 6.3 Registering a hook without its method, in debug mode
+
+**Read from code** (8.0.0, 9.2.0; `Hook::registerHook()`). When the module class has no method for
+the hook (and does not implement `WidgetInterface`), the message "Hook with the name … has been
+registered by …, but the corresponding method … has not been defined in the Module class." is thrown
+as a `PrestaShopModuleException` while `_PS_MODE_DEV_` is on, and only logged as a warning while it is
+off. **Observed** on 8.0.0 and 9.2.0 with debug mode on: the 1.6.2 install stops at `footerBefore` for
+this reason (`tests/fixtures/legacy/README.md`). So a hook method lands in the main class no later
+than its entry in `Install\HookList`: the migration registers the whole list on every run.
+
+### 6.4 Module overrides are loaded by path
+
+**Read from code** (8.0.0, 9.2.0; `Module::coreLoadModule()`). On each module load, PrestaShop checks
+`Tools::file_exists_no_cache(_PS_OVERRIDE_DIR_ . 'modules/<name>/<name>.php')` and, when the file
+exists, loads the class `<name>Override` from it. No class index lists a module override, so deleting
+the file is enough to stop it.
+
+### 6.5 A zip upload unpacks over the old module folder
+
+**Read from code** (8.0.0, 9.2.0; `src/Core/Module/SourceHandler/ZipSourceHandler.php`). `handle()`
+calls `ZipArchive::extractTo()` on the modules folder and removes nothing first. Files of the old
+version that the new zip does not contain stay on disk. They run only if code of the new version
+names them.
