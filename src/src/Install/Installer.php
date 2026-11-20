@@ -41,10 +41,4 @@ class Installer
             && $module->registerHook(HookList::HOOKS)
             && Schema::markCurrent();
     }
-
-    public function uninstall(): bool
-    {
-        return Schema::drop()
-            && \Configuration::deleteByName(Schema::VERSION_KEY);
-    }
 }
