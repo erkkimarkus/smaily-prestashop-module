@@ -166,6 +166,10 @@ ask (Linear discipline below).
   `translator` (facts file 6.6): word through
   `Admin\BaseController::translator()`. Every admin Story's browser proof
   includes 8.2.8.
+- **Work after the response.** PrestaShop writes the session of a login
+  into its cookie when the request ends, after the shutdown functions.
+  Send a response early only through `TrafficTick::finishFunction()`,
+  which writes the cookie first (facts file 6.8).
 - **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).

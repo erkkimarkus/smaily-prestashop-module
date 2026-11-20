@@ -713,9 +713,12 @@ Planned (the Story that builds each registers it):
 3. **Traffic fallback** (`Scheduler\TrafficTick`). Listeners of `actionFrontControllerSetMedia` and
    `actionAdminControllerSetMedia`, registered to run also before the upgrade, read
    `SMAILY_CONNECT_TICK_STATE` from the configuration that the request loaded (no query). When the
-   last tick is 60 s old or older, the listener registers a shutdown function. At shutdown it calls
-   `fastcgi_finish_request()` (or `litespeed_finish_request()`), so the response is already sent, and
-   runs the tick with a 10 s budget. Under the lock the tick reads the stored state again and does
+   last tick is 60 s old or older, the listener registers a shutdown function. At shutdown it writes
+   PrestaShop's cookie and calls `fastcgi_finish_request()` (or `litespeed_finish_request()`), so the
+   response is already sent, and runs the tick with a 10 s budget. The cookie comes first because
+   PrestaShop writes the session of a login only when the request ends, after the shutdown functions
+   (facts file 6.8); the contact capture's flush sends its response the same way
+   (`TrafficTick::finishFunction()`). Under the lock the tick reads the stored state again and does
    nothing when another tick ran in the last 60 s. Where neither finish function exists, nothing
    runs, and the Dashboard says that a cron line is needed. Verified under php-fpm on 8.2.8 and
    9.2.0: the client receives the whole page before the shutdown work ends, and `Db` still answers

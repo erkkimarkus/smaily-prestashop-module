@@ -320,7 +320,8 @@ the whole home page (83 959 bytes in 0.29 s on 8.2.8; 108 956 bytes in 0.09 s on
 ended, and `Db::getInstance()->getValue('SELECT 1')` still answered after it. `actionDispatcherAfter` is
 the last hook of a front request; at that point the page is still in the output buffer
 (`headers_sent()` false, `ob_get_level()` 2), so any hook up to it can register the shutdown function, and
-the work runs at shutdown. `max_execution_time` under FPM is 30 s in both images.
+the work runs at shutdown. `max_execution_time` under FPM is 30 s in both images. A request that ends
+in a redirect has not written its cookie at that point: section 6.8.
 
 ### 3.3 `GET_LOCK` through `Db` (section 4.3)
 
@@ -449,3 +450,25 @@ employee's `id_lang` set to that language, the module's pages show the Estonian 
 that `translations/et-EE/` holds and the English source of every other string; the core's own strings
 stay English, as no language pack is installed. So a browser proof can view the module's screens in
 Estonian in a demo shop (part 5 said that this needs a language pack download).
+
+### 6.8 The cookie is written after the shutdown functions
+
+**Read from code and observed** on 8.2.8 and 9.2.0 (`classes/Cookie.php`, `classes/Context.php`,
+`Tools::redirect()`). A request that shows a page writes its cookie before the output
+(`FrontController::smartyOutputContent()`). A request that ends in a redirect (`Tools::redirect()` sets
+`Location` and calls `exit`) relies on `Cookie::__destruct()`, which calls `write()`; PHP runs the
+shutdown functions before it destroys the objects. `Context::updateCustomer()`, which a storefront
+login, a registration and a guest checkout call, writes the cookie first and stores the session
+(`session_id`, `session_token`) in it afterwards, so only the destructor's write carries the session.
+`Cookie::write()` returns at once when the cookie did not change, when `headers_sent()` is true or
+after `disallowWriting()`, and it marks the cookie unchanged once it has set it.
+
+So a shutdown function that calls `fastcgi_finish_request()` sends the response without that last
+write. Observed before the fix, with a tick due or with a contact row to flush on the request: the
+`302` of a login and of a registration carried one `Set-Cookie` header, not two, and the next request
+was logged out (`/my-account` answered `302` to the login page). A guest checkout lost the same header
+and kept its guest session; a request that shows a page lost nothing. `TrafficTick::finishFunction()`
+therefore writes `Context::getContext()->cookie` before it calls the finish function; the destructor's
+write then finds the cookie unchanged and the headers sent, so no cookie is set twice and no "headers
+already sent" warning can arise. The employee login of 8.2.8 (`AdminLoginController`) stores the
+session before its own `write()` and was not affected (read from code).

@@ -79,13 +79,27 @@ final class TrafficTick
     }
 
     /**
-     * The function of this server that sends the response before the request ends, if any.
+     * What sends the response before the request ends on this server, if anything can: it writes
+     * PrestaShop's cookie, then calls the server's finish function.
+     *
+     * PrestaShop writes its cookie when the cookie object is destroyed, which is after the shutdown
+     * functions, and a login stores its session in the cookie after it has written the cookie
+     * (Context::updateCustomer()). A response sent before that write carries a cookie without the
+     * session, and the shopper is logged out on the next request. Cookie::write() does nothing when
+     * the cookie did not change or the headers have gone out, and PrestaShop's own write at the
+     * request's end then finds nothing to write: the cookie is not set twice.
      */
     public static function finishFunction(): ?callable
     {
         foreach (['fastcgi_finish_request', 'litespeed_finish_request'] as $function) {
             if (function_exists($function)) {
-                return $function;
+                return static function () use ($function): void {
+                    $cookie = \Context::getContext()->cookie;
+                    if ($cookie instanceof \Cookie) {
+                        $cookie->write();
+                    }
+                    $function();
+                };
             }
         }
 
