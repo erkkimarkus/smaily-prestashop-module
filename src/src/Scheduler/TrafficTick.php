@@ -116,6 +116,11 @@ final class TrafficTick
     {
         ignore_user_abort(true);
         ($this->finishRequest)();
+        // PHP keeps the session locked until the request ends: the visitor's next request would
+        // wait for the tick.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         try {
             ($this->tick)()->run(Tick::SOURCE_TRAFFIC, self::BUDGET, self::STALE_AFTER);
         } catch (\Throwable $error) {
