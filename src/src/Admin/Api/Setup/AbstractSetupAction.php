@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -43,7 +44,7 @@ abstract class AbstractSetupAction extends AbstractJsonAction
 {
     protected function panels(): SetupPanels
     {
-        return new SetupPanels(Services::instance(), $this->get('translator'));
+        return new SetupPanels(Services::instance(), BaseController::translator());
     }
 
     /**

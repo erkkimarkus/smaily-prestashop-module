@@ -1363,7 +1363,9 @@ The module's "Configure" button opens the Dashboard, or the Initial setup while 
 
 **[D]** The base controller stays `FrameworkBundleAdminController` (section 1.5). On 9.x,
 `Context::getContext()->controller` inside a Symfony admin page is a `LegacyControllerContext` proxy,
-so the module never detects the back office by the controller's class (facts file 1.9).
+so the module never detects the back office by the controller's class (facts file 1.9). On 8.2.8 a
+controller's container is a service locator without `translator`, so the controllers word everything
+through PrestaShop's context translator, `Admin\BaseController::translator()` (facts file 6.6).
 
 ### 10.2 Screen map
 

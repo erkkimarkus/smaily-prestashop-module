@@ -54,7 +54,7 @@ final class SetupController extends BaseController
     public function index(Request $request): Response
     {
         $services = Services::instance();
-        $panels = new SetupPanels($services, $this->get('translator'));
+        $panels = new SetupPanels($services, self::translator());
         $scope = $panels->scope(AbstractJsonAction::shopId());
         $target = $scope->targetShop();
         $reached = $panels->progress()->reachedStep($scope);

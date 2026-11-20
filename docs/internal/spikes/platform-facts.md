@@ -413,3 +413,28 @@ the file is enough to stop it.
 calls `ZipArchive::extractTo()` on the modules folder and removes nothing first. Files of the old
 version that the new zip does not contain stay on disk. They run only if code of the new version
 names them.
+
+### 6.6 An admin controller's container has no "translator" on 8.2.8
+
+**Observed** on 8.0.0, 8.2.8 and 9.2.0 (flashlight images, debug mode on), with the module's admin
+controllers registered as services under `_defaults: autoconfigure: true`
+(`config/admin/services/`). `bin/console debug:container <controller>` shows the tags
+`controller.service_arguments` and `container.service_subscriber` on 8.2.8 and 9.2.0, and no tag on
+8.0.0. With the subscriber tag, the controller's container is a service locator that holds only what
+Symfony's `AbstractController::getSubscribedServices()` lists (router, Twig, the authorization checker,
+the CSRF token manager and others): it holds no `translator`.
+
+- 8.2.8: `FrameworkBundleAdminController::trans()` and `$this->get('translator')` both read
+  `$this->container->get('translator')`, and every page and every worded JSON error answered HTTP 500
+  with `ServiceNotFoundException` ("Service "translator" not found … the container inside … is a
+  smaller service locator").
+- 8.0.0: the same calls work; the controller's service carries no subscriber tag, and its container
+  holds `translator`.
+- 9.2.0: the same calls work; `FrameworkBundleAdminController::doGet()` asks the locator first and
+  the whole container next.
+
+`Context::getContext()->getTranslator()` returns the container's `translator` service in a back-office
+request (**read from code**, `classes/Context.php`, 8.0.0 and 8.2.8) and needs nothing from the
+controller. So the module's controllers take their translator from the context
+(`Admin\BaseController::translator()`), and `Admin\BaseController` and `Admin\Api\AbstractJsonAction`
+override `trans()` to use it. A browser proof of an admin Story includes 8.2.8.

@@ -162,6 +162,10 @@ ask (Linear discipline below).
 - **Hooks in debug mode.** Registering a hook whose method the main class
   lacks throws while debug mode is on (facts file 6.3). Add the hook method
   and the `Install\HookList` entry in one commit.
+- **Admin controllers.** On 8.2.8 the controller's service locator has no
+  `translator` (facts file 6.6): word through
+  `Admin\BaseController::translator()`. Every admin Story's browser proof
+  includes 8.2.8.
 - **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).

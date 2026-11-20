@@ -37,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Update\UpdateNotice;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The base of the four admin pages: Dashboard, Initial setup, Settings and Log.
@@ -165,6 +166,30 @@ abstract class BaseController extends FrameworkBundleAdminController
         return Services::instance()->get(UpdateNotice::class)->current();
     }
 
+    /**
+     * The translator of every admin page and JSON endpoint: PrestaShop's own, from the context. On
+     * PrestaShop 8.2.8 a controller's container is a service locator that holds no "translator"
+     * (facts file 6.6), so no controller asks its container for one.
+     */
+    public static function translator(): TranslatorInterface
+    {
+        return \Context::getContext()->getTranslator();
+    }
+
+    /**
+     * The parent asks the controller's container for "translator".
+     *
+     * @param string $key
+     * @param string $domain
+     * @param array<string, mixed> $parameters
+     *
+     * @return string
+     */
+    protected function trans($key, $domain, array $parameters = [])
+    {
+        return self::translator()->trans($key, $parameters, $domain);
+    }
+
     private function pageTitle(string $page): string
     {
         switch ($page) {
@@ -185,7 +210,7 @@ abstract class BaseController extends FrameworkBundleAdminController
     private function notices(): array
     {
         $messages = new NoticeMessages(
-            $this->get('translator'),
+            self::translator(),
             static function (int $idShop): string {
                 $shop = \Shop::getShop($idShop);
 

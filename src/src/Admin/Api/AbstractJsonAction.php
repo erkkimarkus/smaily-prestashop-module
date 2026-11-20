@@ -81,6 +81,20 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
     abstract protected function handle(Request $request, int $idShop);
 
     /**
+     * The parent asks the controller's container for "translator" (BaseController::translator()).
+     *
+     * @param string $key
+     * @param string $domain
+     * @param array<string, mixed> $parameters
+     *
+     * @return string
+     */
+    protected function trans($key, $domain, array $parameters = [])
+    {
+        return BaseController::translator()->trans($key, $parameters, $domain);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     protected function ok(array $data = []): JsonResponse

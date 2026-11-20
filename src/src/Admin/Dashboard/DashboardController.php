@@ -66,8 +66,7 @@ final class DashboardController extends BaseController
             [self::class, 'tickUrl']
         );
         $settingsTab = self::PAGES['settings']['tab'];
-        // PrestaShop's own translator: on 8.x the controller's service locator holds no "translator".
-        $translator = \Context::getContext()->getTranslator();
+        $translator = self::translator();
         $view = (new DashboardView(fn (string $id, array $parameters = []): string => $translator->trans($id, $parameters, self::DOMAIN)))->build($facts->collect(
             self::pendingUpgrade()['status'] ?? null,
             AbstractJsonAction::shopId(),
