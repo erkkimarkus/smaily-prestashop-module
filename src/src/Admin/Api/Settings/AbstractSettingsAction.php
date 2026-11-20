@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\AbstractSetupAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
@@ -42,6 +43,6 @@ abstract class AbstractSettingsAction extends AbstractSetupAction
 {
     protected function settings(): SettingsPanels
     {
-        return new SettingsPanels(Services::instance(), $this->get('translator'));
+        return new SettingsPanels(Services::instance(), BaseController::translator());
     }
 }
