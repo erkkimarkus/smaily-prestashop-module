@@ -2,9 +2,10 @@
 
 This document is the binding architecture of version 3.0.0 of the module `smailyforprestashop`.
 It was written on 2026-11-20, before any 3.0.0 code. Workers build to it. The product owner decided
-the design-level choices on 2026-11-20; section 15 records them. Sections 1 to 5 and 11.4 describe
-the code on branch `v3` after stage 1 (Stories 1.1 to 1.7) and Story 2.1. A sentence that names a
-later Story describes work that is not built yet.
+the design-level choices on 2026-11-20; section 15 records them. Sections 1 to 6, 11.3 to 11.5 and 12
+describe the code on branch `v3` after stage 1 (Stories 1.1 to 1.7 and the clean-up of Story 1.8),
+Stories 2.1, 2.2 and 2.4, and the new-version check (section 11.5). A sentence that names a later
+Story describes work that is not built yet.
 
 The observed platform facts of PrestaShop 8 and 9 are in `docs/internal/spikes/platform-facts.md`
 (the facts file). Where the facts file and this document differ, the facts file wins, and the section
@@ -83,24 +84,30 @@ src/
   smailyforprestashop.php     main class: identity, install, uninstall, one-line hook methods
   upgrade/upgrade-3.0.0.php   PrestaShop upgrade entry point: calls Upgrade300::runPending() (3.7)
   config/services.yml         exposes Runtime\Services to the Symfony container
-  controllers/front/          tick, SmailyCustomerCron, SmailyCartCron (doors to the tick, section 4);
+  controllers/front/          tick, SmailyCustomerCron, SmailyCartCron (doors to the tick, section 4;
+                              all three extend Scheduler\DoorFrontController);
                               SmailyRssFeed (2.x code, still wired)
   src/
-    Runtime/                  Services (composition root) + Provider/<Area>Provider.php
+    Runtime/                  Services (composition root), Log (the one error-class logger)
+                              + Provider/<Area>Provider.php
     Hook/                     Dispatcher: hook name -> listeners from the providers
     Install/                  Installer, Schema, HookList, Uninstaller
-    Config/                   Settings (base, with removeShopValue()), TickSettings,
-                              MigrationNotices; AccountSettings, AutomationSettings,
-                              ContactsSettings, EngineSettings, RssSettings (still empty)
+    Config/                   Settings (base: get/set, getJson/setJson, reload, storedValue,
+                              removeShopValue), TickSettings, MigrationNotices, ContactsSettings,
+                              UpdateSettings; AccountSettings, AutomationSettings,
+                              EngineSettings, RssSettings (still empty)
     Migration/                LegacyState, LegacyReader, LegacyConfigMapper (pure), MigrationPlan,
                               Upgrade300, LegacyOverride
     Http/                     Transport (interface), SymfonyTransport, Response, NetworkException
     Smaily/                   Client, Account, AccountStore, Crypto, Exception/*
     Queue/                    EventQueue (with deleteClosed()), Flusher, RetryPolicy, Failure,
-                              Skipped, Pending, HandlerInterface
-    Scheduler/                Tick, TickReport, TickState, Job, Deadline, Lock, Door, TrafficTick,
-                              QueueJanitor
+                              Skipped, Pending, HandlerInterface; Handler/ContactSyncHandler
+    Scheduler/                Tick, TickReport, TickState, Job, Deadline, Lock, Door,
+                              DoorFrontController, TrafficTick, QueueJanitor
     Scope/                    StoreLayout, AccountResolver, Scope, ScopeResolver
+    Contacts/                 ContactSyncMode, ContactAudience, SubscriberPayloadBuilder,
+                              Reconciler; Import/ContactImport, ContactSource, JobStore
+    Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
     Automation/               WorkflowResolverInterface
 ```
 
@@ -116,9 +123,8 @@ Later Stories add these areas:
 src/
   controllers/front/          relay, land, recommendations, personalization
   src/
-    Contacts/                 ContactSyncMode, ContactAudience, SubscriberPayloadBuilder,
-                              Capture/, Reconciler, Import/
-    Queue/Handler/            ContactSyncHandler, AutomationHandler
+    Contacts/Capture/         the capture listeners (Story 2.3)
+    Queue/Handler/            AutomationHandler
     Automation/               Router, MappingRepository, Welcome/, FirstOrder/, AbandonedCart/
     Engine/                   Client, Connections, Setup, Payload/, IngestQueue, History/,
                               Automations/
@@ -171,8 +177,9 @@ providers. Later Stories register listeners in their own provider. The main clas
    fallback tick, which can finish a pending migration. When no listener applies, it returns `null`.
 2. It runs each listener in its own `try`/`catch (\Throwable)`. A listener that throws fails alone: the
    other listeners run, and the shop's request goes on.
-3. It logs a failure through `PrestaShopLogger` with the hook name, the error class and the file name
-   and line only. It never logs the error message, which can hold a secret or an address.
+3. It logs a failure through `Runtime\Log::failure()` with the hook name, the error class and the file
+   name and line only. It never logs the error message, which can hold a secret or an address.
+   `Log::failure()` is the one logger of this form: the tick and the upgrade script use it too.
 4. It combines the listeners' results: strings join (display hooks), arrays merge (`moduleRoutes`,
    `additionalCustomerFormFields`), and any other value replaces the previous one. A `null` result
    changes nothing.
@@ -183,7 +190,9 @@ providers. Later Stories register listeners in their own provider. The main clas
 |---|---|
 | Register a queue handler | `$services->set(QueueProvider::handlerId('<type>'), fn (Services $s) => new MyHandler(…));` (section 4.3) |
 | Enqueue an event | `$services->get(QueueProvider::EVENT_QUEUE)->enqueue('<type>', $idShop, $payload, $entityId, $language);` |
-| Register a scheduler job | `$services->listen(SchedulerProvider::JOBS, fn (): Job => new Job('<name>', $intervalSeconds, $budgetSeconds, function (Deadline $deadline) use ($services): void { … }, $runsBeforeUpgrade));` The last argument defaults to `false`; only the `migration` job sets it. |
+| Register a scheduler job | `$services->listen(SchedulerProvider::JOBS, fn (): Job => new Job('<name>', $intervalSeconds, $budgetSeconds, function (Deadline $deadline) use ($services): void { … }, $runsBeforeUpgrade));` The last argument defaults to `false`; only the `migration` job sets it. The same commit adds the job to the two tests that pin the tick's full job list (section 12). |
+| Log a failure | `Log::failure('<what failed>', $error);` (error class, file name and line; never the message) |
+| Read or write a setting | A subclass of `Config\Settings`: `get()`/`set()`, `getJson()`/`setJson()` for a JSON value, `storedValue()` for the value stored now (past this request's cache), `reload()` to load the configuration again (section 2.1). |
 | Run code before uninstall removes the data | `$services->listen(Uninstaller::BEFORE_REMOVAL, function (array $params) use ($services): void { … });` (section 11.4) |
 | Resolve the scope of a record | `$services->get(ScopeResolver::class)->forRecord($customerOrOrderOrCartOrRow)`, or `->resolve($idShop, $idLang)` (section 5.2) |
 
@@ -271,7 +280,11 @@ reads nothing until `Configuration::get()` or `loadConfiguration()` loads the co
   shop's row with `Configuration::deleteFromGivenContext($key, $idShopGroup, $idShop)`, whatever the
   admin's shop context; the shop then reads the global value. It never writes `NULL`, and it never
   uses `deleteFromContext()`. The writer never writes `NULL` and then a value to one key in one
-  request.
+  request. `getJson()` and `setJson()` read and write a JSON value (an unreadable value reads as
+  `[]`). `reload()` is the one way to load the configuration again (`resetStaticCache()`, then
+  `loadConfiguration()`). `storedValue($key, $idShop)` reads the row stored now at exactly that
+  scope with one SQL query, past the configuration that the request loaded, so it also sees a value
+  that another request wrote after this one started.
 - **The mapper (Story 1.3).** A shop row that holds `NULL` is that shop's effective value (off). It
   does not inherit the global value (section 3.3).
 - **The upgrade (Story 1.7).** The migration writes global rows with `updateGlobalValue()` and shop
@@ -293,8 +306,12 @@ writes.
 | `SMAILY_CONNECT_SEPARATE_STORES` | global | `0` one store in several versions, `1` separate stores. |
 | `SMAILY_CONNECT_LANGUAGE_MODE` | global or shop | `single`, `a`, `b`, `c`. |
 | `SMAILY_CONNECT_FALLBACK_LANGUAGE` | global or shop | The fallback language's ISO code. Read by `Scope\StoreLayout`; not written yet. |
-| `SMAILY_CONNECT_CONTACTS_ENABLED`, `_CONTACTS_MODE`, `_CONTACTS_GUESTS`, `_CONTACTS_CONFIRMED`, `_CHECKOUT_CHECKBOX` | global or shop | Contacts section (section 6). |
-| `SMAILY_CONNECT_CONTACTS_FIELDS` | global or shop | Comma list of the contact fields to send, `store` first, then the known names of `first_name,last_name,birthday,website` that the legacy list ticked, in that order. |
+| `SMAILY_CONNECT_CONTACTS_ENABLED`, `_CONTACTS_CONFIRMED` | global or shop | `1` = on. Contact sync is active for a shop only when both read `1` (`ContactsSettings::syncActive()`); a shop with nothing stored syncs nothing (section 6.4). The upgrade writes `_CONFIRMED = 1` only where it carried an active 2.x sync over. |
+| `SMAILY_CONNECT_CONTACTS_MODE` | global or shop | `subscribers`, `all_customers` or `checkout_optin` (section 6.2). Any other value reads as `subscribers`. The upgrade writes `subscribers`. |
+| `SMAILY_CONNECT_CONTACTS_GUESTS` | global or shop | `1` = "include guests" (section 6.2). The upgrade writes `1`. |
+| `SMAILY_CONNECT_CHECKOUT_CHECKBOX` | global or shop | `1` = the module's own checkout box (section 6.1). The upgrade writes `0`. Read by Story 2.3. |
+| `SMAILY_CONNECT_CONTACTS_FIELDS` | global or shop | Comma list of the contact fields to send, `store` first, then the known names of `first_name,last_name,birthday,website` that the legacy list ticked, in that order. The code reads only the four names; it sends `store` always. |
+| `SMAILY_CONNECT_RECONCILE_CURSORS` | global | JSON object: the reconcile's cursor per Smaily account (section 6.5). |
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. |
 | `SMAILY_CONNECT_CART_FIELDS` | global or shop | Comma list of the abandoned-cart template fields, the known names of `first_name,last_name,name,description,sku,price,base_price,quantity` that the legacy list ticked, in that order. |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults. The migration writes each only when the legacy value is valid. |
@@ -303,6 +320,7 @@ writes.
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
 | `SMAILY_CONNECT_HEALTH`, `_REPORT_STATE` | global | Section 11. Not written yet. |
+| `SMAILY_CONNECT_UPDATE_CHECK` | global | JSON `{"version", "download_url", "release_url", "checked_at", "dismissed"}`: the latest release that the daily check found, and the newest version that the merchant dismissed (section 11.5). |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | as stored | **Kept with their legacy names.** They are the URL contract in merchants' crontabs. A door reads its token at the request's shop, then its shop group, then the global scope, as 2.x did. A token that no scope holds is created at the global scope on its first read. A token stored empty keeps its door closed; the migration replaces it (section 3.4). |
 
 ### 2.2 Tables
@@ -328,7 +346,7 @@ Column rules of `Install\Schema`:
 |---|---|---|---|
 | `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.trigger`, `engine.identity_merge`, `engine.profiling_consent` | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
 | `smaily_connect_ingest_queue` | Engine ingest: `catalog`, `catalog_remove`, `customers`, `orders` | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (a catalog row is a marker; the payload is built at flush, see `woo:docs/LESSONS.md` §2.24), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
-| `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
+| `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
 | `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
 | `smaily_connect_cart` | Abandoned-cart tracker and reminder state | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`,`mailed`,`skipped`,`completed`,`expired`,`erased`), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
@@ -518,9 +536,11 @@ empty legacy token a new random value and adds a notice. This closes the 2.x hol
 changes the URL of the stores that it affects; those stores had an unauthenticated cron URL.
 
 **What the cron URLs do on `v3` today.** A 2.x crontab runs the tick, and the tick runs the jobs of
-section 4.1 that are registered. No job sends a customer sync or an abandoned-cart reminder yet: stage
-2 registers the contact sync and Story 4.3 the abandoned cart. The upgrade guide (Story 6.2) describes
-what the cron URLs do in 3.0.0.
+section 4.1 that are registered. For a shop whose contact sync is active, this covers the work of the
+2.x customer cron: the reconcile takes Smaily's unsubscribes into the store, and the daily refresh
+sends the mode's audience to Smaily (section 6.5). Store changes do not reach the queue yet (the
+capture hooks of Story 2.3), and no job sends an abandoned-cart reminder yet (Story 4.3). The upgrade
+guide (Story 6.2) describes what the cron URLs do in 3.0.0.
 
 ### 3.5 Already-reminded state
 
@@ -635,17 +655,23 @@ Registered on `v3` today:
 |---|---|---|---|---|---|
 | `queue_flush` | `SchedulerProvider` | 60 s | 20 s | no | Calls `Flusher::flush()` until it claims 0 rows or the budget ends. |
 | `queue_janitor` | `SchedulerProvider` | daily (86 400 s) | 10 s | no | Section 11.3. |
+| `contacts_reconcile` | `ContactReconcileProvider` | 15 min (900 s) | 15 s | no | `Contacts\Reconciler::run()`: Smaily's consent changes into the store (section 6.5). |
+| `contacts_refresh` | `ContactReconcileProvider` | daily (86 400 s) | 5 s | no | `ContactImport::scheduleRefresh()`: queues the daily refresh as a job row (section 6.5). |
+| `contacts_import` | `ContactReconcileProvider` | 60 s | 15 s | no | `ContactImport::run()`: sends pages of the first import and of the daily refresh (section 6.5). |
 | `migration` | `MigrationProvider` | 0 (every tick) | 10 s | yes | Calls `Upgrade300::runPending()` while the schema is not current (section 3.7). |
+| `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
+
+The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
+`contacts_refresh`, `contacts_import`, `migration`, `update_check`. Two integration tests pin this
+full list (section 12).
 
 Planned (the Story that builds each registers it):
 
 | Job | Interval | Time budget per run | Sibling | Story |
 |---|---|---|---|---|
 | Ingest queue flush | 1 min | 25 s | `FlushIngestQueue` | 5.2 |
-| Import chunk (contacts, catalog, history, daily refresh) | 1 min | 15 s | `BackfillTick` | 2.4, 5.2, 5.3 |
+| Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.2, 5.3 |
 | Abandoned-cart sweep | 5 min | 10 s | `AbandonedCart` | 4.3 |
-| Contact reconcile from Smaily | 15 min | 15 s | `ContactReconcile` | 2.4 |
-| Daily contact refresh | daily | as import chunks | `woo:` daily refresh | 2.4 |
 | Health check | 15 min | 5 s | `HealthCheck` | 5.1 |
 | Catalog manifest (§3c) | daily, 03:30 shop time | as import chunks | `SendCatalogManifest` | 5.2 |
 | Installation report | due check every tick | 5 s | `SendInstallationReport` | 6.1 |
@@ -666,12 +692,18 @@ Planned (the Story that builds each registers it):
 1. **One tick, many doors.** `Scheduler\Door` serves three URLs, each behind its own token: the new
    `controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>` and the two legacy cron URLs (section 3.4).
    Every door calls `Scheduler\Tick::run($door, $budget)` with the budget
-   `min(50, max_execution_time − 5)` seconds (50 s when there is no limit, at least 1 s). Each door
+   `min(50, max_execution_time − 5)` seconds (50 s when there is no limit, at least 1 s). The three
+   front controllers share `Scheduler\DoorFrontController`; each names only its door. Each door
    answers `text/plain` with one of these lines:
    - HTTP 403 `Access denied!` (the 2.x answer) for an empty or wrong token, or an empty stored token;
    - `OK: ran <job>, <job>.` or `OK: no job was due.`;
    - `Busy: another tick is running.`;
-   - `Waiting: the upgrade of the module has not finished.` while the schema is not current.
+   - `Waiting: the upgrade of the module has not finished.` while the schema is still not current
+     when the tick ends.
+
+   The tick reads the schema state again after its jobs ran. A tick whose `migration` job completes
+   the upgrade therefore answers `OK: ran migration.`; the other jobs wait for the next tick.
+   `TickSettings::newToken()` (32 hex characters) is the one generator of the door tokens.
 2. **The tick.** `Tick::run()` takes the lock, writes the tick time and source to the tick state, and
    runs each due job in order. Each job gets its own budget, cut to what is left of the tick's; a job
    that cannot start before the tick's budget ends waits for the next tick. The tick records a job as
@@ -749,9 +781,13 @@ holds no tick.
   per row id: `true` (sent), a `Skipped` (closed with a reason), a `Pending` (given back, no attempt
   spent), a `Failure`, or a `\Throwable` (read by `Failure::of()`). A row without an outcome fails and
   takes the retry ladder. A row whose event type no handler takes fails permanently.
-- **Classify.** `Failure::http()` parks a 4xx other than 429 at once; `Failure::envelope()` parks
-  Smaily's code 203 at once; any other failure takes the ladder of 60 s, 5 min, 15 min and 1 h and
-  parks after 5 attempts (`Queue\RetryPolicy`). A 429 waits the delay it asked for, at most 6 h.
+- **Classify.** `Failure::of($error)` reads the verdict that the Smaily client's error type carries:
+  a `RequestRefusedException` (a 4xx other than 429) and an `ApiException` whose `isPermanent()` is
+  true (Smaily's code 203) park at once. The rule "which Smaily answers are permanent" lives only in
+  the client's error types (`Smaily\Exception\*`); the queue keeps no copy of it. `Failure::http()`
+  does the same for a status that a handler reads itself. Any other failure takes the ladder of
+  60 s, 5 min, 15 min and 1 h and parks after 5 attempts (`Queue\RetryPolicy`). A 429 waits the
+  delay it asked for, at most 6 h.
 
 **Dashboard.** A "Background tasks" card shows the last tick time and its source (cron URL, visitor
 traffic, enqueue). States: green when a cron-URL tick ran within 5 min; amber when only fallback
@@ -861,19 +897,53 @@ checkout box: PrestaShop's box already exists in most stores, and two boxes conf
 The modes are Woo's presets (`woo:docs/CONTACT_SYNC_MODES.md` §2), with Smaily as the consent
 authority and `force_opt_in = false` on every automation trigger.
 
+"Guest-checkout customer" below is a `customer` row with `is_guest = 1`. "Newsletter-block
+subscriber" is an `emailsubscription` row, a subscriber without an account. "Include guests"
+(`SMAILY_CONNECT_CONTACTS_GUESTS`) covers both; upgraded stores have it on.
+
 | | Subscribers only (default; upgrades) | All customers | Checkout opt-in only |
 |---|---|---|---|
-| Live sync | A customer or guest at opt-in; opt-out sends `is_unsubscribed=1`. | Every customer at register, profile change, order. Never sends `is_unsubscribed`. | Only a checkout with the box ticked. |
-| Newsletter-block guests | When "include guests" is on (on for upgrades). | When "include guests" is on. | No. |
-| First import and daily refresh | `newsletter = 1` customers (+ active `emailsubscription` rows with guests on). | Every customer. | None. |
-| Reconcile from Smaily | Both directions: unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); re-subscribe sets `newsletter = 1`. | None. | None. |
+| Live sync of a registered customer | At opt-in; at opt-out with `is_unsubscribed = 1`. | Every store event (register, profile change, order), whatever the consent. | Only a checkout in which the box was ticked. |
+| Live sync of a guest-checkout customer | As a registered customer, and only when "include guests" is on (decision of 2026-11-20, WooCommerce's rule). | As a registered customer, and only when "include guests" is on (decision of 2026-11-20). | As a registered customer: a ticked box is sent whatever "include guests" says. |
+| Newsletter-block subscribers | When "include guests" is on: a subscribe, and an unsubscribe with `is_unsubscribed = 1`. | When "include guests" is on: a subscribe only. | Never. |
+| First import and daily refresh | Registered customers with `newsletter = 1`; guest-checkout customers with `newsletter = 1` and active `emailsubscription` rows when "include guests" is on. | Every registered customer; guest-checkout customers and active `emailsubscription` rows when "include guests" is on. | None. |
+| Reconcile from Smaily | Both directions, with the first-run rule below: an unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); a re-subscribe sets `newsletter = 1`. | None. | None. |
 | `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Never. | `0` with the tick. |
 | Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row (guests on), the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
 
+A customer who is soft-deleted (`customer.deleted = 1`) is never imported. Whether the
+abandoned-cart reminder also applies the guest rule of the live sync is an open owner question for
+Story 4.3 (section 14); `ContactAudience::remindsCart()` does not apply it today.
+
 **[D]** (owner, Erkki, 2026-11-20) The reconcile is two-way in subscribers-only mode. An unsubscribe
 in Smaily sets `newsletter = 0` and `emailsubscription.active = 0`, as 2.x did. A re-subscribe in
-Smaily is written back to the store: `newsletter` 0 → 1, as WooCommerce preset 2 does. The store
-mirrors Smaily; the Smaily audience does not grow.
+Smaily is written back to the store: `newsletter` 0 → 1, as WooCommerce preset 2 does. It does not
+set an inactive `emailsubscription` row active again: such a row can wait for the shopper's email
+verification. The store mirrors Smaily; the Smaily audience does not grow.
+
+**[D]** (owner, Erkki, 2026-11-20; the list-based form is the orchestrator's technical refinement)
+The first reconcile of each Smaily account takes only unsubscribes. The owner's rule is "an upgrade
+never marks anyone subscribed again". **Reason:** 2.x never sent a newsletter-block unsubscribe to
+Smaily, so an opt-in in Smaily's action log can belong to a shopper who has unsubscribed in the store
+since. The first run therefore:
+
+1. reads the action log (`history.php`) to its end without applying any row, only to set the
+   account's cursor at the log's end;
+2. then reads Smaily's current unsubscriber list (`contact.php`, `list=2`, as 2.x did) and sets those
+   addresses unsubscribed in the store;
+3. marks nobody subscribed.
+
+The log's end is read before the list. A change that Smaily logs after that end is replayed by the
+next run, in both directions; an unsubscribe logged before that end is on the list, which is read
+after it. So the first run never unsubscribes a contact that Smaily holds as subscribed now, and no
+change falls between the two reads. From the second run on, the reconcile is two-way.
+
+**[D]** (owner, Erkki, 2026-11-20) In all customers, a guest-checkout customer is sent only when
+"include guests" is on. In subscribers only, a guest-checkout customer who ticked the box is sent only
+when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a ticked box whatever
+"include guests" says (this already matched WooCommerce). A registered customer is never gated by
+"include guests". The live-sync gates take effect once the capture of Story 2.3 sets the payload's
+`guest` field (section 6.4); the imports apply them today.
 
 **[D]** "Status sent only on change": a `contact.sync` row carries `is_unsubscribed` only when the
 listener saw the consent value change. Automations and imports never send `is_unsubscribed = 0`.
@@ -907,6 +977,135 @@ with `action = '1'`, confirmed against the stored state. A guest's unsubscribe f
 confirms it. The welcome automation on a block subscribe follows `actionNewsletterRegistrationAfter`,
 so with the verification email on it starts from the verification link. The reconcile from Smaily
 (6.2) heals a change that no hook caught.
+
+### 6.4 Contact sync (as built in Story 2.2)
+
+**Policy.** `Contacts\ContactSyncMode` holds a mode and "include guests". Its stored values are
+`subscribers`, `all_customers` and `checkout_optin`; an unknown value reads as `subscribers`, so a bad
+value never widens the audience. `Contacts\ContactAudience` answers every audience question of the
+table in 6.2: the live sync (`syncs()`), the status a row carries (`unsubscribedStatus()`), the imports
+(`importsCustomer()`, `importsNewsletterGuests()`) and the abandoned-cart reminder (`remindsCart()`).
+The live sync, the imports and the reminder ask this one object, so they never disagree.
+
+**Active only when confirmed.** `ContactsSettings::syncActive($idShop)` is true only when
+`SMAILY_CONNECT_CONTACTS_ENABLED` and `SMAILY_CONNECT_CONTACTS_CONFIRMED` both read `1` for the shop
+(its own row, else the global row). A store with nothing stored syncs nothing.
+
+**The `contact.sync` event.** Story 2.3 enqueues it with
+`EventQueue::enqueue('contact.sync', $idShop, $payload, …)`. The payload records what the store saw;
+the handler reads the mode, the fields and the account when it sends the row:
+
+    {"email": "<address>", "source": "customer" | "newsletter_block", "subscribed": true,
+     "consent_changed": false, "checkout": false, "guest": false, "id_lang": 1,
+     "customer": {"firstname": "…", "lastname": "…", "birthday": "…", "website": "…"}}
+
+| Field | Required | Meaning |
+|---|---|---|
+| `email` | yes | The contact's address (not empty). |
+| `source` | yes | `customer` for a `customer` row (a guest-checkout customer included); `newsletter_block` for an `emailsubscription` row. |
+| `subscribed` | yes | The contact's consent in the store after the event. |
+| `consent_changed` | yes | Whether the store saw this event change that consent. |
+| `checkout` | no, default `false` | Whether the event is a checkout: a registration or a guest at the order step, or an order. |
+| `guest` | no, default `false` | `true` for a guest-checkout customer (`is_guest = 1`). |
+| `id_lang` | no, default `0` | The contact's language id; the handler resolves the shop, the language code and the account from it (section 5.2). |
+| `customer` | no, default `{}` | The `customer` columns that the selected fields read; empty for a newsletter-block subscriber. |
+
+A payload that does not fit this shape fails permanently with `malformed_payload`.
+
+**What Smaily receives** (`Contacts\SubscriberPayloadBuilder`, Smaily's `contact.php`): `email`
+(trimmed, lower case); `store`, the domain of the contact's shop as 2.x sent it; `language`, the ISO
+code of the contact's language; the selected fields of `first_name`, `last_name`, `birthday` and
+`website`; and `is_unsubscribed` (`1` or `0`) only when `unsubscribedStatus()` gives a status, that is
+on a consent change. An empty value is left out, so Smaily keeps the field it has. A birthday that was
+never entered (`0000-00-00`) counts as empty.
+
+**Sending** (`Queue\Handler\ContactSyncHandler`). The rows of one flush batch go in one request per
+Smaily account. A row that cannot go ends `skipped` with one of these reason codes, which never name
+the contact:
+
+| Reason code | When |
+|---|---|
+| `contact_sync_off` | The shop's contact sync is not active. |
+| `not_in_audience` | The contact is outside the shop's audience (`syncs()` is false). |
+| `no_account` | No account serves the row's shop and language. |
+| `no_credentials` | The account's password does not decrypt or is empty. |
+
+Smaily answers one code for a whole request. When it refuses a group of several contacts as invalid
+data (code 203), the handler sends each contact of the group again in a request of its own, so only
+the refused contact fails (Magento PRO-3753). Any other failure of the wire is the outcome of every row
+of the group, and `Queue\Failure::of()` classifies it (section 4.3).
+
+### 6.5 Reconcile, daily refresh and first import (as built in Story 2.4)
+
+`ContactReconcileProvider` registers the three jobs of section 4.1: `contacts_reconcile` (every 15 min,
+15 s), `contacts_refresh` (daily, 5 s) and `contacts_import` (every 60 s, 15 s).
+
+**Reconcile** (`Contacts\Reconciler`). The shops that take part are those whose contact sync is active
+and whose mode is subscribers only. For each Smaily account that serves one of those shops in some
+language, the reconcile reads the account's action log (`history.php`, the actions `optin`, `optout`,
+`delete` and `complaint`) from its cursor on, in pages of 10 000 rows, oldest first. `optout`, `delete`
+and `complaint` set `customer.newsletter = 0` and `emailsubscription.active = 0`; `optin` sets
+`customer.newsletter = 1`. The first run of each account follows the first-run rule of 6.2; it reads
+the unsubscriber list in pages of 1000.
+
+- A change touches only rows of the shops that take part whose shop and language resolve to the
+  account that reported it (`ScopeResolver`), so a shop is never changed by another shop's account.
+- The writes go straight to the `customer` and `emailsubscription` tables with `Db`: they fire no
+  hook and enqueue nothing.
+- The cursor is stored after every chunk of 500 log rows and after every list page, so a run that its
+  deadline stops goes on from there at the next tick.
+- An account whose call fails is logged with the shop, the language and the failure reason, never a
+  contact; the other accounts go on.
+- **Known limit.** Smaily pages the unsubscriber list by page number. When the list shrinks between
+  two ticks of one first run, one address can be skipped; that contact then stays as the store has
+  it. 2.x had the same exposure.
+
+**The cursors** (`SMAILY_CONNECT_RECONCILE_CURSORS`, global): a JSON object with one entry per
+account, keyed `<account id_shop>:<account language>:<subdomain in lower case>`. An account's entry is
+absent or has one of three shapes:
+
+| Shape | Meaning |
+|---|---|
+| (no entry) | The first run has not started. |
+| `{"seq_id": <n>, "first_run": true}` | The first run reads the action log; `<n>` is the last `seq_id` read. |
+| `{"seq_id": <log end>, "first_run": true, "list_page": <p>}` | The first run has read the log to its end and reads the unsubscriber list from page `<p>` (the first page is 0). |
+| `<n>` (a number) | The first run is done; `<n>` is the last `seq_id` read. A finished first run is never stored back as a first run. |
+
+The reconcile reads the cursors from the table each time, because another request may have written
+them after this one loaded the configuration.
+
+**Imports** (`Contacts\Import\ContactImport`, `ContactSource`, `JobStore`). The first import and the
+daily refresh are rows of `smaily_connect_job`:
+
+| Column | Content |
+|---|---|
+| `type` | `contacts_import` (the first import, which the admin starts) or `contacts_refresh` (the daily refresh). |
+| `id_shop` | One shop, or `0` = every shop. The refresh always uses `0`. |
+| `status` | `queued`, `running`, `done`, `failed` or `cancelled`. |
+| `cursor` | `customer:<id_customer>` or `newsletter_block:<id>`, the last record sent; `NULL` = the start. Customers come first, then the active `emailsubscription` rows, each in primary-key order. |
+| `counts` | JSON `{"total", "sent", "failed", "skipped"}`: `total` is the audience when the run started; `skipped` counts audience contacts whose account is missing or has no credentials. |
+| `last_error` | A reason code or a failure class, never a contact: `contact_sync_off`, `no_account`, `no_credentials`, or a `Failure` reason. |
+
+- Every record is weighed by the settings of its own shop: a shop whose contact sync is not active
+  sends nothing, and `ContactAudience` decides who is in the audience. A customer with
+  `deleted = 1` is never read.
+- The job `contacts_import` sends pages of 500 records, one request per account, until its deadline
+  passes, and stores the cursor and the counts after each page. A group refused with code 203 goes
+  again one contact per request. A permanent refusal counts the contacts as failed, and the run goes
+  on. A temporary failure (a 5xx, a 429, the network) ends the run as `failed` before the page.
+- No import row carries `is_unsubscribed`: an import passes no consent change, so it never
+  re-subscribes anyone.
+- The job `contacts_refresh` queues a refresh of every shop once a day. It runs whether or not a first
+  import ran. It queues nothing while an import or a refresh is still `queued` or `running`, while no
+  shop has an active contact sync, or while the audience is empty.
+
+**The calls the admin uses** (`Services::instance()->get(ContactImport::class)`):
+
+| Call | Does |
+|---|---|
+| `start(int $idShop = 0): int` | Starts the first import of one shop (`0` = every shop) and returns the job id. A `queued` or `running` import is left as it is. A `cancelled` or `failed` import is queued again and resumes from its cursor. After a `done` import, a start imports again from the first contact. With no active contact sync in its shops, the import is `done` at once with `last_error` `contact_sync_off`. |
+| `stop(int $idShop = 0): bool` | Stops the import after the page it is sending (`cancelled`); `false` when none was `queued` or `running`. |
+| `progress(int $idShop = 0, string $type = 'contacts_import'): ?array` | The newest run of that type and shop, or `null`: `{"id", "type", "id_shop", "status", "total", "sent", "failed", "skipped", "started_at", "updated_at", "finished_at", "last_error"}`; times are UTC. |
 
 ---
 
@@ -1230,9 +1429,19 @@ Only the module's own components change colour. The back office keeps its native
 the toolbar and PrestaShop's own controls stay as PrestaShop draws them. The full palette, dark mode
 included, is in Linear CON-377; Story 3.1 reads it there.
 
+### 10.7 New-version notice
+
+**[D]** (owner, 2026-11-20, Linear CON-380) The module pages show a notice when a newer release of
+the module is out, with a link to the release page and to its zip, and a button that dismisses the
+notice. A merchant who installed the module from a GitHub zip gets no update notification from
+PrestaShop (`docs/MARKETPLACE.md`), so the module brings its own. The backend is built (section
+11.5): the admin reads `UpdateNotice::current()` and calls `UpdateNotice::dismiss($version)`. **Not
+built:** the notice on the admin pages; it comes after the admin shell (Story 3.1). The module never
+downloads or installs a release: the merchant does that.
+
 ---
 
-## 11. Installation report, privacy, retention, uninstall
+## 11. Installation report, privacy, retention, uninstall, new-version check
 
 ### 11.1 Installation report
 
@@ -1259,6 +1468,7 @@ included, is in Linear CON-377; Story 3.1 reads it there.
 | Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes local rows that hold the address or its keyed hash; marks tracker rows `erased`; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). |
 | Profiling opt-out (§10) | My Account "Personalization" page, shown only with a connection; writes the local record first, then queues §10; the newest choice wins; a marketing unsubscribe also stops profiling (Magento parity audit R1–R3). |
 | Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address. |
+| New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
 
 ### 11.3 Retention
 
@@ -1270,8 +1480,9 @@ As built (Story 1.6): the job `queue_janitor` (`Scheduler\QueueJanitor`) runs da
 event queue only. It deletes `sent` and `skipped` rows 30 days and `failed` rows 90 days after their
 `updated_at`, in batches of 1000 by primary key (`EventQueue::deleteClosed()`), until none is left or
 its deadline passes. It never deletes a `pending` or `processing` row. The Stories that build the
-ingest queue (5.2), the cart tracker (4.3) and the job table's imports (2.4) add their tables to the
-sweep.
+ingest queue (5.2) and the cart tracker (4.3) add their tables to the sweep. Story 2.4 writes rows to
+the job table but did not add it to the sweep: finished import jobs stay until uninstall, a
+clean-up item (section 13, "Queued clean-up").
 
 ### 11.4 Uninstall
 
@@ -1297,6 +1508,45 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 Demonstrated on 8.0.0, 8.2.8 and 9.2.0: a console uninstall leaves 0 module keys and 0 module tables,
 after a fresh install and after an upgrade.
 
+### 11.5 New-version check
+
+**[D]** (owner, 2026-11-20, Linear CON-380: "GitHub now") The module learns the latest version from
+its official GitHub repository. A notice that Smaily writes and delivers with the answer to the
+installation report can come later; the subscription team was asked (Linear SUB-28).
+
+As built (`src/src/Update/`, `Config\UpdateSettings`, `UpdateProvider`):
+
+- **The job.** `update_check` runs daily (86 400 s) with a 10 s budget. It calls
+  `LatestRelease::fetch()` and records the answer with `UpdateNotice::record()`. A failed check (no
+  answer, an HTTP status other than 200, an unusable release) throws to the tick, which logs one line
+  with the error class; the stored state stays. The tick records a job's run before the job starts, so
+  a failed check waits a day like a successful one.
+- **The request.** `GET https://api.github.com/repos/sendsmaily/smaily-prestashop-module/releases/latest`
+  with the fixed User-Agent `SmailyForPrestaShop/<module version>` and `Accept:
+  application/vnd.github+json`. It carries no store data: no shop address or name, no account, no
+  cookie. The request may take 5 s as a whole (`timeout` and `max_duration`), so a slow GitHub does not
+  hold the tick. GitHub's "latest release" is the newest release that is neither a draft nor a
+  pre-release.
+- **Validation.** The answer is taken whole or not at all. Its tag must be a plain version number
+  (`3.0.1` or `v3.0.1`; not a release candidate). The release page and the zip URL must point into the
+  official repository on `https://github.com/sendsmaily/smaily-prestashop-module/` or
+  `https://api.github.com/repos/sendsmaily/smaily-prestashop-module/`, with no `..`, query, fragment,
+  port or credentials (`LatestRelease::isOfficialUrl()`). The zip URL is the first `.zip` asset, else
+  the release page.
+- **The state** (`SMAILY_CONNECT_UPDATE_CHECK`, global): JSON
+  `{"version": "3.0.1", "download_url": "…", "release_url": "…", "checked_at": <Unix time>,
+  "dismissed": "3.0.1" | null}`. A check keeps the dismissal.
+- **The admin's calls.** `UpdateNotice::current(): ?array` returns `{"version", "download_url",
+  "release_url"}` only while the known release is newer than the installed module and newer than the
+  dismissed version, and its URLs pass the validation again; it reads the state from the configuration
+  that the request loaded (no HTTP call, no query). `UpdateNotice::dismiss(string $version)` closes the
+  notice for that version and every older one, for every admin; a later release shows again. Both are
+  reached through `Services::instance()->get(UpdateNotice::class)`.
+- **Never.** The module never downloads or installs a release.
+
+**Privacy text** (section 11.2 and the merchant guide): "The module asks GitHub for the latest version
+once a day and sends no store data."
+
 ---
 
 ## 12. Testing and tooling
@@ -1305,13 +1555,15 @@ after a fresh install and after an upgrade.
 |---|---|---|
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
-| Mocks | The Smaily API mock is built: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`, and the 2.x Smaily calls run against it (Story 1.4). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` |
+| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` |
+| Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
+| Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
 | Subprocesses | Concurrency tests start PHP workers next to the test (`Queue/flush-worker.php`, `Migration/migration-worker.php`, `Scheduler/lock-holder.php`). A worker prints with `fwrite(STDOUT, …)`: the shop's bootstrap can buffer what `echo` prints. | `tests/Integration/<Area>/` |
 | JavaScript | The IIFE first-statement check for every file in `views/js/front/`; logic of `consent.js` tested with Node's built-in test runner (no npm packages). | `tests/js/` |
 | Contract check | CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and `docs/contracts/installation-report-v1.md` with the subscription repository's copy (`gh api`, read token), and fails on any difference. | CI |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 278 tests, 1337 assertions on 8.0.0, 8.2.8 and 9.2.0 at the stage 1 integration commit; 350 tests, 1399 assertions on 8.2.8 and 9.2.0 after Story 2.1 was merged with Story 1.7, as the Story 2.1 run reported. | — |
+| Last verified counts | The in-shop suite: 585 tests, 2333 assertions on PrestaShop 8.2.8 and 9.2.0, and `tests/ci/validate.sh` 10 of 10 checks on both, with Stories 1.8, 2.2 and 2.4 and the new-version check, as the worker that ran them reported. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` as today; checks: version equal in main class and `composer.json`; no `tests/`, `docs/internal/` or dev files in the zip; the zip installs and upgrades on the matrix. | `bin/package.sh`, CI |
@@ -1338,9 +1590,23 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | Stage 1 integration pass | Done | `config:`, `hook:`, `migration:`, `tests:` (the migration as a tick job, the fallback tick before the upgrade, one migration at a time, the 1.6.x tab) |
 | Queue deadlock fix | Done | `queue:` (`FORCE INDEX (PRIMARY)`, section 4.3) |
 | 2.1 Scope | Done | `scope:`, `config:` |
-| 2.2 Consent policy and contact payload | In progress | — |
-| 1.8 Stage 1 clean-up | Planned, before stage 3 | — |
+| 2.2 Consent policy and contact payload | Done, with the owner's consent decisions of 2026-11-20 (section 6.2) | `contacts:`, `queue:`, `config:`, `module:`, `tests:` |
+| 1.8 Stage 1 clean-up | Done, except the deferred items below | `scheduler:`, `module:`, `config:`, `tooling:` |
+| 2.4 Reconcile, daily refresh, first import | Done, with the owner's consent decisions of 2026-11-20 (section 6.2) | `contacts:`, `module:`, `tests:` |
+| New-version check, backend (Linear CON-380) | Done (section 11.5) | `update:` |
+| 2.3 Capture hooks | Next; waits for Story 3.1, because both edit the main class | — |
+| 3.1 Admin shell | In progress | — |
+| 4.1 Automation routing and mapping, backend | In progress | — |
+| New-version notice on the admin pages (CON-380) | Queued, after Story 3.1 (section 10.7) | — |
+| Marketplace technical rules (Linear CON-379) | Queued, after the running Stories land: it touches every file (`docs/MARKETPLACE.md`) | — |
 | All others | Not started | — |
+
+**Queued clean-up** (each a separate task):
+
+1. The deferred part of Story 1.8 (below).
+2. The Smaily mock's transport refuses every host other than `*.sendsmaily.net` (section 12).
+3. The integration test that leaves other cron tokens behind restores the tokens it found (section 12).
+4. The queue janitor also sweeps finished rows of `smaily_connect_job` (section 11.3).
 
 The contract copy `docs/RECENGINE_API_CONTRACT.md` was re-synced on 2026-11-20 (`docs:` commit). It is
 still v1.35.0; the engine changed two texts: §6c is now "built and switched off", and the list of
@@ -1368,13 +1634,15 @@ has one owner:
 | `SchedulerProvider` | 1.6 | |
 | `MigrationProvider` | 1.7 | |
 | `ScopeProvider` | 2.1 | |
-| `ContactSyncProvider` (new) | 2.2 | Registers `Queue\Handler\ContactSyncHandler` under `QueueProvider::handlerId('contact.sync')`. Story 2.2 creates `src/src/Runtime/Provider/ContactSyncProvider.php` and adds it to `Services::PROVIDERS`, its only edit of `Runtime\Services`. |
-| `ContactsProvider` | 2.3 | The capture listeners. |
+| `ContactSyncProvider` | 2.2 | Registers `ContactsSettings`, `SubscriberPayloadBuilder` and `Queue\Handler\ContactSyncHandler` under `QueueProvider::handlerId('contact.sync')`. |
+| `ContactsProvider` | 2.3 | The capture listeners. Empty today. |
+| `ContactReconcileProvider` | 2.4 | `Reconciler`, `ContactImport` and the jobs `contacts_reconcile`, `contacts_refresh`, `contacts_import`. |
 | `AutomationProvider` | 4.1 | Leaves a registration point that 4.2 and 4.3 fill from their own files: `register()` calls the `register(Services)` method of one class per automation, which 4.1 creates empty in `src/src/Automation/Welcome/`, `FirstOrder/` and `AbandonedCart/`, and which 4.2 and 4.3 then own. |
 | `EngineProvider` | 5.1 | |
 | `StorefrontProvider` | 5.5 | |
 | `PrivacyProvider` | 5.6 | |
 | `ReportProvider` | 6.1 | |
+| `UpdateProvider` | CON-380 | `UpdateSettings`, `UpdateNotice`, `LatestRelease` and the job `update_check`. Last in `Services::PROVIDERS`, after `MigrationProvider`. |
 
 ### Story 1.1 — Shared skeleton (first, alone)
 
@@ -1489,20 +1757,25 @@ has one owner:
 
 ### Story 1.8 — Stage 1 clean-up (before stage 3)
 
-- **Goal.** Close the small defects and the dead code that stage 1 left. The accepted fixes of the
-  stage 1 simplification review land in the same commit.
+- **Goal.** Close the small defects and the dead code that stage 1 left, with the accepted fixes of
+  the stage 1 simplification review.
 - **Owns.** The files that each item names.
-- **Items.**
-  1. A door that completes the migration answers `Waiting: the upgrade of the module has not
-     finished.` although the work is done: `Scheduler\Tick::run()` reads the schema state before its
-     jobs run.
-  2. `tests/ci/validate.sh` inserts a second `SMAILY_CONNECT_SCHEMA_VERSION` row after its storefront
-     check: the fallback tick of that request has already migrated the CI shop and stored the version.
-  3. The docblock of `Install\Schema` says that every hook listener and the tick do nothing while the
-     version differs; the fallback tick and the `migration` job run then (section 3.7).
-  4. `src/composer.json` still maps the PSR-4 prefix `…\Lib\` to `lib/`, which no longer exists.
-  5. The legacy RSS tab of the 2.x admin page passes `null` into the typed
-     `RssFeedController::buildRssUrl()` on a fresh 3.0.0 install, where no legacy RSS key exists.
+- **Done.** The three door controllers share `Scheduler\DoorFrontController`; `Runtime\Log::failure()`
+  is the one error-class logger; `Config\Settings::{getJson,setJson,reload,storedValue}` are the one
+  way to read JSON, to reload the configuration and to read past its cache; `TickSettings::newToken()`
+  generates the door tokens; the unused `Installer::uninstall()` is removed; the PSR-4 mapping of the
+  deleted `lib/` folder is removed; a tick door that completes the migration answers
+  `OK: ran migration.`; `tests/ci/validate.sh` leaves exactly one schema-version row; the docblock of
+  `Install\Schema` names what runs before the upgrade.
+- **Deferred** (after the admin shell, Story 3.1, lands; `Upgrade300` is also its "Finish upgrade"
+  action's code):
+  1. `Migration\Upgrade300` still has its own configuration reload, its own JSON handling, raw
+     configuration SQL, its own token generator, and inline SQL for the mapping rows.
+  2. `Migration\LegacyOverride` is built in two places (`MigrationProvider` and the main class's
+     `uninstall()`); register it once as a service.
+- **Still open.** The legacy RSS tab of the 2.x admin page passes `null` into the typed
+  `RssFeedController::buildRssUrl()` on a fresh 3.0.0 install, where no legacy RSS key exists. Story
+  3.3 replaces that page.
 - **Unwired legacy classes, and when each goes.** `Controller/CustomerSyncController` and the
   subscriber classes of `Model/` go with stage 2 (contact sync). `Controller/AbandonedCartController`
   and the cart classes of `Model/` go with Story 4.3. The 2.x admin page (`ModuleConfigurationController`,
@@ -1534,6 +1807,7 @@ has one owner:
   3. A contact row carries `store` (shop domain, as 2.x), `language`, and only the selected fields; an
      empty value is left out.
   4. A 203 on a group re-sends each contact alone (Magento PRO-3753).
+- **As built.** Section 6.4, with the guest rules of section 6.2 (decisions of 2026-11-20).
 
 ### Story 2.3 — Contact capture hooks
 
@@ -1552,12 +1826,18 @@ has one owner:
      nothing.
   2. One request that fires two of these hooks enqueues one row.
   3. The own checkout box appears only where `ps_emailsubscription` is inactive and the setting is on.
+  4. Every `contact.sync` row carries the payload of section 6.4; a guest-checkout customer's row
+     carries `"guest": true`, so the guest gates of section 6.2 apply to the live sync.
+- **Order.** Story 2.3 runs after Story 3.1: both edit the main class (section 13, "The main
+  class"). Capabilities 5 and 6 can be walked end to end only after Story 2.3.
 
 ### Story 2.4 — Reconcile, daily refresh and first import
 
 - **Goal.** Smaily's unsubscribes reach the store, and existing contacts reach Smaily once.
-- **Owns.** `src/src/Contacts/{Reconciler.php,Import/}`.
+- **Owns.** `src/src/Contacts/{Reconciler.php,Import/}`, `src/src/Runtime/Provider/ContactReconcileProvider.php` and its line in `Runtime\Services::PROVIDERS`.
 - **Depends on.** 2.1, 2.2, 1.6.
+- **As built.** Section 6.5. The first run of each account takes only unsubscribes, from Smaily's
+  unsubscriber list (section 6.2, decision of 2026-11-20).
 - **Acceptance.**
   1. In subscribers mode an unsubscribe in Smaily sets `newsletter = 0` and `emailsubscription.active = 0`,
      and a re-subscribe in Smaily sets `newsletter = 1` (section 6.2), within one reconcile run, and
@@ -1667,6 +1947,8 @@ has one owner:
   2. A cart with a migrated `smaily_cart` row is never reminded.
   3. An order withdraws a pending reminder for that address.
   4. The consent gate of decision 3 skips with a reason that the Log shows.
+- **Owner question before the Story starts.** Does the reminder also apply the guest rule of the
+  live sync (section 6.2)? `ContactAudience::remindsCart()` does not apply it today (section 14).
 
 **Stage 4 parallel groups.** 4.1 → {4.2, 4.3}.
 
@@ -1810,9 +2092,13 @@ has one owner:
 | 12 | Merchants who disabled `ps_emailsubscription` emails through 2.x | 3.0.0 cannot restore the `NW_*` values (2.x kept no copy), and `NW_VOUCHER_CODE` is lost. | Accepted; a migration notice and UPGRADING.md say so (2.4) |
 | 13 | 1.6.x stores lose the 1.6.x newsletter block | Own signup form is out of 3.0.0. | Accepted; notice + UPGRADING.md |
 | 14 | Prefix assignment while two connections share one engine store (section 5.3) | Until the engine assigns prefixes, two separate-store shops on one Smaily account send no nightly manifest, so lost delete and stock events heal only on the next change. | Engine team |
-| 15 | Platform facts not verified yet (facts file part 5) | 1. PrestaShop 8.0.x at runtime: verified for the in-shop test suite and for the upgrade walks (genuine 2.2.0 and 1.6.2 stores by upload and console, the FTP walk, the injected failure, the uninstall; section 3.7). The hook probes of the facts file did not run on 8.0.0. 2. MySQL: every run used MariaDB, so the queue's `FORCE INDEX` claim, `GET_LOCK` and the upgrade are untested on MySQL. 3. The official image `prestashop/prestashop:9.2.0-8.1`, which the CI lane uses, passed `validate.sh` with the skeleton and the event queue, not with the code of Stories 1.6, 1.7 and 2.1. 4. LiteSpeed (`litespeed_finish_request()`). 5. The 1.6.x hidden-tab removal: the 1.6.2 walks loaded the tab from the fixture, because 1.6.2 itself does not install in debug mode; no real 1.6.2 install ran it. 6. The hooks not exercised: `actionOrderEdited`, `actionObjectProductAddAfter` on the v2 page, `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter`, `displayCustomerAccount`, the psgdpr hooks. 7. The back office in Estonian: no demo shop has the language. | The Story that relies on each item verifies it; the matrix (section 12) covers 8.0 |
+| 15 | Platform facts not verified yet (facts file part 5) | 1. PrestaShop 8.0.x at runtime: verified for the in-shop test suite and for the upgrade walks (genuine 2.2.0 and 1.6.2 stores by upload and console, the FTP walk, the injected failure, the uninstall; section 3.7). The hook probes of the facts file did not run on 8.0.0. 2. MySQL: every run used MariaDB, so the queue's `FORCE INDEX` claim, `GET_LOCK` and the upgrade are untested on MySQL. 3. The official image `prestashop/prestashop:9.2.0-8.1`, which the CI lane uses, passed `validate.sh` with the skeleton and the event queue, not with any later code. 4. LiteSpeed (`litespeed_finish_request()`). 5. The 1.6.x hidden-tab removal: the 1.6.2 walks loaded the tab from the fixture, because 1.6.2 itself does not install in debug mode; no real 1.6.2 install ran it. 6. The hooks not exercised: `actionOrderEdited`, `actionObjectProductAddAfter` on the v2 page, `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter`, `displayCustomerAccount`, the psgdpr hooks. 7. The back office in Estonian: no demo shop has the language. | The Story that relies on each item verifies it; the matrix (section 12) covers 8.0 |
 | 16 | CI on `v3` | The fork's GitHub Actions are not enabled, so `validate.yaml` has never run; the local runs are the only evidence. | Owner (enable once in the fork's Actions tab) |
-| 17 | A 2.x store on `v3` code before stage 2 and Story 4.3 | Its crontab runs the tick, but no job sends a customer sync or an abandoned-cart reminder yet (section 3.4). | Stage 2, Story 4.3; Story 6.2 writes the upgrade guide |
+| 17 | A 2.x store on `v3` code before Stories 2.3 and 4.3 | Its crontab runs the tick: the reconcile and the daily refresh run, but store changes are not captured live and no abandoned-cart reminder goes out yet (section 3.4). | Stories 2.3 and 4.3; Story 6.2 writes the upgrade guide |
+| 18 | The guest gates of the live sync | The decision of 2026-11-20 (section 6.2) takes effect in the live sync only once the capture of Story 2.3 sets the payload's `guest` field. Until then a `contact.sync` row without the field counts as a registered customer. The imports apply the rule today. | Story 2.3 |
+| 19 | The guest rule and the abandoned-cart reminder | Whether `ContactAudience::remindsCart()` also applies the guest rule of the live sync is not decided; today it does not. | Owner, before Story 4.3 |
+| 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
+| 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); three points may block a listing: the GPL-3.0 licence, the "Create a Smaily account" link, and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md`). The listing itself is a separate business step. | Owner; answered from the guidelines when CON-379 is worked |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) was decided on 2026-11-20; it
 moved to section 15.
@@ -1843,7 +2129,12 @@ Later decisions of 2026-11-20:
 
 | Question | Decided | By | Where | Stories |
 |---|---|---|---|---|
-| Does the reconcile write a re-subscribe in Smaily back to the store? | **DECIDED:** yes. In subscribers-only mode the reconcile is two-way: a re-subscribe in Smaily sets `newsletter` 0 → 1 in the store. | Owner (Erkki) | 6.2 | 2.4 |
+| Does the reconcile write a re-subscribe in Smaily back to the store? | **DECIDED:** yes. In subscribers-only mode the reconcile is two-way: a re-subscribe in Smaily sets `customer.newsletter = 1` in the store. It does not set an inactive newsletter-block row active again. | Owner (Erkki) | 6.2 | 2.4 |
+| What the first reconcile of a Smaily account applies | **DECIDED:** "an upgrade never marks anyone subscribed again". The first run takes its unsubscribes from Smaily's current unsubscriber list (`contact.php`, `list=2`, as 2.x did), applies nothing from the action log, reads the log only to set the cursor at its end (the log's end first, then the list), and marks nobody subscribed. From the next run on, the reconcile is two-way. Reason: 2.x never sent newsletter-block unsubscribes to Smaily. The list-based form is the orchestrator's technical refinement of the owner's rule; it also never unsubscribes a contact whom Smaily holds as subscribed now. | Owner (Erkki); orchestrator | 6.2, 6.5 | 2.4 |
+| Guest-checkout customers in all customers | **DECIDED:** sent only when "include guests" is on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
+| Guest-checkout customers in subscribers only | **DECIDED:** a guest-checkout customer who ticked the box is sent only when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a ticked box whatever that setting says (already WooCommerce's rule). Upgraded stores have "include guests" on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
+| How the merchant learns of a new version | **DECIDED:** "GitHub now": the module asks the official GitHub repository for the latest release once a day and shows a notice in the admin. A notice that Smaily writes and delivers with the installation-report answer can be added later (asked of the subscription team, Linear SUB-28). | Owner (Erkki) | 10.7, 11.5 | CON-380 |
+| PrestaShop Marketplace rules | **DECIDED:** the code follows the PrestaShop Marketplace technical rules from the start (Linear CON-379). The listing itself is a separate business step (`docs/MARKETPLACE.md`). | Owner (Erkki) | 14 (row 21) | CON-379 |
 | A shop whose own Smaily account differs from the default shop's | **DECIDED** under the rule "never widen the audience": contact sync and abandoned cart stay off at that shop after the upgrade, with a notice (`other_account`). The owner may overturn it. | Orchestrator | 3.3 | 1.3 |
 | Where consent lives | **DECIDED:** marketing consent lives in PrestaShop's own places (`customer.newsletter`, `emailsubscription`); the module keeps no consent store of its own. `customer.optin` is PrestaShop's "partner offers" checkbox; the module neither creates nor reads it. | Owner | 6.1 | 2.2, 2.3 |
 | Colours of the admin screens | **DECIDED:** the Campaign Intelligence palette, for the module's own components only (Linear CON-377). | Owner | 10.6 | 3.1 |
