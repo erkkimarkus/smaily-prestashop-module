@@ -29,8 +29,16 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 
 /**
  * Registers the services, the queue handler and the hook listeners of the first-order automation.
@@ -40,5 +48,19 @@ final class FirstOrderAutomation implements ProviderInterface
 {
     public function register(Services $services): void
     {
+        $services->set(FirstOrderTrigger::class, fn (Services $services): FirstOrderTrigger => new FirstOrderTrigger(
+            $services->get(QueueProvider::EVENT_QUEUE),
+            $services->get(AutomationSettings::class),
+            $services->get(ContactsSettings::class),
+            $services->get(SubscriberPayloadBuilder::class),
+            $services->get(ScopeResolver::class)
+        ));
+        $services->set(QueueProvider::handlerId(FirstOrderTrigger::EVENT_TYPE), fn (Services $services): AutomationHandler => new AutomationHandler(
+            Trigger::FIRST_ORDER,
+            $services->get(TriggerSender::class)
+        ));
+        $services->listen('actionValidateOrder', static function (array $params) use ($services): void {
+            $services->get(FirstOrderTrigger::class)->orderValidated($params);
+        });
     }
 }
