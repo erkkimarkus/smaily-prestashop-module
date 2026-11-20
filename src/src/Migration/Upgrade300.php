@@ -50,6 +50,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * the error, never the error's message. The last step deletes the legacy keys and marks the schema
  * current in one transaction; until then the runtime stays inert and every legacy key stays in
  * place. `smaily_cart` stays (a later release drops it).
+ *
+ * A run never resets a store in use. A store that has nothing to migrate (3.0.0 installed it, or
+ * its migration completed) and has lost its schema version gets only its tables, hooks and schema
+ * version back. Where the plan is applied, a setting and a mapping row are written only where the
+ * store holds none, a cron token only where it is empty or missing, and a reminded cart only where
+ * the cart has no row; the legacy account is saved again while its legacy keys exist.
  */
 final class Upgrade300
 {
@@ -137,10 +143,57 @@ final class Upgrade300
             // Another run may have completed the migration since this request loaded the configuration.
             self::reloadConfiguration();
 
-            return Schema::isCurrent() || $this->run();
+            return Schema::isCurrent() || ($this->nothingToMigrate() ? $this->restore() : $this->run());
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Whether the store holds nothing of 2.x or 1.6.x to migrate: its migration completed, or none
+     * ever started, PrestaShop records a 3.x version of the module and no legacy key is stored but
+     * the two cron tokens (3.0.0 installed that store). A plan made now would hold the settings of a
+     * new store, and applying it would reset what the merchant has set up.
+     */
+    private function nothingToMigrate(): bool
+    {
+        $status = $this->state()['status'] ?? null;
+        if ($status !== null) {
+            return $status === 'done';
+        }
+        $version = $this->reader->moduleVersion();
+        if (version_compare($version, '3.0.0', '<')) {
+            return false;
+        }
+        foreach ($this->reader->read($version)->rows() as $row) {
+            if (!in_array($row['name'], [TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN], true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Gives a store that has nothing to migrate its tables, its hooks and its schema version back.
+     * It writes nothing else: no setting, no token, no notice and no progress record.
+     */
+    private function restore(): bool
+    {
+        try {
+            $this->stepTables();
+            $this->stepHooks();
+            self::check(Schema::markCurrent());
+        } catch (\Throwable $error) {
+            \PrestaShopLogger::addLog(
+                sprintf('Smaily Connect: the schema version was not restored (%s)', get_class($error)),
+                3
+            );
+
+            return false;
+        }
+
+        return true;
     }
 
     private function run(): bool
@@ -270,12 +323,16 @@ final class Upgrade300
 
     /**
      * Writes each setting at the scope the plan names: shop 0 is the global row, any other shop its
-     * own row in its shop group.
+     * own row in its shop group. A scope that holds a row for the key keeps it: a merchant saved it
+     * while the upgrade was not finished.
      */
     private function stepSettings(): void
     {
         foreach ($this->plan()->settings() as $idShop => $settings) {
             foreach ($settings as $key => $value) {
+                if (self::settingRows($key, $idShop) > 0) {
+                    continue;
+                }
                 if ($idShop === 0) {
                     self::check(\Configuration::updateGlobalValue($key, $value));
                 } else {
@@ -301,11 +358,15 @@ final class Upgrade300
         }
     }
 
+    /**
+     * Adds each mapping row of the plan; a row that the store holds for the same shop, trigger,
+     * language and account stays as it is.
+     */
     private function stepMappings(): void
     {
         foreach ($this->plan()->mappings() as $row) {
             self::check(\Db::getInstance()->execute(
-                'INSERT INTO `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
+                'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
                 . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
                 . ' VALUES (' . $row['id_shop']
                 . ', \'' . pSQL($row['trigger']) . '\''
@@ -315,8 +376,6 @@ final class Upgrade300
                 . ', ' . $row['optin_trigger']
                 . ', ' . $row['is_default_fallback']
                 . ', NOW())'
-                . ' ON DUPLICATE KEY UPDATE `workflow_id` = VALUES(`workflow_id`), `optin_trigger` = VALUES(`optin_trigger`),'
-                . ' `is_default_fallback` = VALUES(`is_default_fallback`), `date_upd` = VALUES(`date_upd`)'
             ));
         }
     }
@@ -401,8 +460,9 @@ final class Upgrade300
     }
 
     /**
-     * Every account row decrypts to its legacy password and every setting reads back from the
-     * table at its scope, before the legacy keys go.
+     * Every account row decrypts to its legacy password and every setting holds one row in the
+     * table at its scope, before the legacy keys go. The row's value is the plan's, or the one the
+     * store held before (stepSettings()).
      */
     private function stepVerify(): void
     {
@@ -415,18 +475,26 @@ final class Upgrade300
                 && hash_equals($plan->passwordToEncrypt($account['id_shop']), $stored->password()));
         }
         foreach ($plan->settings() as $idShop => $settings) {
-            $scope = $idShop === 0
-                ? '`id_shop_group` IS NULL AND `id_shop` IS NULL'
-                : '`id_shop_group` = ' . (int) \Shop::getGroupFromShop($idShop) . ' AND `id_shop` = ' . $idShop;
-            foreach ($settings as $key => $value) {
-                $rows = \Db::getInstance()->executeS(
-                    'SELECT `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($key) . '\' AND ' . $scope,
-                    true,
-                    false
-                );
-                self::check(is_array($rows) && count($rows) === 1 && (string) $rows[0]['value'] === $value);
+            foreach (array_keys($settings) as $key) {
+                self::check(self::settingRows($key, $idShop) === 1);
             }
         }
+    }
+
+    /**
+     * The number of rows that the table holds for a setting at exactly one scope: the global one
+     * (shop 0) or a shop's own.
+     */
+    private static function settingRows(string $key, int $idShop): int
+    {
+        $scope = $idShop === 0
+            ? '`id_shop_group` IS NULL AND `id_shop` IS NULL'
+            : '`id_shop_group` = ' . (int) \Shop::getGroupFromShop($idShop) . ' AND `id_shop` = ' . $idShop;
+
+        return (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($key) . '\' AND ' . $scope,
+            false
+        );
     }
 
     /**

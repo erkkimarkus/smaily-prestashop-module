@@ -236,11 +236,9 @@ Results on 2026-11-20:
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
-of that request runs the 3.0.0 migration on the fresh install and stores the version again. The script
-then restores the version only when no row holds it, so the shop keeps exactly one schema-version row.
-A shop kept with `KEEP=1` is therefore not an untouched fresh install: it holds
-`SMAILY_CONNECT_MIGRATION` (`from` 3.0.0, `status` `done`) and `SMAILY_CONNECT_SETUP_STATE = new`
-(observed on 9.2.0 by deleting the version and opening the storefront).
+of that request finds nothing to migrate on the fresh install and stores the version again; it writes
+nothing else (ARCHITECTURE section 3.7). The script then restores the version only when no row holds
+it, so the shop keeps exactly one schema-version row.
 
 The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes

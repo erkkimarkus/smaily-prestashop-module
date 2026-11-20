@@ -598,15 +598,15 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    (files copied by FTP). It returns `true` at once when the schema is current. Otherwise it takes
    `GET_LOCK('<db>_smaily_migration', 0)`; a second caller that cannot take the lock returns `false`
    at once, without work. Under the lock it reloads the configuration, checks the schema again, and
-   runs the steps.
+   runs the steps, unless the store has nothing to migrate (below).
 3. The steps run in `Upgrade300::STEPS` order: `tables`, `hooks`, `menu`, `notices`, `settings`,
    `accounts`, `mappings`, `tokens`, `tick_token`, `carts`, `override`, `tab` (the 1.6.x hidden tab,
    section 2.4), `verify`, `finish`. `tables` (`CREATE TABLE IF NOT EXISTS`) and `hooks` run on every
    call. Every other step is skipped once it succeeded. `tick_token` creates the tick URL's token
    unless one is stored, so the Dashboard has the cron line of an upgraded store at once (section
    4.3); it changes no legacy token.
-4. `verify` checks that every account row decrypts to its legacy password and that every setting reads
-   back from the table at its scope.
+4. `verify` checks that every account row decrypts to its legacy password and that every setting holds
+   one row in the table at its scope.
 5. `finish` deletes the legacy keys (not the two tokens) at every scope and calls
    `Schema::markCurrent()` in one database transaction. A failure rolls both back.
 6. A failed step stops the run. `SMAILY_CONNECT_MIGRATION` then records `status` `failed` and
@@ -617,6 +617,28 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    fallback tick of page traffic, whose two listeners run before the upgrade (section 1.2).
 8. Story 3.1 adds a "Finish upgrade" action in the admin that calls `runPending()`, and renders the
    notices.
+
+**[D]** A run never resets a store in use (2026-11-21). `runPending()` runs whenever the schema
+version is missing, also on a store that is set up, so it is safe to run at any time:
+
+- **Nothing to migrate.** A store whose migration completed (`status` `done`), or a store without a
+  progress record for which PrestaShop records a 3.x version of the module and which holds no legacy
+  key but the two cron tokens (3.0.0 installed it), has only lost its schema version. The run creates
+  the missing tables, registers the hooks and stores the schema version again. It applies no plan and
+  writes nothing else: no setting, mapping row, token, notice or progress record. A plan made on such
+  a store would hold the settings of a new store, and applying it reset a store that had finished its
+  Initial setup (observed on 9.2.0).
+- **Where the plan is applied** (a first run, or the next run of an unfinished upgrade): `settings`
+  writes a key only where its scope holds no row, and `mappings` adds a row only where the table
+  holds none for that shop, trigger, language and account, so what a merchant saved while the upgrade
+  was not finished stays, and `verify` does not compare a setting's value with the plan. `tokens`
+  changes only an empty or missing token; `tick_token` creates a token only where none is stored;
+  `carts` adds a row only for a cart that has none; `notices` stores a notice once per code and
+  parameters; `tables`, `hooks`, `menu`, `override` and `tab` are idempotent. `accounts` is the
+  exception: it saves the legacy account again, and `verify` insists on the legacy password before
+  `finish` deletes its plain-text copy. The legacy keys exist only until the first `finish`, so no
+  account of a store in use is written; an account that a merchant saves while the upgrade is not
+  finished is replaced, or stops the run at `verify`.
 
 **[D]** The schema-version guard. `Install\Schema::isCurrent()` compares the stored global
 `SMAILY_CONNECT_SCHEMA_VERSION` with `Install\Schema::VERSION`, not with the module version.
@@ -634,6 +656,10 @@ on the old schema).
 - On 8.0.0, 8.2.8 and 9.2.0: a copy of the 3.0.0 files by FTP was migrated by a cron URL request,
   and a migration stopped by an injected failure was completed by a storefront request (the fallback
   tick).
+- On 8.2.8 and 9.2.0 (2026-11-21): a genuine 2.2.0 store, multistore with own rows at shop 2 and
+  two languages, was upgraded through the console and then set up (setup done, consent mode, an
+  automation on, the layout answered). With its schema version removed, and again with its progress
+  record removed too, a storefront request stored the version again and changed no other row.
 
 **Limits:**
 

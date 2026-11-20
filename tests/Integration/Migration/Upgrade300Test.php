@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Migration;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
@@ -222,6 +223,135 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertTrue($this->upgrade()->runPending());
 
         self::assertSame($before, $this->everything());
+    }
+
+    /**
+     * How the store came to be, what it lost besides its schema version, and the module version
+     * that PrestaShop records (2.2.0: the files were copied by FTP and nobody clicked Upgrade).
+     *
+     * @return array<string, array{string|null, bool, bool, string}>
+     */
+    public function configuredStores(): array
+    {
+        return [
+            'upgraded from 2.2.0' => ['2.2.0-configured.sql', true, false, '3.0.0'],
+            'upgraded from 2.2.0 by an FTP copy' => ['2.2.0-configured.sql', true, false, '2.2.0'],
+            'upgraded, the progress record lost too' => ['2.2.0-configured.sql', true, true, '3.0.0'],
+            'upgraded by an FTP copy, the progress record lost too' => ['2.2.0-configured.sql', true, true, '2.2.0'],
+            'upgraded multistore store' => ['2.2.0-multistore-own-rows.sql', true, false, '3.0.0'],
+            'upgraded multistore store by an FTP copy, the progress record lost too' => ['2.2.0-multistore-own-rows.sql', true, true, '2.2.0'],
+            'installed by 3.0.0 and set up' => [null, true, false, '3.0.0'],
+            'installed by 3.0.0, not set up yet' => [null, false, false, '3.0.0'],
+        ];
+    }
+
+    /**
+     * A store in use that loses its schema version gets the version back by the pending-migration
+     * run, and nothing else changes: no setting, mapping, account, token or reminded cart, and the
+     * store is not sent to the Initial setup.
+     *
+     * @dataProvider configuredStores
+     */
+    public function testAReRunOnAConfiguredStoreChangesNothing(?string $fixture, bool $setUp, bool $recordLost, string $version): void
+    {
+        if ($fixture === null) {
+            Schema::markCurrent();
+        } else {
+            LegacyStore::loadFixture($fixture);
+            $this->recordModuleVersion('2.2.0');
+            self::assertTrue($this->upgrade()->runPending());
+        }
+        if ($setUp) {
+            // The Initial setup is done, the layout answered, a consent mode chosen and confirmed,
+            // an automation switched on and its workflow chosen.
+            foreach ([
+                'SMAILY_CONNECT_SETUP_STATE' => 'done',
+                'SMAILY_CONNECT_SEPARATE_STORES' => '0',
+                'SMAILY_CONNECT_LANGUAGE_MODE' => 'b',
+                'SMAILY_CONNECT_CONTACTS_MODE' => 'all_customers',
+                'SMAILY_CONNECT_CONTACTS_CONFIRMED' => '1',
+                'SMAILY_CONNECT_FIRST_ORDER_ENABLED' => '1',
+                'SMAILY_CONNECT_CART_DELAY_MINUTES' => '120',
+            ] as $key => $value) {
+                \Configuration::updateGlobalValue($key, $value);
+            }
+            self::db()->execute(
+                'REPLACE INTO `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
+                . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
+                . ' VALUES (0, \'welcome\', \'\', \'default\', 777, 0, 1, \'2026-11-20 08:00:00\')'
+            );
+            // Every notice of the upgrade was read and dismissed.
+            foreach ((new MigrationNotices())->all() as $notice) {
+                (new MigrationNotices())->dismiss($notice['id']);
+            }
+        }
+        $this->recordModuleVersion($version);
+        if ($recordLost) {
+            \Configuration::deleteByName(Upgrade300::STATE_KEY);
+        }
+        \Configuration::deleteByName(Schema::VERSION_KEY);
+        LegacyStore::reloadConfiguration();
+        $before = $this->held();
+        self::assertFalse(Schema::isCurrent());
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertTrue(Schema::isCurrent());
+        self::assertSame($before, $this->held());
+        self::assertSame(!$setUp, BaseController::isSetupForced(), 'only a store nobody set up opens the Initial setup');
+    }
+
+    /**
+     * The module version that PrestaShop records does not decide alone: a store that still holds
+     * legacy keys is migrated, also when the record already says 3.0.0.
+     */
+    public function testAStoreWithLegacyKeysIsMigratedAlsoWhenPrestaShopRecords300(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('3.0.0');
+        $plan = $this->plan('3.0.0');
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        $this->assertPlanApplied($plan);
+    }
+
+    /**
+     * What a merchant saved while the upgrade was not finished stays: a setting and a mapping row
+     * that the store holds are not written again, and the upgrade still completes.
+     */
+    public function testAnUnfinishedUpgradeKeepsWhatWasSavedMeanwhile(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        // Saved in the admin after the files were copied and before the first run.
+        \Configuration::updateGlobalValue('SMAILY_CONNECT_CONTACTS_MODE', 'all_customers');
+        self::db()->execute(
+            'INSERT INTO `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
+            . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
+            . ' VALUES (0, \'abandoned_cart\', \'\', \'default\', 555, 0, 1, NOW())'
+        );
+        $failing = $this->upgrade(static function (string $step): void {
+            if ($step === 'carts') {
+                throw new \LogicException('injected');
+            }
+        });
+        self::assertFalse($failing->runPending());
+        // Saved after the settings step, while the upgrade waits for its next run.
+        \Configuration::updateGlobalValue('SMAILY_CONNECT_FIRST_ORDER_ENABLED', '1');
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertTrue(Schema::isCurrent());
+        self::assertSame('all_customers', LegacyStore::row('SMAILY_CONNECT_CONTACTS_MODE'));
+        self::assertSame('1', LegacyStore::row('SMAILY_CONNECT_FIRST_ORDER_ENABLED'));
+        self::assertSame('45', LegacyStore::row('SMAILY_CONNECT_CART_DELAY_MINUTES'), 'a setting the store did not hold is the plan\'s');
+        self::assertSame(
+            [['trigger' => 'abandoned_cart', 'workflow_id' => '555'], ['trigger' => 'welcome', 'workflow_id' => '101']],
+            array_map(static fn (array $row): array => array_map('strval', $row), self::db()->executeS(
+                'SELECT `trigger`, `workflow_id` FROM `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping` ORDER BY `trigger`'
+            ) ?: [])
+        );
     }
 
     public function testOfTwoConcurrentRunsOneMigratesAndTheOtherReturnsAtOnce(): void
@@ -635,6 +765,26 @@ final class Upgrade300Test extends IntegrationTestCase
             'hooks' => $this->registeredHooks(),
             'menu' => MenuTest::menu(),
         ];
+    }
+
+    /**
+     * Every row the module owns but the schema version and the migration's progress record, and
+     * the rows of the legacy `smaily_cart`.
+     *
+     * @return array<string, mixed>
+     */
+    private function held(): array
+    {
+        $held = $this->everything();
+        $held['configuration'] = array_values(array_filter(
+            $held['configuration'],
+            static fn (array $row): bool => !in_array($row['name'], [Schema::VERSION_KEY, Upgrade300::STATE_KEY], true)
+        ));
+        $held['smaily_cart'] = self::db()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'smaily\\_cart\'')
+            ? self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_cart` ORDER BY `id_smaily_cart`')
+            : null;
+
+        return $held;
     }
 
     /**
