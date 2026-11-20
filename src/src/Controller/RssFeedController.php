@@ -29,7 +29,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Rss;
 use PrestaShop\Module\SmailyForPrestaShop\Model\RssFeedProductsCollection;
 
 class RssFeedController
@@ -42,6 +41,28 @@ class RssFeedController
     public function __construct()
     {
         $this->collection = new RssFeedProductsCollection();
+    }
+
+    /**
+     * Make RSS URL with query parameters.
+     */
+    public static function buildRssUrl(string $categoryId, string $limit, string $sortBy, string $sortOrder): string
+    {
+        $query_arguments = [
+            'limit' => $limit,
+            'sort_by' => $sortBy,
+            'sort_order' => $sortOrder,
+        ];
+
+        if (!empty($categoryId)) {
+            $query_arguments['category_id'] = $categoryId;
+        }
+
+        return \Context::getContext()->link->getModuleLink(
+            'smailyforprestashop',
+            'SmailyRssFeed',
+            $query_arguments
+        );
     }
 
     public function generateFeed(string $baseUrl, mixed $categoryId, int $limit, string $sortBy, string $sortOrder): string
@@ -58,7 +79,7 @@ class RssFeedController
         $channel = $xml->createElement('channel');
 
         $atomLink = $xml->createElement('atom:link');
-        $atomLink->setAttribute('href', Rss::buildRssUrl($categoryId ? strval($categoryId) : '', strval($limit), $sortBy, $sortOrder));
+        $atomLink->setAttribute('href', self::buildRssUrl($categoryId ? strval($categoryId) : '', strval($limit), $sortBy, $sortOrder));
         $atomLink->setAttribute('rel', 'self');
         $atomLink->setAttribute('type', 'application/rss+xml');
         $channel->appendChild($atomLink);

@@ -29,10 +29,11 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Api;
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Logger;
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
 use PrestaShop\Module\SmailyForPrestaShop\Model\Subscriber;
 use PrestaShop\Module\SmailyForPrestaShop\Model\SubscriberCollection;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 
 class CustomerSyncController
@@ -53,7 +54,7 @@ class CustomerSyncController
     private $configuration;
 
     /**
-     * @var Api;
+     * @var Client;
      */
     private $api;
 
@@ -66,7 +67,7 @@ class CustomerSyncController
         $password = $configuration->get('SMAILY_PASSWORD');
 
         if (!empty($subdomain) && !empty($username) && !empty($password)) {
-            $this->api = new Api($subdomain, $username, $password);
+            $this->api = new Client(new SymfonyTransport(), $subdomain, $username, $password);
         }
     }
 
@@ -94,7 +95,7 @@ class CustomerSyncController
         if (!$unsubscribers_synchronized) {
             echo 'Failed to synchronize unsubscribers from Smaily!';
 
-            Logger::logMessageWithSeverity('Customer sync failed - unsubscribers are not removed', 1);
+            \PrestaShopLogger::addLog('[SMAILY] Customer sync failed - unsubscribers are not removed', 1);
 
             return false;
         }
@@ -104,7 +105,7 @@ class CustomerSyncController
         if (!$subscribers_synchronized) {
             echo 'Failed to synchronize subscribers from the store!';
 
-            Logger::logMessageWithSeverity('Customer sync failed - failed to send subscribers to Smaily', 1);
+            \PrestaShopLogger::addLog('[SMAILY] Customer sync failed - failed to send subscribers to Smaily', 1);
 
             return false;
         }
@@ -126,16 +127,14 @@ class CustomerSyncController
         $offset = 0;
 
         while (true) {
-            $response = $this->api->listUnsubscribers($limit, $offset);
-
-            // Stop if error.
-            if ($response->getStatusCode() !== 200) {
-                Logger::logErrorWithFormatting('Failed fetching unsubscribers.');
+            try {
+                $body = $this->api->get(Client::ENDPOINT_CONTACT, ['list' => 2, 'limit' => $limit, 'offset' => $offset]);
+            } catch (SmailyClientException $exception) {
+                // Stop if error.
+                \PrestaShopLogger::addLog('[SMAILY] Failed fetching unsubscribers. ' . $exception->getMessage(), 3);
 
                 return false;
             }
-
-            $body = json_decode($response->getContent(false), true);
 
             // Stop if no more subscribers.
             if (empty($body)) {
@@ -148,7 +147,7 @@ class CustomerSyncController
 
             // Stop if query fails.
             if (!$result) {
-                Logger::logErrorWithFormatting('Failed removing subscribed status for unsubscribers.');
+                \PrestaShopLogger::addLog('[SMAILY] Failed removing subscribed status for unsubscribers.', 3);
 
                 return false;
             }
@@ -180,7 +179,7 @@ class CustomerSyncController
 
             // Stop if query fails.
             if ($subscribers === false) {
-                Logger::logErrorWithFormatting('Failed retrieving newsletter subscribers from DB.');
+                \PrestaShopLogger::addLog('[SMAILY] Failed retrieving newsletter subscribers from DB.', 3);
 
                 return false;
             }
@@ -235,24 +234,10 @@ class CustomerSyncController
 
     private function send(array $subscribers): bool
     {
-        $response = $this->api->createSubscribers($subscribers);
-
-        if ($response->getStatusCode() !== 200) {
-            Logger::logErrorWithFormatting(
-                'Failed sending subscribers to Smaily. Smaily HTTP response code: %s',
-                $response->getStatusCode(),
-            );
-
-            return false;
-        }
-
-        $body = json_decode($response->getContent(false), true);
-        if (!array_key_exists('code', $body) || $body['code'] !== 101) {
-            Logger::logErrorWithFormatting(
-                'Failed sending subscribers to Smaily. Smaily response code: %s, message: %s',
-                $body['code'],
-                $body['message']
-            );
+        try {
+            $this->api->post(Client::ENDPOINT_CONTACT, $subscribers);
+        } catch (SmailyClientException $exception) {
+            \PrestaShopLogger::addLog('[SMAILY] Failed sending subscribers to Smaily. ' . $exception->getMessage(), 3);
 
             return false;
         }

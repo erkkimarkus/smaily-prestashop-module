@@ -29,7 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Rss;
+use PrestaShop\Module\SmailyForPrestaShop\Controller\RssFeedController;
 use PrestaShop\PrestaShop\Core\Configuration\DataConfigurationInterface;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 
@@ -55,7 +55,7 @@ final class RssFeedFormDataConfiguration implements DataConfigurationInterface
         $return['product_limit'] = $this->configuration->get('SMAILY_RSS_LIMIT');
         $return['sort_by'] = $this->configuration->get('SMAILY_RSS_SORT_BY');
         $return['sort_order'] = $this->configuration->get('SMAILY_RSS_SORT_ORDER');
-        $return['rss_url'] = Rss::buildRssUrl(
+        $return['rss_url'] = RssFeedController::buildRssUrl(
             $return['product_category_id'],
             $return['product_limit'],
             $return['sort_by'],

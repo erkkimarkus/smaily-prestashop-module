@@ -29,7 +29,9 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Api;
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShopBundle\Form\Admin\Type\TranslatorAwareType;
 use Symfony\Component\Form\Event\PostSetDataEvent;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
@@ -82,10 +84,11 @@ class AccountConfigurationFormType extends TranslatorAwareType
         $credentials = $event->getData();
 
         if (!empty($credentials['subdomain'] && !empty($credentials['username']) && !empty($credentials['password']))) {
-            $api = new Api($credentials['subdomain'], $credentials['username'], $credentials['password']);
+            $client = new Client(new SymfonyTransport(), $credentials['subdomain'], $credentials['username'], $credentials['password']);
 
-            $resp = $api->listAutoresponders();
-            if ($resp->getStatusCode() !== 200) {
+            try {
+                $client->get(Client::ENDPOINT_AUTORESPONDER, ['limit' => 100]);
+            } catch (SmailyClientException $exception) {
                 $form->get('password')->addError(new FormError($this->trans('Failed to establish connection with Smaily. Please check credentials and reconnect!', 'Modules.Smailyforprestashop.Admin')));
             }
         }

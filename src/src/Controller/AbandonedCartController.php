@@ -29,11 +29,12 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Api;
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Logger;
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
 use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCart;
 use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCartCollection;
 use PrestaShop\Module\SmailyForPrestaShop\Model\SentCart;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 
 class AbandonedCartController
@@ -44,7 +45,7 @@ class AbandonedCartController
     private $configuration;
 
     /**
-     * @var Api;
+     * @var Client;
      */
     private $api;
 
@@ -57,7 +58,7 @@ class AbandonedCartController
         $password = $configuration->get('SMAILY_PASSWORD');
 
         if (!empty($subdomain) && !empty($username) && !empty($password)) {
-            $this->api = new Api($subdomain, $username, $password);
+            $this->api = new Client(new SymfonyTransport(), $subdomain, $username, $password);
         }
     }
 
@@ -127,32 +128,15 @@ class AbandonedCartController
      */
     private function send(AbandonedCart $cart): bool
     {
-        $response = $this->api->triggerAutomation(
-            $this->configuration->get('SMAILY_CART_AUTORESPONDER'),
-            [$this->generatePayload($cart)],
-        );
-
-        if ($response->getStatusCode() !== 200) {
-            Logger::logErrorWithFormatting(
-                'Failed sending out abandoned cart email for email: %s, cart_id: %s. ' .
-                'Smaily response HTTP response code: %s.',
-                $cart->email,
-                $cart->cartID,
-                $response->getStatusCode()
-            );
-
-            return false;
-        }
-
-        $body = json_decode($response->getContent(false), true);
-        if (!isset($body['code']) || $body['code'] !== 101) {
-            Logger::logErrorWithFormatting(
-                'Failed sending out abandoned cart email for email: %s, cart_id: %s. ' .
-                'Smaily response code: %s, message: %s.',
-                $cart->email,
-                $cart->cartID,
-                $body['code'],
-                $body['message']
+        try {
+            $this->api->post(Client::ENDPOINT_AUTORESPONDER, [
+                'autoresponder' => $this->configuration->get('SMAILY_CART_AUTORESPONDER'),
+                'addresses' => [$this->generatePayload($cart)],
+            ]);
+        } catch (SmailyClientException $exception) {
+            \PrestaShopLogger::addLog(
+                sprintf('[SMAILY] Failed sending out abandoned cart email for cart_id: %s. %s', $cart->cartID, $exception->getMessage()),
+                3
             );
 
             return false;

@@ -29,7 +29,10 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Api;
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\PrestaShop\Core\Configuration\DataConfigurationInterface;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 
@@ -85,28 +88,24 @@ final class AccountFormDataConfiguration implements DataConfigurationInterface
         }
 
         if ($this->validateConfiguration($configuration) && empty($errors)) {
-            $api = new Api($configuration['subdomain'], $configuration['username'], $configuration['password']);
-            $response = $api->listAutoresponders();
-            switch ($response->getStatusCode()) {
-                case 200:
-                    $this->configuration->set('SMAILY_SUBDOMAIN', $configuration['subdomain']);
-                    $this->configuration->set('SMAILY_USERNAME', $configuration['username']);
-                    $this->configuration->set('SMAILY_PASSWORD', $configuration['password']);
-                    break;
-                case 401:
-                    $errors[] = [
-                        'key' => 'Unauthorized, please check credentials.',
-                        'domain' => 'Modules.Smailyforprestashop.Admin',
-                        'parameters' => [],
-                    ];
-                    break;
-                default:
-                    $errors[] = [
-                        'key' => 'Error validating credentials, please try again.',
-                        'domain' => 'Modules.Smailyforprestashop.Admin',
-                        'parameters' => [],
-                    ];
-                    break;
+            $client = new Client(new SymfonyTransport(), $configuration['subdomain'], $configuration['username'], $configuration['password']);
+            try {
+                $client->get(Client::ENDPOINT_AUTORESPONDER, ['limit' => 100]);
+                $this->configuration->set('SMAILY_SUBDOMAIN', $configuration['subdomain']);
+                $this->configuration->set('SMAILY_USERNAME', $configuration['username']);
+                $this->configuration->set('SMAILY_PASSWORD', $configuration['password']);
+            } catch (AuthenticationException $exception) {
+                $errors[] = [
+                    'key' => 'Unauthorized, please check credentials.',
+                    'domain' => 'Modules.Smailyforprestashop.Admin',
+                    'parameters' => [],
+                ];
+            } catch (SmailyClientException $exception) {
+                $errors[] = [
+                    'key' => 'Error validating credentials, please try again.',
+                    'domain' => 'Modules.Smailyforprestashop.Admin',
+                    'parameters' => [],
+                ];
             }
         }
 

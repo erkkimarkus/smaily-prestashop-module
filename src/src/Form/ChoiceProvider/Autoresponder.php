@@ -29,7 +29,9 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Lib\Api;
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\PrestaShop\Core\ConfigurationInterface;
 use PrestaShop\PrestaShop\Core\Form\FormChoiceProviderInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -69,14 +71,13 @@ class Autoresponder implements FormChoiceProviderInterface
             return $noAutoresponders;
         }
 
-        $api = new Api($subdomain, $username, $password);
-        $response = $api->listAutoresponders();
-
-        if ($response->getStatusCode() !== 200) {
+        $client = new Client(new SymfonyTransport(), $subdomain, $username, $password);
+        try {
+            $autoresponders = $client->get(Client::ENDPOINT_AUTORESPONDER, ['limit' => 100]);
+        } catch (SmailyClientException $exception) {
             return $noAutoresponders;
         }
 
-        $autoresponders = (array) json_decode($response->getContent(false), true);
         if (count($autoresponders) == 0) {
             return $noAutoresponders;
         }
