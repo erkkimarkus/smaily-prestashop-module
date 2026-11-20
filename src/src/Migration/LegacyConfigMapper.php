@@ -52,8 +52,10 @@ final class LegacyConfigMapper
 
     private const RSS_SORT_ORDER = ['asc', 'desc'];
 
-    /** The shortest cart delay of 3.0.0 (Config\AutomationSettings). */
+    /** The shortest and the longest cart delay of 3.0.0 (Config\AutomationSettings). */
     private const MIN_CART_DELAY_MINUTES = 10;
+
+    private const MAX_CART_DELAY_MINUTES = 1435;
 
     /** The cart delay that 2.x installed, and showed for an empty value. */
     private const LEGACY_CART_DELAY_MINUTES = 15;
@@ -68,10 +70,14 @@ final class LegacyConfigMapper
      */
     private array $index;
 
+    /** Whether a scope's legacy cart delay was longer than the longest delay of 3.0.0. */
+    private bool $cartDelayCapped;
+
     public function map(LegacyState $state): MigrationPlan
     {
         $this->state = $state;
         $this->index = ['shop' => [], 'group' => [], 'global' => []];
+        $this->cartDelayCapped = false;
         foreach ($state->rows() as $row) {
             if (!in_array($row['name'], LegacyState::KEYS, true)) {
                 continue;
@@ -354,9 +360,13 @@ final class LegacyConfigMapper
         // The settings of a cron feature are the ones its cron read where the feature stays on.
         $contactsFrom = $contacts ? $default : $idShop;
         $cartFrom = $cart ? $default : $idShop;
-        // The 2.x delay stays as stored, also one of a day or more, which 3.0.0 does not accept
-        // from its own form: 2.x reminded such a cart, so the upgrade does not shorten the delay.
+        // 2.x reminded a cart after a delay of a day or more, and 3.0.0 reminds no cart older than
+        // 24 hours: such a delay becomes the longest one of 3.0.0, and a notice says so.
         $delay = (int) $this->read('SMAILY_ABANDONED_CART_TIME', $cartFrom);
+        if ($delay > self::MAX_CART_DELAY_MINUTES) {
+            $delay = self::MAX_CART_DELAY_MINUTES;
+            $this->cartDelayCapped = true;
+        }
 
         $settings = [
             'SMAILY_CONNECT_CART_DELAY_MINUTES' => (string) (
@@ -554,6 +564,10 @@ final class LegacyConfigMapper
                     $notices[] = ['code' => $code, 'params' => $params];
                 }
             }
+        }
+
+        if ($this->cartDelayCapped) {
+            $notices[] = ['code' => MigrationPlan::NOTICE_CART_DELAY_CAPPED, 'params' => []];
         }
 
         foreach (['SMAILY_SYNCRONIZE_ADDITIONAL', 'SMAILY_CART_SYNCRONIZE_ADDITIONAL'] as $key) {

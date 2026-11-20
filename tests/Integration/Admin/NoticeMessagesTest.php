@@ -21,6 +21,7 @@ final class NoticeMessagesTest extends IntegrationTestCase
     {
         $notices = [
             MigrationPlan::NOTICE_SETTINGS_MIGRATED => [],
+            MigrationPlan::NOTICE_CART_DELAY_CAPPED => [],
             MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE => ['key' => 'SMAILY_SYNCRONIZE_ADDITIONAL'],
             MigrationPlan::NOTICE_CRON_TOKEN_REPLACED => ['key' => 'SMAILY_CART_CRON_TOKEN', 'id_shop_group' => 0, 'id_shop' => 0],
             MigrationPlan::NOTICE_CRON_SHOP_ASSUMED => ['id_shop' => 1],

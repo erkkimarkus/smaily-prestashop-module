@@ -116,20 +116,25 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
     }
 
     /**
-     * A 2.x delay of a day or more stays as the upgrade stored it. No cart older than 24 hours is
-     * reminded, so no cart is due under it: the sweep runs and reminds nobody.
+     * A 2.x delay of a day or more is 1435 minutes after the upgrade (AutomationSettingsTest): a
+     * cart is due in the last five minutes before it is 24 hours old, and never after.
      */
-    public function testAMigratedDelayOfADayOrMoreRemindsNoCart(): void
+    public function testADelayCappedAt1435MinutesRemindsACartOfItsLastFiveMinutes(): void
     {
-        \Configuration::updateGlobalValue(AutomationSettings::CART_DELAY_MINUTES, '2880');
+        \Configuration::updateGlobalValue(AutomationSettings::CART_DELAY_MINUTES, '1435');
         LegacyStore::reloadConfiguration();
         $young = $this->fixture->cart($this->idCustomer, 600);
-        $old = $this->fixture->cart($this->idCustomer, 2900);
+        $old = $this->fixture->cart($this->idCustomer, 1445);
 
         self::assertSame(0, $this->sweep());
+        self::assertSame([null, null], [$this->cartRow($young), $this->cartRow($old)]);
+
+        $due = $this->fixture->cart($this->idCustomer, 1437);
+        self::assertSame(1, $this->sweep());
         $this->flush();
 
-        self::assertSame([], $this->reminders());
+        self::assertCount(1, $this->reminders());
+        self::assertSame(CartTracker::MAILED, $this->cartRow($due)['status']);
         self::assertSame([null, null], [$this->cartRow($young), $this->cartRow($old)]);
     }
 }

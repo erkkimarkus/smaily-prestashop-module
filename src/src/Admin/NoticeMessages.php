@@ -69,6 +69,8 @@ final class NoticeMessages
                 return $this->trans('The welcome automation stays off for %shop%: %reason% Switch it on under Settings > Automations when you want it.', $this->leftOff($params));
             case MigrationPlan::NOTICE_ABANDONED_CART_LEFT_OFF:
                 return $this->trans('The abandoned cart automation stays off for %shop%: %reason% Switch it on under Settings > Automations when you want it.', $this->leftOff($params));
+            case MigrationPlan::NOTICE_CART_DELAY_CAPPED:
+                return $this->trans('Abandoned-cart reminders: your waiting time was longer than a day. Reminders are never sent for a cart older than 24 hours, so the waiting time is now 1435 minutes. You can change it under Settings > Automations.');
             case MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE:
                 return ($params['key'] ?? '') === 'SMAILY_CART_SYNCRONIZE_ADDITIONAL'
                     ? $this->trans('The extra fields of the abandoned cart email could not be read and were not carried over. Choose them again under Settings > Automations.')

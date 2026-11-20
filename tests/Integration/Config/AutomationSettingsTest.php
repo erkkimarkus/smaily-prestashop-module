@@ -5,6 +5,8 @@ namespace Tests\Integration\Config;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\MigrationPlan;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Tests\Integration\IntegrationTestCase;
@@ -60,7 +62,7 @@ final class AutomationSettingsTest extends IntegrationTestCase
      */
     public function legacyCartDelays(): array
     {
-        return ['15 minutes' => ['15'], '60 minutes' => ['60'], '600 minutes' => ['600'], 'two days, above the maximum' => ['2880']];
+        return ['15 minutes' => ['15'], '60 minutes' => ['60'], '600 minutes' => ['600'], 'the maximum' => ['1435']];
     }
 
     /**
@@ -77,6 +79,21 @@ final class AutomationSettingsTest extends IntegrationTestCase
 
         self::assertSame($legacy, LegacyStore::row(AutomationSettings::CART_DELAY_MINUTES, null, null));
         self::assertSame((int) $legacy, (new AutomationSettings())->cartDelayMinutes((int) \Configuration::get('PS_SHOP_DEFAULT')));
+        self::assertNotContains(MigrationPlan::NOTICE_CART_DELAY_CAPPED, array_column((new MigrationNotices())->all(), 'code'));
+    }
+
+    public function testAnUpgradedStoreWithADelayOfADayOrMoreGets1435MinutesAndANotice(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        self::db()->update('configuration', ['value' => '2880'], '`name` = \'SMAILY_ABANDONED_CART_TIME\'');
+        LegacyStore::reloadConfiguration();
+        self::db()->execute('UPDATE `' . _DB_PREFIX_ . 'module` SET `version` = \'2.2.0\' WHERE `name` = \'smailyforprestashop\'');
+
+        self::assertTrue(Services::fromProviders(Services::PROVIDERS)->get(Upgrade300::class)->runPending());
+
+        self::assertSame('1435', LegacyStore::row(AutomationSettings::CART_DELAY_MINUTES, null, null));
+        self::assertSame(1435, (new AutomationSettings())->cartDelayMinutes((int) \Configuration::get('PS_SHOP_DEFAULT')));
+        self::assertContains(MigrationPlan::NOTICE_CART_DELAY_CAPPED, array_column((new MigrationNotices())->all(), 'code'));
     }
 
     public function testTheCartDelayIsSavedFromTenTo1435MinutesAndReadsThirtyWhenNoneIsStored(): void

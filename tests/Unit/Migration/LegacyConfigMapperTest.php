@@ -504,7 +504,7 @@ final class LegacyConfigMapperTest extends TestCase
     /**
      * @dataProvider cartDelays
      */
-    public function testTheCartDelayIsTheLegacyMinutesFromTenUpAnd15WhenNoneIsStored(?string $stored, string $delay): void
+    public function testTheCartDelayIsTheLegacyMinutesFromTenTo1435And15WhenNoneIsStored(?string $stored, string $delay): void
     {
         $plan = $this->map(array_merge(
             self::without(self::CONFIGURED, 'SMAILY_ABANDONED_CART_TIME'),
@@ -512,6 +512,11 @@ final class LegacyConfigMapperTest extends TestCase
         ));
 
         self::assertSame($delay, $plan['settings'][0]['SMAILY_CONNECT_CART_DELAY_MINUTES']);
+        self::assertSame(
+            (int) $stored > 1435 ? [[]] : [],
+            self::noticesOf($plan, MigrationPlan::NOTICE_CART_DELAY_CAPPED),
+            'only a shortened delay leaves the notice'
+        );
     }
 
     /**
@@ -527,7 +532,8 @@ final class LegacyConfigMapperTest extends TestCase
             '10, the minimum' => ['10', '10'],
             '1435, the maximum' => ['1435', '1435'],
             'below the minimum' => ['5', '10'],
-            'two days, which 2.x reminded after' => ['2880', '2880'],
+            'one minute above the maximum' => ['1436', '1435'],
+            'two days, which 2.x reminded after' => ['2880', '1435'],
             'NULL' => [null, '15'],
             '1.6.x install' => ['', '15'],
         ];
@@ -556,6 +562,19 @@ final class LegacyConfigMapperTest extends TestCase
         $plan = $this->map(self::CONFIGURED, [1 => 1, 3 => 1], '2.2.0', 1, []);
 
         self::assertSame('0', $plan['settings'][3]['SMAILY_CONNECT_CART_ENABLED']);
+    }
+
+    public function testAShopsOwnDelayOfADayOrMoreIsCappedAtItsScopeWithOneNotice(): void
+    {
+        $plan = $this->map(array_merge(self::CONFIGURED, [
+            [1, 2, 'SMAILY_ABANDONED_CART_TIME', '2880'],
+            [1, 3, 'SMAILY_ABANDONED_CART_TIME', '4320'],
+        ]), [1 => 1, 2 => 1, 3 => 1]);
+
+        self::assertSame('45', $plan['settings'][0]['SMAILY_CONNECT_CART_DELAY_MINUTES']);
+        self::assertSame('1435', $plan['settings'][2]['SMAILY_CONNECT_CART_DELAY_MINUTES']);
+        self::assertSame('1435', $plan['settings'][3]['SMAILY_CONNECT_CART_DELAY_MINUTES']);
+        self::assertSame([[]], self::noticesOf($plan, MigrationPlan::NOTICE_CART_DELAY_CAPPED));
     }
 
     public function testAShopRemindedByTheCronUsesTheDefaultShopsCartSettings(): void

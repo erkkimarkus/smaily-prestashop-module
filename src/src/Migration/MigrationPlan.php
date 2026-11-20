@@ -50,6 +50,8 @@ final class MigrationPlan
     public const NOTICE_CONTACT_SYNC_LEFT_OFF = 'contact_sync_left_off';
     public const NOTICE_WELCOME_LEFT_OFF = 'welcome_left_off';
     public const NOTICE_ABANDONED_CART_LEFT_OFF = 'abandoned_cart_left_off';
+    /** A legacy cart delay above 1435 minutes was written as 1435. */
+    public const NOTICE_CART_DELAY_CAPPED = 'cart_delay_capped';
     public const NOTICE_FIELD_LIST_UNREADABLE = 'field_list_unreadable';
     public const NOTICE_CRON_TOKEN_REPLACED = 'cron_token_replaced';
     public const NOTICE_CRON_SHOP_ASSUMED = 'cron_shop_assumed';

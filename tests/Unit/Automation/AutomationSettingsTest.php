@@ -43,7 +43,7 @@ final class AutomationSettingsTest extends TestCase
             'inside the bounds' => ['600', 600],
             'the maximum' => ['1435', 1435],
             'below the minimum reads the minimum' => ['5', 10],
-            'a migrated 2.x delay of two days stays as stored' => ['2880', 2880],
+            'above the maximum, which no code stores, reads as stored' => ['2880', 2880],
         ];
     }
 

@@ -887,6 +887,11 @@
         <target>Valmis, %sent% / %total% sünkroonitud.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="7a0a772a2ff2ad78e5e4517ce5401d45">
+        <source>Abandoned-cart reminders: your waiting time was longer than a day. Reminders are never sent for a cart older than 24 hours, so the waiting time is now 1435 minutes. You can change it under Settings &gt; Automations.</source>
+        <target>Hüljatud ostukorvi meeldetuletused: sinu ooteaeg oli pikem kui üks päev. Meeldetuletust ei saadeta kunagi ostukorvile, mis on vanem kui 24 tundi, seega on ooteaeg nüüd 1435 minutit. Saad seda muuta: Seaded &gt; Automaatikad.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

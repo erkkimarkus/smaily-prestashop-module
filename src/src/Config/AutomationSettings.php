@@ -89,8 +89,8 @@ class AutomationSettings extends Settings
 
     /**
      * The shop's cart delay: the stored minutes, at least the minimum; the default where none is
-     * stored. A stored delay above the maximum is returned as it is: only the upgrade writes one,
-     * from a 2.x delay of a day or more, and no cart is then due (AbandonedCartSweeper).
+     * stored. No code stores a delay above the maximum: the upgrade writes the maximum for a 2.x
+     * delay of a day or more.
      */
     public function cartDelayMinutes(int $idShop): int
     {
