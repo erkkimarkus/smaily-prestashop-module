@@ -1,0 +1,37 @@
+# The JSON endpoints of the Settings page (Admin\Api\Settings). Their rights are those of the
+# Settings menu tab. The first contact import is the Initial setup's endpoint, reached here with the
+# rights of Settings.
+smailyforprestashop_api_settings_save:
+  path: /smailyforprestashop/api/settings/save
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_test:
+  path: /smailyforprestashop/api/settings/test-connection
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_layout:
+  path: /smailyforprestashop/api/settings/layout
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_import:
+  path: /smailyforprestashop/api/settings/contact-import
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_import_progress:
+  path: /smailyforprestashop/api/settings/contact-import-progress
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress::execute
+    _legacy_controller: AdminSmailyConnectSettings

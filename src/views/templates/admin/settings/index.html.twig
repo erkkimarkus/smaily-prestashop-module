@@ -1,0 +1,65 @@
+{#
+ # The Settings page: the shell's frame (layout/settings.html.twig) with, above its tabs, how the
+ # shops of a multishop store are run and its Change (Magento's settings/index.phtml), and the
+ # endpoints and words for views/js/admin/settings.js, which saves each tab through
+ # Admin\Api\Settings.
+ #
+ # `smaily_settings` comes from Admin\Settings\SettingsController.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/settings.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% block smaily_page %}
+  <div class="smaily-settings-root" data-smaily-settings-root
+       data-api-save="{{ path('smailyforprestashop_api_settings_save') }}"
+       data-api-test="{{ path('smailyforprestashop_api_settings_test') }}"
+       data-api-layout="{{ path('smailyforprestashop_api_settings_layout') }}"
+       data-api-import="{{ path('smailyforprestashop_api_settings_import') }}"
+       data-api-import-progress="{{ path('smailyforprestashop_api_settings_import_progress') }}"
+       data-label-saving="{{ 'Saving…'|trans }}"
+       data-label-saved="{{ 'Saved.'|trans }}"
+       data-label-saving-failed="{{ 'Saving failed.'|trans }}"
+       data-label-testing="{{ 'Testing…'|trans }}"
+       data-label-connected="{{ 'Connected'|trans }}"
+       data-label-not-connected="{{ 'Not connected'|trans }}"
+       data-label-failed="{{ 'Connection failed.'|trans }}"
+       data-label-language-mode-switch="{{ 'Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used. Continue?'|trans }}"
+       data-label-confirm-subscribers="{{ 'Subscribers only: from now on only customers who opted in to the newsletter are synced. Contacts already in Smaily stay there.'|trans }}"
+       data-label-confirm-all-customers="{{ 'All customers: from now on every registered customer is synced to Smaily, also those who never opted in to your newsletter, and the daily refresh sends your existing customers too.'|trans }}"
+       data-label-confirm-checkout-optin="{{ 'Checkout opt-in only: from now on only shoppers who tick the newsletter checkbox at checkout are synced. Contacts already in Smaily stay there.'|trans }}"
+       data-label-confirm-guests="{{ 'Include guests: from now on newsletter subscribers without an account and guest-checkout customers are synced too, and the daily refresh sends the existing ones.'|trans }}"
+       data-label-confirm-continue="{{ 'Continue?'|trans }}"
+       data-label-copied="{{ 'Copied to the clipboard.'|trans }}"
+       data-label-copy-failed="{{ 'Copying failed — select the URL and copy it manually.'|trans }}"
+       data-label-queued="{{ 'Queued — the import starts on the next scheduled run…'|trans }}"
+       data-label-importing="{{ 'Importing…'|trans }}"
+       data-label-progress="{{ '%sent% of %total%'|trans }}"
+       data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
+       data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
+       data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
+       data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
+       data-label-sync-off="{{ 'Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.'|trans }}"
+       data-label-canceling="{{ 'Canceling…'|trans }}"
+       data-label-start="{{ 'Start import'|trans }}"
+       data-label-run-again="{{ 'Run again'|trans }}"
+       data-label-state-pending="{{ 'Pending'|trans }}"
+       data-label-state-running="{{ 'Running'|trans }}"
+       data-label-state-done="{{ 'Done'|trans }}"
+       data-label-state-stopped="{{ 'Stopped'|trans }}"
+       data-label-state-cancelled="{{ 'Canceled'|trans }}">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/store-shape.html.twig' with {
+      shape: smaily_settings.shape,
+      shop_name: smaily_settings.shop_name,
+      changeable: true,
+      promoted_shop: smaily_settings.promoted_shop,
+    } only %}
+    <div data-smaily-shape-page>
+      {{ parent() }}
+    </div>
+  </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/settings.js') }}?v={{ smaily.version }}"></script>
+{% endblock %}

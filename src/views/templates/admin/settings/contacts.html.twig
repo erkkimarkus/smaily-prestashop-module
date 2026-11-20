@@ -1,0 +1,36 @@
+{#
+ # Settings > Contacts (Magento's Contacts tab): the switch "Use its own Contacts settings on this
+ # shop" for a shop selected in one store, the Contacts panel of the Initial setup with the first
+ # contact import, and Save Contacts. A change of who is synced on a store that already syncs asks
+ # first (settings.js). In separate stores with "All shops" selected, the tab says to pick a shop.
+ #
+ # `smaily_settings` comes from Admin\Settings\SettingsController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set s = smaily_settings %}
+{% if s.contacts is null %}
+  <div class="smaily-card">
+    <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+  </div>
+{% else %}
+  {% if s.own is not null %}
+    <div class="smaily-inline-toggle smaily-own-toggle">
+      <label><input type="checkbox" data-smaily-own="contacts" data-own-saved="{{ s.own.contacts ? 1 : 0 }}"{{ s.own.contacts ? ' checked' : '' }}> {{ 'Use its own Contacts settings on this shop'|trans }}</label>
+      <p class="smaily-note">{{ 'Otherwise this shop uses the settings saved for all shops, and a change here applies to every shop that uses them.'|trans }}</p>
+      <p class="smaily-note smaily-note--strong" data-smaily-own-return hidden>{{ 'Save to remove this shop\'s own values: it then uses the settings saved for all shops.'|trans }}</p>
+    </div>
+  {% endif %}
+  <div class="smaily-own-region" data-smaily-own-region="contacts"
+       data-saved-mode="{{ s.contacts.mode }}" data-saved-guests="{{ s.contacts.guests ? 1 : 0 }}">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/contacts.html.twig' with {
+      contacts: s.contacts,
+      context: 'settings',
+      all_shops: [],
+      import: s.import,
+    } only %}
+  </div>
+  <div class="smaily-tab-footer">
+    <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-tab" data-tab="contacts">{{ 'Save Contacts'|trans }}</button>
+    <span class="smaily-result" data-smaily-tab-result role="status"></span>
+  </div>
+{% endif %}

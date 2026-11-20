@@ -1,0 +1,16 @@
+# The JSON endpoints of the Settings page. Each controller names its class: PrestaShop 8.0 does not
+# take a service's class from its id.
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout

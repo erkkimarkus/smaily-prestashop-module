@@ -1,0 +1,47 @@
+<?php
+/**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ */
+declare(strict_types=1);
+
+namespace PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\AbstractSetupAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+
+/**
+ * The base of the Settings page's endpoints: the Initial setup's answers (the fields at fault,
+ * Magento's two-layer error model) and the Settings panels. Their routes name the Settings tab, so
+ * an employee needs the rights of Settings.
+ */
+abstract class AbstractSettingsAction extends AbstractSetupAction
+{
+    protected function settings(): SettingsPanels
+    {
+        return new SettingsPanels(Services::instance(), $this->get('translator'));
+    }
+}

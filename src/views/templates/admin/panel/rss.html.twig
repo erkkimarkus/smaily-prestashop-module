@@ -1,0 +1,59 @@
+{#
+ # The RSS panel: the product feed URL builder (Magento's panel/rss.phtml with its
+ # config/rss-builder.phtml), read and saved by Admin\Settings\RssPanel. views/js/admin/settings.js
+ # builds the URL from the picked values as they change and copies it; a value equal to the feed's
+ # own default is left out of the URL, so the simplest feed is the bare address. The parameters are
+ # the feed's since 2.x: category_id, limit, sort_by, sort_order.
+ #
+ # Takes `rss` (RssPanel::values()).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set sort_labels = {
+  date_add: 'Date created'|trans,
+  date_upd: 'Date updated'|trans,
+  name: 'Product name'|trans,
+  price: 'Price'|trans,
+  id_product: 'Product ID'|trans,
+} %}
+{% set order_labels = {desc: 'Descending'|trans, asc: 'Ascending'|trans} %}
+<div class="smaily-panel" data-smaily-panel="rss">
+  <div class="smaily-card">
+    <div class="smaily-rss-builder" data-smaily-rss-builder data-base-url="{{ rss.base_url }}">
+      <div class="smaily-rss-builder__grid">
+        <label class="smaily-rss-builder__field">
+          <span>{{ 'Category ID (optional)'|trans }}</span>
+          <input type="number" class="form-control" min="1" data-smaily-field="category" value="{{ rss.defaults.category > 0 ? rss.defaults.category : '' }}" placeholder="{{ 'All products'|trans }}">
+        </label>
+        <label class="smaily-rss-builder__field">
+          <span>{{ 'Number of products (1-250)'|trans }}</span>
+          <input type="number" class="form-control" min="1" max="250" data-smaily-field="limit" value="{{ rss.defaults.limit }}">
+        </label>
+        <label class="smaily-rss-builder__field">
+          <span>{{ 'Sort by'|trans }}</span>
+          <select class="form-control" data-smaily-field="sort_by">
+            {% for value in rss.sort_by %}
+              <option value="{{ value }}"{{ value == rss.defaults.sort_by ? ' selected' : '' }}>{{ sort_labels[value] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="smaily-rss-builder__field">
+          <span>{{ 'Sort order'|trans }}</span>
+          <select class="form-control" data-smaily-field="sort_order">
+            {% for value in rss.sort_orders %}
+              <option value="{{ value }}"{{ value == rss.defaults.sort_order ? ' selected' : '' }}>{{ order_labels[value] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <label class="smaily-rss-builder__label" for="smaily-rss-url">{{ 'Feed URL'|trans }}</label>
+      <div class="smaily-rss-builder__url">
+        <input type="text" class="form-control" id="smaily-rss-url" readonly data-smaily-rss-url>
+        <button type="button" class="btn btn-outline-secondary" data-smaily-action="rss-copy">{{ 'Copy'|trans }}</button>
+      </div>
+      <p class="smaily-note">
+        <span data-smaily-rss-copy-result role="status"></span>
+        {{ 'Paste this URL into the RSS block of the Smaily template editor. Category IDs are shown in Catalog > Categories.'|trans }}
+      </p>
+    </div>
+  </div>
+</div>

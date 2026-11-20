@@ -29,18 +29,72 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The Settings page. The shell renders its frame (layout/settings.html.twig); this controller passes
- * the data of the page's content templates in views/templates/admin/settings/.
+ * The Settings page. The shell renders its frame (layout/settings.html.twig); this controller
+ * passes the content of the tabs Connection, Contacts and RSS (views/templates/admin/settings/) as
+ * `smaily_settings`, read by the Initial setup's panels for the shop of PrestaShop's shop selector
+ * (SettingsScope), and the store-layout bar with its Change on a multishop store.
+ *
+ * No password reaches the page: the panels say only whether one is stored. The connection's state
+ * is asked of Smaily after the page has loaded (views/js/admin/settings.js), so a slow Smaily never
+ * holds the page.
  */
 final class SettingsController extends BaseController
 {
+    private const TEMPLATE = '@Modules/smailyforprestashop/views/templates/admin/settings/index.html.twig';
+
     public function index(Request $request): Response
     {
-        return $this->renderPage('settings');
+        $services = Services::instance();
+        $panels = new SettingsPanels($services, $this->get('translator'));
+        $setup = $panels->setup();
+        $selected = AbstractJsonAction::shopId();
+        $context = $panels->context($selected);
+        $overrides = $panels->overrides();
+
+        $ownShop = $context->ownShop();
+        $own = $ownShop === null ? null : [
+            'connection' => $overrides->hasOwn(ShopOverrides::CONNECTION, $ownShop),
+            'contacts' => $overrides->hasOwn(ShopOverrides::CONTACTS, $ownShop),
+        ];
+        $shared = $context->shared();
+        $connectionScope = $context->scope($own['connection'] ?? false);
+        $connection = $setup->connection()->values($connectionScope);
+        $contacts = $setup->contacts()->values($context->scope($own['contacts'] ?? false));
+        $target = $shared->targetShop();
+        /** @var ContactImport $import */
+        $import = $services->get(ContactImport::class);
+
+        return $this->renderPage('settings', [
+            'smaily_settings' => [
+                'shape' => $setup->shape()->values($shared),
+                'shop_name' => $shared->separateStores() && $target !== null ? self::shopName($target) : '',
+                // Whose values all shops use after a change to one store: the shop the merchant looks at.
+                'promoted_shop' => self::shopName($selected > 0 ? $selected : (int) \Configuration::get('PS_SHOP_DEFAULT')),
+                'own' => $own,
+                'invitation' => $connection !== null && $connection['subdomain'] === '',
+                'connection' => $connection,
+                'languages' => $connectionScope->languages(),
+                'language_modes' => $ownShop === null ? $connectionScope->languageModes() : $context->scope(true)->languageModes(),
+                'account_per_language_elsewhere' => $ownShop === null && $shared->multilingual() && !$shared->offersAccountPerLanguage(),
+                'contacts' => $contacts,
+                'import' => $target === null ? null : $import->progress($target),
+                'rss' => $panels->rss()->values(),
+            ],
+        ], self::TEMPLATE);
+    }
+
+    private static function shopName(int $idShop): string
+    {
+        $shop = \Shop::getShop($idShop);
+
+        return is_array($shop) ? (string) $shop['name'] : '';
     }
 }

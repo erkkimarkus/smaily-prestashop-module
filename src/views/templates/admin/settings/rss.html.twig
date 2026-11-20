@@ -1,0 +1,12 @@
+{#
+ # Settings > RSS (Magento's RSS tab): the product feed URL builder and Save, which stores the
+ # values the builder opens with. The feed is the same for every shop selection.
+ #
+ # `smaily_settings` comes from Admin\Settings\SettingsController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% include '@Modules/smailyforprestashop/views/templates/admin/panel/rss.html.twig' with {rss: smaily_settings.rss} only %}
+<div class="smaily-tab-footer">
+  <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-tab" data-tab="rss">{{ 'Save'|trans }}</button>
+  <span class="smaily-result" data-smaily-tab-result role="status"></span>
+</div>
