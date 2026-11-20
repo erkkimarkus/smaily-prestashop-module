@@ -8,43 +8,47 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-20 — stage 1 done with its clean-up; Stories 2.1,
-2.2 and 2.4 done; Stories 3.1 and 4.1 (backend) in progress; gauge 1/14._
+_Last updated: 2026-11-20 (session end) — stages 1 and 2 done; admin shell and
+Initial setup done; store automations built; three workers in flight; gauge 3/14._
 
 ## Next session opens with
 
-**Stage 1:** done, including the clean-up (Story 1.8). Deferred: the
-`Upgrade300` clean-up, after the admin shell lands.
+**Three workers were still running when the session of 2026-11-20 ended.**
+Their work is NOT on `v3`. First act of the next session: `git worktree list`,
+then for each branch below compare with `v3` (`git log v3..<branch>`), read
+the worker's final report if it arrived, and land finished work by
+cherry-pick (run the host unit tests after each; push to `origin`).
 
-**Stage 2:** Stories 2.1, 2.2 and 2.4 are done, with the owner's consent
-decisions applied (ARCHITECTURE 6.2, 15). Story 2.3 (capture hooks) is next.
-It waits for the admin shell, because both edit the main class. Only after
-2.3 can capabilities 5 and 6 (contacts) be walked end to end and ticked.
+| Worktree branch | Work | Notes |
+|---|---|---|
+| `worktree-agent-aa766896cfaf982ca` | First-order email follows the consent mode (owner decision) | Shares the status read with the abandoned-cart handler |
+| `worktree-agent-a2e0957c6cbbb9651` | Dashboard content (Story 3.2, second half) | Screenshots in `build/screens/3.2-dashboard/` |
+| `worktree-agent-ad9811a9450936b49` | Settings: Connection, Contacts, RSS; deletes the legacy 2.x admin page | Screenshots in `build/screens/3.3/` |
 
-**Stage 3:** Story 3.1 (admin shell) in progress, built to the sibling
-screens' structure (vertical step rail, full Dashboard composition, the
-siblings' invitation banner); its real screenshots go beside Magento's.
-**Stage 4:** Story 4.1 backend (routing, mapping) in progress.
+A branch with no commits beyond its base was interrupted: dispatch that
+Story again from its section in `docs/ARCHITECTURE.md` 13. Leftover docker
+stacks of those workers are named `smaily-presta-fo*`, `-dash*`, `-s33*`.
 
-**Queued:**
-1. The new-version notice on the admin pages (CON-380), after Story 3.1. The
-   daily check behind it is built.
-2. The Marketplace technical rules (CON-379). It touches every file, so it
-   starts after the running Stories land (`docs/MARKETPLACE.md`).
-3. The deferred `Upgrade300` clean-up (ARCHITECTURE 13, Story 1.8).
-4. Test infrastructure: the Smaily mock's transport refuses other hosts; the
-   test that leaves other cron tokens behind restores them.
+On `v3` and pushed (159 commits ahead of the official `master` at the last
+count): stage 1 with its clean-up; stage 2 complete (scope, consent policy,
+capture hooks, reconcile, first import); the admin shell with the upgrade
+banner and the new-version notice; the Initial setup steps Connect, Contacts
+and Overview; automation routing; welcome, first-order and abandoned-cart
+automations; the checkout address capture. Last verified in a shop: 941
+tests on 8.0.0, 8.2.8 and 9.2.0 before the Initial setup landed (774 on its
+own branch); the merged tip was run on the host only (1019 tests, 489
+skipped). **Run the full in-shop suite and `tests/ci/validate.sh` on the
+merged tip on one 8.x and on 9.2.0 before anything else lands.**
 
-**Now in the code:** the 3.0.0 runtime with the event queue, the tick and its
-three doors, the upgrade, the uninstall, the scope resolver, the consent
-policy and the `contact.sync` handler, the reconcile from Smaily, the first
-import and the daily refresh, and the daily new-version check. Store changes
-do not reach the queue until Story 2.3, and no abandoned-cart reminder goes
-out until Story 4.3.
-
-**Last verified runs** (as the worker that ran them reported): in-shop suite
-585 tests / 2333 assertions on PrestaShop 8.2.8 and 9.2.0;
-`tests/ci/validate.sh` 10 of 10 checks on both. PHPStan does not run.
+Then, in this order: (1) Log page (Story 3.4) and the Automations tab
+(workflow lists use Magento's call `workflows.php?trigger_type=form_submitted`);
+(2) walk capabilities 3, 4, 6 and 7 end to end through the screens and tick
+them; (3) one document pass — ARCHITECTURE, DEV_ENVIRONMENT, CHANGELOG and
+this file lag everything since the contact Stories; (4) Marketplace
+technical rules (CON-379); (5) the deferred `Upgrade300` clean-up and the
+test-infrastructure items in the Queue below; (6) stage 5, Campaign
+Intelligence, with group prices (CON-385, contract 1.36.0) and the identity
+merge from the captured checkout address (only where tracking is allowed).
 
 ## Queue (technical, for the orchestrator)
 
@@ -56,7 +60,7 @@ out until Story 4.3.
   2.3 sets `guest`; the unsubscriber list is paged by page number, so a list
   that shrinks during one first run can skip one address (2.x had the same).
 
-## First-release checklist (gauge: 1 / 14 demonstrated)
+## First-release checklist (gauge: 3 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; a line names how.
 
@@ -64,10 +68,15 @@ A box is ticked only when the real flow was exercised; a line names how.
   - Demonstrated by: genuine 2.2.0 and 1.6.2 stores upgraded on 8.0.0, 8.2.8
     and 9.2.0; an interrupted upgrade completed by a cron URL and by a
     storefront request. Still waits: "Finish upgrade" (3.1); the pilot store.
-- [ ] 2. Smaily account connection, with an invitation for a new store
+- [x] 2. Smaily account connection, with an invitation for a new store
+  - Demonstrated by: the Initial setup walked in a browser on 8.0.0 and 9.2.0
+    against the Smaily mock (connect, test, wrong credentials, invitation).
 - [ ] 3. Store mode by language (four modes)
 - [ ] 4. Store mode by shop: one shared setup, or one per shop
-- [ ] 5. Consent mode: subscribers only, all customers, checkout opt-in only
+- [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only
+  - Demonstrated by: the mode chosen in the Initial setup; registration,
+    guest checkout, account edit, newsletter block and orders walked over
+    HTTP on 8.0.0 and 9.2.0 against the Smaily mock. Not the live Smaily.
 - [ ] 6. Contact sync both ways, first import, and a Log with retry
 - [ ] 7. Store automations: welcome, first order, abandoned cart
 - [ ] 8. Campaign Intelligence connection with catalog, customer and order
