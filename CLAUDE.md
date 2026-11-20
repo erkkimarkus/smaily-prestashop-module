@@ -22,8 +22,8 @@ Repository: work lands on branch `v3` of the fork
 `erkkimarkus/smaily-prestashop-module` (local remote `origin`). The
 official repository `sendsmaily/smaily-prestashop-module` (local remote
 `upstream`, branch `master`) gets the work at release-candidate time; Erkki
-has read-only access there today (Maintain rights are an open question in
-STATUS.md). Agents never push to `upstream`.
+has read-only access there today; Maintain rights are requested at the first
+release. Agents never push to `upstream`.
 
 **Public facade:** README, CONTRIBUTING, CHANGELOG, USERGUIDE and `docs/`
 are written as finished-product public documentation. Internal process talk
@@ -115,7 +115,9 @@ in automations; "Try Intelligence free" and the console sign-in link;
 PrestaShop 1.7 support (those stores stay on 1.6.x); an own signup form or
 third-party form integrations; storefront languages beyond EN/ET; the
 PrestaShop Addons listing update. A task that drifts into one of these
-stops and asks.
+stops and asks. The code itself follows the Marketplace technical rules
+(Linear CON-379): `docs/MARKETPLACE.md` lists them and where the module
+stands.
 
 ## Sibling repos (read-only references)
 
@@ -174,6 +176,14 @@ ask (Linear discipline below).
   and `emailsubscription`; the module keeps no consent store of its own.
   `customer.optin` is PrestaShop's "partner offers" box: never create or
   read it (ARCHITECTURE 6.1).
+- **Consent rules** (owner, 2026-11-20; ARCHITECTURE 6.2, 15). Contact sync
+  runs only where it is enabled and confirmed. The reconcile is two-way in
+  "Subscribers only", but the first run of each Smaily account takes only
+  unsubscribes (Smaily's unsubscriber list) and marks nobody subscribed: an
+  upgrade never marks anyone subscribed again. A guest-checkout customer is
+  sent in "All customers", and with a ticked box in "Subscribers only", only
+  when "include guests" is on; "Checkout opt-in only" sends a ticked box
+  always. All audience questions go through `Contacts\ContactAudience`.
 - **Colours and logos.** The module's own components use the Campaign
   Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
   (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
@@ -252,6 +262,10 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
   `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx tests/ci/validate.sh`
   and the same with `9.2.0-nginx`; it also runs the unit and integration
   tests in the shop. `KEEP=1` leaves the shop up.
+- A test that runs the whole tick must stub the update check, so no test
+  calls the real GitHub. Every Story that registers a scheduler job edits
+  the two tests that pin the tick's job list (`SchedulerProviderTest`,
+  `PendingMigrationTest`).
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.
