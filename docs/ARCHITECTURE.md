@@ -947,11 +947,14 @@ subscriber" is an `emailsubscription` row, a subscriber without an account. "Inc
 | First import and daily refresh | Registered customers with `newsletter = 1`; guest-checkout customers with `newsletter = 1` and active `emailsubscription` rows when "include guests" is on. | Every registered customer; guest-checkout customers and active `emailsubscription` rows when "include guests" is on. | None. |
 | Reconcile from Smaily | Both directions, with the first-run rule below: an unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); a re-subscribe sets `newsletter = 1`. | None. | None. |
 | `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Never. | `0` with the tick. |
-| Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row (guests on), the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
+| Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row, the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
 
-A customer who is soft-deleted (`customer.deleted = 1`) is never imported. Whether the
-abandoned-cart reminder also applies the guest rule of the live sync is an open owner question for
-Story 4.3 (section 14); `ContactAudience::remindsCart()` does not apply it today.
+A customer who is soft-deleted (`customer.deleted = 1`) is never imported.
+
+**[D]** (owner, Erkki, 2026-11-20) The abandoned-cart reminder applies no separate guest rule, as in
+the sibling connectors. "Include guests" gates the contact sync only. Who is reminded follows the
+consent mode through `ContactAudience::sendsAutomatedMarketing()`, the same for a registered
+customer, a guest-checkout customer and an address typed at checkout.
 
 **[D]** (owner, Erkki, 2026-11-20) The reconcile is two-way in subscribers-only mode. An unsubscribe
 in Smaily sets `newsletter = 0` and `emailsubscription.active = 0`, as 2.x did. A re-subscribe in
@@ -1022,7 +1025,8 @@ so with the verification email on it starts from the verification link. The reco
 `subscribers`, `all_customers` and `checkout_optin`; an unknown value reads as `subscribers`, so a bad
 value never widens the audience. `Contacts\ContactAudience` answers every audience question of the
 table in 6.2: the live sync (`syncs()`), the status a row carries (`unsubscribedStatus()`), the imports
-(`importsCustomer()`, `importsNewsletterGuests()`) and the abandoned-cart reminder (`remindsCart()`).
+(`importsCustomer()`, `importsNewsletterGuests()`) and the abandoned-cart reminder
+(`sendsAutomatedMarketing()`, which applies no guest rule).
 The live sync, the imports and the reminder ask this one object, so they never disagree.
 
 **Active only when confirmed.** `ContactsSettings::syncActive($idShop)` is true only when
@@ -2015,8 +2019,8 @@ has one owner:
   2. A cart with a migrated `smaily_cart` row is never reminded.
   3. An order withdraws a pending reminder for that address.
   4. The consent gate of decision 3 skips with a reason that the Log shows.
-- **Owner question before the Story starts.** Does the reminder also apply the guest rule of the
-  live sync (section 6.2)? `ContactAudience::remindsCart()` does not apply it today (section 14).
+- **Decided (owner, 2026-11-20).** The reminder applies no separate guest rule: who is reminded
+  follows the consent mode through `ContactAudience::sendsAutomatedMarketing()` (section 6.2).
 
 ### Story 4.4 — Discount codes in store automations
 
@@ -2171,13 +2175,12 @@ has one owner:
 | 16 | CI on `v3` | The fork's GitHub Actions are not enabled, so `validate.yaml` has never run; the local runs are the only evidence. | Owner (enable once in the fork's Actions tab) |
 | 17 | A 2.x store on `v3` code before Stories 2.3 and 4.3 | Its crontab runs the tick: the reconcile and the daily refresh run, but store changes are not captured live and no abandoned-cart reminder goes out yet (section 3.4). | Stories 2.3 and 4.3; Story 6.2 writes the upgrade guide |
 | 18 | The guest gates of the live sync | The decision of 2026-11-20 (section 6.2) takes effect in the live sync only once the capture of Story 2.3 sets the payload's `guest` field. Until then a `contact.sync` row without the field counts as a registered customer. The imports apply the rule today. | Story 2.3 |
-| 19 | The guest rule and the abandoned-cart reminder | Whether `ContactAudience::remindsCart()` also applies the guest rule of the live sync is not decided; today it does not. | Owner, before Story 4.3 |
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); three points may block a listing: the GPL-3.0 licence, the "Create a Smaily account" link, and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md`). The listing itself is a separate business step. | Owner; answered from the guidelines when CON-379 is worked |
 | 22 | A 2.x cart delay of a day or more | 2.2.0 reminded a cart whatever its age, as long as the cart was created in the last 10 days, so a delay of 1440 minutes or more worked. 3.0.0 reminds no cart older than 24 hours. The upgrade keeps such a delay as stored, and that store sends no reminder until the merchant saves a delay of at most 1435 minutes. Open: cap the migrated delay at 1435 (the reminder then goes earlier than the merchant set), or keep it and tell the merchant with an upgrade notice. | Owner |
 
-Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) was decided on 2026-11-20; it
-moved to section 15.
+Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
+and the abandoned-cart reminder) were decided on 2026-11-20; they moved to section 15.
 
 ## 15. Decisions
 
@@ -2220,4 +2223,5 @@ Later decisions of 2026-11-20:
 | Discount codes in store automations | **DECIDED:** discount codes in store automations are in 3.0.0, as a Story of their own after the Automations tab and the Log page. "Edit design" stays out. | Owner (Erkki) | 13 | 4.4 |
 | Which fields the abandoned-cart reminder carries | **DECIDED:** the abandoned-cart reminder always carries every field, as the siblings do: every product field in all 10 slots, and the shopper's names when known. No field picker; the 2.x selection is not migrated. | Owner (Erkki) | 7 | 4.3 |
 | The bounds of the abandoned-cart delay | **DECIDED:** cart delay 10–1435 minutes, default 30, as Magento. An upgraded store keeps its delay; a 2.x delay above 1435 is an open question (section 14, row 22). | Owner (Erkki) | 2.1, 3.3 | 4.1, 4.3 |
+| Does the abandoned-cart reminder apply the guest rule of the live sync? | **DECIDED:** the cart reminder applies no separate guest rule, as the siblings. Who is reminded follows the consent mode through `ContactAudience::sendsAutomatedMarketing()`; "include guests" gates the contact sync only. | Owner (Erkki) | 6.2 | 4.3 |
 | The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |

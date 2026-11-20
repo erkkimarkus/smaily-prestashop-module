@@ -129,13 +129,11 @@ upgrade, with a notice (3.3; the owner may overturn it).
    manifest of connections with the empty prefix; multi-currency orders.
 2. **Subscription team**, Linear SUB-28: the PrestaShop row of the
    installation report, and later the answer on a Smaily-written notice.
-3. **Abandoned cart and guests** (before Story 4.3): does the reminder also
-   apply the guest rule of the live sync?
-4. **Pilot store:** one interested store on PrestaShop 8 with module 2.x
+3. **Pilot store:** one interested store on PrestaShop 8 with module 2.x
    asked about abandoned cart.
-5. **Maintain rights on the official repo:** requested at the first release;
+4. **Maintain rights on the official repo:** requested at the first release;
    the orchestrator files that request then.
-6. **GitHub Actions on the fork:** not enabled; CI on `v3` has never run.
+5. **GitHub Actions on the fork:** not enabled; CI on `v3` has never run.
 
 Linear: Feature P-CON-324; Epics CON-373 (upgrade; four of seven criteria
 met) and CON-378 (contacts); CON-379 (Marketplace rules); CON-380
