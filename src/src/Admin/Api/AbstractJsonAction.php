@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -66,13 +67,7 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
         try {
             $answer = $this->handle($request, self::shopId());
         } catch (\Throwable $error) {
-            \PrestaShopLogger::addLog(sprintf(
-                'Smaily Connect: the admin endpoint %s failed with %s at %s:%d',
-                (string) $request->attributes->get('_route'),
-                get_class($error),
-                basename($error->getFile()),
-                $error->getLine()
-            ), 3);
+            Log::failure('the admin endpoint ' . (string) $request->attributes->get('_route'), $error);
 
             return $this->error('internal_error', $this->trans('Something went wrong. Try again; if it keeps failing, see the PrestaShop logs.', BaseController::DOMAIN), 500);
         }
