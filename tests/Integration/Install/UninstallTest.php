@@ -24,8 +24,8 @@ final class UninstallTest extends IntegrationTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
-            if (!\Module::isInstalled('smailyforprestashop')) {
-                self::module()->install();
+            if (self::moduleId() === 0) {
+                self::console('install');
             }
             LegacyStore::restore();
             if (is_file(self::OVERRIDE)) {
@@ -51,16 +51,33 @@ final class UninstallTest extends IntegrationTestCase
             self::assertSame([], self::db()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . str_replace('_', '\\_', $table) . '\''), $table);
         }
 
-        \Module::resetStaticCache();
-        self::assertTrue(\Module::getInstanceByName('smailyforprestashop')->install());
+        // The module manager needs the Symfony kernel, which a test process does not boot.
+        self::assertSame(0, self::console('install'));
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
         self::assertTrue(Schema::isCurrent());
         foreach (Schema::tables() as $table) {
             self::assertNotEmpty(self::db()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . str_replace('_', '\\_', $table) . '\''), $table);
         }
         self::assertSame(count(HookList::HOOKS), (int) self::db()->getValue(
-            'SELECT COUNT(DISTINCT `id_hook`) FROM `' . _DB_PREFIX_ . 'hook_module` WHERE `id_module` = ' . (int) self::module()->id,
+            'SELECT COUNT(DISTINCT `id_hook`) FROM `' . _DB_PREFIX_ . 'hook_module` WHERE `id_module` = ' . self::moduleId(),
             false
         ));
+    }
+
+    private static function moduleId(): int
+    {
+        return (int) self::db()->getValue(
+            'SELECT `id_module` FROM `' . _DB_PREFIX_ . 'module` WHERE `name` = \'smailyforprestashop\'',
+            false
+        );
+    }
+
+    private static function console(string $action): int
+    {
+        exec('php ' . _PS_ROOT_DIR_ . '/bin/console prestashop:module ' . $action . ' smailyforprestashop 2>&1', $output, $code);
+
+        return $code;
     }
 
     public function testRunsTheListenersBeforeTheDataGoesAndOneFailureStopsNothing(): void
