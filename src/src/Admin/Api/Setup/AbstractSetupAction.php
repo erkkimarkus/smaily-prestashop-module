@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The base of the Initial setup's endpoints: the panels, and the answer that names the fields at
@@ -42,6 +43,16 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  */
 abstract class AbstractSetupAction extends AbstractJsonAction
 {
+    /**
+     * PrestaShop 8 (Symfony 4.4) gives a controller that is a service only the services its class
+     * subscribes, and the translator is not among them: every answer then stops with "Service
+     * translator not found". PrestaShop 9 subscribes it already.
+     */
+    public static function getSubscribedServices(): array
+    {
+        return parent::getSubscribedServices() + ['translator' => '?' . TranslatorInterface::class];
+    }
+
     protected function panels(): SetupPanels
     {
         return new SetupPanels(Services::instance(), BaseController::translator());
