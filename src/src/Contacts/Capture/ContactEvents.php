@@ -161,13 +161,15 @@ final class ContactEvents
      */
     public function afterResponse(): void
     {
-        $this->scheduled = false;
         try {
             $written = $this->commit();
         } catch (\Throwable $error) {
             Log::failure('the contact capture', $error);
 
             return;
+        } finally {
+            // An event recorded after this point schedules another write.
+            $this->scheduled = false;
         }
         if ($written === 0 || $this->finishRequest === null) {
             return;
@@ -175,6 +177,11 @@ final class ContactEvents
 
         ignore_user_abort(true);
         ($this->finishRequest)();
+        // PHP keeps the session locked until the request ends: the shopper's next request would
+        // wait for the flush.
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
         if (!$this->lock->acquire()) {
             return;
         }
