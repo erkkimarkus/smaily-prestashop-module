@@ -1,6 +1,6 @@
 {
     "name": "smaily/smailyforprestashop",
-    "version": "2.2.0",
+    "version": "3.0.0",
     "description": "Smaily integration module for PrestaShop",
     "license": "GNU General Public License v3.0",
     "authors": [
@@ -12,6 +12,11 @@
         "psr-4": {
             "PrestaShop\\Module\\SmailyForPrestaShop\\": "src/",
             "PrestaShop\\Module\\SmailyForPrestaShop\\Lib\\": "lib/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "../tests/"
         }
     },
     "require": {

@@ -29,7 +29,7 @@ if (!defined('_PS_VERSION_')) {
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-use PrestaShop\Module\SmailyForPrestaShop\Controller\OptInController;
+use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Installer;
 
 class SmailyForPrestaShop extends Module
@@ -39,7 +39,7 @@ class SmailyForPrestaShop extends Module
         $this->name = 'smailyforprestashop';
         $this->tab = 'advertising_marketing';
         $this->module_key = 'bcea90ce4da2594c0d0179852db9a1e3';
-        $this->version = '2.2.0';
+        $this->version = '3.0.0';
         $this->author = 'Smaily';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = [
@@ -50,7 +50,7 @@ class SmailyForPrestaShop extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->trans('Smaily for PrestaShop', [], 'Modules.Smailyforprestashop.Admin');
+        $this->displayName = $this->trans('Smaily Connect', [], 'Modules.Smailyforprestashop.Admin');
         $this->description = $this->trans('Smaily email marketing and automation module for PrestaShop.', [], 'Modules.Smailyforprestashop.Admin');
         $this->confirmUninstall = $this->trans('Are you sure you want to uninstall?', [], 'Modules.Smailyforprestashop.Admin');
 
@@ -94,60 +94,169 @@ class SmailyForPrestaShop extends Module
         Tools::redirectAdmin($route);
     }
 
-    public function hookActionNewsletterRegistrationAfter($params): bool
-    {
-        if (isset($params['email'], $params['module']) && $params['module'] === 'ps_emailsubscription') {
-            $controller = new OptInController($this->get('prestashop.adapter.legacy.configuration'));
-
-            return $controller->optInSubscriber($params['email']);
-        }
-
-        return false;
-    }
-
-    /**
-     * Trigger Smaily Opt-in if customer joins with newsletter subscription.
-     *
-     * @param array $params array of parameters being passed to the hook function
-     *
-     * @return bool success of the operation
-     */
-    public function hookActionCustomerAccountAdd($params): bool
-    {
-        if (empty($params['newCustomer'])) {
-            return false;
-        }
-
-        $customer = $params['newCustomer'];
-        $controller = new OptInController($this->get('prestashop.adapter.legacy.configuration'));
-
-        return $controller->optInCustomer($customer);
-    }
-
-    /**
-     * Update customer subscription status when customer updates their account information.
-     *
-     * @param mixed $params
-     *
-     * @return bool
-     */
-    public function hookActionCustomerAccountUpdate($params): bool
-    {
-        if (empty($params['customer'])) {
-            return false;
-        }
-
-        $customer = $params['customer'];
-        $controller = new OptInController($this->get('prestashop.adapter.legacy.configuration'));
-
-        return $controller->updateCustomerSubscriptionStatus($customer);
-    }
-
     /**
      * Enable using new translation system for translating module.
      */
     public function isUsingNewTranslationSystem()
     {
         return true;
+    }
+
+    // One method per hook of Install\HookList. Each hands the call to the listeners that the
+    // providers register; while the schema is not current, none runs.
+
+    public function hookActionCustomerAccountAdd(array $params)
+    {
+        return Dispatcher::dispatch('actionCustomerAccountAdd', $params);
+    }
+
+    public function hookActionObjectCustomerUpdateBefore(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectCustomerUpdateBefore', $params);
+    }
+
+    public function hookActionObjectCustomerUpdateAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectCustomerUpdateAfter', $params);
+    }
+
+    public function hookActionCustomerAccountUpdate(array $params)
+    {
+        return Dispatcher::dispatch('actionCustomerAccountUpdate', $params);
+    }
+
+    public function hookActionObjectCustomerDeleteAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectCustomerDeleteAfter', $params);
+    }
+
+    public function hookActionNewsletterRegistrationAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionNewsletterRegistrationAfter', $params);
+    }
+
+    public function hookActionAuthentication(array $params)
+    {
+        return Dispatcher::dispatch('actionAuthentication', $params);
+    }
+
+    public function hookAdditionalCustomerFormFields(array $params)
+    {
+        return Dispatcher::dispatch('additionalCustomerFormFields', $params);
+    }
+
+    public function hookActionCartSave(array $params)
+    {
+        return Dispatcher::dispatch('actionCartSave', $params);
+    }
+
+    public function hookActionValidateOrder(array $params)
+    {
+        return Dispatcher::dispatch('actionValidateOrder', $params);
+    }
+
+    public function hookActionOrderStatusPostUpdate(array $params)
+    {
+        return Dispatcher::dispatch('actionOrderStatusPostUpdate', $params);
+    }
+
+    public function hookActionOrderEdited(array $params)
+    {
+        return Dispatcher::dispatch('actionOrderEdited', $params);
+    }
+
+    public function hookActionOrderSlipAdd(array $params)
+    {
+        return Dispatcher::dispatch('actionOrderSlipAdd', $params);
+    }
+
+    public function hookActionObjectProductAddAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectProductAddAfter', $params);
+    }
+
+    public function hookActionObjectProductUpdateAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectProductUpdateAfter', $params);
+    }
+
+    public function hookActionUpdateQuantity(array $params)
+    {
+        return Dispatcher::dispatch('actionUpdateQuantity', $params);
+    }
+
+    public function hookActionObjectCombinationUpdateAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectCombinationUpdateAfter', $params);
+    }
+
+    public function hookActionObjectSpecificPriceAddAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectSpecificPriceAddAfter', $params);
+    }
+
+    public function hookActionObjectSpecificPriceUpdateAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectSpecificPriceUpdateAfter', $params);
+    }
+
+    public function hookActionObjectSpecificPriceDeleteAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectSpecificPriceDeleteAfter', $params);
+    }
+
+    public function hookActionObjectProductDeleteAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectProductDeleteAfter', $params);
+    }
+
+    public function hookActionObjectCombinationDeleteAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectCombinationDeleteAfter', $params);
+    }
+
+    public function hookActionObjectShopDeleteAfter(array $params)
+    {
+        return Dispatcher::dispatch('actionObjectShopDeleteAfter', $params);
+    }
+
+    public function hookActionFrontControllerSetMedia(array $params)
+    {
+        return Dispatcher::dispatch('actionFrontControllerSetMedia', $params);
+    }
+
+    public function hookActionAdminControllerSetMedia(array $params)
+    {
+        return Dispatcher::dispatch('actionAdminControllerSetMedia', $params);
+    }
+
+    public function hookDisplayBackOfficeHeader(array $params)
+    {
+        return Dispatcher::dispatch('displayBackOfficeHeader', $params);
+    }
+
+    public function hookDisplayCustomerAccount(array $params)
+    {
+        return Dispatcher::dispatch('displayCustomerAccount', $params);
+    }
+
+    public function hookModuleRoutes(array $params)
+    {
+        return Dispatcher::dispatch('moduleRoutes', $params);
+    }
+
+    public function hookActionExportGDPRData(array $params)
+    {
+        return Dispatcher::dispatch('actionExportGDPRData', $params);
+    }
+
+    public function hookActionDeleteGDPRCustomer(array $params)
+    {
+        return Dispatcher::dispatch('actionDeleteGDPRCustomer', $params);
+    }
+
+    public function hookRegisterGDPRConsent(array $params)
+    {
+        return Dispatcher::dispatch('registerGDPRConsent', $params);
     }
 }
