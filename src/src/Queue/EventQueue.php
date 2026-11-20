@@ -209,6 +209,32 @@ final class EventQueue
     }
 
     /**
+     * Returns failed rows to `pending` with their attempts to spend anew: the Log's manual retry. A
+     * row that is not failed stays as it is.
+     *
+     * @param list<int> $ids
+     *
+     * @return int the number of rows returned to pending
+     */
+    public function retry(array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `attempts` = 0, `next_retry_at` = NULL, `updated_at` = %s'
+            . ' WHERE `id` IN (%s) AND `status` = %s',
+            self::table(),
+            self::quote(self::STATUS_PENDING),
+            $this->time(0),
+            implode(', ', array_map('intval', $ids)),
+            self::quote(self::STATUS_FAILED)
+        ));
+
+        return (int) \Db::getInstance()->Affected_Rows();
+    }
+
+    /**
      * @param list<array<string, mixed>> $rows claimed rows
      */
     public function markSent(array $rows): void
