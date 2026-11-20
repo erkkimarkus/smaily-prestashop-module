@@ -29,9 +29,56 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+
 /**
- * Settings of the Contacts section.
+ * Settings of the Contacts section, per shop (a shop without its own value reads the global one),
+ * in the keys and formats that the 3.0.0 upgrade writes (Migration\LegacyConfigMapper).
+ *
+ * Not final: the unit tests stand in for the stored settings.
  */
-final class ContactsSettings extends Settings
+class ContactsSettings extends Settings
 {
+    /** `1` contact sync is switched on, else off. */
+    public const ENABLED = self::PREFIX . 'CONTACTS_ENABLED';
+
+    /** `1` once the Contacts settings were saved, or the upgrade carried an active sync over. */
+    public const CONFIRMED = self::PREFIX . 'CONTACTS_CONFIRMED';
+
+    /** A ContactSyncMode mode. */
+    public const MODE = self::PREFIX . 'CONTACTS_MODE';
+
+    /** `1` the newsletter-block subscribers without an account are contacts. */
+    public const GUESTS = self::PREFIX . 'CONTACTS_GUESTS';
+
+    /** The selected fields, comma-separated Smaily names; `store` among them is always sent anyway. */
+    public const FIELDS = self::PREFIX . 'CONTACTS_FIELDS';
+
+    /**
+     * Whether a shop's contacts go to Smaily: sync is on and its settings were confirmed. Nothing
+     * stored is off.
+     */
+    public function syncActive(int $idShop): bool
+    {
+        return $this->get(self::ENABLED, $idShop) === '1' && $this->get(self::CONFIRMED, $idShop) === '1';
+    }
+
+    public function mode(int $idShop): ContactSyncMode
+    {
+        return new ContactSyncMode((string) $this->get(self::MODE, $idShop), $this->get(self::GUESTS, $idShop) === '1');
+    }
+
+    /**
+     * The selected fields that a contact row carries, by Smaily name.
+     *
+     * @return list<string>
+     */
+    public function fields(int $idShop): array
+    {
+        return array_values(array_intersect(
+            explode(',', (string) $this->get(self::FIELDS, $idShop)),
+            SubscriberPayloadBuilder::FIELDS
+        ));
+    }
 }
