@@ -158,6 +158,20 @@ final class ContactSyncHandlerTest extends TestCase
         self::assertSame([], $this->requests);
     }
 
+    public function testInAllCustomersSkipsAGuestCheckoutCustomerUnlessGuestsAreIncluded(): void
+    {
+        $outcomes = $this->handler([
+            1 => [ContactsSettings::MODE => ContactSyncMode::ALL_CUSTOMERS, ContactsSettings::GUESTS => '0'],
+            2 => [ContactsSettings::MODE => ContactSyncMode::ALL_CUSTOMERS, ContactsSettings::GUESTS => '1'],
+        ])->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['guest' => true])),
+            $this->row(2, 1, $this->payload('shopper2@example.test')),
+            $this->row(3, 2, $this->payload('shopper3@example.test', ['guest' => true])),
+        ]);
+
+        self::assertEquals([1 => new Skipped('not_in_audience'), 2 => true, 3 => true], $outcomes);
+    }
+
     public function testSkipsARowWhoseShopHasNoAccountOrNoCredentials(): void
     {
         $outcomes = $this->handler()->handle([
@@ -181,6 +195,7 @@ final class ContactSyncHandlerTest extends TestCase
             'no consent' => ['{"email": "shopper1@example.test", "source": "customer", "consent_changed": false}'],
             'consent as a string' => ['{"email": "shopper1@example.test", "source": "customer", "subscribed": "1", "consent_changed": false}'],
             'customer as a string' => ['{"email": "shopper1@example.test", "source": "customer", "subscribed": true, "consent_changed": false, "customer": "x"}'],
+            'guest as a string' => ['{"email": "shopper1@example.test", "source": "customer", "subscribed": true, "consent_changed": false, "guest": "1"}'],
         ];
     }
 

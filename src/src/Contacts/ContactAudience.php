@@ -69,8 +69,9 @@ final class ContactAudience
      * @param bool $subscribed the contact's consent in the store after the event
      * @param bool $consentChanged whether the store saw the event change that consent
      * @param bool $checkout whether the event is a checkout (a registration or a guest at the order step, or an order)
+     * @param bool $guest whether the customer is a guest-checkout customer (`is_guest = 1`)
      */
-    public function syncs(string $source, bool $subscribed, bool $consentChanged, bool $checkout): bool
+    public function syncs(string $source, bool $subscribed, bool $consentChanged, bool $checkout, bool $guest = false): bool
     {
         if ($source === self::SOURCE_NEWSLETTER_BLOCK) {
             if (!$this->mode->includesNewsletterGuests()) {
@@ -83,7 +84,7 @@ final class ContactAudience
 
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
-                return true;
+                return $this->allCustomersSends($guest);
             case ContactSyncMode::CHECKOUT_OPTIN:
                 return $checkout && $subscribed && $consentChanged;
             default:
@@ -108,17 +109,29 @@ final class ContactAudience
 
     /**
      * Whether the first import and the daily refresh send a customer.
+     *
+     * @param bool $guest whether the customer is a guest-checkout customer (`is_guest = 1`)
      */
-    public function importsCustomer(bool $subscribed): bool
+    public function importsCustomer(bool $subscribed, bool $guest = false): bool
     {
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
-                return true;
+                return $this->allCustomersSends($guest);
             case ContactSyncMode::CHECKOUT_OPTIN:
                 return false;
             default:
                 return $subscribed;
         }
+    }
+
+    /**
+     * All customers sends every registered customer, and a guest-checkout customer only when
+     * "include guests" is on, whether or not the newsletter box was ticked (owner, 2026-11-20; the
+     * legitimate-interest preset of the WooCommerce connector).
+     */
+    private function allCustomersSends(bool $guest): bool
+    {
+        return !$guest || $this->mode->includesNewsletterGuests();
     }
 
     /**

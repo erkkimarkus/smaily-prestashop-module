@@ -118,6 +118,41 @@ final class ContactAudienceTest extends TestCase
     }
 
     /**
+     * A guest-checkout customer (`is_guest = 1`) beside a registered one (owner, 2026-11-20): in all
+     * customers a guest goes only when "include guests" is on, whether or not the newsletter box was
+     * ticked, as WooCommerce's legitimate-interest preset decides; the other modes are as for a
+     * registered customer. The live event is a checkout that ticked the box or not.
+     *
+     * @return array<string, array{string, bool, bool, bool, bool, bool}>
+     */
+    public function guestCheckoutCustomers(): array
+    {
+        // mode, include guests, guest checkout, box ticked, synced live, imported
+        return [
+            'all customers, guests on: registered' => [self::ALL, true, false, false, true, true],
+            'all customers, guests off: registered' => [self::ALL, false, false, false, true, true],
+            'all customers, guests on: guest' => [self::ALL, true, true, false, true, true],
+            'all customers, guests on: guest who ticked the box' => [self::ALL, true, true, true, true, true],
+            'all customers, guests off: guest' => [self::ALL, false, true, false, false, false],
+            'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, false, false],
+            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, true, true],
+            'subscribers, guests off: guest' => [self::SUBSCRIBERS, false, true, false, false, false],
+            'checkout opt-in, guests off: guest who ticked the box' => [self::CHECKOUT, false, true, true, true, false],
+        ];
+    }
+
+    /**
+     * @dataProvider guestCheckoutCustomers
+     */
+    public function testAGuestCheckoutCustomer(string $mode, bool $guests, bool $guest, bool $ticked, bool $synced, bool $imported): void
+    {
+        $audience = new ContactAudience(new ContactSyncMode($mode, $guests));
+
+        self::assertSame($synced, $audience->syncs(ContactAudience::SOURCE_CUSTOMER, $ticked, $ticked, true, $guest));
+        self::assertSame($imported, $audience->importsCustomer($ticked, $guest));
+    }
+
+    /**
      * Row "Reconcile from Smaily": both directions in subscribers mode, none elsewhere.
      *
      * @return array<string, array{string, bool}>

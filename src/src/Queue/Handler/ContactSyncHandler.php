@@ -49,10 +49,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * The payload of a row records what the store saw; the consent mode, the fields and the account
  * are read when the row is sent:
  *   {"email": string, "source": "customer"|"newsletter_block", "subscribed": bool,
- *    "consent_changed": bool, "checkout": bool, "id_lang": int,
+ *    "consent_changed": bool, "checkout": bool, "guest": bool, "id_lang": int,
  *    "customer": {"firstname", "lastname", "birthday", "website"}}
- * (ContactAudience::syncs() describes each value; `checkout`, `id_lang` and `customer` may be left
- * out.)
+ * (ContactAudience::syncs() describes each value; `guest` is true for a guest-checkout customer;
+ * `checkout`, `guest`, `id_lang` and `customer` may be left out.)
  *
  * Smaily answers one code for a whole request, so a group that it refuses as invalid data (203) goes
  * again one contact per request, and only the refused contact fails (Magento PRO-3753). Any other
@@ -110,7 +110,7 @@ final class ContactSyncHandler implements HandlerInterface
                 continue;
             }
             $audience = new ContactAudience($this->settings->mode($idShop));
-            if (!$audience->syncs($payload['source'], $payload['subscribed'], $payload['consent_changed'], $payload['checkout'])) {
+            if (!$audience->syncs($payload['source'], $payload['subscribed'], $payload['consent_changed'], $payload['checkout'], $payload['guest'])) {
                 $outcomes[$id] = new Skipped(self::SKIPPED_NOT_IN_AUDIENCE);
                 continue;
             }
@@ -175,7 +175,7 @@ final class ContactSyncHandler implements HandlerInterface
     /**
      * The payload of a row, or null when it is not one.
      *
-     * @return array{email: string, source: string, subscribed: bool, consent_changed: bool, checkout: bool, id_lang: int, customer: array<string, mixed>}|null
+     * @return array{email: string, source: string, subscribed: bool, consent_changed: bool, checkout: bool, guest: bool, id_lang: int, customer: array<string, mixed>}|null
      */
     private static function decode(string $json): ?array
     {
@@ -186,6 +186,7 @@ final class ContactSyncHandler implements HandlerInterface
             || !is_bool($payload['subscribed'] ?? null)
             || !is_bool($payload['consent_changed'] ?? null)
             || !is_bool($payload['checkout'] ?? false)
+            || !is_bool($payload['guest'] ?? false)
             || !is_int($payload['id_lang'] ?? 0)
             || !is_array($payload['customer'] ?? [])
         ) {
@@ -198,6 +199,7 @@ final class ContactSyncHandler implements HandlerInterface
             'subscribed' => $payload['subscribed'],
             'consent_changed' => $payload['consent_changed'],
             'checkout' => $payload['checkout'] ?? false,
+            'guest' => $payload['guest'] ?? false,
             'id_lang' => $payload['id_lang'] ?? 0,
             'customer' => $payload['customer'] ?? [],
         ];

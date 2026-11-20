@@ -374,7 +374,7 @@ final class ContactImport
     private static function inAudience(ContactAudience $audience, array $record): bool
     {
         return $record['source'] === ContactAudience::SOURCE_CUSTOMER
-            ? $audience->importsCustomer((bool) $record['newsletter'])
+            ? $audience->importsCustomer((bool) $record['newsletter'], (bool) $record['is_guest'])
             : $audience->importsNewsletterGuests();
     }
 

@@ -157,7 +157,8 @@ final class ContactImportTest extends IntegrationTestCase
             'subscribers only, with guests' => [ContactSyncMode::SUBSCRIBERS, true, ['subscriber@example.test', 'block@example.test']],
             'subscribers only, without guests' => [ContactSyncMode::SUBSCRIBERS, false, ['subscriber@example.test']],
             'all customers, with guests' => [ContactSyncMode::ALL_CUSTOMERS, true, ['subscriber@example.test', 'customer@example.test', 'guest-checkout@example.test', 'block@example.test']],
-            'checkout opt-in only' => [ContactSyncMode::CHECKOUT_OPTIN, true, []],
+            'all customers, without guests' => [ContactSyncMode::ALL_CUSTOMERS, false, ['subscriber@example.test', 'customer@example.test']],
+            'checkout opt-in only' =>[ContactSyncMode::CHECKOUT_OPTIN, true, []],
         ];
     }
 
