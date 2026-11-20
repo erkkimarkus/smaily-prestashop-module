@@ -20,14 +20,17 @@
     "config": {
         "preferred-install": "dist",
         "prepend-autoloader": false,
-        "platform-check": false
+        "platform-check": false,
+        "platform": {
+            "php": "8.0.30"
+        }
     },
     "type": "prestashop-module",
     "require-dev": {
         "prestashop/php-dev-tools": "^4.3",
         "prestashop/autoindex": "^2.1",
-        "phpunit/phpunit": "^10.5",
-        "symfony/http-client": "^6.4"
+        "phpunit/phpunit": "^9.6",
+        "symfony/http-client": "^5.4"
     },
     "scripts": {
         "lint": "php-cs-fixer fix --dry-run",
