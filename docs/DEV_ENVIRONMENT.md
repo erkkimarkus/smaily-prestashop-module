@@ -1,8 +1,9 @@
 # Local development environment
 
 This recipe runs a local PrestaShop with the module from `src/`. It was run on 2026-11-20 on macOS
-(Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, from module version
-3.0.0 (the skeleton and the event queue). Each step says whether it was verified there.
+(Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, first with the 3.0.0
+skeleton and the event queue, later with stage 1 complete and Story 2.1. Each step says whether it
+was verified, and on which code.
 
 The admin user and password are the demo ones in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -27,8 +28,10 @@ The tests use PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0. The lock hol
     (cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
 
 On the host, PHPUnit runs the unit tests and skips the integration tests, which need a shop (section
-4). Result on PHP 8.5.11: 67 tests, 138 assertions, 24 skipped; PHP CS Fixer: 0 of 88 files to fix.
-The run set `PHP_CS_FIXER_IGNORE_ENV=1`, as PHP CS Fixer may not support the newest PHP.
+4). The counts grow with every Story; section 4 gives the last verified counts of the whole suite.
+PHP CS Fixer checks `src/` only (its finder starts there), not `tests/`. Set
+`PHP_CS_FIXER_IGNORE_ENV=1` on a PHP newer than PHP CS Fixer supports. PHPStan does not run: its
+config and Composer script exist, but no `phpstan` binary is installed.
 
 ## 3. Pick a project name and free ports
 
@@ -72,17 +75,24 @@ with the PrestaShop console:
 Verified result of a fresh 3.0.0 install: `Install action on module smailyforprestashop succeeded`, the
 `ps_module` row at version 3.0.0, 31 hooks, the 9 `ps_smaily_connect_*` tables and the configuration key
 `SMAILY_CONNECT_SCHEMA_VERSION`. A fresh install creates no `smaily_cart` table, no other `SMAILY_*`
-key and no override file.
+key and no override file. The first page request afterwards runs the fallback tick and writes
+`SMAILY_CONNECT_TICK_STATE`; the first request to a cron or tick URL creates that door's token.
 
 Run the unit and integration tests inside the shop, from the module's own folder:
 
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Verified result: 67 tests, 349 assertions, all pass. `PS_ROOT_DIR` makes the test bootstrap boot the
+Last verified results, all passing: 278 tests, 1337 assertions on 8.0.0, 8.2.8 and 9.2.0 at the
+stage 1 integration commit; 350 tests, 1399 assertions on 8.2.8 and 9.2.0 after Story 2.1 was merged
+with Story 1.7 (the count of that Story's run). `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
+
+A test that starts a PHP subprocess (the concurrency workers under `tests/Integration/`) reads the
+subprocess's output. The subprocess prints with `fwrite(STDOUT, …)`, not `echo`: the shop's bootstrap
+can buffer what `echo` prints, and the test then waits for a line that never comes.
 
 `composer test` does not work inside the dev shop. It runs `phpunit --configuration
 ../phpunit.xml.dist`, and the folder above the module in the shop is `modules/`, which holds no
@@ -129,13 +139,24 @@ dependencies), and prints one `ok` or `FAIL` line per check, 10 lines in all:
    is put back afterwards.
 6. The storefront answers 200 while the schema version is unset.
 7. The API client sends one request through the HTTP client of this PrestaShop, to a mock transport,
-   not to Smaily.
+   not to Smaily (`tests/ci/api-client-smoke.php`). The script loads PrestaShop's autoloader from
+   `PS_VENDOR_AUTOLOAD` and then the module's from `MODULE_AUTOLOAD`; each defaults to its path in the
+   shop container.
 8. The RSS feed answers 200 with an RSS document.
 9. The two cron controllers refuse a wrong token.
 
-Result on 2026-11-20: all 10 checks `ok`, with 67 tests and 349 assertions in step 5, on flashlight
-8.0.0, 8.2.8 and 9.2.0, and on the official image `prestashop/prestashop:9.2.0-8.1` with
-`PS_COMPOSE=docker-compose.official.yaml` (the image CI uses for 9.2.0).
+Results on 2026-11-20:
+
+- With the skeleton and the event queue: all 10 checks `ok` on flashlight 8.0.0, 8.2.8 and 9.2.0, and
+  on the official image `prestashop/prestashop:9.2.0-8.1` with `PS_COMPOSE=docker-compose.official.yaml`
+  (the image CI uses for 9.2.0).
+- With stage 1 complete: the in-shop test counts of section 4 on flashlight 8.0.0, 8.2.8 and 9.2.0.
+  The official image did not run with this code.
+
+The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
+of that request finishes the migration and stores the version again, and the script then inserts a
+second row for the key. This is a known defect of the script (ARCHITECTURE section 13, Story 1.8); no
+check fails because of it.
 
 The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
@@ -161,7 +182,44 @@ To upgrade that shop to a newer build (not verified): build the new zip, then
 the zip.
 
 To start from a legacy state, install the matching release and load a fixture from
-`tests/fixtures/legacy/` (see its README).
+`tests/fixtures/legacy/` (see its README). Section 7a gives the whole walk.
+
+## 7a. Upgrade walk from a genuine 2.x or 1.6.x release
+
+The stage 1 upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
+commands below follow those walks; they were not run again for this document.
+
+1. **Build the 3.0.0 zip first:** `composer --working-dir src package`. The script deletes all of
+   `build/` and `dist/` before it builds, so anything kept there goes too.
+2. **Build the genuine legacy zip from its git tag** under `build/` (git ignores it), as the 2.x
+   release workflow built it: the tag's `src/` renamed to `smailyforprestashop/`, Composer's production
+   dependencies installed, and `.git*`, `.php-cs-fixer.dist.php` and `phpstan.neon` left out.
+
+       mkdir -p build/legacy
+       git archive --prefix=smailyforprestashop/ 2.2.0:src | tar -x -C build/legacy
+       composer install --working-dir build/legacy/smailyforprestashop --no-dev
+       (cd build/legacy && zip -qr smailyforprestashop-2.2.0.zip smailyforprestashop \
+         -x '*/.git*' '*/.php-cs-fixer.dist.php' '*/phpstan.neon')
+
+   1.6.2 has no Composer step. 1.6.2 does not install with debug mode on (the flashlight default);
+   part 2 of `1.6.2-configured.sql` supplies its version, tab and hooks instead (fixture README).
+3. **Install the legacy release** in a shop whose module folder is not the mounted `src/` (the CI shop
+   with `KEEP=1`, section 7): uninstall the module, unpack the legacy zip into `modules/`, and run
+   `prestashop:module install smailyforprestashop`.
+4. **Load a fixture** from `tests/fixtures/legacy/` with `mariadb` (fixture README).
+5. **Upgrade to 3.0.0** by one of these paths:
+   - Module Manager > Upload a module with `dist/smailyforprestashop.zip`. On the flashlight 8.0.0 and
+     8.2.8 images the upload fails until the web server can write its upload folder:
+     `docker compose exec -u root prestashop chown www-data /tmp/client_body` (use the CI Compose file
+     and project for the CI shop).
+   - A scripted upload: log in to the admin, then post the zip to
+     `/admin-dev/index.php/improve/modules/import` with the session.
+   - The console: replace the module folder with the 3.0.0 files (section 7) and run
+     `prestashop:module upgrade smailyforprestashop`.
+   - An FTP copy: replace the files only. Nothing runs until a cron URL request or a page request
+     runs the tick (ARCHITECTURE section 3.7).
+6. **Check** `SMAILY_CONNECT_MIGRATION` (`status` `done`), `SMAILY_CONNECT_SCHEMA_VERSION`, the
+   account, mapping and cart rows, and that the legacy keys except the two tokens are gone.
 
 ## 8. Stopping, restarting and resetting
 
