@@ -1,5 +1,12 @@
 # Changelog
 
+### Unreleased — 3.0.0
+
+- Stores the Smaily API password encrypted. The upgrade encrypts the stored password and removes the plain-text copy.
+- Refuses a cron URL request whose token is empty or wrong. On upgrade, an empty cron token is replaced with a new random token, so the cron URL of those stores changes.
+- No longer installs an override of the Newsletter Subscription module (`ps_emailsubscription`). The upgrade removes the override file that 2.x installed, and leaves any other file in place.
+- Uninstall removes all module data: every setting, the cron tokens and the module's database tables.
+
 ### 2.2.0
 
 - Adds PrestaShop 9.x support.
