@@ -29,18 +29,15 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
-use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
-use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
-use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
-use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 
 /**
@@ -55,7 +52,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  *  5. Smaily's status of the contact, read through that account: an unsubscribed contact gets no
  *     reminder (`unsubscribed_in_smaily`); a read that fails sends nothing and the row takes the
  *     retry ladder;
- *  6. the consent of the shop's mode (ContactAudience::remindsCart()): `no_marketing_consent`.
+ *  6. the consent of the shop's mode (ContactAudience::sendsAutomatedMarketing()):
+ *     `no_marketing_consent`.
+ * Steps 5 and 6 are Automation\MarketingConsent, which the first-order email shares.
  * Then TriggerSender posts the reminder through the account the router matched, and the tracker
  * row records the outcome. A reason never names the contact.
  *
@@ -70,17 +69,15 @@ class AbandonedCartHandler implements HandlerInterface
 
     public const SKIPPED_TOO_OLD = 'too_old';
 
-    public const SKIPPED_UNSUBSCRIBED_IN_SMAILY = 'unsubscribed_in_smaily';
+    public const SKIPPED_UNSUBSCRIBED_IN_SMAILY = MarketingConsent::SKIPPED_UNSUBSCRIBED_IN_SMAILY;
 
-    public const SKIPPED_NO_MARKETING_CONSENT = 'no_marketing_consent';
+    public const SKIPPED_NO_MARKETING_CONSENT = MarketingConsent::SKIPPED_NO_MARKETING_CONSENT;
 
     public const SKIPPED_ALREADY_REMINDED = 'already_reminded';
 
     public const SKIPPED_NOT_TRACKED = 'not_tracked';
 
     public const FAILED_MALFORMED_PAYLOAD = 'malformed_payload';
-
-    private const NEWSLETTER_TABLE = 'emailsubscription';
 
     private CartTracker $tracker;
 
@@ -90,9 +87,7 @@ class AbandonedCartHandler implements HandlerInterface
 
     private TriggerSender $sender;
 
-    private ContactsSettings $contacts;
-
-    private Transport $transport;
+    private MarketingConsent $consent;
 
     public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport)
     {
@@ -100,8 +95,7 @@ class AbandonedCartHandler implements HandlerInterface
         $this->addresses = $addresses;
         $this->router = $router;
         $this->sender = $sender;
-        $this->contacts = $contacts;
-        $this->transport = $transport;
+        $this->consent = new MarketingConsent($contacts, $transport);
     }
 
     public function handle(array $events): array
@@ -154,20 +148,20 @@ class AbandonedCartHandler implements HandlerInterface
         if ($match instanceof Skipped) {
             return $this->skip($idCart, $match->reason());
         }
+        $address = $this->addresses->read($idCart);
         try {
-            $status = $this->status($match->account(), $email);
+            $refusal = $this->consent->refusal(
+                $match->account(),
+                $email,
+                $idShop,
+                $address !== null && $address['newsletter'],
+                $address !== null && $address['box_ticked']
+            );
         } catch (SmailyClientException $error) {
             return Failure::of($error);
         }
-        $address = $this->addresses->read($idCart);
-        $reminds = (new ContactAudience($this->contacts->mode($idShop)))->remindsCart(
-            $address !== null && $address['newsletter'],
-            $this->newsletterBlock($email, $idShop),
-            $address !== null && $address['box_ticked'],
-            $status
-        );
-        if (!$reminds) {
-            return $this->skip($idCart, $status === ContactAudience::SMAILY_UNSUBSCRIBED ? self::SKIPPED_UNSUBSCRIBED_IN_SMAILY : self::SKIPPED_NO_MARKETING_CONSENT);
+        if ($refusal !== null) {
+            return $this->skip($idCart, $refusal);
         }
 
         $outcome = $this->sender->send(Trigger::ABANDONED_CART, $idShop, (string) $event['language'], $email, $payload['fields']);
@@ -188,28 +182,6 @@ class AbandonedCartHandler implements HandlerInterface
     }
 
     /**
-     * What Smaily holds for the address: one of ContactAudience's SMAILY_* values. Code 206 is an
-     * address that Smaily does not know; a contact counts as subscribed only when Smaily says so.
-     *
-     * @throws SmailyClientException when Smaily cannot be read
-     */
-    private function status(Account $account, string $email): string
-    {
-        $client = new Client($this->transport, $account->subdomain(), $account->username(), $account->password());
-        try {
-            $contact = $client->get(Client::ENDPOINT_CONTACT, ['email' => $email]);
-        } catch (ApiException $error) {
-            if ($error->getSmailyCode() === ApiException::CODE_EMAIL_NOT_FOUND) {
-                return ContactAudience::SMAILY_UNKNOWN;
-            }
-            throw $error;
-        }
-        $fields = isset($contact[0]) && is_array($contact[0]) ? $contact[0] : $contact;
-
-        return (string) ($fields['is_unsubscribed'] ?? '') === '0' ? ContactAudience::SMAILY_SUBSCRIBED : ContactAudience::SMAILY_UNSUBSCRIBED;
-    }
-
-    /**
      * Whether the cart has an order, or its address placed an order since the cart's last change.
      */
     private function ordered(int $idCart, string $email, string $since): bool
@@ -219,22 +191,6 @@ class AbandonedCartHandler implements HandlerInterface
             . ' UNION SELECT 1 FROM `' . _DB_PREFIX_ . 'orders` o'
             . ' INNER JOIN `' . _DB_PREFIX_ . 'customer` cu ON cu.`id_customer` = o.`id_customer`'
             . ' WHERE cu.`email` = \'' . pSQL($email) . '\' AND o.`date_add` >= \'' . pSQL($since) . '\'',
-            false
-        );
-    }
-
-    /**
-     * Whether the address has an active newsletter-block row in the shop.
-     */
-    private function newsletterBlock(string $email, int $idShop): bool
-    {
-        $table = _DB_PREFIX_ . self::NEWSLETTER_TABLE;
-        if (!\Db::getInstance()->executeS('SHOW TABLES LIKE \'' . $table . '\'', true, false)) {
-            return false;
-        }
-
-        return (bool) \Db::getInstance()->getValue(
-            'SELECT 1 FROM `' . $table . '` WHERE `email` = \'' . pSQL($email) . '\' AND `active` = 1 AND `id_shop` = ' . $idShop,
             false
         );
     }

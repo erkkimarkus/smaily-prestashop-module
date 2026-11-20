@@ -211,7 +211,7 @@ final class ContactAudienceTest extends TestCase
     }
 
     /**
-     * Row "Abandoned-cart reminder goes out when".
+     * Row "Abandoned-cart reminder goes out when", which the first-order email follows too.
      *
      * @return array<string, array{string, bool, bool, bool, bool, string, bool}>
      */
@@ -256,6 +256,6 @@ final class ContactAudienceTest extends TestCase
     ): void {
         $audience = new ContactAudience(new ContactSyncMode($mode, $guests));
 
-        self::assertSame($reminded, $audience->remindsCart($newsletter, $blockRow, $boxTicked, $smailyStatus));
+        self::assertSame($reminded, $audience->sendsAutomatedMarketing($newsletter, $blockRow, $boxTicked, $smailyStatus));
     }
 }

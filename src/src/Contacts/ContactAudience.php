@@ -31,8 +31,9 @@ if (!defined('_PS_VERSION_')) {
 
 /**
  * Who is a Smaily contact under a consent mode, and which subscription status a contact row
- * carries: the rows of the table in ARCHITECTURE 6.2. The live sync, the imports and the
- * abandoned-cart reminder ask this one object, so they never disagree on the audience.
+ * carries: the rows of the table in ARCHITECTURE 6.2. The live sync, the imports, the
+ * abandoned-cart reminder and the first-order email ask this one object, so they never disagree on
+ * the audience.
  *
  * Consent is where PrestaShop keeps it: `customer.newsletter` for a customer or a guest-checkout
  * customer, and an active `emailsubscription` row for a newsletter-block subscriber without an
@@ -145,22 +146,23 @@ final class ContactAudience
     }
 
     /**
-     * Whether an abandoned-cart reminder goes out (owner decision of 2026-11-20, the siblings' rule):
-     * the same for a registered customer and a guest-checkout customer, whatever "include guests"
-     * says, which gates the contact sync only. A contact that Smaily holds as unsubscribed is never
-     * reminded. Otherwise:
-     *  - all customers: every cart;
+     * Whether an automated marketing email that no consent event triggered goes out: the
+     * abandoned-cart reminder and the first-order email (owner decisions of 2026-11-20, the
+     * siblings' rule). The same for a registered customer and a guest-checkout customer, whatever
+     * "include guests" says, which gates the contact sync only. A contact that Smaily holds as
+     * unsubscribed never gets one. Otherwise:
+     *  - all customers: always;
      *  - subscribers only: with the store's consent (`newsletter = 1`, an active newsletter-block
      *    row of the address, or the box ticked in this checkout), or a subscribed Smaily contact;
      *  - checkout opt-in only: with the box ticked in this checkout, or a subscribed Smaily contact
      *    (WooCommerce's rule: an earlier store subscription alone does not count).
      *
-     * @param bool $newsletter the cart's customer has `newsletter = 1`
+     * @param bool $newsletter the customer has `newsletter = 1`
      * @param bool $newsletterBlock the address has an active `emailsubscription` row
-     * @param bool $boxTicked the newsletter box was ticked in this checkout
+     * @param bool $boxTicked the newsletter box was ticked in this checkout (the cart's, or the order's cart's)
      * @param string $smailyStatus SMAILY_SUBSCRIBED, SMAILY_UNSUBSCRIBED or SMAILY_UNKNOWN, read before the send
      */
-    public function remindsCart(bool $newsletter, bool $newsletterBlock, bool $boxTicked, string $smailyStatus): bool
+    public function sendsAutomatedMarketing(bool $newsletter, bool $newsletterBlock, bool $boxTicked, string $smailyStatus): bool
     {
         if ($smailyStatus === self::SMAILY_UNSUBSCRIBED) {
             return false;
