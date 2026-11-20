@@ -61,8 +61,7 @@ final class DashboardController extends BaseController
             $services->get(StoreLayout::class),
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
-            $services->get(TickSettings::class),
-            [self::class, 'tickUrl']
+            $services->get(TickSettings::class)
         );
         $settingsTab = self::PAGES['settings']['tab'];
         $translator = self::translator();

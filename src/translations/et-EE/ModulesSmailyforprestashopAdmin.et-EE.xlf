@@ -432,6 +432,26 @@
         <target>Kasutajate Sünkroniseerimine</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="92719064a8d926ce5c19e07557dcacc8">
+        <source>Background tasks</source>
+        <target>Taustatööd</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ef177582138eaee45eda409a2dcfcc61">
+        <source>Show the cron line</source>
+        <target>Näita cron-rida</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="08784d4774a99c5cb6aa9e6505b80e33">
+        <source>The abandoned cart cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line under Dashboard &gt; Background tasks &gt; Show the cron line: it runs every task and replaces both of your old crontab lines.</source>
+        <target>Hüljatud ostukorvi cron-URL-il polnud võtit, nii et igaüks sai seda käivitada. Sellel on nüüd uus võti, seega selle vana crontabi rida enam ei tööta. Kasuta ühte cron-rida, mille leiad: Töölaud &gt; Taustatööd &gt; Näita cron-rida. See käivitab kõik tööd ja asendab mõlemad vanad crontabi read.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2509a246df8b08c5820a41cac005e915">
+        <source>The contact synchronization cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line under Dashboard &gt; Background tasks &gt; Show the cron line: it runs every task and replaces both of your old crontab lines.</source>
+        <target>Kontaktide sünkroonimise cron-URL-il polnud võtit, nii et igaüks sai seda käivitada. Sellel on nüüd uus võti, seega selle vana crontabi rida enam ei tööta. Kasuta ühte cron-rida, mille leiad: Töölaud &gt; Taustatööd &gt; Näita cron-rida. See käivitab kõik tööd ja asendab mõlemad vanad crontabi read.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -20,9 +20,9 @@ use Tests\Integration\IntegrationTestCase;
 
 /**
  * The Dashboard reads its facts from stored state only: the counts of the tiles over the windows
- * Magento uses, the newest queue rows and import jobs with each entity as stored, the Smaily account
- * of the selected shop, and the cron line with a token that it never creates. While the upgrade is
- * not finished it reads no table of the module. A render costs a small, fixed number of queries.
+ * Magento uses, the newest queue rows and import jobs with each entity as stored, and the Smaily
+ * account of the selected shop. While the upgrade is not finished it reads no table of the module.
+ * A render costs a small, fixed number of queries.
  */
 final class DashboardFactsTest extends IntegrationTestCase
 {
@@ -34,14 +34,11 @@ final class DashboardFactsTest extends IntegrationTestCase
 
     private EventQueue $queue;
 
-    private ?string $token = null;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->now = time();
         $this->queue = new EventQueue(fn (): int => $this->now);
-        $this->token = \Configuration::hasKey(TickSettings::TICK_TOKEN) ? (string) \Configuration::getGlobalValue(TickSettings::TICK_TOKEN) : null;
         $this->clean();
     }
 
@@ -49,9 +46,6 @@ final class DashboardFactsTest extends IntegrationTestCase
     {
         if (defined('_PS_ROOT_DIR_')) {
             $this->clean();
-            if ($this->token !== null) {
-                \Configuration::updateGlobalValue(TickSettings::TICK_TOKEN, $this->token);
-            }
         }
         parent::tearDown();
     }
@@ -135,19 +129,6 @@ final class DashboardFactsTest extends IntegrationTestCase
         self::assertTrue($this->collect()['contacts_confirmed']);
     }
 
-    public function testTheCronLineCarriesTheStoredTokenAndNeverCreatesOne(): void
-    {
-        \Configuration::deleteByName(TickSettings::TICK_TOKEN);
-
-        self::assertNull($this->collect()['cron_line']);
-        self::assertFalse(\Configuration::hasKey(TickSettings::TICK_TOKEN), 'the read stored no token');
-        self::assertNull((new DashboardSettings())->tickToken());
-
-        \Configuration::updateGlobalValue(TickSettings::TICK_TOKEN, 'abc123');
-        self::assertSame('* * * * * curl -fsS "https://shop.example.test/tick?token=abc123" > /dev/null', $this->collect()['cron_line']);
-        self::assertNull($this->collect(null, false)['cron_line'], 'only an admin who may configure sees the token');
-    }
-
     public function testNothingOfTheModulesTablesIsReadWhileTheUpgradeIsNotFinished(): void
     {
         $this->row('contact.sync', 'failed', 0);
@@ -181,7 +162,7 @@ final class DashboardFactsTest extends IntegrationTestCase
     /**
      * @return array<string, mixed>
      */
-    private function collect(?string $upgrade = null, bool $canConfigure = true): array
+    private function collect(?string $upgrade = null): array
     {
         $services = Services::instance();
         $facts = new DashboardFacts(
@@ -190,11 +171,10 @@ final class DashboardFactsTest extends IntegrationTestCase
             $services->get(StoreLayout::class),
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
-            $services->get(TickSettings::class),
-            static fn (string $token): string => 'https://shop.example.test/tick?token=' . $token
+            $services->get(TickSettings::class)
         );
 
-        return $facts->collect($upgrade, 0, false, $canConfigure, true, $this->now);
+        return $facts->collect($upgrade, 0, false, true, true, $this->now);
     }
 
     /**

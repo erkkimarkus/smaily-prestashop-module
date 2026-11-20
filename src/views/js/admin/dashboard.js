@@ -22,9 +22,9 @@
  */
 
 /*
- * The Dashboard's "Show the cron line": the Background tasks card of a store whose tick URL has no
- * token yet asks the server for the cron line (Admin\Dashboard\CronLine) and shows it in place of the
- * button. Plain JavaScript; window.smailyConnect.api() comes from common.js.
+ * The Dashboard's "Show the cron line": the Background tasks card asks the server for the cron line
+ * (Admin\Dashboard\CronLine) and shows it in place of the button. Plain JavaScript;
+ * window.smailyConnect.api() comes from common.js.
  */
 (function () {
   'use strict';

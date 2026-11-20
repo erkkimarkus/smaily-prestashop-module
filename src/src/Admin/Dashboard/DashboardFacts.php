@@ -59,20 +59,13 @@ final class DashboardFacts
 
     private TickSettings $ticks;
 
-    /** @var callable(string): string */
-    private $tickUrl;
-
-    /**
-     * @param callable(string): string $tickUrl the tick URL that carries a token
-     */
     public function __construct(
         DashboardQueries $queries,
         DashboardSettings $settings,
         StoreLayout $layout,
         AccountResolver $resolver,
         AccountStore $accounts,
-        TickSettings $ticks,
-        callable $tickUrl
+        TickSettings $ticks
     ) {
         $this->queries = $queries;
         $this->settings = $settings;
@@ -80,7 +73,6 @@ final class DashboardFacts
         $this->resolver = $resolver;
         $this->accounts = $accounts;
         $this->ticks = $ticks;
-        $this->tickUrl = $tickUrl;
     }
 
     /**
@@ -92,7 +84,6 @@ final class DashboardFacts
      */
     public function collect(?string $upgrade, int $idShop, bool $multishop, bool $canConfigure, bool $canOpenSettings, int $now): array
     {
-        $token = $canConfigure ? $this->settings->tickToken() : null;
         $facts = [
             'upgrade' => $upgrade,
             'all_shops' => $multishop && $idShop === 0,
@@ -109,7 +100,6 @@ final class DashboardFacts
             'activity' => [],
             'can_configure' => $canConfigure,
             'can_open_settings' => $canOpenSettings,
-            'cron_line' => $token === null ? null : BackgroundTasks::cronLine(($this->tickUrl)($token)),
         ];
         if ($upgrade !== null) {
             return $facts;

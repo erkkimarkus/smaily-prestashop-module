@@ -31,7 +31,6 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
-use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 
 /**
  * The settings that the Dashboard reads and no settings class exposes on its own: read only,
@@ -47,16 +46,5 @@ final class DashboardSettings extends Settings
     public function contactsConfirmed(int $idShop): bool
     {
         return $this->get(ContactsSettings::CONFIRMED, $idShop) === '1';
-    }
-
-    /**
-     * The tick URL's token as stored, or null while none is: unlike TickSettings::token(), this
-     * read never creates one.
-     */
-    public function tickToken(): ?string
-    {
-        $token = $this->get(TickSettings::TICK_TOKEN);
-
-        return $token === null || $token === '' ? null : $token;
     }
 }

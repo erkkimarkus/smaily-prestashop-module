@@ -533,7 +533,9 @@ parameters:
 **[D]** A request whose token is empty or wrong, or a door whose stored token is empty, is refused with
 HTTP 403 and the 2.x answer `Access denied!`. The comparison is `hash_equals()`. The upgrade gives an
 empty legacy token a new random value and adds a notice. This closes the 2.x hole in section 0. It
-changes the URL of the stores that it affects; those stores had an unauthenticated cron URL.
+changes the URL of the stores that it affects; those stores had an unauthenticated cron URL. The
+notice names the one cron line of the Dashboard's Background tasks card (section 4.3) and says that
+it replaces both old crontab lines; no screen lists the two legacy URLs.
 
 **What the cron URLs do on `v3` today.** A 2.x crontab runs the tick, and the tick runs the jobs of
 section 4.1 that are registered. For a shop whose contact sync is active, this covers the work of the
@@ -797,8 +799,12 @@ holds no tick.
 **Dashboard.** A "Background tasks" card shows the last tick time and its source (cron URL, visitor
 traffic, enqueue). States: green when a cron-URL tick ran within 5 min; amber when only fallback
 ticks ran in the last hour ("Tasks run only when visitors come; add the cron line"); red when no tick
-ran for 15 min or never ("Background tasks are not running"). Amber and red show the cron line
-`* * * * * curl -fsS "<tick URL>" > /dev/null`. The Initial setup's Overview step shows the same card.
+ran for 15 min or never ("Background tasks are not running"). In every state, green included, an
+admin who may change the settings gets the button "Show the cron line", which asks
+`Admin\Dashboard\CronLine` for the store's one cron line,
+`* * * * * curl -fsS "<tick URL>" > /dev/null`; the page itself never carries the token. The card
+lists only the tick URL: the two 2.x cron URLs keep working (section 3.4), and the one line replaces
+both in a crontab. The Initial setup's Overview step shows the same card.
 
 **Why PrestaShop forces a departure.** Woo and Magento delegate scheduling to the platform. PrestaShop
 has none, so the module owns the trigger, the lock and the time budget.
@@ -2146,3 +2152,4 @@ Later decisions of 2026-11-20:
 | Where consent lives | **DECIDED:** marketing consent lives in PrestaShop's own places (`customer.newsletter`, `emailsubscription`); the module keeps no consent store of its own. `customer.optin` is PrestaShop's "partner offers" checkbox; the module neither creates nor reads it. | Owner | 6.1 | 2.2, 2.3 |
 | Colours of the admin screens | **DECIDED:** the Campaign Intelligence palette, for the module's own components only (Linear CON-377). | Owner | 10.6 | 3.1 |
 | A contact's address on the admin screens | **DECIDED:** admin screens show a contact's address as the sibling connectors do; only a GDPR erasure removes it. The keyed hash that stands in for an address longer than the entity column shows as its first 12 characters and "…" (`magento:Model/Log/EntityLabel.php`). | Owner (Erkki) | 2.2, 11.2 | 3.2 |
+| The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |

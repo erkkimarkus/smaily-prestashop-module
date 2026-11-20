@@ -4,6 +4,7 @@
 
 - Stores the Smaily API password encrypted. The upgrade encrypts the stored password and removes the plain-text copy.
 - Refuses a cron URL request whose token is empty or wrong. On upgrade, an empty cron token is replaced with a new random token, so the cron URL of those stores changes.
+- Runs every background task from one cron line. The Dashboard's Background tasks card shows it under "Show the cron line"; it replaces the two crontab lines of 2.x, which keep working with their tokens.
 - No longer installs an override of the Newsletter Subscription module (`ps_emailsubscription`). The upgrade removes the override file that 2.x installed, and leaves any other file in place.
 - Uninstall removes all module data: every setting, the cron tokens and the module's database tables.
 - Syncs contacts by the chosen consent mode: subscribers only, all customers, or checkout opt-in only. An upgraded store starts in subscribers only.

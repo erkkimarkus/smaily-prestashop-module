@@ -16,8 +16,6 @@ final class DashboardViewTest extends TestCase
 {
     private const NOW = 1763640000;
 
-    private const CRON_LINE = '* * * * * curl -fsS "https://shop.example.test/module/smailyforprestashop/tick?token=t" > /dev/null';
-
     private string $timezone;
 
     protected function setUp(): void
@@ -201,23 +199,22 @@ final class DashboardViewTest extends TestCase
         self::assertSame($hint, $card['hint']);
     }
 
-    public function testTheCronLineShowsOnlyWhenTasksNeedItAndOnlyToAnAdminWhoMayConfigure(): void
+    /**
+     * @dataProvider backgroundCards
+     */
+    public function testTheCronLineIsOfferedInEveryStateToAnAdminWhoMayConfigure(TickState $tick, bool $on): void
     {
-        $visitors = ['tick' => TickState::fromJson(null)->withTick('traffic', self::NOW - 60)];
+        $card = self::view(['tick' => $tick])['connections']['background'];
+        self::assertTrue($card['cron_button']);
+        self::assertNull($card['ask_admin']);
 
-        self::assertNull(self::view()['connections']['background']['cron']);
-        self::assertSame(self::CRON_LINE, self::view($visitors)['connections']['background']['cron']);
-        self::assertFalse(self::view($visitors)['connections']['background']['cron_missing']);
-        self::assertNull(self::view($visitors)['connections']['background']['ask_admin']);
-
-        $noToken = self::view($visitors + ['cron_line' => null])['connections']['background'];
-        self::assertNull($noToken['cron']);
-        self::assertTrue($noToken['cron_missing'], 'the admin can create the cron URL');
-
-        $readOnly = self::view($visitors + ['can_configure' => false, 'cron_line' => null])['connections']['background'];
-        self::assertNull($readOnly['cron']);
-        self::assertFalse($readOnly['cron_missing']);
-        self::assertSame('Ask an administrator who may change the Smaily Connect settings to add the cron line.', $readOnly['ask_admin']);
+        $readOnly = self::view(['tick' => $tick, 'can_configure' => false])['connections']['background'];
+        self::assertFalse($readOnly['cron_button']);
+        self::assertSame(
+            $on ? null : 'Ask an administrator who may change the Smaily Connect settings to add the cron line.',
+            $readOnly['ask_admin'],
+            'only while the tasks need the cron line'
+        );
     }
 
     public function testTheTilesCountWhatMagentoCounts(): void
@@ -325,7 +322,6 @@ final class DashboardViewTest extends TestCase
             'activity' => [],
             'can_configure' => true,
             'can_open_settings' => true,
-            'cron_line' => self::CRON_LINE,
         ]);
     }
 }

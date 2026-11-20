@@ -56,8 +56,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
  * - activity: the latest rows, newest first: `kind` (`queue` or `job`), `type`, `status`,
  *   `updated_at` (Unix time), and `entity` (already an EntityLabel) or `total` (a job's contacts);
  * - can_configure: the employee may change the settings (the cron line is theirs to see);
- *   can_open_settings: the employee may open Settings (the invitation is theirs to act on);
- * - cron_line: the crontab line with the tick URL's token, or null while no token is stored.
+ *   can_open_settings: the employee may open Settings (the invitation is theirs to act on).
  */
 final class DashboardView
 {
@@ -233,13 +232,11 @@ final class DashboardView
                 $card = self::card(false, $sub, 'failed', $this->trans('Not running'));
                 $hint = $this->trans('Background tasks are not running; add the cron line.');
         }
-        $needsCron = $hint !== null;
 
         return $card + [
             'hint' => $hint,
-            'cron' => $needsCron && $facts['can_configure'] ? $facts['cron_line'] : null,
-            'cron_missing' => $needsCron && $facts['can_configure'] && $facts['cron_line'] === null,
-            'ask_admin' => $needsCron && !$facts['can_configure']
+            'cron_button' => $facts['can_configure'],
+            'ask_admin' => $hint !== null && !$facts['can_configure']
                 ? $this->trans('Ask an administrator who may change the Smaily Connect settings to add the cron line.')
                 : null,
         ];

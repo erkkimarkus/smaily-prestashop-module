@@ -1,5 +1,5 @@
-# The JSON endpoint of the Dashboard (Admin\Dashboard\CronLine): the cron line of a store whose tick
-# URL has no token yet. It needs the right to change the settings, so it names the Settings tab.
+# The JSON endpoint of the Dashboard (Admin\Dashboard\CronLine): the store's cron line, with the tick
+# URL's token. It needs the right to change the settings, so it names the Settings tab.
 smailyforprestashop_api_cron_line:
   path: /smailyforprestashop/api/cron-line
   methods: [POST]
