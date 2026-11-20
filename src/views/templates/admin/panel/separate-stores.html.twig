@@ -1,0 +1,8 @@
+{#
+ # The card that a step or a tab shows in separate stores while "All shops" is selected: the page
+ # saves nothing there. Takes `hidden` where the store-layout bar above says it already.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+<div class="smaily-card"{% if hidden|default(false) %} hidden{% endif %}>
+  <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+</div>

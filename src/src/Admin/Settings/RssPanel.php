@@ -55,7 +55,7 @@ final class RssPanel
     }
 
     /**
-     * @return array{defaults: array{category: int, limit: int, sort_by: string, sort_order: string}, base_url: string, sort_by: list<string>, sort_orders: list<string>}
+     * @return array{defaults: array{category: int, limit: int, sort_by: string, sort_order: string}, feed: array{limit: int, sort_by: string, sort_order: string, max_limit: int}, base_url: string, sort_by: list<string>, sort_orders: list<string>}
      */
     public function values(): array
     {
@@ -63,6 +63,13 @@ final class RssPanel
 
         return [
             'defaults' => $this->settings->defaults(),
+            // The feed's own defaults, which a URL leaves out, and its largest limit.
+            'feed' => [
+                'limit' => RssSettings::DEFAULT_LIMIT,
+                'sort_by' => RssSettings::DEFAULT_SORT_BY,
+                'sort_order' => RssSettings::DEFAULT_SORT_ORDER,
+                'max_limit' => RssSettings::MAX_LIMIT,
+            ],
             'base_url' => $link->getModuleLink('smailyforprestashop', 'SmailyRssFeed'),
             'sort_by' => RssSettings::SORT_BY_VALUES,
             'sort_orders' => RssSettings::SORT_ORDERS,

@@ -10,17 +10,11 @@
 {% set s = smaily_settings %}
 {% if s.contacts is null %}
   <div class="smaily-panel">
-    <div class="smaily-card">
-      <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
-    </div>
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/separate-stores.html.twig' only %}
   </div>
 {% else %}
   {% if s.own is not null %}
-    <div class="smaily-inline-toggle smaily-own-toggle">
-      <label><input type="checkbox" data-smaily-own="contacts" data-own-saved="{{ s.own.contacts ? 1 : 0 }}"{{ s.own.contacts ? ' checked' : '' }}> {{ 'Use its own Contacts settings on this shop'|trans }}</label>
-      <p class="smaily-note">{{ 'Otherwise this shop uses the settings saved for all shops, and a change here applies to every shop that uses them.'|trans }}</p>
-      <p class="smaily-note smaily-note--strong" data-smaily-own-return hidden>{{ 'Save to remove this shop\'s own values: it then uses the settings saved for all shops.'|trans }}</p>
-    </div>
+    {% include '@Modules/smailyforprestashop/views/templates/admin/settings/own-toggle.html.twig' with {section: 'contacts', label: 'Use its own Contacts settings on this shop'|trans, own: s.own.contacts} only %}
   {% endif %}
   <div class="smaily-own-region" data-smaily-own-region="contacts"
        data-saved-mode="{{ s.contacts.mode }}" data-saved-guests="{{ s.contacts.guests ? 1 : 0 }}">

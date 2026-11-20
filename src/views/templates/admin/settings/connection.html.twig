@@ -11,20 +11,14 @@
 {% set s = smaily_settings %}
 {% if s.connection is null %}
   <div class="smaily-panel">
-    <div class="smaily-card">
-      <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
-    </div>
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/separate-stores.html.twig' only %}
   </div>
 {% else %}
   {% if s.invitation %}
     {% include '@Modules/smailyforprestashop/views/templates/admin/layout/invitation.html.twig' with {dismissible: false} %}
   {% endif %}
   {% if s.own is not null %}
-    <div class="smaily-inline-toggle smaily-own-toggle">
-      <label><input type="checkbox" data-smaily-own="connection" data-own-saved="{{ s.own.connection ? 1 : 0 }}"{{ s.own.connection ? ' checked' : '' }}> {{ 'Use its own Smaily account on this shop'|trans }}</label>
-      <p class="smaily-note">{{ 'Otherwise this shop uses the settings saved for all shops, and a change here applies to every shop that uses them.'|trans }}</p>
-      <p class="smaily-note smaily-note--strong" data-smaily-own-return hidden>{{ 'Save to remove this shop\'s own values: it then uses the settings saved for all shops.'|trans }}</p>
-    </div>
+    {% include '@Modules/smailyforprestashop/views/templates/admin/settings/own-toggle.html.twig' with {section: 'connection', label: 'Use its own Smaily account on this shop'|trans, own: s.own.connection} only %}
   {% endif %}
   <div class="smaily-own-region" data-smaily-own-region="connection">
     {% include '@Modules/smailyforprestashop/views/templates/admin/panel/connection.html.twig' with {

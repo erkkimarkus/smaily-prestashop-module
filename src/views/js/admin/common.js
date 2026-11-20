@@ -32,6 +32,9 @@
  *
  * window.smailyConnect.setup.onContinue(step, saver) registers the saver of a setup step: Continue
  * runs it and moves on once the promise it returns resolves; a rejected promise keeps the step.
+ *
+ * window.smailyConnect.ready(callback) runs the callback once the page is parsed, and
+ * window.smailyConnect.show(element, text, ok) writes a result line, marked as an error unless ok.
  */
 (function () {
   'use strict';
@@ -77,6 +80,16 @@
     }
   }
 
+  function show(result, text, ok) {
+    if (result) {
+      result.textContent = text;
+      result.classList.toggle('is-error', !ok);
+    }
+  }
+
+  smailyConnect.ready = ready;
+  smailyConnect.show = show;
+
   ready(function () {
     var root = document.querySelector('.smaily-ui');
     if (!root) {
@@ -109,13 +122,6 @@
         });
       });
     };
-
-    function show(result, text, ok) {
-      if (result) {
-        result.textContent = text;
-        result.classList.toggle('is-error', !ok);
-      }
-    }
 
     root.addEventListener('click', function (event) {
       var target = event.target.closest('[data-smaily-action]');
@@ -161,7 +167,7 @@
     });
 
     initTabs(root.querySelector('[data-smaily-tabs]'));
-    initSetup(root.querySelector('[data-smaily-setup]'), show);
+    initSetup(root.querySelector('[data-smaily-setup]'));
   });
 
   /* Settings: one tab shown at a time; the address keeps ?tab=<id> so a reload opens it again. */
@@ -194,7 +200,7 @@
    * lets the merchant go back to. Continue runs the step's saver first; the last step (Overview)
    * has no Back or Continue.
    */
-  function initSetup(container, show) {
+  function initSetup(container) {
     if (!container) {
       return;
     }

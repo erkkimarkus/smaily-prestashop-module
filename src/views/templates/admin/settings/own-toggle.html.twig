@@ -1,0 +1,11 @@
+{#
+ # A Settings tab's switch "Use its own … on this shop" (Magento CON-179), for a shop selected in one
+ # store. Takes `section` (the tab), `label` (the switch's words) and `own` (the shop holds own
+ # values of the section). Behaviour: views/js/admin/settings.js.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+<div class="smaily-inline-toggle smaily-own-toggle">
+  <label><input type="checkbox" data-smaily-own="{{ section }}" data-own-saved="{{ own ? 1 : 0 }}"{{ own ? ' checked' : '' }}> {{ label }}</label>
+  <p class="smaily-note">{{ 'Otherwise this shop uses the settings saved for all shops, and a change here applies to every shop that uses them.'|trans }}</p>
+  <p class="smaily-note smaily-note--strong" data-smaily-own-return hidden>{{ 'Save to remove this shop\'s own values: it then uses the settings saved for all shops.'|trans }}</p>
+</div>

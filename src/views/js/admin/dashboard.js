@@ -24,12 +24,12 @@
 /*
  * The Dashboard's "Show the cron line": the Background tasks card asks the server for the cron line
  * (Admin\Dashboard\CronLine) and shows it in place of the button. Plain JavaScript;
- * window.smailyConnect.api() comes from common.js.
+ * window.smailyConnect.api() and ready() come from common.js.
  */
 (function () {
   'use strict';
 
-  function init() {
+  window.smailyConnect.ready(function () {
     var box = document.querySelector('.smaily-ui [data-smaily-cron-line]');
     if (!box) {
       return;
@@ -52,11 +52,5 @@
         button.disabled = false;
       });
     });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  });
 }());

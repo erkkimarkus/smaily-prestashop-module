@@ -1,14 +1,31 @@
 {#
  # The first contact import (Magento's "Initial contact import" card): Start import, Cancel import
  # and one progress line, from Contacts\Import\ContactImport. It is offered once the Contacts
- # settings are saved and only in a mode that imports anyone; views/js/admin/setup.js draws the
- # state from `data-import` and polls the progress while the import is queued or running.
+ # settings are saved and only in a mode that imports anyone; views/js/admin/panels.js draws the
+ # state from `data-smaily-import`, in the card's own words (data-label-*), and polls the progress
+ # while the import is queued or running.
  #
  # Takes `contacts` (ContactsPanel::values()) and `import` (ContactImport::progress(), or null).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set imports_anyone = contacts.mode != 'checkout_optin' %}
-<div class="smaily-card smaily-import" data-smaily-import="{{ import is null ? 'null' : import|json_encode }}">
+<div class="smaily-card smaily-import" data-smaily-import="{{ import is null ? 'null' : import|json_encode }}"
+     data-label-queued="{{ 'Queued — the import starts on the next scheduled run…'|trans }}"
+     data-label-importing="{{ 'Importing…'|trans }}"
+     data-label-progress="{{ '%sent% of %total%'|trans }}"
+     data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
+     data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
+     data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
+     data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
+     data-label-sync-off="{{ 'Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.'|trans }}"
+     data-label-canceling="{{ 'Canceling…'|trans }}"
+     data-label-start="{{ 'Start import'|trans }}"
+     data-label-run-again="{{ 'Run again'|trans }}"
+     data-label-state-pending="{{ 'Pending'|trans }}"
+     data-label-state-running="{{ 'Running'|trans }}"
+     data-label-state-done="{{ 'Done'|trans }}"
+     data-label-state-stopped="{{ 'Stopped'|trans }}"
+     data-label-state-cancelled="{{ 'Canceled'|trans }}">
   <div class="smaily-import__head">
     <strong class="smaily-import__title">{{ 'Initial contact import'|trans }}</strong>
     <span class="smaily-pill" data-smaily-import-pill hidden><span class="smaily-pill__dot" aria-hidden="true"></span><span data-smaily-import-pill-text></span></span>

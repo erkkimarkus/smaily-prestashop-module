@@ -13,6 +13,13 @@
 
 {% set dashboard = '@Modules/smailyforprestashop/views/templates/admin/dashboard/' %}
 
+{% block javascripts %}
+  {{ parent() }}
+  {% if smaily_dashboard is defined and smaily_dashboard.connections.background.cron_button %}
+    <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/dashboard.js') }}?v={{ smaily.version }}"></script>
+  {% endif %}
+{% endblock %}
+
 {% block smaily_page %}
   <div class="smaily-dashboard">
     {% block smaily_dashboard_invitation %}

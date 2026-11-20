@@ -30,23 +30,7 @@
        data-label-confirm-guests="{{ 'Include guests: from now on newsletter subscribers without an account and guest-checkout customers are synced too, and the daily refresh sends the existing ones.'|trans }}"
        data-label-confirm-continue="{{ 'Continue?'|trans }}"
        data-label-copied="{{ 'Copied to the clipboard.'|trans }}"
-       data-label-copy-failed="{{ 'Copying failed — select the URL and copy it manually.'|trans }}"
-       data-label-queued="{{ 'Queued — the import starts on the next scheduled run…'|trans }}"
-       data-label-importing="{{ 'Importing…'|trans }}"
-       data-label-progress="{{ '%sent% of %total%'|trans }}"
-       data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
-       data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
-       data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
-       data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
-       data-label-sync-off="{{ 'Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.'|trans }}"
-       data-label-canceling="{{ 'Canceling…'|trans }}"
-       data-label-start="{{ 'Start import'|trans }}"
-       data-label-run-again="{{ 'Run again'|trans }}"
-       data-label-state-pending="{{ 'Pending'|trans }}"
-       data-label-state-running="{{ 'Running'|trans }}"
-       data-label-state-done="{{ 'Done'|trans }}"
-       data-label-state-stopped="{{ 'Stopped'|trans }}"
-       data-label-state-cancelled="{{ 'Canceled'|trans }}">
+       data-label-copy-failed="{{ 'Copying failed — select the URL and copy it manually.'|trans }}">
     {% include '@Modules/smailyforprestashop/views/templates/admin/panel/store-shape.html.twig' with {
       shape: smaily_settings.shape,
       shop_name: smaily_settings.shop_name,
@@ -61,5 +45,6 @@
 
 {% block javascripts %}
   {{ parent() }}
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/panels.js') }}?v={{ smaily.version }}"></script>
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/settings.js') }}?v={{ smaily.version }}"></script>
 {% endblock %}

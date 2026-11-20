@@ -18,7 +18,9 @@
 {% set order_labels = {desc: 'Descending'|trans, asc: 'Ascending'|trans} %}
 <div class="smaily-panel" data-smaily-panel="rss">
   <div class="smaily-card">
-    <div class="smaily-rss-builder" data-smaily-rss-builder data-base-url="{{ rss.base_url }}">
+    <div class="smaily-rss-builder" data-smaily-rss-builder data-base-url="{{ rss.base_url }}"
+         data-default-limit="{{ rss.feed.limit }}" data-default-sort-by="{{ rss.feed.sort_by }}"
+         data-default-sort-order="{{ rss.feed.sort_order }}" data-max-limit="{{ rss.feed.max_limit }}">
       <div class="smaily-rss-builder__grid">
         <label class="smaily-rss-builder__field">
           <span>{{ 'Category ID (optional)'|trans }}</span>

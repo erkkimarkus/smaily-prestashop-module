@@ -23,8 +23,8 @@
 
 /*
  * The Settings page's tabs Connection, Contacts and RSS (views/templates/admin/settings/ and the
- * panels of panel/), on the shell of common.js, which switches the tabs. Plain JavaScript, no
- * build. As Magento's Settings:
+ * panels of panel/), on the shell of common.js, which switches the tabs, and the panels of
+ * panels.js. Plain JavaScript, no build. As Magento's Settings:
  *
  * - every tab saves on its own (Admin\Api\Settings\SaveTab), and a refused save marks each field
  *   at fault with its message;
@@ -41,105 +41,22 @@
   'use strict';
 
   var smailyConnect = window.smailyConnect = window.smailyConnect || {};
-  var POLL_MS = 5000;
-  /* The feed's own defaults: a URL leaves them out (controllers/front/SmailyRssFeed.php). */
-  var FEED_DEFAULTS = {limit: '50', sort_by: 'date_upd', sort_order: 'desc'};
 
-  function ready(callback) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', callback);
-    } else {
-      callback();
-    }
-  }
-
-  ready(function () {
+  smailyConnect.ready(function () {
     var root = document.querySelector('[data-smaily-settings-root]');
     if (!root || !smailyConnect.api) {
       return;
     }
-
-    function label(name, params) {
-      var text = root.getAttribute('data-label-' + name) || '';
-      Object.keys(params || {}).forEach(function (key) {
-        text = text.split('%' + key + '%').join(String(params[key]));
-      });
-      return text;
-    }
-
-    function post(api, body) {
-      return smailyConnect.api(root.getAttribute('data-api-' + api), body);
-    }
-
-    function result(element, text, ok) {
-      if (element) {
-        element.textContent = text;
-        element.classList.toggle('is-error', !ok);
-      }
-    }
+    var panels = smailyConnect.panels(root, 'connected');
+    var label = panels.label;
+    var post = panels.post;
+    var panel = panels.panel;
+    var checked = panels.checked;
+    var value = panels.value;
+    var result = smailyConnect.show;
 
     function tabPanel(tab) {
       return root.querySelector('.smaily-tab-panel[data-tab="' + tab + '"]');
-    }
-
-    function panel(name) {
-      return root.querySelector('[data-smaily-panel="' + name + '"]');
-    }
-
-    function checked(scope, name) {
-      var input = scope.querySelector('input[name="' + name + '"]:checked');
-      return input ? input.value : '';
-    }
-
-    function value(scope, field) {
-      var input = scope.querySelector('[data-smaily-field="' + field + '"]');
-      return input ? input.value : '';
-    }
-
-    /* Field errors: each message under its field, as Magento marks them (PRO-3562). */
-    function clearErrors(scope) {
-      scope.querySelectorAll('.smaily-field-error').forEach(function (node) {
-        node.parentNode.removeChild(node);
-      });
-      scope.querySelectorAll('.is-invalid').forEach(function (node) {
-        node.classList.remove('is-invalid');
-        node.removeAttribute('aria-invalid');
-      });
-    }
-
-    /* Marks each field of `fields`; answers whether every message found its field. */
-    function showErrors(scope, fields) {
-      var first = null;
-      var placed = 0;
-      (fields || []).forEach(function (error) {
-        var field = error.field ? scope.querySelector('[data-smaily-field="' + error.field + '"]') : null;
-        if (!field) {
-          return;
-        }
-        placed += 1;
-        var message = document.createElement('p');
-        message.className = 'smaily-field-error';
-        message.textContent = error.message;
-        var anchor = field.closest('.smaily-subdomain-row') || field;
-        anchor.parentNode.insertBefore(message, anchor.nextSibling);
-        field.classList.add('is-invalid');
-        field.setAttribute('aria-invalid', 'true');
-        first = first || field;
-      });
-      if (first && first.focus) {
-        first.focus();
-      }
-      return placed > 0 && placed === (fields || []).length;
-    }
-
-    /* A pasted Smaily URL reads as its subdomain, as the server reduces it (ConnectionPanel). */
-    function subdomainOf(text) {
-      var host = text.trim();
-      var match = host.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#:]+)/i);
-      if (match) {
-        host = match[1];
-      }
-      return host.replace(/\.sendsmaily\.net.*$/i, '').replace(/^[\s/.]+|[\s/.]+$/g, '').toLowerCase();
     }
 
     function reload() {
@@ -174,34 +91,12 @@
       });
     });
 
-    /* Connection: the language mode, the account blocks, Test connection and the state. */
+    /* Connection: the language mode, and the state of the stored accounts. */
     var connection = panel('connection');
     var savedLanguageMode = connection ? (checked(connection, 'smaily-language-mode') || 'single') : 'single';
     var languageModeConfirmed = false;
 
-    function showLanguageMode(mode) {
-      var perLanguage = mode === 'a';
-      connection.querySelector('[data-smaily-account-block=""]').hidden = perLanguage;
-      var region = connection.querySelector('[data-smaily-per-language]');
-      if (region) {
-        region.hidden = !perLanguage;
-      }
-    }
-
-    root.addEventListener('change', function (event) {
-      var input = event.target;
-      if (/(^|\.)subdomain$/.test(input.getAttribute('data-smaily-field') || '')) {
-        input.value = subdomainOf(input.value);
-      }
-      var changed = input.closest('[data-smaily-field]');
-      if (changed && changed.classList.contains('is-invalid')) {
-        changed.classList.remove('is-invalid');
-        changed.removeAttribute('aria-invalid');
-        var anchor = changed.closest('.smaily-subdomain-row') || changed;
-        if (anchor.nextSibling && anchor.nextSibling.classList && anchor.nextSibling.classList.contains('smaily-field-error')) {
-          anchor.parentNode.removeChild(anchor.nextSibling);
-        }
-      }
+    panels.onChange(function (input) {
       if (input.name === 'smaily-language-mode') {
         // Magento asks once before it leaves a configured per-language mode.
         var leaving = (savedLanguageMode === 'a' || savedLanguageMode === 'b') && input.value !== savedLanguageMode;
@@ -213,63 +108,12 @@
             languageModeConfirmed = true;
           }
         }
-        showLanguageMode(input.value);
-      }
-      if (input.matches('.smaily-choice__input')) {
-        root.querySelectorAll('input[name="' + input.name + '"]').forEach(function (other) {
-          other.closest('.smaily-choice').classList.toggle('is-selected', other.checked);
-        });
+        panels.showLanguageMode(input.value);
       }
       if (input.name === 'smaily-shape-change') {
         showShapeNote();
       }
     });
-
-    function credentials(accountBlock) {
-      var language = accountBlock.getAttribute('data-smaily-account-block');
-      var prefix = language === '' ? '' : 'accounts.' + language + '.';
-      return {
-        subdomain: value(accountBlock, prefix + 'subdomain'),
-        username: value(accountBlock, prefix + 'username'),
-        password: value(accountBlock, prefix + 'password'),
-        language: language
-      };
-    }
-
-    function showStatus(connected) {
-      var status = connection && connection.querySelector('[data-smaily-connection-status]');
-      if (!status) {
-        return;
-      }
-      status.hidden = false;
-      var pill = status.querySelector('[data-smaily-pill]');
-      pill.classList.toggle('smaily-pill--active', connected);
-      pill.classList.toggle('smaily-pill--off', !connected);
-      pill.querySelector('[data-smaily-pill-text]').textContent = label(connected ? 'connected' : 'not-connected');
-    }
-
-    function testSmaily(button) {
-      var accountBlock = button.closest('[data-smaily-account-block]');
-      var testResult = accountBlock.querySelector('[data-smaily-test-result]');
-      var data = credentials(accountBlock);
-      var prefix = data.language === '' ? '' : 'accounts.' + data.language + '.';
-      clearErrors(accountBlock);
-      button.disabled = true;
-      result(testResult, label('testing'), true);
-      post('test', data).then(function (answer) {
-        result(testResult, answer.connected ? label('connected') : (answer.error || label('failed')), !!answer.connected);
-        if (data.language === '') {
-          showStatus(!!answer.connected);
-        }
-      }).catch(function (error) {
-        showErrors(accountBlock, (error.fields || []).map(function (field) {
-          return {field: prefix + field.field, message: field.message};
-        }));
-        result(testResult, error.message || label('failed'), false);
-      }).then(function () {
-        button.disabled = false;
-      });
-    }
 
     /*
      * The state of each stored account, asked of Smaily after the page has loaded (Magento's
@@ -285,7 +129,7 @@
         ? connection.querySelectorAll('[data-smaily-per-language] [data-smaily-account-block]')
         : connection.querySelectorAll('[data-smaily-account-block=""]');
       blocks.forEach(function (accountBlock) {
-        var data = credentials(accountBlock);
+        var data = panels.credentials(accountBlock);
         if (data.subdomain === '') {
           return;
         }
@@ -294,7 +138,7 @@
             return;
           }
           if (data.language === '') {
-            showStatus(answer.connected === true);
+            panels.showStatus(answer.connected === true);
           } else {
             result(accountBlock.querySelector('[data-smaily-test-result]'), label(answer.connected ? 'connected' : 'not-connected'), answer.connected === true);
           }
@@ -304,39 +148,8 @@
       });
     }
 
-    function connectionData() {
-      var mode = checked(connection, 'smaily-language-mode') || 'single';
-      var main = credentials(connection.querySelector('[data-smaily-account-block=""]'));
-      var data = {subdomain: main.subdomain, username: main.username, password: main.password, language_mode: mode};
-      if (mode === 'a') {
-        data.accounts = {};
-        connection.querySelectorAll('[data-smaily-per-language] [data-smaily-account-block]').forEach(function (accountBlock) {
-          var account = credentials(accountBlock);
-          data.accounts[account.language] = {subdomain: account.subdomain, username: account.username, password: account.password};
-        });
-        data.fallback_language = checked(connection, 'smaily-fallback-language');
-      }
-      return data;
-    }
-
-    /* Contacts: what the tab would save, and what a save changes about who is synced. */
+    /* Contacts: what a save changes about who is synced. */
     var contacts = panel('contacts');
-
-    function contactsData() {
-      var enabled = contacts.querySelector('[data-smaily-field="enabled"]');
-      var data = {
-        mode: checked(contacts, 'smaily-contacts-mode'),
-        fields: Array.prototype.map.call(contacts.querySelectorAll('[data-smaily-field="fields"] input:checked'), function (input) {
-          return input.value;
-        }),
-        guests: contacts.querySelector('[data-smaily-field="guests"]').checked,
-        checkout_checkbox: contacts.querySelector('[data-smaily-field="checkout_checkbox"]').checked
-      };
-      if (enabled) {
-        data.enabled = enabled.checked;
-      }
-      return data;
-    }
 
     /*
      * A store that already syncs, saved with another mode or with guests newly included: the
@@ -361,13 +174,16 @@
       return window.confirm(lines.join('\n\n'));
     }
 
+    /* RSS: the builder, whose data attributes carry the feed's own defaults and its largest limit. */
+    var builder = root.querySelector('[data-smaily-rss-builder]');
+
     function rssData() {
-      var builder = panel('rss');
+      var fields = panel('rss');
       return {
-        category: value(builder, 'category').trim(),
-        limit: value(builder, 'limit').trim(),
-        sort_by: value(builder, 'sort_by'),
-        sort_order: value(builder, 'sort_order')
+        category: value(fields, 'category').trim(),
+        limit: value(fields, 'limit').trim(),
+        sort_by: value(fields, 'sort_by'),
+        sort_order: value(fields, 'sort_order')
       };
     }
 
@@ -377,11 +193,11 @@
       var scope = tabPanel(tab);
       var tabResult = scope.querySelector('[data-smaily-tab-result]');
       var own = ownSwitch(tab);
-      var data = tab === 'connection' ? connectionData() : (tab === 'contacts' ? contactsData() : rssData());
+      var data = tab === 'connection' ? panels.connectionData() : (tab === 'contacts' ? panels.contactsData() : rssData());
       if (tab === 'contacts' && !confirmAudience(data, own)) {
         return;
       }
-      clearErrors(scope);
+      panels.clearErrors(scope);
       button.disabled = true;
       result(tabResult, label('saving'), true);
       post('save', {tab: tab, data: data, own: own ? own.checked : false}).then(function (answer) {
@@ -397,7 +213,7 @@
         if (tab === 'connection') {
           savedLanguageMode = data.language_mode;
           languageModeConfirmed = false;
-          showStatus(!!answer.connected);
+          panels.showStatus(!!answer.connected);
           scope.querySelectorAll('[data-smaily-field$="password"]').forEach(function (input) {
             input.value = '';
           });
@@ -411,116 +227,18 @@
             region.setAttribute('data-saved-mode', data.mode);
             region.setAttribute('data-saved-guests', data.guests ? '1' : '0');
             contacts.setAttribute('data-active', data.enabled === false ? '0' : '1');
-            importCard.saved(data.enabled !== false, data.mode);
+            panels.importCard.saved(data.enabled !== false, data.mode);
           }
           result(tabResult, label('saved'), true);
         }
       }).catch(function (error) {
-        result(tabResult, showErrors(scope, error.fields) ? label('saving-failed') : error.message, false);
+        result(tabResult, panels.showErrors(scope, error.fields) ? label('saving-failed') : error.message, false);
       }).then(function () {
         button.disabled = false;
       });
     }
 
-    /* The first contact import: its state, Start, Cancel, and the progress while it runs. */
-    var importCard = (function (card) {
-      if (!card) {
-        return {saved: function () {}};
-      }
-      var job = JSON.parse(card.getAttribute('data-smaily-import') || 'null');
-      var timer = null;
-      var pill = card.querySelector('[data-smaily-import-pill]');
-      var line = card.querySelector('[data-smaily-import-line]');
-      var bar = card.querySelector('[data-smaily-import-bar]');
-      var start = card.querySelector('[data-smaily-action="import-start"]');
-      var stop = card.querySelector('[data-smaily-action="import-stop"]');
-      var importResult = card.querySelector('[data-smaily-import-result]');
-      var states = {
-        queued: ['pending', 'state-pending'],
-        running: ['pending', 'state-running'],
-        done: ['active', 'state-done'],
-        failed: ['failed', 'state-stopped'],
-        cancelled: ['off', 'state-cancelled']
-      };
-
-      function draw() {
-        var active = job && (job.status === 'queued' || job.status === 'running');
-        var counts = job ? {sent: job.sent, total: job.total, failed: job.failed} : {};
-        pill.hidden = !job;
-        if (job) {
-          var state = states[job.status] || states.done;
-          pill.className = 'smaily-pill smaily-pill--' + state[0];
-          pill.querySelector('[data-smaily-import-pill-text]').textContent = label(state[1]);
-        }
-        bar.hidden = !job;
-        if (job) {
-          bar.querySelector('.smaily-progress__fill').style.width = (job.total > 0 ? Math.min(100, Math.round(100 * (job.sent + job.failed + job.skipped) / job.total)) : 100) + '%';
-        }
-        var text = '';
-        if (job && job.status === 'queued') {
-          text = label('queued');
-        } else if (job && job.status === 'running') {
-          text = label('importing') + ' ' + label('progress', counts);
-        } else if (job && job.status === 'done') {
-          text = job.last_error === 'contact_sync_off' ? label('sync-off') : label(job.failed > 0 ? 'done-failed' : 'done', counts);
-        } else if (job && job.status === 'cancelled') {
-          text = label('cancelled', counts);
-        } else if (job && job.status === 'failed') {
-          text = label('stopped', counts);
-        }
-        line.textContent = text;
-        start.hidden = active;
-        start.textContent = label(job && !active ? 'run-again' : 'start');
-        stop.hidden = !active;
-        window.clearTimeout(timer);
-        if (active) {
-          timer = window.setTimeout(poll, POLL_MS);
-        }
-      }
-
-      function poll() {
-        post('import-progress').then(function (answer) {
-          job = answer.import;
-          draw();
-        }).catch(function () {
-          timer = window.setTimeout(poll, POLL_MS);
-        });
-      }
-
-      function act(action, button) {
-        button.disabled = true;
-        result(importResult, action === 'stop' ? label('canceling') : '', true);
-        post('import', {action: action}).then(function (answer) {
-          job = answer.import;
-          result(importResult, '', true);
-          draw();
-        }).catch(function (error) {
-          result(importResult, error.message, false);
-        }).then(function () {
-          button.disabled = false;
-        });
-      }
-
-      start.addEventListener('click', function () {
-        act('start', start);
-      });
-      stop.addEventListener('click', function () {
-        act('stop', stop);
-      });
-      draw();
-
-      return {
-        saved: function (enabled, mode) {
-          card.querySelector('[data-smaily-import-unsaved]').hidden = enabled;
-          card.querySelector('[data-smaily-import-nobody]').hidden = !enabled || mode !== 'checkout_optin';
-          card.querySelector('[data-smaily-import-body]').hidden = !enabled || mode === 'checkout_optin';
-        }
-      };
-    }(root.querySelector('[data-smaily-import]')));
-
-    /* RSS: the feed URL from the picked values; a value equal to the feed's default is left out. */
-    var builder = root.querySelector('[data-smaily-rss-builder]');
-
+    /* The feed URL from the picked values; a value equal to the feed's default is left out. */
     function buildFeedUrl() {
       var data = rssData();
       var params = [];
@@ -528,13 +246,14 @@
         params.push('category_id=' + encodeURIComponent(data.category));
       }
       var limit = parseInt(data.limit, 10);
-      if (limit && String(Math.min(250, Math.max(1, limit))) !== FEED_DEFAULTS.limit) {
-        params.push('limit=' + Math.min(250, Math.max(1, limit)));
+      var maxLimit = parseInt(builder.getAttribute('data-max-limit'), 10);
+      if (limit && String(Math.min(maxLimit, Math.max(1, limit))) !== builder.getAttribute('data-default-limit')) {
+        params.push('limit=' + Math.min(maxLimit, Math.max(1, limit)));
       }
-      if (data.sort_by !== FEED_DEFAULTS.sort_by) {
+      if (data.sort_by !== builder.getAttribute('data-default-sort-by')) {
         params.push('sort_by=' + encodeURIComponent(data.sort_by));
       }
-      if (data.sort_order !== FEED_DEFAULTS.sort_order) {
+      if (data.sort_order !== builder.getAttribute('data-default-sort-order')) {
         params.push('sort_order=' + encodeURIComponent(data.sort_order));
       }
       var base = builder.getAttribute('data-base-url');
@@ -624,8 +343,6 @@
       var action = target.getAttribute('data-smaily-action');
       if (action === 'save-tab') {
         saveTab(target);
-      } else if (action === 'test-smaily') {
-        testSmaily(target);
       } else if (action === 'rss-copy') {
         copyFeedUrl();
       } else if (action === 'shape-change') {
@@ -642,12 +359,6 @@
         }
       } else if (action === 'save-shape') {
         saveLayout(target, checked(shape, 'smaily-shape'), shape.querySelector('[data-smaily-shape-result]'));
-      } else if (action === 'invitation-connect') {
-        var subdomain = root.querySelector('[data-smaily-field="subdomain"]');
-        if (subdomain) {
-          subdomain.scrollIntoView({block: 'center'});
-          subdomain.focus();
-        }
       }
     });
 
