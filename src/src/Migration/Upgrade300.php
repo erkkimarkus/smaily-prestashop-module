@@ -63,6 +63,7 @@ final class Upgrade300
         'tokens',
         'carts',
         'override',
+        'tab',
         'verify',
         'finish',
     ];
@@ -72,6 +73,9 @@ final class Upgrade300
     private const MODULE = 'smailyforprestashop';
 
     private const LOCK = 'migration';
+
+    /** The hidden admin tab of the AJAX controller of 1.6.x, which 3.0.0 does not have. */
+    private const LEGACY_TAB = 'AdminSmailyforprestashopAjax';
 
     private LegacyReader $reader;
 
@@ -356,6 +360,20 @@ final class Upgrade300
     {
         if ($this->override->removeIfShipped() === LegacyOverride::FOREIGN) {
             $this->notices->add(MigrationNotices::OVERRIDE_LEFT_IN_PLACE, ['path' => 'override/' . LegacyOverride::RELATIVE_PATH]);
+        }
+    }
+
+    /**
+     * Deletes the hidden admin tab that 1.6.x installed, with its authorization roles.
+     */
+    private function stepTab(): void
+    {
+        $id = (int) \Db::getInstance()->getValue(
+            'SELECT `id_tab` FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'' . self::LEGACY_TAB . '\'',
+            false
+        );
+        if ($id > 0) {
+            self::check((bool) (new \Tab($id))->delete());
         }
     }
 

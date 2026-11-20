@@ -295,6 +295,37 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertNotContains('displayfooterbefore', $this->registeredHooks());
     }
 
+    public function testTheHiddenAdminTabOf16xIsRemoved(): void
+    {
+        LegacyStore::loadFixture('1.6.2-configured.sql');
+        $this->recordModuleVersion('1.6.2');
+        // As 1.6.x installs it: hidden, top-level, with its authorization roles.
+        $tab = new \Tab();
+        $tab->class_name = 'AdminSmailyforprestashopAjax';
+        $tab->module = 'smailyforprestashop';
+        $tab->id_parent = 0;
+        $tab->active = false;
+        foreach (\Language::getLanguages(false) as $language) {
+            $tab->name[(int) $language['id_lang']] = 'Smaily for PrestaShop';
+        }
+        self::assertTrue($tab->add());
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame('0', (string) self::db()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'AdminSmailyforprestashopAjax\'',
+            false
+        ));
+        self::assertSame('0', (string) self::db()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'tab_lang` WHERE `id_tab` = ' . (int) $tab->id,
+            false
+        ));
+        self::assertSame('0', (string) self::db()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'authorization_role` WHERE `slug` LIKE \'ROLE\\_MOD\\_TAB\\_ADMINSMAILYFORPRESTASHOPAJAX\\_%\'',
+            false
+        ));
+    }
+
     /**
      * @return array<string, array{string}>
      */
