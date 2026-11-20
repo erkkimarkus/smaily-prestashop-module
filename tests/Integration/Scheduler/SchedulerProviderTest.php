@@ -80,7 +80,7 @@ final class SchedulerProviderTest extends IntegrationTestCase
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'later_area'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'migration', 'later_area'], $report->jobs());
         self::assertSame($ids, $sent, 'two batches of the flush sent every row');
     }
 

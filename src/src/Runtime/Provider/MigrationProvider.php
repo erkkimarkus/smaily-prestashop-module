@@ -30,18 +30,21 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyReader;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
  * Registers the services and hook listeners of the legacy migration and its admin notices.
  *
  * `$services->get(Upgrade300::class)->runPending()` finishes a pending migration; it is safe to call
- * at any time and does nothing once the schema is current.
+ * at any time and does nothing once the schema is current. The tick's job `migration` calls it on
+ * every tick while the schema is not current, once per tick, and does nothing once it is.
  */
 final class MigrationProvider implements ProviderInterface
 {
@@ -55,5 +58,11 @@ final class MigrationProvider implements ProviderInterface
             $services->get(MigrationNotices::class),
             new LegacyOverride(_PS_OVERRIDE_DIR_)
         ));
+
+        $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job('migration', 0, 10, static function () use ($services): void {
+            if (!Schema::isCurrent()) {
+                $services->get(Upgrade300::class)->runPending();
+            }
+        }, true));
     }
 }
