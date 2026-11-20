@@ -10,6 +10,9 @@
  *
  * - Wrong or missing credentials: HTTP 401.
  * - GET  /api/contact.php?list=2&limit=&offset=  one page of unsubscribers; offset counts pages.
+ * - GET  /api/contact.php?email=  the contact's status, as {"email", "is_unsubscribed"}; an address
+ *                               the mock does not know answers code 206; while contact reads fail,
+ *                               HTTP 500.
  * - GET  /api/history.php?since_seq_id=&limit=&actions=  the action log: the rows whose seq_id is
  *                               above since_seq_id, oldest first, of the comma-separated actions
  *                               only when `actions` is given, at most `limit`.
@@ -75,6 +78,21 @@ if ($method === 'GET' && $path === '/api/contact.php' && ($_GET['list'] ?? null)
         array_slice($state['unsubscribers'] ?? [], $offset * $limit, $limit)
     );
     $answer(200, $rows);
+
+    return true;
+}
+
+if ($method === 'GET' && $path === '/api/contact.php' && isset($_GET['email'])) {
+    if (!empty($state['contact_reads_fail'])) {
+        $answer(500, ['message' => 'Internal Server Error']);
+
+        return true;
+    }
+    $email = strtolower((string) $_GET['email']);
+    $contacts = array_change_key_case($state['contacts'] ?? [], CASE_LOWER);
+    $answer(200, isset($contacts[$email])
+        ? ['email' => $email, 'is_unsubscribed' => (string) $contacts[$email]]
+        : ['code' => 206, 'message' => 'Email not found']);
 
     return true;
 }

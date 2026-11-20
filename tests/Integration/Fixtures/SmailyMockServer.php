@@ -110,6 +110,25 @@ final class SmailyMockServer
     }
 
     /**
+     * The contacts that a single-contact read (`GET contact.php?email=`) finds, by address, with
+     * their `is_unsubscribed`: '0' subscribed, '1' unsubscribed. Any other address is unknown.
+     *
+     * @param array<string, string> $statuses
+     */
+    public function setContacts(array $statuses): void
+    {
+        $this->writeState(['contacts' => $statuses] + $this->state());
+    }
+
+    /**
+     * Whether single-contact reads answer HTTP 500.
+     */
+    public function failContactReads(bool $fail): void
+    {
+        $this->writeState(['contact_reads_fail' => $fail] + $this->state());
+    }
+
+    /**
      * The rows of the action log that history.php answers from.
      *
      * @param list<array{seq_id: int, email: string, action: string}> $rows

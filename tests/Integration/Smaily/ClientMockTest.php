@@ -6,6 +6,7 @@ namespace Tests\Integration\Smaily;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
@@ -30,6 +31,24 @@ final class ClientMockTest extends IntegrationTestCase
         $this->mock = SmailyMockServer::start();
         $this->mock->acceptCredentials('api-user', self::PASSWORD);
         $this->client = new Client($this->mock->transport(), 'demo', 'api-user', self::PASSWORD);
+    }
+
+    public function testReadsOneContactsStatus(): void
+    {
+        $this->mock->setContacts(['subscribed@example.test' => '0', 'unsubscribed@example.test' => '1']);
+
+        self::assertSame(['email' => 'subscribed@example.test', 'is_unsubscribed' => '0'], $this->client->get(Client::ENDPOINT_CONTACT, ['email' => 'Subscribed@example.test']));
+        self::assertSame('1', $this->client->get(Client::ENDPOINT_CONTACT, ['email' => 'unsubscribed@example.test'])['is_unsubscribed']);
+        try {
+            $this->client->get(Client::ENDPOINT_CONTACT, ['email' => 'unknown@example.test']);
+            self::fail('An unknown address answers code 206.');
+        } catch (ApiException $error) {
+            self::assertSame(ApiException::CODE_EMAIL_NOT_FOUND, $error->getSmailyCode());
+        }
+
+        $this->mock->failContactReads(true);
+        $this->expectException(TransportException::class);
+        $this->client->get(Client::ENDPOINT_CONTACT, ['email' => 'subscribed@example.test']);
     }
 
     public function testUpsertsContacts(): void
