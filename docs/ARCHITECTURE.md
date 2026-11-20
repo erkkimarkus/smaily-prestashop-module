@@ -95,7 +95,7 @@ src/
     Config/                   Settings (base: get/set, getJson/setJson, reload, storedValue,
                               removeShopValue), TickSettings, MigrationNotices, ContactsSettings,
                               UpdateSettings; AccountSettings, AutomationSettings,
-                              EngineSettings, RssSettings (still empty)
+                              EngineSettings; RssSettings (the RSS URL builder's defaults)
     Migration/                LegacyState, LegacyReader, LegacyConfigMapper (pure), MigrationPlan,
                               Upgrade300, LegacyOverride
     Http/                     Transport (interface), SymfonyTransport, Response, NetworkException
@@ -109,13 +109,18 @@ src/
                               Reconciler; Import/ContactImport, ContactSource, JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
     Automation/               WorkflowResolverInterface
+    Admin/Settings/           SettingsController (the page), SettingsPanels, SettingsScope (which
+                              values the selected shop reads and saves), TabSaver, ShopOverrides
+                              (a shop's own values), LayoutChange (section 5.1), RssPanel
+    Admin/Api/Settings/       AbstractSettingsAction, SaveTab, TestConnection, ChangeLayout
 ```
 
-The 2.x admin configuration page (`Controller/ModuleConfigurationController`, `Form/`,
-`config/admin/services.yml`, `config/routes.yml`, `views/templates/admin/*Configuration.html.twig`)
-and the RSS feed (`Controller/RssFeedController`) are still wired. The 2.x sync code
-(`Controller/CustomerSyncController`, `Controller/AbandonedCartController`, `Model/*`) is in the
-tree but unwired. Section 13 names the Story that deletes each.
+The 2.x admin configuration page is gone (Story 3.3): its controller, its forms, its five templates
+and its script. `config/admin/services.yml` and `config/routes.yml` import one file per admin area
+from `config/admin/services/` and `config/routes/`. The RSS feed (`Controller/RssFeedController`,
+`Model/RssFeedProductsCollection`) is still wired, behind `controllers/front/SmailyRssFeed.php`. The
+2.x sync code (`Controller/CustomerSyncController`, `Controller/AbandonedCartController`, the other
+classes of `Model/`) is in the tree but unwired. Section 13 names the Story that deletes each.
 
 Later Stories add these areas:
 
@@ -314,7 +319,7 @@ writes.
 | `SMAILY_CONNECT_RECONCILE_CURSORS` | global | JSON object: the reconcile's cursor per Smaily account (section 6.5). |
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. |
 | `SMAILY_CONNECT_CART_FIELDS` | global or shop | Comma list of the abandoned-cart template fields, the known names of `first_name,last_name,name,description,sku,price,base_price,quantity` that the legacy list ticked, in that order. |
-| `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults. The migration writes each only when the legacy value is valid. |
+| `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults: the category id (`0` = all products), the number of products (1 to 250), the sort field and `desc` or `asc`. The migration writes each only when the legacy value is valid. `Config\RssSettings` reads them, and `Admin\Settings\RssPanel` writes them from Settings > RSS; a value that is not stored, or that the feed does not take, reads as the feed's own default (50 products, `date_upd`, `desc`). The feed reads only its URL's parameters, never these keys. |
 | `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); a fresh install creates it on its first read (section 4.3). |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
@@ -527,7 +532,7 @@ parameters:
 | `…?fc=module&module=smailyforprestashop&controller=SmailyCustomerCron&token=<customer token>` | A door to the tick (section 4.3). Answers `text/plain`. |
 | `…controller=SmailyCartCron&token=<cart token>` | Same. |
 | `…controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>` | New in 3.0.0. Same. The upgrade creates its token (section 3.7). |
-| `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code, still wired; Story 3.3 ports it with the same output contract and parameters. New parameters are additive only. |
+| `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code, still wired. Story 3.3 kept it as it is and pinned its output and its parameters with `tests/Integration/Rss/RssFeedTest.php`; the port into `src/src/Rss/` is not done. New parameters are additive only. |
 | Friendly URL forms of the three | Unchanged: the controller names stay. |
 
 **[D]** A request whose token is empty or wrong, or a door whose stored token is empty, is refused with
@@ -826,6 +831,27 @@ stores", CON-279) with the PrestaShop shop in place of the Magento website:
 Shop groups carry no settings of their own (section 2.1). A shop group matters only for customer
 sharing (5.3). The separate-stores layout is in the first release (owner, 2026-11-20).
 
+**[D]** A configured store changes its layout in Settings (`Admin\Settings\LayoutChange`, Magento's
+`StoreLayout::toSeparateStores()` and `toOneStore()`). The values that move are the three sections a
+shop can hold as its own (`Admin\Settings\ShopOverrides`): the Smaily account (the language mode, the
+fallback language, the account rows), the Contacts settings and the automations (their keys and the
+mapping rows).
+
+- **One store → separate stores.** Each shop gets, as its own, every shared value that it lacks; an
+  account row is copied as stored, the password still encrypted. A shop on another Smaily account
+  than the shared one gets no shared mapping row: it never read them (Magento CON-190). The shared
+  values are then removed, so a shop added later starts with nothing set. Every shop reads what it
+  read before.
+- **Separate stores → one store** (owner, 2026-11-20: as Magento does). The values of the selected
+  shop (the default shop with "All shops" selected) become the shared ones. An account per language
+  is never shared: the shared mode `a` becomes `single`, and the shared account is the selected
+  shop's account of no language. Then every shop's own values of the three sections are removed,
+  whether or not they differ from the shared ones: its keys, all its account rows and its mapping
+  rows. The page asks first, with Magento's text.
+- **The contacts confirmation** (`SMAILY_CONNECT_CONTACTS_CONFIRMED`) is not an own value. Neither
+  direction copies or removes it, as in Magento, so a shop that synced keeps syncing.
+- Removing a value deletes its row through `Config\Settings`; no step writes `NULL` (section 2.1).
+
 **[D]** The language axis follows Woo's multilingual modes (`woo:includes/Multilingual/Router.php`):
 `single`; `a` one Smaily account per language with a fallback account; `b` one account, one workflow
 per language; `c` one workflow that branches on the contact's `language` field. As in Magento, mode `a`
@@ -844,8 +870,9 @@ multishop install does not offer it.
 | Customer account scope | `StoreLayout::customerAccountScope()`: `global` when every shop is in one shop group that shares customers, else `website` (section 5.3). |
 | Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row; `single`/`c` the default row. No match is a terminal skip with a reason. The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
 
-**[O]** Whether a single-shop install keeps its mode-`a` account rows at `id_shop` 0 or at the shop's
-id. `AccountResolver` reads both. Story 3.3, which writes the rows from Settings, chooses.
+**[D]** A single-shop install keeps its mode-`a` account rows at `id_shop` 0: the Initial setup and
+Settings write a single shop's values at the global scope (`Admin\Setup\SetupScope::targetShop()`).
+`AccountResolver` reads both scopes.
 
 **Wanted later:** `AccountStore::languages(int $idShop)`, the languages that hold an own account in a
 shop, for parity with Magento CON-190 (the admin lists them).
@@ -1392,6 +1419,9 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | Difference | Why |
 |---|---|
 | The shop is chosen with PrestaShop's own shop-context selector in the header, not a picker on the page. Each tab carries the Magento switch "Use its own … on this shop". | PrestaShop admins already pick the shop there; a second picker gives two answers. |
+| Settings > Connection: Test connection sits inside each account card, and the connection's status is asked of Smaily after the page has loaded. | An account per language shows one card per language, and each is tested on its own; a slow Smaily never holds the page. |
+| Settings > RSS has no on/off switch. The builder keeps the 2.x feed parameters (`category_id`, `limit`, `sort_by`, `sort_order`) and the 2.x sort fields (`date_add`, `date_upd`, `name`, `price`, `id_product`). | The feed URL is a 2.x contract in merchants' Smaily templates (CLAUDE.md rule 2): it always answers, and it reads only its URL's parameters. |
+| Settings > Contacts asks before a save that changes who is synced: the page names what the new mode, "include guests" or switching sync on sends from now on, and the merchant confirms. | Consent lives in PrestaShop (section 6.1), and a change of audience is the merchant's decision (wording approved by the owner, 2026-11-20). |
 | Page frame, toolbar and buttons are PrestaShop's. | Platform shell. |
 | The Log is a Twig table with filters, not a native grid. | A PrestaShop Grid component needs Symfony grid definitions that differ between 8 and 9; a plain table is one code path. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
@@ -1569,6 +1599,7 @@ once a day and sends no store data."
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
 | Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` |
+| Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). | `tests/egress-guard/` |
 | Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
@@ -1576,7 +1607,7 @@ once a day and sends no store data."
 | JavaScript | The IIFE first-statement check for every file in `views/js/front/`; logic of `consent.js` tested with Node's built-in test runner (no npm packages). | `tests/js/` |
 | Contract check | CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and `docs/contracts/installation-report-v1.md` with the subscription repository's copy (`gh api`, read token), and fails on any difference. | CI |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 585 tests, 2333 assertions on PrestaShop 8.2.8 and 9.2.0, and `tests/ci/validate.sh` 10 of 10 checks on both, with Stories 1.8, 2.2 and 2.4 and the new-version check, as the worker that ran them reported. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
+| Last verified counts | The in-shop suite: 1160 tests, 5155 assertions on PrestaShop 8.2.8 and 9.2.0, each on a fresh shop, and `tests/ci/validate.sh` 10 of 10 checks on both, with the Settings tabs of Story 3.3 on `v3`. On the host: 1160 tests, 1809 assertions, 560 skipped. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` as today; checks: version equal in main class and `composer.json`; no `tests/`, `docs/internal/` or dev files in the zip; the zip installs and upgrades on the matrix. | `bin/package.sh`, CI |
@@ -1609,6 +1640,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | New-version check, backend (Linear CON-380) | Done (section 11.5) | `update:` |
 | 2.3 Capture hooks | Next; waits for Story 3.1, because both edit the main class | — |
 | 3.1 Admin shell | In progress | — |
+| 3.3 Settings: Connection, Contacts, RSS, shop switches | Done, with the owner's decisions of 2026-11-20 on the layout change and the confirmations (sections 5.1 and 15). The RSS feed's port into `src/src/Rss/` is left open (below). | `admin:`, `rss-feed:`, `module:`, `tests:` |
 | 4.1 Automation routing and mapping, backend | In progress | — |
 | New-version notice on the admin pages (CON-380) | Queued, after Story 3.1 (section 10.7) | — |
 | Marketplace technical rules (Linear CON-379) | Queued, after the running Stories land: it touches every file (`docs/MARKETPLACE.md`) | — |
@@ -1786,14 +1818,16 @@ has one owner:
      configuration SQL, its own token generator, and inline SQL for the mapping rows.
   2. `Migration\LegacyOverride` is built in two places (`MigrationProvider` and the main class's
      `uninstall()`); register it once as a service.
-- **Still open.** The legacy RSS tab of the 2.x admin page passes `null` into the typed
-  `RssFeedController::buildRssUrl()` on a fresh 3.0.0 install, where no legacy RSS key exists. Story
-  3.3 replaces that page.
-- **Unwired legacy classes, and when each goes.** `Controller/CustomerSyncController` and the
-  subscriber classes of `Model/` go with stage 2 (contact sync). `Controller/AbandonedCartController`
-  and the cart classes of `Model/` go with Story 4.3. The 2.x admin page (`ModuleConfigurationController`,
-  `Form/`, the legacy templates and `views/js/smaily-admin.js`) goes with stage 3; the RSS classes go
-  with Story 3.3.
+- **Closed by Story 3.3.** The legacy RSS tab of the 2.x admin page passed `null` into the typed
+  `RssFeedController::buildRssUrl()` on a fresh 3.0.0 install; that page is gone.
+- **Legacy classes still in the tree, and when each goes.** Unwired: `Controller/CustomerSyncController`
+  and the subscriber classes of `Model/` (`Subscriber`, `SubscriberCollection`), which stage 2
+  replaced; `Controller/AbandonedCartController` and the cart classes of `Model/` (`AbandonedCart`,
+  `AbandonedCartCollection`, `AbandonedCartProduct`, `SentCart`), which go with Story 4.3. Still
+  wired: the RSS classes `Controller/RssFeedController` and `Model/RssFeedProductsCollection`, behind
+  `controllers/front/SmailyRssFeed.php`; they go when the feed is ported into `src/src/Rss/`. The
+  2.x admin page (its controller, `Form/`, its templates and `views/js/smaily-admin.js`) went with
+  Story 3.3.
 
 ### Story 2.1 — Scope: shop layout, languages, account resolution
 
@@ -1902,6 +1936,13 @@ has one owner:
      rows through `Config\Settings` (section 2.1) and never writes `NULL`.
   3. The RSS URL with legacy parameters returns the same XML items as 2.2.0 for the same catalog.
   4. The password field never renders the stored password.
+- **Done.** `src/src/Admin/Settings/` and `src/src/Admin/Api/Settings/` (section 1.1),
+  the three tab templates, `settings.js`, `Config\RssSettings` and `Admin\Settings\RssPanel`; the
+  layout change of section 5.1; the 2.x admin page deleted. Walked in a browser on 8.2.8 and 9.2.0
+  against the Smaily mock: each tab saves and reads back, the layout changes once in each direction
+  on a multishop store, and an employee without rights and a wrong page token are refused.
+- **Left open.** `src/src/Rss/` does not exist: the feed stays the 2.x code, with its output pinned
+  by `tests/Integration/Rss/RssFeedTest.php` (acceptance 3 is met by that test, not by a port).
 
 ### Story 3.4 — Log
 
@@ -2152,4 +2193,6 @@ Later decisions of 2026-11-20:
 | Where consent lives | **DECIDED:** marketing consent lives in PrestaShop's own places (`customer.newsletter`, `emailsubscription`); the module keeps no consent store of its own. `customer.optin` is PrestaShop's "partner offers" checkbox; the module neither creates nor reads it. | Owner | 6.1 | 2.2, 2.3 |
 | Colours of the admin screens | **DECIDED:** the Campaign Intelligence palette, for the module's own components only (Linear CON-377). | Owner | 10.6 | 3.1 |
 | A contact's address on the admin screens | **DECIDED:** admin screens show a contact's address as the sibling connectors do; only a GDPR erasure removes it. The keyed hash that stands in for an address longer than the entity column shows as its first 12 characters and "…" (`magento:Model/Log/EntityLabel.php`). | Owner (Erkki) | 2.2, 11.2 | 3.2 |
+| Separate stores → one store | **DECIDED:** separate stores → one store removes the other shops' own settings, as Magento does: the selected shop's values become the shared ones, and every shop's own Smaily account rows, Contacts values, automation values and mapping rows are removed, whether or not they differ. The contacts confirmation is never copied or removed. | Owner (Erkki) | 5.1 | 3.3 |
+| Wording of the confirmations | **DECIDED:** the consent-mode and layout confirmations' wording is approved: the consent-mode confirmations as built, and the change to one store with Magento's text ("website" read as "shop"). | Owner (Erkki) | 10.3 | 3.3 |
 | The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |
