@@ -59,13 +59,10 @@ final class DashboardFacts
 
     private TickSettings $ticks;
 
-    private string $hashKey;
-
     /** @var callable(string): string */
     private $tickUrl;
 
     /**
-     * @param string $hashKey the secret that keys EntityLabel's hash of an address
      * @param callable(string): string $tickUrl the tick URL that carries a token
      */
     public function __construct(
@@ -75,7 +72,6 @@ final class DashboardFacts
         AccountResolver $resolver,
         AccountStore $accounts,
         TickSettings $ticks,
-        string $hashKey,
         callable $tickUrl
     ) {
         $this->queries = $queries;
@@ -84,7 +80,6 @@ final class DashboardFacts
         $this->resolver = $resolver;
         $this->accounts = $accounts;
         $this->ticks = $ticks;
-        $this->hashKey = $hashKey;
         $this->tickUrl = $tickUrl;
     }
 
@@ -156,7 +151,7 @@ final class DashboardFacts
             $rows[] = [
                 'kind' => 'queue',
                 'type' => (string) $row['event_type'],
-                'entity' => EntityLabel::forDisplay($row['entity_id'], $this->hashKey),
+                'entity' => EntityLabel::forDisplay($row['entity_id']),
                 'status' => (string) $row['status'],
                 'updated_at' => self::unixTime((string) $row['updated_at']),
             ];

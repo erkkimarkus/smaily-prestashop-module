@@ -62,7 +62,6 @@ final class DashboardController extends BaseController
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
             $services->get(TickSettings::class),
-            _COOKIE_KEY_,
             [self::class, 'tickUrl']
         );
         $settingsTab = self::PAGES['settings']['tab'];

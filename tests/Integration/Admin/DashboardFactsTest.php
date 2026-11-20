@@ -20,9 +20,9 @@ use Tests\Integration\IntegrationTestCase;
 
 /**
  * The Dashboard reads its facts from stored state only: the counts of the tiles over the windows
- * Magento uses, the newest queue rows and import jobs without an address, the Smaily account of the
- * selected shop, and the cron line with a token that it never creates. While the upgrade is not
- * finished it reads no table of the module. A render costs a small, fixed number of queries.
+ * Magento uses, the newest queue rows and import jobs with each entity as stored, the Smaily account
+ * of the selected shop, and the cron line with a token that it never creates. While the upgrade is
+ * not finished it reads no table of the module. A render costs a small, fixed number of queries.
  */
 final class DashboardFactsTest extends IntegrationTestCase
 {
@@ -77,23 +77,22 @@ final class DashboardFactsTest extends IntegrationTestCase
         self::assertSame(1, $facts['failed_24h']);
     }
 
-    public function testRecentActivityListsTheNewestRowsAndJobsWithoutAnAddress(): void
+    public function testRecentActivityListsTheNewestRowsAndJobsWithTheEntityAsStored(): void
     {
-        for ($i = 1; $i <= 11; ++$i) {
+        for ($i = 1; $i <= 10; ++$i) {
             $this->row('contact.sync', 'sent', 0, 100 - $i, 'shopper' . $i . '@example.test');
         }
+        $this->row('contact.sync', 'sent', 0, 89, str_repeat('ab12', 16));
         (new JobStore())->create(ContactImport::TYPE_IMPORT, 0, JobStore::STATUS_RUNNING, ['total' => 3]);
 
-        $facts = $this->collect();
-        $activity = $facts['activity'];
+        $activity = $this->collect()['activity'];
 
         self::assertCount(10, $activity);
         self::assertSame(['kind' => 'job', 'type' => 'contacts_import', 'total' => 3, 'status' => 'running'], array_diff_key($activity[0], ['updated_at' => 0]));
         self::assertSame('contact.sync', $activity[1]['type']);
-        self::assertMatchesRegularExpression('/^[0-9a-f]{12}…$/u', $activity[1]['entity']);
-        self::assertGreaterThanOrEqual($activity[2]['updated_at'], $activity[1]['updated_at']);
-        self::assertStringNotContainsString('@', (string) json_encode($facts), 'no address among the facts');
-        self::assertStringNotContainsString('shopper', (string) json_encode($facts));
+        self::assertSame('ab12ab12ab12…', $activity[1]['entity'], 'the keyed hash of a long address, cut');
+        self::assertSame('shopper10@example.test', $activity[2]['entity'], 'an address as stored');
+        self::assertGreaterThanOrEqual($activity[3]['updated_at'], $activity[2]['updated_at']);
     }
 
     public function testTheSmailyCardReadsTheSelectedShopsAccount(): void
@@ -192,7 +191,6 @@ final class DashboardFactsTest extends IntegrationTestCase
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
             $services->get(TickSettings::class),
-            'test-key',
             static fn (string $token): string => 'https://shop.example.test/tick?token=' . $token
         );
 

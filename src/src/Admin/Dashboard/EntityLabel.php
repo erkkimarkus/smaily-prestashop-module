@@ -30,11 +30,11 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * The Entity that the Dashboard's Recent activity shows for a queue row. The entity of a contact or
- * automation row is the shopper's address, or a keyed hash that stands in for a long one; the
- * Dashboard shows neither. Both show as the first 12 characters of a keyed hash and "…", the form
- * Magento shows for a hashed entity: one address reads the same on every row, and the label gives
- * nothing of the address away. Any other entity shows as stored; a row without one shows a dash.
+ * The Entity that the Dashboard's Recent activity shows for a queue row, as Magento shows it
+ * (connect-magento: Model/Log/EntityLabel). An entity shows as stored, a contact's address
+ * included. Only the keyed hash that stands in for an address longer than the entity column
+ * (ARCHITECTURE 2.2) is cut: 64 hex characters read as noise, so their first 12 and "…" stand in.
+ * A row without an entity shows a dash.
  */
 final class EntityLabel
 {
@@ -42,19 +42,13 @@ final class EntityLabel
 
     private const HASH_PATTERN = '/^[0-9a-f]{64}$/';
 
-    /**
-     * @param string $key the secret that keys the hash of an address
-     */
-    public static function forDisplay(?string $entity, string $key): string
+    public static function forDisplay(?string $entity): string
     {
         if ($entity === null || $entity === '') {
             return '—';
         }
         if (preg_match(self::HASH_PATTERN, $entity) === 1) {
             return substr($entity, 0, self::SHOWN_HASH_LENGTH) . '…';
-        }
-        if (strpos($entity, '@') !== false) {
-            return substr(hash_hmac('sha256', mb_strtolower(trim($entity)), $key), 0, self::SHOWN_HASH_LENGTH) . '…';
         }
 
         return $entity;
