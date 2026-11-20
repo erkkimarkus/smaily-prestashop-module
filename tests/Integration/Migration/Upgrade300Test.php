@@ -208,6 +208,45 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertSame($before, $this->everything());
     }
 
+    public function testOfTwoConcurrentRunsOneMigratesAndTheOtherReturnsAtOnce(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        $this->upgrade()->runPending();
+        $undisturbed = $this->snapshot();
+        LegacyStore::clear();
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+
+        $first = self::worker(['hold'], $firstPipes);
+        try {
+            $line = fgets($firstPipes[1]);
+            self::assertSame("started\n", $line, $line === false ? (string) stream_get_contents($firstPipes[2]) : '');
+
+            $second = self::worker([], $secondPipes);
+            $line = fgets($secondPipes[1]);
+            $error = (string) stream_get_contents($secondPipes[2]);
+            self::closeWorker($second, $secondPipes);
+            self::assertIsString($line, $error);
+            [$result, $seconds] = explode(' ', trim($line));
+            self::assertSame('0', $result, 'the second run returns without the schema current');
+            self::assertLessThan(1.0, (float) $seconds, 'at once');
+            LegacyStore::reloadConfiguration();
+            self::assertSame(['pending', []], [$this->upgrade()->state()['status'], $this->upgrade()->state()['done']], 'and runs no step');
+
+            fwrite($firstPipes[0], "go\n");
+            $line = fgets($firstPipes[1]);
+            self::assertIsString($line, (string) stream_get_contents($firstPipes[2]));
+            self::assertSame('1', explode(' ', trim($line))[0], 'the first run completes');
+        } finally {
+            self::closeWorker($first, $firstPipes);
+        }
+
+        LegacyStore::reloadConfiguration();
+        self::assertTrue(Schema::isCurrent());
+        self::assertSame($undisturbed, $this->snapshot());
+    }
+
     public function testTheOverrideThat2xShippedIsRemoved(): void
     {
         $this->placeOverride((string) file_get_contents(__DIR__ . '/../../fixtures/legacy/override-2.x.ps_emailsubscription.php.txt'));
@@ -303,6 +342,40 @@ final class Upgrade300Test extends IntegrationTestCase
         (new MigrationProvider())->register(Services::instance());
         self::assertTrue(upgrade_module_3_0_0(self::module()));
         self::assertTrue(Schema::isCurrent());
+    }
+
+    /**
+     * Starts migration-worker.php with $arguments in a process of its own.
+     *
+     * @param list<string> $arguments
+     * @param array<int, resource>|null $pipes its standard input, output and error
+     *
+     * @return resource
+     */
+    private static function worker(array $arguments, ?array &$pipes)
+    {
+        $process = proc_open(
+            array_merge([PHP_BINARY, __DIR__ . '/migration-worker.php'], $arguments),
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes
+        );
+        self::assertIsResource($process);
+
+        return $process;
+    }
+
+    /**
+     * @param resource $process
+     * @param array<int, resource> $pipes
+     */
+    private static function closeWorker($process, array $pipes): void
+    {
+        foreach ($pipes as $pipe) {
+            if (is_resource($pipe)) {
+                fclose($pipe);
+            }
+        }
+        proc_close($process);
     }
 
     private function upgrade(?callable $beforeStep = null): Upgrade300

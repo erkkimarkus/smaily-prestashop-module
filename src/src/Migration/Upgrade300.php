@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
@@ -41,7 +42,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * PrestaShop stores the new module version even when an upgrade script fails, so the upgrade script
  * never fails: it calls runPending(), and so can anything else that finds the migration pending
  * (files copied by FTP are never upgraded by PrestaShop until the admin asks). runPending() is
- * idempotent and runs the steps in STEPS order. Each step but `tables` and `hooks` (which always run)
+ * idempotent, runs under a database lock of its own so that one run works at a time, and runs the
+ * steps in STEPS order. Each step but `tables` and `hooks` (which always run)
  * is skipped once it has succeeded. A failed step stops the run and records its name and the class of
  * the error, never the error's message. The last step deletes the legacy keys and marks the schema
  * current in one transaction; until then the runtime stays inert and every legacy key stays in
@@ -68,6 +70,8 @@ final class Upgrade300
     private const ALWAYS = ['tables', 'hooks'];
 
     private const MODULE = 'smailyforprestashop';
+
+    private const LOCK = 'migration';
 
     private LegacyReader $reader;
 
@@ -106,7 +110,8 @@ final class Upgrade300
     }
 
     /**
-     * Runs the migration unless the schema is current already. Never throws.
+     * Runs the migration unless the schema is current already. Never throws. While another run holds
+     * the migration lock, it returns at once without work.
      *
      * @return bool true when the schema is current afterwards
      */
@@ -116,6 +121,22 @@ final class Upgrade300
             return true;
         }
 
+        $lock = new Lock(self::LOCK);
+        if (!$lock->acquire()) {
+            return false;
+        }
+        try {
+            // Another run may have completed the migration since this request loaded the configuration.
+            self::reloadConfiguration();
+
+            return Schema::isCurrent() || $this->run();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function run(): bool
+    {
         $state = $this->state();
         $step = 'start';
         try {

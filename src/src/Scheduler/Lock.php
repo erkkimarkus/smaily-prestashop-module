@@ -30,12 +30,23 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * The lock that lets one tick run at a time: a named database lock (GET_LOCK), held by the
- * database connection of the request that took it. The database frees it when that connection
- * ends, so a request that dies leaves no lock behind.
+ * A named database lock (GET_LOCK), held by the database connection of the request that took it.
+ * The database frees it when that connection ends, so a request that dies leaves no lock behind.
+ * The tick takes the lock `tick`, so that one tick runs at a time; locks of other names do not
+ * exclude it.
  */
 final class Lock
 {
+    private string $purpose;
+
+    /**
+     * @param string $purpose what the lock guards, part of its name
+     */
+    public function __construct(string $purpose = 'tick')
+    {
+        $this->purpose = $purpose;
+    }
+
     /**
      * Takes the lock without waiting.
      *
@@ -43,20 +54,22 @@ final class Lock
      */
     public function acquire(): bool
     {
-        return (int) \Db::getInstance()->getValue('SELECT GET_LOCK(\'' . self::name() . '\', 0)', false) === 1;
+        return (int) \Db::getInstance()->getValue('SELECT GET_LOCK(\'' . self::name($this->purpose) . '\', 0)', false) === 1;
     }
 
     public function release(): void
     {
-        \Db::getInstance()->getValue('SELECT RELEASE_LOCK(\'' . self::name() . '\')', false);
+        \Db::getInstance()->getValue('SELECT RELEASE_LOCK(\'' . self::name($this->purpose) . '\')', false);
     }
 
     /**
      * The lock's name: the shop's database name, so that shops on one database server do not
-     * share it, within the 64 characters a lock name may have.
+     * share it, and the purpose, within the 64 characters a lock name may have.
      */
-    public static function name(): string
+    public static function name(string $purpose = 'tick'): string
     {
-        return pSQL(substr(_DB_NAME_, 0, 52)) . '_smaily_tick';
+        $suffix = '_smaily_' . $purpose;
+
+        return pSQL(substr(_DB_NAME_, 0, 64 - strlen($suffix))) . $suffix;
     }
 }
