@@ -181,6 +181,11 @@ class SmailyForPrestaShop extends Module
         return Dispatcher::dispatch('actionObjectCustomerDeleteAfter', $params);
     }
 
+    public function hookActionNewsletterRegistrationBefore(array $params)
+    {
+        return Dispatcher::dispatch('actionNewsletterRegistrationBefore', $params);
+    }
+
     public function hookActionNewsletterRegistrationAfter(array $params)
     {
         return Dispatcher::dispatch('actionNewsletterRegistrationAfter', $params);

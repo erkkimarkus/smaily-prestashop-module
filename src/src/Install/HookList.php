@@ -42,6 +42,7 @@ final class HookList
         'actionObjectCustomerUpdateAfter',
         'actionCustomerAccountUpdate',
         'actionObjectCustomerDeleteAfter',
+        'actionNewsletterRegistrationBefore',
         'actionNewsletterRegistrationAfter',
         'actionAuthentication',
         'additionalCustomerFormFields',
