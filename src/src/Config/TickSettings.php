@@ -83,7 +83,9 @@ final class TickSettings extends Settings
      */
     public function state(): TickState
     {
-        return TickState::fromJson(\Configuration::hasKey(self::TICK_STATE) ? (string) \Configuration::getGlobalValue(self::TICK_STATE) : null);
+        $json = \Configuration::getGlobalValue(self::TICK_STATE);
+
+        return TickState::fromJson(is_string($json) ? $json : null);
     }
 
     /**

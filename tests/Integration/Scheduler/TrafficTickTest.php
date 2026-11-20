@@ -31,7 +31,7 @@ final class TrafficTickTest extends IntegrationTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->savedState = \Configuration::hasKey(TickSettings::TICK_STATE) ? (string) \Configuration::getGlobalValue(TickSettings::TICK_STATE) : false;
+        $this->savedState = self::storedValue(TickSettings::TICK_STATE);
         \Configuration::deleteByName(TickSettings::TICK_STATE);
     }
 
@@ -123,5 +123,18 @@ final class TrafficTickTest extends IntegrationTestCase
                 $this->shutdown[] = $callback;
             }
         );
+    }
+
+    /**
+     * The stored global value of $key, or false when none is stored. Configuration::get() loads the
+     * configuration again after a deleteByName(); hasKey() does not.
+     *
+     * @return string|false
+     */
+    private static function storedValue(string $key)
+    {
+        $value = \Configuration::getGlobalValue($key);
+
+        return $value === false ? false : (string) $value;
     }
 }

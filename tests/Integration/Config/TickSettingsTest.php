@@ -27,7 +27,7 @@ final class TickSettingsTest extends IntegrationTestCase
     {
         parent::setUp();
         foreach (self::KEYS as $key) {
-            $this->saved[$key] = \Configuration::hasKey($key) ? (string) \Configuration::getGlobalValue($key) : false;
+            $this->saved[$key] = self::storedValue($key);
             \Configuration::deleteByName($key);
         }
     }
@@ -103,6 +103,15 @@ final class TickSettingsTest extends IntegrationTestCase
         }
     }
 
+    public function testReadsTheStateAfterTheRequestDroppedItsLoadedConfiguration(): void
+    {
+        $settings = new TickSettings();
+        $settings->saveState(TickState::fromJson(null)->withTick('tick', 1234));
+        \Configuration::deleteByName('SMAILY_CONNECT_TEST_UNRELATED');
+
+        self::assertSame(1234, $settings->state()->lastTickAt());
+    }
+
     public function testReadsTheStoredStateThatAnotherRequestWrote(): void
     {
         $settings = new TickSettings();
@@ -126,5 +135,18 @@ final class TickSettingsTest extends IntegrationTestCase
         ), false);
 
         return $value === false || $value === null ? null : (string) $value;
+    }
+
+    /**
+     * The stored global value of $key, or false when none is stored. Configuration::get() loads the
+     * configuration again after a deleteByName(); hasKey() does not.
+     *
+     * @return string|false
+     */
+    private static function storedValue(string $key)
+    {
+        $value = \Configuration::getGlobalValue($key);
+
+        return $value === false ? false : (string) $value;
     }
 }

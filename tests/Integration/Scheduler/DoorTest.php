@@ -34,7 +34,7 @@ final class DoorTest extends IntegrationTestCase
     {
         parent::setUp();
         foreach (self::KEYS as $key) {
-            $this->saved[$key] = \Configuration::hasKey($key) ? (string) \Configuration::getGlobalValue($key) : false;
+            $this->saved[$key] = self::storedValue($key);
             \Configuration::deleteByName($key);
         }
     }
@@ -143,5 +143,18 @@ final class DoorTest extends IntegrationTestCase
         );
 
         return new Door(new TickSettings(), fn (): Tick => $tick);
+    }
+
+    /**
+     * The stored global value of $key, or false when none is stored. Configuration::get() loads the
+     * configuration again after a deleteByName(); hasKey() does not.
+     *
+     * @return string|false
+     */
+    private static function storedValue(string $key)
+    {
+        $value = \Configuration::getGlobalValue($key);
+
+        return $value === false ? false : (string) $value;
     }
 }
