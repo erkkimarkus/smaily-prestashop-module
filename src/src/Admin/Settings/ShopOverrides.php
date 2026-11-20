@@ -213,7 +213,8 @@ final class ShopOverrides extends Settings
      * Separate stores to one store: the shop's values become the values all shops share. A Smaily
      * account per language is a shop's own setting, so the shared language mode `a` becomes
      * Single language, and the shared account is the shop's account of no language (its fallback
-     * account), as Magento's promoteToStoreWide() does.
+     * account), as Magento's promoteToStoreWide() does. The shop's accounts of a language are
+     * copied too, unread while the shared mode is not `a`, so that no account is lost.
      */
     public function promoteToShared(int $idShop): void
     {
@@ -230,8 +231,8 @@ final class ShopOverrides extends Settings
             }
         }
         \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
-        if ($this->accounts->find($idShop, '') !== null) {
-            $this->copyAccountRow($idShop, 0, '');
+        foreach ($this->accountLanguages($idShop) as $language) {
+            $this->copyAccountRow($idShop, 0, $language);
         }
         foreach ($this->mappings->rows(0) as $row) {
             $this->mappings->delete(0, $row['trigger'], $row['language'], $row['account_key']);
@@ -258,12 +259,9 @@ final class ShopOverrides extends Settings
                 }
             }
             foreach ($this->accountLanguages($idShop) as $language) {
-                if ($language !== '') {
+                if (self::sameAccount($this->accounts->find($idShop, $language), $this->accounts->find(0, $language))) {
                     $this->removeAccount($idShop, $language);
                 }
-            }
-            if (self::sameAccount($this->accounts->find($idShop, ''), $this->accounts->find(0, ''))) {
-                $this->removeAccount($idShop, '');
             }
         }
         $this->reload();

@@ -106,8 +106,10 @@ final class SettingsShopsTest extends IntegrationTestCase
             $this->closeMultistore();
             foreach ([self::ACCOUNT_TABLE, self::MAPPING_TABLE] as $table) {
                 self::db()->delete($table);
+                // Db::insert() would store '' as NULL: the rows go back as they were.
                 foreach ($this->savedRows[$table] as $row) {
-                    self::db()->insert($table, array_map(static fn ($value) => $value === null ? null : pSQL((string) $value), $row), true);
+                    self::db()->execute('INSERT INTO `' . _DB_PREFIX_ . $table . '` (`' . implode('`, `', array_keys($row)) . '`) VALUES ('
+                        . implode(', ', array_map(static fn ($value) => $value === null ? 'NULL' : '\'' . pSQL((string) $value) . '\'', $row)) . ')');
                 }
             }
             foreach (self::KEYS as $key) {
@@ -207,6 +209,8 @@ final class SettingsShopsTest extends IntegrationTestCase
     public function testSeparateStoresToOneStoreAndBackLosesNoAccount(): void
     {
         $this->oneStoreConfigured();
+        // An account of a language that an earlier mode `a` left: unread, but never lost.
+        $this->accounts->save(new Account(0, 'et', 'demo-et', self::USERNAME, self::PASSWORD));
         $this->layoutChange()->toSeparateStores();
         // In separate stores, shop C takes another account and per-language accounts.
         $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
@@ -228,6 +232,8 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertTrue($overrides->hasOwn(ShopOverrides::CONNECTION, $this->shopC));
         self::assertSame(1, $this->mappingCount(0));
         self::assertSame(0, $this->mappingCount($this->shopA) + $this->mappingCount($this->shopB));
+        self::assertNotNull($this->accounts->find(0, 'et'), 'the unread account of a language is kept');
+        self::assertNull($this->accounts->find($this->shopB, 'et'), 'an account equal to the shared one goes');
 
         $this->layoutChange()->toSeparateStores();
 
