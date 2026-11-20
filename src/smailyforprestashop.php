@@ -37,6 +37,55 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 class SmailyForPrestaShop extends Module
 {
+    /**
+     * The admin menu: "Smaily Connect" under Customers, with its four pages. PrestaShop installs
+     * these on install and removes them on uninstall; Migration\Upgrade300 adds them on an upgrade.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public $tabs = [
+        [
+            'name' => 'Smaily Connect',
+            'class_name' => 'AdminSmailyConnect',
+            'route_name' => 'smailyforprestashop_index',
+            'parent_class_name' => 'AdminParentCustomer',
+            'wording' => 'Smaily Connect',
+            'wording_domain' => 'Modules.Smailyforprestashop.Admin',
+        ],
+        [
+            'name' => 'Dashboard',
+            'class_name' => 'AdminSmailyConnectDashboard',
+            'route_name' => 'smailyforprestashop_dashboard',
+            'parent_class_name' => 'AdminSmailyConnect',
+            'wording' => 'Dashboard',
+            'wording_domain' => 'Modules.Smailyforprestashop.Admin',
+        ],
+        [
+            'name' => 'Initial setup',
+            'class_name' => 'AdminSmailyConnectSetup',
+            'route_name' => 'smailyforprestashop_setup',
+            'parent_class_name' => 'AdminSmailyConnect',
+            'wording' => 'Initial setup',
+            'wording_domain' => 'Modules.Smailyforprestashop.Admin',
+        ],
+        [
+            'name' => 'Settings',
+            'class_name' => 'AdminSmailyConnectSettings',
+            'route_name' => 'smailyforprestashop_settings',
+            'parent_class_name' => 'AdminSmailyConnect',
+            'wording' => 'Settings',
+            'wording_domain' => 'Modules.Smailyforprestashop.Admin',
+        ],
+        [
+            'name' => 'Log',
+            'class_name' => 'AdminSmailyConnectLog',
+            'route_name' => 'smailyforprestashop_log',
+            'parent_class_name' => 'AdminSmailyConnect',
+            'wording' => 'Log',
+            'wording_domain' => 'Modules.Smailyforprestashop.Admin',
+        ],
+    ];
+
     public function __construct()
     {
         $this->name = 'smailyforprestashop';
@@ -93,8 +142,7 @@ class SmailyForPrestaShop extends Module
 
     public function getContent(): void
     {
-        $route = $this->get('router')->generate('smailyforprestashop_module_configuration');
-        Tools::redirectAdmin($route);
+        Tools::redirectAdmin($this->get('router')->generate('smailyforprestashop_index'));
     }
 
     /**
