@@ -91,5 +91,6 @@ final class AbandonedCartAutomation implements ProviderInterface
                 $services->get(CartTracker::class)->withdraw((string) $customer->email, (int) $order->id_cart, AbandonedCartHandler::SKIPPED_ORDERED);
             }
         });
+        (new Capture\CheckoutCapture())->register($services);
     }
 }
