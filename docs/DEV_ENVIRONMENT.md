@@ -130,6 +130,50 @@ Disk: the 9.2.0 image 1.54 GB, the 8.2.8 image 1.12 GB, the 8.0.0 image 1.1 GB, 
 Code changes in `src/` show at once, as the folder is mounted. After a change to services or routes,
 clear the cache: `docker compose exec -u www-data prestashop php bin/console cache:clear`.
 
+## 4a. Keep a walk away from the real Smaily: the egress guard (verified on 8.2.8 and 9.2.0)
+
+The tests use mocks, but a person or an agent who walks the admin screens types credentials, and the
+shop then calls `https://<subdomain>.sendsmaily.net` for real. The egress guard in
+`tests/egress-guard/` closes that door for a dev shop (the flashlight images of
+`docker-compose.yaml`):
+
+- the Smaily mock of the tests (`tests/Integration/Fixtures/mock-smaily/router.php`) runs inside the
+  shop container, behind a TLS front for every `*.sendsmaily.net` name, with a certificate authority
+  that the script creates and trusts in that container only;
+- a proxy in the container (`proxy.php`) tunnels a request for a `*.sendsmaily.net` host to that
+  front and refuses every other host;
+- PHP-FPM gets `https_proxy` and `http_proxy`, so every request that a page makes goes to the proxy.
+
+Start it from the repository root, with the stack's Compose variables set as for `docker compose`
+(section 3). `MOCK_USER` and `MOCK_PASSWORD` are the only credentials the mock accepts; invent them:
+
+    MOCK_USER=walk-user MOCK_PASSWORD=not-a-real-password tests/egress-guard/install.sh
+
+**Load the guard before the first admin request of a walk.** A walk once reached the real Smaily
+host with invented credentials, because its proxy settings sat in a file that PHP-FPM never read: the
+flashlight `php-fpm.conf` does not include `php-fpm.d/`. `install.sh` therefore appends the settings
+to `php-fpm.conf` itself, reloads PHP-FPM, and ends with the check below. Recreating the shop
+container removes the guard (section 8); install it again.
+
+Check that it is active, at any time:
+
+    tests/egress-guard/check.sh        # prints "guard active", or what is missing and exits 1
+
+The check asks three things: a page request runs with the proxy setting, a Smaily host reaches the
+mock, and another host is refused. The proxy writes each decision, host and verdict only, to
+`/tmp/smaily-egress.log` in the container:
+
+    docker compose exec -u www-data prestashop sh -c 'cut -d" " -f2- /tmp/smaily-egress.log | sort | uniq -c'
+
+`TUNNEL <host> -> mock` is a Smaily call that the mock answered; `REFUSED CONNECT <host>` is a call
+that did not leave the container (PrestaShop's own calls and the module's update check show here).
+
+The guard covers page requests. A command that you run with `docker compose exec` (the console,
+PHPUnit) reads its own environment: give it the proxy with
+`-e https_proxy=http://127.0.0.1:3128 -e http_proxy=http://127.0.0.1:3128 -e no_proxy=localhost,127.0.0.1`.
+The mock's state (the requests it received, the workflows it lists) is `/tmp/smaily-mock/state.json`
+in the container. The guard is not installed in the shop of `tests/ci/validate.sh`.
+
 ## 5. PrestaShop 8
 
 Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (PrestaShop 8.2.8 on PHP 8.0) or
