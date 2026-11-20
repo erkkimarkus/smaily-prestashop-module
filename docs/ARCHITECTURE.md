@@ -2004,7 +2004,14 @@ has one owner:
 - **Owner question before the Story starts.** Does the reminder also apply the guest rule of the
   live sync (section 6.2)? `ContactAudience::remindsCart()` does not apply it today (section 14).
 
-**Stage 4 parallel groups.** 4.1 → {4.2, 4.3}.
+### Story 4.4 — Discount codes in store automations
+
+- **Goal.** A store automation can send a discount code: a cart rule that the merchant made, with a
+  validity in days, as the WooCommerce and Magento connectors do.
+- **State.** Not started. The design is confirmed with the owner before work starts.
+- **Depends on.** The Automations tab (4.1) and the Log page (3.4) on `v3`.
+
+**Stage 4 parallel groups.** 4.1 → {4.2, 4.3} → 4.4.
 
 ### Story 5.1 — Engine client and connections
 
@@ -2195,4 +2202,5 @@ Later decisions of 2026-11-20:
 | A contact's address on the admin screens | **DECIDED:** admin screens show a contact's address as the sibling connectors do; only a GDPR erasure removes it. The keyed hash that stands in for an address longer than the entity column shows as its first 12 characters and "…" (`magento:Model/Log/EntityLabel.php`). | Owner (Erkki) | 2.2, 11.2 | 3.2 |
 | Separate stores → one store | **DECIDED:** separate stores → one store removes the other shops' own settings, as Magento does: the selected shop's values become the shared ones, and every shop's own Smaily account rows, Contacts values, automation values and mapping rows are removed, whether or not they differ. The contacts confirmation is never copied or removed. | Owner (Erkki) | 5.1 | 3.3 |
 | Wording of the confirmations | **DECIDED:** the consent-mode and layout confirmations' wording is approved: the consent-mode confirmations as built, and the change to one store with Magento's text ("website" read as "shop"). | Owner (Erkki) | 10.3 | 3.3 |
+| Discount codes in store automations | **DECIDED:** discount codes in store automations are in 3.0.0, as a Story of their own after the Automations tab and the Log page. "Edit design" stays out. | Owner (Erkki) | 13 | 4.4 |
 | The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |

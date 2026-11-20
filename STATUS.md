@@ -19,21 +19,20 @@ with its corrections (a contact's address shown as the siblings do; one cron
 line, whose token the upgrade creates); the 8.2.8 admin fix; the login-cookie
 fix; Settings (Story 3.3: Connection, Contacts, RSS, shop switches, layout
 change; the 2.x admin page is gone); the three store automations.
-
 In flight in the session of 2026-11-20 (second session): the Log page (Story
 3.4), in another worker's worktree; land it by cherry-pick when it is done.
 
 Last verified with Settings on the tip: in-shop 1160 tests, 5155 assertions on
-a fresh 8.2.8 and a fresh 9.2.0; `tests/ci/validate.sh` 10 of 10 on both; host
-1160 tests, 560 skipped. Both versions were walked in a browser behind the
-egress guard (`docs/DEV_ENVIRONMENT.md` 4a): load it before any walk.
+a fresh 8.2.8 and a fresh 9.2.0; `tests/ci/validate.sh` 10 of 10 on both.
+Load the egress guard (`docs/DEV_ENVIRONMENT.md` 4a) before any admin walk.
 
 Then, in this order: (1) the Log page (Story 3.4) and the Automations tab
 (workflow lists use Magento's call `workflows.php?trigger_type=form_submitted`);
-(2) walk capabilities 3, 4, 6 and 7 through the screens and tick them;
-(3) Estonian targets for every v3 admin string (the XLIFF holds the 2.x
-strings and four v3 units; capability 14); (4) the document pass (ARCHITECTURE
-1.1 and 13 and the user guide lag); (5) Marketplace rules (CON-379); (6) stage
+(2) discount codes in store automations (Story 4.4; design with the owner
+first); (3) walk capabilities 3, 4, 6 and 7 through the screens and tick them;
+(4) Estonian targets for every v3 admin string (the XLIFF holds the 2.x
+strings and four v3 units; capability 14); (5) the document pass (ARCHITECTURE
+1.1 and 13 and the user guide lag); (6) Marketplace rules (CON-379); (7) stage
 5, Campaign Intelligence, with group prices (CON-385, contract 1.36.0).
 
 ## Queue (technical, for the orchestrator)
@@ -42,7 +41,6 @@ strings and four v3 units; capability 14); (4) the document pass (ARCHITECTURE
   9.2.0-8.1 image with any code after the event queue; LiteSpeed; the 1.6.x
   hidden-tab removal on a real 1.6.2 install (ARCHITECTURE 14, row 15).
 - **The live Smaily API has never been called**; every run used the mock.
-- **Deferred clean-up:** ARCHITECTURE 13, Story 1.8 and "Queued clean-up".
 - **Open follow-ups:** the live-sync guest gates take effect only once Story
   2.3 sets `guest`; the unsubscriber list is paged by page number, so a list
   that shrinks during one first run can skip one address (2.x had the same).
@@ -87,7 +85,7 @@ A box is ticked only when the real flow was exercised; a line names how.
 
 ## Decisions (2026-11-20)
 
-Recorded in `docs/ARCHITECTURE.md` section 15 (10–16 and 19–21 are Erkki's,
+Recorded in `docs/ARCHITECTURE.md` section 15 (10–16 and 19–22 are Erkki's,
 all on 2026-11-20). "≠": the owner overrode the agent-side proposal.
 
 1. Background tasks: cron URL plus a visitor-traffic fallback tick.
@@ -109,6 +107,7 @@ all on 2026-11-20). "≠": the owner overrode the agent-side proposal.
 19. Admin screens show a contact's address as the siblings do.
 20. Separate stores → one store removes other shops' own settings (Magento).
 21. The wording of the consent-mode and layout confirmations is approved.
+22. Discount codes in store automations are in 3.0.0, a Story of their own.
 
 Orchestrator (technical, reversible): the upgrade script never fails (3.7);
 `language` is `NOT NULL DEFAULT ''` (2.2); the menu sits under Customers
@@ -119,9 +118,8 @@ upgrade, with a notice (3.3; the owner may overturn it).
 
 - Closed on `v3`: an empty stored cron token opens the cron URL; uninstall
   deletes an override file it may not own; customer sync pushes every shop's
-  customers with one shop's configuration.
-- The cart cron fataled on 1.6.x serialized field lists: the 2.x cart code
-  no longer runs, and Story 4.3 builds its successor.
+  customers with one shop's configuration; the cart cron fataled on 1.6.x
+  serialized field lists (the 2.x cart code no longer runs).
 - The `NW_*` keys of ps_emailsubscription are never restored (a notice).
 
 ## Open questions (for Erkki)
