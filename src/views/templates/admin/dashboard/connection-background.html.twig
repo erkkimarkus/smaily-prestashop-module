@@ -1,0 +1,29 @@
+{#
+ # The Background tasks card (ARCHITECTURE 4.3): when the last tick ran and from where, and, while
+ # the tasks do not run from a cron URL every minute, what to do: the cron line with the tick URL's
+ # token for an admin who may change the settings, else whom to ask. A store whose tick URL has no
+ # token yet gets "Show the cron line", which asks the server for one (dashboard.js).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_dashboard is defined %}
+  {% set card = smaily_dashboard.connections.background %}
+  <div id="smaily-background" class="smaily-background">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: card} only %}
+    {% if card.hint %}
+      <p class="smaily-connection__hint">{{ card.hint }}</p>
+    {% endif %}
+    {% if card.cron %}
+      <code class="smaily-cron">{{ card.cron }}</code>
+    {% elseif card.cron_missing %}
+      <div data-smaily-cron-line="{{ path('smailyforprestashop_api_cron_line') }}">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-smaily-action="cron-line">{{ 'Show the cron line'|trans }}</button>
+        <code class="smaily-cron" data-smaily-cron hidden></code>
+        <div class="smaily-result" data-smaily-result role="status"></div>
+      </div>
+      <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/dashboard.js') }}?v={{ smaily.version }}"></script>
+    {% endif %}
+    {% if card.ask_admin %}
+      <p class="smaily-connection__hint">{{ card.ask_admin }}</p>
+    {% endif %}
+  </div>
+{% endif %}

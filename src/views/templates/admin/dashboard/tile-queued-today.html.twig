@@ -1,0 +1,6 @@
+{# Rows created today (UTC) that still wait to be sent. #}
+{% if smaily_dashboard is defined %}
+  {% set tile = smaily_dashboard.tiles.queued_today %}
+  <span class="smaily-tile__value">{{ tile.value }}</span>
+  <span class="smaily-tile__caption">{{ tile.caption }}</span>
+{% endif %}

@@ -1,0 +1,10 @@
+{#
+ # The body of a connection card under the label that the frame draws: the sub-line, a note, and
+ # the status pill, as Magento's connection strip draws them. `card` is one of
+ # smaily_dashboard.connections (Admin\Dashboard\DashboardView).
+ #}
+<div class="smaily-connection__sub">{{ card.sub }}</div>
+{% if card.note %}
+  <div class="smaily-connection__note">{{ card.note }}</div>
+{% endif %}
+<span class="smaily-pill smaily-pill--{{ card.pill.variant }}"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ card.pill.label }}</span>

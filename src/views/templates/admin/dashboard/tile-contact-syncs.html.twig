@@ -1,0 +1,6 @@
+{# Contact syncs delivered in the last 30 days; "+" when the count stopped at its bound (DashboardQueries). #}
+{% if smaily_dashboard is defined %}
+  {% set tile = smaily_dashboard.tiles.contact_syncs %}
+  <span class="smaily-tile__value">{{ tile.value }}</span>
+  <span class="smaily-tile__caption">{{ tile.caption }}</span>
+{% endif %}

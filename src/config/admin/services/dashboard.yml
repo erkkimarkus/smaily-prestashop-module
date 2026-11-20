@@ -1,0 +1,9 @@
+# The Dashboard's JSON endpoint. The Dashboard page's own controller is listed in shell.yml.
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\CronLine:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\CronLine

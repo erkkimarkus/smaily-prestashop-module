@@ -1,0 +1,36 @@
+{#
+ # Recent activity, Magento's table: Source, Type, Entity, Status, Updated. The Entity of a row is
+ # never an address (Admin\Dashboard\EntityLabel); an import job shows its number of contacts.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_dashboard is defined %}
+  {% set activity = smaily_dashboard.activity %}
+  {% if activity.rows is empty %}
+    <p class="smaily-empty">{{ activity.empty }}</p>
+  {% else %}
+    <div class="table-responsive">
+      <table class="table smaily-activity__table">
+        <thead>
+          <tr>
+            <th>{{ 'Source'|trans }}</th>
+            <th>{{ 'Type'|trans }}</th>
+            <th>{{ 'Entity'|trans }}</th>
+            <th>{{ 'Status'|trans }}</th>
+            <th>{{ 'Updated'|trans }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in activity.rows %}
+            <tr>
+              <td>{{ row.source }}</td>
+              <td><code>{{ row.type }}</code></td>
+              <td>{{ row.entity }}</td>
+              <td><span class="smaily-pill smaily-pill--{{ row.status.variant }}"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ row.status.label }}</span></td>
+              <td>{{ row.updated }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+{% endif %}

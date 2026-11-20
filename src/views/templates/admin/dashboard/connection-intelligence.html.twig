@@ -1,0 +1,4 @@
+{# The Campaign Intelligence card: off until the module connects to Campaign Intelligence. #}
+{% if smaily_dashboard is defined %}
+  {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: smaily_dashboard.connections.intelligence} only %}
+{% endif %}

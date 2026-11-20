@@ -29,18 +29,63 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * The Dashboard page. The shell renders its frame (layout/dashboard.html.twig); this controller passes
- * the data of the page's content templates in views/templates/admin/dashboard/.
+ * The Dashboard page. The shell renders its frame (layout/dashboard.html.twig); this controller reads
+ * the facts of the shop in PrestaShop's shop selector (DashboardFacts), words them (DashboardView)
+ * and hands them to the content templates in views/templates/admin/dashboard/ as
+ * `smaily_dashboard`. The page writes nothing and calls no outside service.
  */
 final class DashboardController extends BaseController
 {
     public function index(Request $request): Response
     {
-        return $this->renderPage('dashboard');
+        if (!$this->isGranted('read', self::PAGES['dashboard']['tab']) || self::entryRoute() !== self::PAGES['dashboard']['route']) {
+            // The shell refuses the page, or sends it to the Initial setup.
+            return $this->renderPage('dashboard');
+        }
+
+        $services = Services::instance();
+        $facts = new DashboardFacts(
+            new DashboardQueries(),
+            new DashboardSettings(),
+            $services->get(StoreLayout::class),
+            $services->get(AccountResolver::class),
+            $services->get(AccountStore::class),
+            $services->get(TickSettings::class),
+            _COOKIE_KEY_,
+            [self::class, 'tickUrl']
+        );
+        $settingsTab = self::PAGES['settings']['tab'];
+        $view = (new DashboardView(fn (string $id, array $parameters = []): string => $this->trans($id, self::DOMAIN, $parameters)))->build($facts->collect(
+            self::pendingUpgrade()['status'] ?? null,
+            AbstractJsonAction::shopId(),
+            \Shop::isFeatureActive(),
+            $this->isGranted('update', $settingsTab),
+            $this->isGranted('read', $settingsTab),
+            time()
+        ));
+
+        return $this->renderPage('dashboard', [
+            'smaily_dashboard' => $view,
+            'smaily_invitation' => $view['invitation'],
+        ]);
+    }
+
+    /**
+     * The tick URL with its token (ARCHITECTURE 4.3).
+     */
+    public static function tickUrl(string $token): string
+    {
+        return \Context::getContext()->link->getModuleLink('smailyforprestashop', 'tick', ['token' => $token], true);
     }
 }

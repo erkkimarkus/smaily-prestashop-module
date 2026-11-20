@@ -1,0 +1,32 @@
+{#
+ # The Dashboard's verdict: one sentence on whether everything works, with the link that fixes the
+ # problem it names, as Magento's Dashboard draws it; above it, while rows failed in the last 24
+ # hours, Magento's failures banner. The words come from Admin\Dashboard\DashboardView.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_dashboard is defined %}
+  {% set banner = smaily_dashboard.failed_banner %}
+  {% if banner %}
+    <div class="smaily-banner smaily-dashboard-banner" role="status">
+      <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">{{ banner.title }}</div>
+      </div>
+      <a class="btn btn-outline-secondary smaily-banner__action" href="{{ path(banner.action.route, banner.action.params) }}">{{ banner.action.label }}</a>
+    </div>
+  {% endif %}
+
+  {% set verdict = smaily_dashboard.verdict %}
+  <div class="smaily-verdict smaily-verdict--{{ verdict.tone }}" data-smaily-verdict="{{ verdict.state }}">
+    <span class="smaily-verdict__dot" aria-hidden="true"></span>
+    <div class="smaily-verdict__body">
+      <div class="smaily-verdict__kicker">{{ verdict.kicker }}</div>
+      <div class="smaily-verdict__text">{{ verdict.text }}</div>
+    </div>
+    {% if verdict.action %}
+      {% set action = verdict.action %}
+      <a class="btn smaily-verdict__action {{ action.danger ? 'btn-danger' : (verdict.state == 'ok' ? 'btn-outline-secondary' : 'smaily-btn-primary') }}"
+         href="{{ action.route ? path(action.route, action.params) : '#' ~ action.anchor }}">{{ action.label }}</a>
+    {% endif %}
+  </div>
+{% endif %}

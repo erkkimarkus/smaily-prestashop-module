@@ -1,0 +1,8 @@
+# The JSON endpoint of the Dashboard (Admin\Dashboard\CronLine): the cron line of a store whose tick
+# URL has no token yet. It needs the right to change the settings, so it names the Settings tab.
+smailyforprestashop_api_cron_line:
+  path: /smailyforprestashop/api/cron-line
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\CronLine::execute
+    _legacy_controller: AdminSmailyConnectSettings

@@ -1,0 +1,4 @@
+{# The Smaily connection card: the subdomain of the selected shop's account, never its user name or password. #}
+{% if smaily_dashboard is defined %}
+  {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: smaily_dashboard.connections.smaily} only %}
+{% endif %}

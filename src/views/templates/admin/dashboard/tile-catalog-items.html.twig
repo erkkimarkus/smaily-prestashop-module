@@ -1,0 +1,13 @@
+{#
+ # Catalog items: as Magento, only with a Campaign Intelligence connection, which the module does not
+ # make yet. Until then the marker hides the frame's tile (admin.css, Dashboard block).
+ #}
+{% if smaily_dashboard is defined %}
+  {% set tile = smaily_dashboard.tiles.catalog_items %}
+  {% if tile %}
+    <span class="smaily-tile__value">{{ tile.value }}</span>
+    <span class="smaily-tile__caption">{{ tile.caption }}</span>
+  {% else %}
+    <span class="smaily-tile__off" hidden></span>
+  {% endif %}
+{% endif %}

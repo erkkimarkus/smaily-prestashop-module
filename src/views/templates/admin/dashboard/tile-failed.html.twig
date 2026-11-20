@@ -1,0 +1,13 @@
+{# Rows parked as failed in the last 24 hours; with any, Magento's badge and the link to them in the Log. #}
+{% if smaily_dashboard is defined %}
+  {% set tile = smaily_dashboard.tiles.failed %}
+  {% if tile.badge %}
+    <span class="smaily-tile__badge">{{ tile.badge }}</span>
+  {% endif %}
+  <span class="smaily-tile__value{{ tile.attention ? ' smaily-tile__value--attention' : '' }}">{{ tile.value }}</span>
+  {% if tile.link %}
+    <a class="smaily-tile__caption" href="{{ path(tile.link.route, tile.link.params) }}">{{ tile.link.label }}</a>
+  {% else %}
+    <span class="smaily-tile__caption">{{ tile.caption }}</span>
+  {% endif %}
+{% endif %}

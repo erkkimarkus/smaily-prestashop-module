@@ -1,0 +1,4 @@
+{# The Browse tracking card: off until the module carries the tracking script. #}
+{% if smaily_dashboard is defined %}
+  {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: smaily_dashboard.connections.tracking} only %}
+{% endif %}
