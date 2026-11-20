@@ -440,3 +440,12 @@ controller. So the module's controllers take their translator from the context
 override `trans()` to use it. `tests/Integration/Admin/ControllerContainerTest.php` gives each
 controller a locator without `translator`, on whichever version the suite runs. A browser proof of an
 admin Story includes 8.2.8.
+
+### 6.7 The back office in Estonian without a language pack
+
+**Observed** on 8.0.0, 8.2.8 and 9.2.0. `Language::checkAndAddLanguage('et')` adds the language row from
+PrestaShop's own language list and copies the multilanguage rows; it downloads nothing. With the
+employee's `id_lang` set to that language, the module's pages show the Estonian target of every string
+that `translations/et-EE/` holds and the English source of every other string; the core's own strings
+stay English, as no language pack is installed. So a browser proof can view the module's screens in
+Estonian in a demo shop (part 5 said that this needs a language pack download).
