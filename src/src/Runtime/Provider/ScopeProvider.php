@@ -30,6 +30,10 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
  * Registers the services and hook listeners of the shop layout, the languages and the account resolution.
@@ -38,5 +42,15 @@ final class ScopeProvider implements ProviderInterface
 {
     public function register(Services $services): void
     {
+        $services->set(StoreLayout::class, fn (): StoreLayout => new StoreLayout());
+        $services->set(AccountResolver::class, fn (Services $services): AccountResolver => new AccountResolver(
+            $services->get(StoreLayout::class),
+            [$services->get(AccountStore::class), 'find']
+        ));
+        $services->set(ScopeResolver::class, fn (Services $services): ScopeResolver => new ScopeResolver(
+            $services->get(StoreLayout::class),
+            $services->get(AccountResolver::class),
+            [\Language::class, 'getIsoById']
+        ));
     }
 }
