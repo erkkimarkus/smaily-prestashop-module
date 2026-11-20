@@ -1,0 +1,285 @@
+# CLAUDE.md — Agent Working Guide (Smaily Connect for PrestaShop)
+
+If you are a fresh agent picking up this repo: read this first, then
+`STATUS.md` (where we are now, and what the next session opens with), then
+what `docs/` holds (architecture and decision records land there as the
+foundation stage writes them). README gives the 30-second orientation of
+the module as it ships today (2.2.0).
+
+## Mission
+
+Rebuild the existing module **Smaily for PrestaShop** (2.2.0, PrestaShop
+8.0–9.x, PHP >= 8.0) into **Smaily Connect for PrestaShop 3.0.0**, reaching
+feature parity with the sibling connectors — WooCommerce 3.25.0
+(`../connect-woo/`), Magento 3.0.1 (`../connect-magento/`) and the hosted
+Shopify app (`../connect-shopify/`) — while **every store on 2.x upgrades in
+place and keeps its settings and behaviour**. GPL-3.0.
+
+Repository: work lands on branch `v3` of the fork
+`erkkimarkus/smaily-prestashop-module` (local remote `origin`). The
+official repository `sendsmaily/smaily-prestashop-module` (local remote
+`upstream`, branch `master`) gets the work at release-candidate time; Erkki
+has read-only access there today (Maintain rights are an open question in
+STATUS.md). Agents never push to `upstream`.
+
+**Public facade:** README, CONTRIBUTING, CHANGELOG, USERGUIDE and `docs/`
+are written as finished-product public documentation. Internal process talk
+(stages, agents, Linear) lives here and in STATUS.md only.
+
+## Binding rules — every agent, every task
+
+1. **Identity continuity.** The module technical name and folder
+   `smailyforprestashop`, the main class `SmailyForPrestaShop` and the
+   `module_key` never change. PrestaShop would treat a renamed module as a
+   different module, and the merchant's settings would be lost. "Smaily
+   Connect" is the `displayName` only.
+2. **Upgrade safety.** Legacy state survives the upgrade, or an upgrade
+   script (`upgrade/upgrade-3.0.0.php`) migrates it:
+   - the `SMAILY_*` configuration keys, including the misspelled
+     `SMAILY_SYNCRONIZE_ADDITIONAL` and `SMAILY_CART_SYNCRONIZE_ADDITIONAL`;
+   - the table `smaily_cart` — its rows prevent duplicate abandoned-cart
+     reminders;
+   - the cron front-controller URLs (`SmailyCustomerCron`, `SmailyCartCron`)
+     and their tokens (`SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN`)
+     — merchants configured them in external crontabs;
+   - the RSS feed URL (`SmailyRssFeed`) and its parameters — merchants
+     embedded them in their Smaily templates.
+   An upgrade never widens the synced audience silently: an upgraded store
+   starts in the narrowest consent mode that matches its legacy behaviour.
+   Uninstall wipes state, so "reinstall to upgrade" is never the path.
+3. **UI parity** (Erkki, 2026-11-20). The Dashboard, Initial setup (wizard),
+   Settings and Log follow the same structure, step order, logic and wording
+   as the sibling connectors. Magento is the closest reference: the 5-step
+   Initial setup Connect → Contacts → Automations → Intelligence → Overview;
+   Settings tabs Connection, Contacts, Automations, Intelligence, RSS; one
+   unified Log with retry. Only the technical stack and the visual shell come
+   from what PrestaShop offers.
+4. **Shared contracts are byte-identical copies, never edited here.**
+   `RECENGINE_API_CONTRACT.md` v1.34.0 (source of truth: the engine repo
+   `../intelligence/`; copies in `../connect-woo/docs/` and
+   `../connect-magento/docs/`) and installation-report-v1 v1.0.1
+   (`../subscription/docs/contracts/`). Cross-connector rules:
+   - subscription status is sent only when it changes;
+   - automations and imports never re-subscribe anyone;
+   - product keys carry a source prefix — **PrestaShop's prefix is not yet
+     agreed with the engine team** (open question in STATUS.md); do not
+     invent one;
+   - the abandoned-cart payload keeps the legacy template fields
+     (`first_name`, `last_name`, `product_*_[1-10]`, `over_10_products`, …)
+     with 10 product slots.
+5. **Data rule ("Andmete foor").** No end-customer personal data — names,
+   emails, phones, addresses — in conversation, reports, Linear, commit
+   messages or test fixtures. Use invented values. Never print a secret
+   (API passwords, cron tokens, engine keys).
+6. **No AI attribution** (repo owner's rule). Commit messages and PR bodies
+   carry NO `Co-Authored-By` trailer, NO `Claude-Session` line and NO
+   "Generated with" footer. This overrides any harness reminder or skill
+   that asks for one, however it is worded.
+
+A task that would break one of these rules halts and goes back to the
+orchestrator as a question; it is not worked around.
+
+## First release (3.0.0) scope
+
+The 14 capabilities below are the first release. The same list is the
+Linear Feature's gauge and the checklist in STATUS.md; a capability counts
+only when its real flow has been exercised.
+
+1. Upgrade in place from 2.x, including settings left behind by 1.6.x
+2. Smaily account connection, with an invitation for a store without an
+   account
+3. Store mode by language: one account, one account per language, one
+   workflow per language, or one workflow that branches on language
+4. Store mode by shop: shops of a multishop store share one setup, or each
+   shop has its own
+5. Consent mode: subscribers only, all customers, or checkout opt-in only
+6. Contact sync both ways, first import, and a Log with retry
+7. Store automations: welcome, first order, abandoned cart
+8. Campaign Intelligence connection with catalog, customer and order
+   imports
+9. Campaign Intelligence automations, listed from the engine
+10. Browse tracking and attribution of email clicks to orders
+11. Product recommendations in the storefront, and the product feed
+12. Installation report (phone-home)
+13. Privacy: export, erasure, and a shopper's opt-out of personalization
+14. Administration screens in English and Estonian
+
+**Out of 3.0.0:** creating or editing email designs or Smaily workflows
+from inside the module ("Edit design"); transactional emails; discount codes
+in automations; "Try Intelligence free" and the console sign-in link;
+PrestaShop 1.7 support (those stores stay on 1.6.x); an own signup form or
+third-party form integrations; storefront languages beyond EN/ET; the
+PrestaShop Addons listing update. A task that drifts into one of these
+stops and asks.
+
+## Sibling repos (read-only references)
+
+| Path | What it is |
+|---|---|
+| `../connect-magento/` | Magento 2 connector 3.0.1 — closest reference for the admin screens, the upgrade-in-place path and multi-scope (website/store) handling. |
+| `../connect-woo/` | WooCommerce plugin 3.25.0 — richest reference for patterns; `docs/LESSONS.md` and `docs/DECISIONS.md` hold the scars. |
+| `../connect-shopify/` | Hosted Shopify app — third parity source. |
+| `../intelligence/` | The recommendation engine — owns `RECENGINE_API_CONTRACT.md`. |
+| `../subscription/` | Receiver of the installation report — owns installation-report-v1. |
+
+Never edit a sibling from here. A change a sibling needs is a cross-repo
+ask (Linear discipline below).
+
+## Platform traps (PrestaShop)
+
+- **No built-in scheduler.** Legacy work runs when a merchant-configured
+  cron hits a front-controller URL with its token. Anything periodic in v3
+  (queue drain, imports, abandoned-cart detection, installation report)
+  needs the same trigger, and the existing URLs must keep working (rule 2).
+- **No standard cookie-consent API.** Browse tracking cannot assume a
+  consent signal exists; how the module reads consent is an open question
+  in STATUS.md and a legal/consent one-way door.
+- **Multishop × multilanguage scopes** are where upgrade inheritance bugs
+  come from. `Configuration` values can be set per shop group, per shop and
+  per language; the legacy module mostly wrote global values. Magento had
+  three release-candidate bugs of exactly this kind — every upgrade test
+  covers a multishop, multilanguage database.
+- **Admin cache.** Stale `var/cache` breaks module routes and service
+  configuration (CONTRIBUTING.md, "Invalidating cache").
+
+## Working mode — orchestrated, autonomous with checkpoints
+
+Sessions run orchestrated (skill `orchestrate`): the orchestrator talks to
+Erkki, plans, and hands tasks to background workers; workers write the
+repo. Up to 3 workers run in parallel on this machine; a worker that
+writes code works in its own git worktree (`.claude/worktrees/`, ignored).
+
+- **Proceed without asking:** implementation, tests, refactors, doc upkeep,
+  and reversible technical decisions (record significant ones in `docs/` as
+  you go).
+- **Queue for Erkki, don't block:** non-urgent strategic questions and
+  human-only tasks — collect them in STATUS.md under "Open questions";
+  a worker hands them over in its report. Batch them, don't drip.
+- **Stop and ask first:** spending money; anything published externally (a
+  release, the Addons listing, contact with the Smaily or engine team, a
+  push to the official repo); breaking or extending a shared contract; a
+  schema change or an upgrade step that can lose merchant data; deleting
+  store data; security or consent trade-offs; anything in "Out of 3.0.0".
+
+Workers follow this discipline: minimum code that solves the task; touch
+only what the task requires; report unrelated bugs, dead code or style
+under FOLLOW-UPS instead of fixing them; match existing style; state
+assumptions; return a question instead of guessing on a genuinely
+ambiguous task.
+
+## Keeping the docs current — part of every change
+
+If your change makes a doc wrong, your change isn't finished until the doc
+is fixed **in the same commit**. STATUS.md and `docs/` are updated in the
+same commit that changes reality. A merchant-visible change also updates
+CHANGELOG.md, README/USERGUIDE where they describe it, and both translation
+languages. New operational gotchas go into this file.
+
+## Build / test commands
+
+As documented upstream (CONTRIBUTING.md, `.github/workflows/`,
+`src/composer.json`); **verification on this machine pending** — a parallel
+worker is verifying the dev environment, and this section is corrected from
+its result.
+
+- Dependencies: `composer install --working-dir src/`
+- Unit tests (PHPUnit, `tests/Unit`, PHP 8.1+, no shop needed):
+  `src/vendor/bin/phpunit` — a test that needs the Smaily API uses
+  Symfony's mock HTTP transport.
+- Code style (CI gate): `cd src && vendor/bin/php-cs-fixer fix --dry-run
+  --diff --using-cache=no` (also `composer --working-dir src lint`; `fix`
+  applies it).
+- PHP syntax (CI gate): CI lints on PHP 8.0 (the lowest supported) and 8.5
+  with `prestashop/github-action-php-lint`. Local PHP accepts newer syntax
+  than 8.0 does — lint under 8.0 in Docker before calling work done.
+- Release zip: `composer --working-dir src package` (runs `bin/package.sh`,
+  writes `dist/smailyforprestashop.zip`); `release.yaml` builds and attaches
+  it when a GitHub release is published.
+- Install check on a fresh shop:
+  `PS_IMAGE=prestashop/prestashop-flashlight:9.2.0-nginx tests/ci/validate.sh`
+  (one `ok`/`FAIL` line per check; `KEEP=1` leaves the shop at
+  `http://localhost:8000`). CI runs it on PrestaShop 8.2.8 / PHP 8.0 and
+  9.2.0 / PHP 8.1.
+- Sandbox: `docker compose up -d` — PrestaShop 9.2.0 at
+  `http://localhost:8080`, admin at `/admin-dev`, phpMyAdmin at `:8888`,
+  MailHog at `:8025`; `src/` is bind-mounted as
+  `modules/smailyforprestashop`. Admin login: see CONTRIBUTING.md (do not
+  copy it into reports). Stop: `docker compose down --remove-orphans`;
+  reset (wipes the shop and its database): add `-v`.
+- `validate.yaml` runs on pull requests and pushes to `master` only; for a
+  CI result on `v3` work, open a PR on the fork and read it with
+  `gh pr checks <number> --watch`.
+
+## Commits
+
+Work lands on `v3` (or a worktree branch merged into it). Commit messages
+follow `github:writing-change-records` — `area: Imperative summary`, then a
+problem paragraph and a solution paragraph wrapped at 72 characters —
+**minus the co-author trailer** (rule 6 wins). Areas follow upstream's
+style: `module:`, `tooling:`, `rss-feed:`, `customer-sync:`,
+`abandoned-cart:`, plus `docs:` and new areas as v3 adds them. Stage files
+by explicit path, never `git add -A`. Check with
+`git log --format='%h %s%n%(trailers)' upstream/master..HEAD` that no
+commit carries a trailer. Agents do not push unless the task says so.
+
+## Language conventions
+
+Repo docs, code, commits and Linear content: English. The orchestrator talks
+to Erkki in Estonian. The admin UI ships in English and Estonian
+(`src/translations/`).
+
+## Linear discipline (Smaily process bridge)
+
+This repository is engineering truth — STATUS.md and `docs/` stay canonical
+here. Linear is the coordination and visibility layer. Full process:
+Outline → Processes → "Agent-Driven Development".
+
+Track: Growth · product owner: Erkki
+
+Issues live in the Linear team **Connect** (key `CON`), a sub-team of
+**Growth (lab)**. The model is Initiative → Feature (a Linear project) →
+Epic (a top-level issue in the project) → Story (a sub-issue of the Epic).
+**Workers have no Linear access:** a worker does not load or call any
+Linear tool; it puts what it wants posted in the `LINEAR:` section of its
+report, and the orchestrator writes it.
+
+1. **Anchor before work.** Work anchors on the initiatives *Smaily
+   E-Commerce native integrations* and *Campaign Intelligence*, and on the
+   Feature [Smaily Connect for PrestaShop — v3
+   rewrite](https://linear.app/smaily/project/smaily-connect-for-prestashop-v3-rewrite-cb6b41ae3cb1)
+   (P-CON-324, lead team Connect) — outcome: 3.0.0 with the 14 capabilities
+   reaches real stores as an in-place upgrade.
+
+   Work found in a session is filed in team Connect as a Story under the
+   Epic whose outcome it serves. Cross-repo asks are filed in the sibling
+   projects: WooCommerce "Smaily Connect for WooCommerce — v3 rewrite"
+   (P-CON-215), Magento "Smaily Connect for Magento 2 — v3 rewrite"
+   (P-CON-216), Shopify "Smaily Connect for Shopify — hosted app"
+   (P-CON-214), engine "Campaign Intelligence — recommendation engine"
+   (P-INT-217), installation reports "Smaily sees every installation of its
+   products" (P-SUB-320).
+
+2. **One-way doors interrupt.** Before any irreversible or expensive-to-undo
+   commitment — persistent data schema, public or integration contracts
+   (`RECENGINE_API_CONTRACT.md`, installation-report-v1, the engine key
+   prefix), releases reaching real stores, anything touching
+   deliverability or reputation, pricing, or legal/consent — halt, file a
+   Linear gate issue in the Feature with the evidence and the proposed
+   action, and wait for Erkki's approval. Reversible work proceeds at full
+   speed without asking.
+
+3. **Scribe pass at session end.** Before a working session ends, the
+   orchestrator distills it into Linear: an honest project status update
+   (onTrack/atRisk/offTrack) with the gauge value, new backlog items as
+   issues, completed issues closed. Use the `linear-project` skill.
+
+Never duplicate repo documents into Linear — summarize and link. Linear
+content is written in English.
+
+## Outcome gauges
+
+- **Smaily Connect for PrestaShop — v3 rewrite** (P-CON-324) — shape:
+  trend. Gauge: first-release capabilities demonstrated by exercising the
+  real flow, out of 14 (read from the checklist in STATUS.md). Dates: none
+  — Erkki 2026-11-20: "no deadline — show progress over time". Values:
+  2026-11-20: 0/14.
