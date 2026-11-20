@@ -4,9 +4,9 @@
  # never downloads or installs one), the upgrade notices, then the page (block smaily_page).
  # Everything the module draws sits in the root .smaily-ui, which scopes views/css/admin.css.
  #
- # `smaily` comes from Admin\BaseController::renderPage(). The logo enters once on the page the
- # Configure button opens (smaily.entry) and is still everywhere else; the browser's reduced-motion
- # setting picks the still file there too.
+ # `smaily` comes from Admin\BaseController::renderPage(). The logo enters on the page the
+ # Configure button opens (smaily.entry), once per browser session (common.js), and is still
+ # everywhere else; the browser's reduced-motion setting picks the still file there too.
  #}
 {% extends '@PrestaShop/Admin/layout.html.twig' %}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}

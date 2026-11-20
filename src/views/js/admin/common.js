@@ -39,6 +39,30 @@
   var smailyConnect = window.smailyConnect = window.smailyConnect || {};
   var savers = {};
 
+  /*
+   * The logo's entrance plays once per browser session, on the page the Configure button opens:
+   * once it has played, that page shows the still logo as every other page does. This runs while
+   * the page loads (the script comes after the content), before the entrance gets far.
+   */
+  (function () {
+    var picture = document.querySelector('.smaily-ui .smaily-brand picture');
+    if (!picture) {
+      return;
+    }
+    var played;
+    try {
+      played = window.sessionStorage.getItem('smailyConnectEntrance') === '1';
+      window.sessionStorage.setItem('smailyConnectEntrance', '1');
+    } catch (error) {
+      return;
+    }
+    if (played) {
+      var still = picture.querySelector('source');
+      picture.querySelector('img').src = still.getAttribute('srcset');
+      picture.removeChild(still);
+    }
+  }());
+
   smailyConnect.setup = {
     onContinue: function (step, saver) {
       savers[step] = saver;
