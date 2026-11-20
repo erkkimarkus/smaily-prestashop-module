@@ -6,6 +6,10 @@
 - Refuses a cron URL request whose token is empty or wrong. On upgrade, an empty cron token is replaced with a new random token, so the cron URL of those stores changes.
 - No longer installs an override of the Newsletter Subscription module (`ps_emailsubscription`). The upgrade removes the override file that 2.x installed, and leaves any other file in place.
 - Uninstall removes all module data: every setting, the cron tokens and the module's database tables.
+- Syncs contacts by the chosen consent mode: subscribers only, all customers, or checkout opt-in only. An upgraded store starts in subscribers only.
+- In subscribers only, mirrors unsubscribes and re-subscribes in Smaily to the store. The first check after the upgrade takes only unsubscribes, from Smaily's list of unsubscribers as 2.x did, and marks nobody subscribed again.
+- Sends guest-checkout customers to Smaily only when "include guests" is on. In checkout opt-in only, a ticked newsletter box is sent in any case. An upgraded store has "include guests" on.
+- A cron or tick URL that completes an interrupted upgrade answers "OK: ran migration."
 
 ### 2.2.0
 
