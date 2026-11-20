@@ -100,7 +100,11 @@ abstract class BaseController extends FrameworkBundleAdminController
     protected function renderPage(string $page, array $parameters = [], ?string $template = null): Response
     {
         if (!$this->isGranted('read', self::PAGES[$page]['tab'])) {
-            throw $this->createAccessDeniedException();
+            return $this->render(
+                sprintf(self::TEMPLATE, 'denied'),
+                ['layoutTitle' => $this->pageTitle($page)],
+                new Response('', Response::HTTP_FORBIDDEN)
+            );
         }
         $module = \Module::getInstanceByName(Menu::MODULE);
         // A fresh install's menu holds PrestaShop's copy of the parent tab until a page repairs it.

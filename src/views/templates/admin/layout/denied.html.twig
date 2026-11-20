@@ -1,0 +1,11 @@
+{#
+ # The answer to an employee without the right to open a Smaily Connect page (HTTP 403).
+ #}
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% block content %}
+  <div class="alert alert-danger" role="alert">
+    <p class="alert-text">{{ 'You do not have permission to open this page.'|trans }}</p>
+  </div>
+{% endblock %}
