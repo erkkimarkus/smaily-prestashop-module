@@ -148,8 +148,21 @@ ask (Linear discipline below).
   (`tests/fixtures/legacy/README.md`). A shop row that holds `NULL` does
   not fall back to the global value, so removing a shop's value deletes
   its row (ARCHITECTURE 2.1).
+- **Configuration cache.** `deleteByName()` of any key, and
+  `resetStaticCache()`, drop the loaded configuration; `hasKey()` then reads
+  empty in the same request. Read through `Config\Settings`, which reloads;
+  after `resetStaticCache()` call `loadConfiguration()` (facts file 6.1).
+- **New keys.** Every new `SMAILY_CONNECT_*` key goes into
+  `Install\Uninstaller::KEYS` in the same commit; a unit test checks it.
 - **Upgrade scripts.** A `false` return stores the new version and disables
-  the module for good; `upgrade-3.0.0.php` never fails (ARCHITECTURE 3.7).
+  the module for good; `upgrade-3.0.0.php` never fails and only calls
+  `Upgrade300::runPending()` (ARCHITECTURE 3.7).
+- **Hooks in debug mode.** Registering a hook whose method the main class
+  lacks throws while debug mode is on (facts file 6.3). Add the hook method
+  and the `Install\HookList` entry in one commit.
+- **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
+  the locking updates); no statement locks rows through a secondary index
+  (ARCHITECTURE 4.3).
 - **Multishop × multilanguage scopes** are where upgrade inheritance bugs
   come from. `Configuration` values can be set per shop group, per shop and
   per language; the legacy module mostly wrote global values. Magento had
@@ -157,6 +170,14 @@ ask (Linear discipline below).
   covers a multishop, multilanguage database.
 - **Admin cache.** Stale `var/cache` breaks module routes and service
   configuration (CONTRIBUTING.md, "Invalidating cache").
+- **Consent lives in PrestaShop.** Marketing consent is `customer.newsletter`
+  and `emailsubscription`; the module keeps no consent store of its own.
+  `customer.optin` is PrestaShop's "partner offers" box: never create or
+  read it (ARCHITECTURE 6.1).
+- **Colours and logos.** The module's own components use the Campaign
+  Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
+  (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
+  10.6).
 
 ## Working mode — orchestrated, autonomous with checkpoints
 
@@ -311,4 +332,4 @@ content is written in English.
   trend. Gauge: first-release capabilities demonstrated by exercising the
   real flow, out of 14 (read from the checklist in STATUS.md). Dates: none
   — Erkki 2026-11-20: "no deadline — show progress over time". Values:
-  2026-11-20: 0/14.
+  2026-11-20 (start): 0/14; 2026-11-20 (stage 1 done): 1/14.
