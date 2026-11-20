@@ -8,45 +8,33 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-20 (session end) — stages 1 and 2 done; admin shell and
-Initial setup done; store automations built; three workers in flight; gauge 3/14._
+_Last updated: 2026-11-21 — stages 1 and 2 done; Dashboard, Initial setup and
+Settings (Connection, Contacts, RSS) done; store automations built; the Log
+page in flight; gauge 3/14._
 
 ## Next session opens with
 
-**Two workers were still running when the session of 2026-11-20 ended.**
-Their work is NOT on `v3`. First act of the next session: `git worktree list`,
-then for each branch below compare with `v3` (`git log v3..<branch>`), read
-the worker's final report if it arrived, and land finished work by
-cherry-pick (run the host unit tests after each; push to `origin`).
+On `v3`: stages 1 and 2; the admin shell, the Initial setup and the Dashboard
+with its corrections (a contact's address shown as the siblings do; one cron
+line, whose token the upgrade creates); the 8.2.8 admin fix; the login-cookie
+fix; Settings (Story 3.3: Connection, Contacts, RSS, shop switches, layout
+change; the 2.x admin page is gone); the three store automations.
 
-| Worktree branch | Work | Notes |
-|---|---|---|
-| `worktree-agent-ad9811a9450936b49` | Settings: Connection, Contacts, RSS; deletes the legacy 2.x admin page | Screenshots in `build/screens/3.3/` |
+In flight in the session of 2026-11-20 (second session): the Log page (Story
+3.4), in another worker's worktree; land it by cherry-pick when it is done.
 
-A branch with no commits beyond its base was interrupted: dispatch that
-Story again from its section in `docs/ARCHITECTURE.md` 13. Leftover docker
-stacks of those workers are named `smaily-presta-fo*`, `-dash*`, `-s33*`.
+Last verified with Settings on the tip: in-shop 1160 tests, 5155 assertions on
+a fresh 8.2.8 and a fresh 9.2.0; `tests/ci/validate.sh` 10 of 10 on both; host
+1160 tests, 560 skipped. Both versions were walked in a browser behind the
+egress guard (`docs/DEV_ENVIRONMENT.md` 4a): load it before any walk.
 
-On `v3` and pushed (159 commits ahead of the official `master` at the last
-count): stage 1 with its clean-up; stage 2 complete (scope, consent policy,
-capture hooks, reconcile, first import); the admin shell with the upgrade
-banner and the new-version notice; the Initial setup steps Connect, Contacts
-and Overview; automation routing; welcome, first-order and abandoned-cart
-automations; the checkout address capture. Last verified in a shop: 941
-tests on 8.0.0, 8.2.8 and 9.2.0 before the Initial setup landed (774 on its
-own branch); the merged tip was run on the host only (1019 tests, 489
-skipped). **Run the full in-shop suite and `tests/ci/validate.sh` on the
-merged tip on one 8.x and on 9.2.0 before anything else lands.**
-
-Then, in this order: (1) Log page (Story 3.4) and the Automations tab
+Then, in this order: (1) the Log page (Story 3.4) and the Automations tab
 (workflow lists use Magento's call `workflows.php?trigger_type=form_submitted`);
-(2) walk capabilities 3, 4, 6 and 7 end to end through the screens and tick
-them; (3) one document pass — ARCHITECTURE, DEV_ENVIRONMENT, CHANGELOG and
-this file lag everything since the contact Stories; (4) Marketplace
-technical rules (CON-379); (5) the deferred `Upgrade300` clean-up and the
-test-infrastructure items in the Queue below; (6) stage 5, Campaign
-Intelligence, with group prices (CON-385, contract 1.36.0) and the identity
-merge from the captured checkout address (only where tracking is allowed).
+(2) walk capabilities 3, 4, 6 and 7 through the screens and tick them;
+(3) Estonian targets for every v3 admin string (the XLIFF holds the 2.x
+strings and four v3 units; capability 14); (4) the document pass (ARCHITECTURE
+1.1 and 13 and the user guide lag); (5) Marketplace rules (CON-379); (6) stage
+5, Campaign Intelligence, with group prices (CON-385, contract 1.36.0).
 
 ## Queue (technical, for the orchestrator)
 
@@ -54,6 +42,7 @@ merge from the captured checkout address (only where tracking is allowed).
   9.2.0-8.1 image with any code after the event queue; LiteSpeed; the 1.6.x
   hidden-tab removal on a real 1.6.2 install (ARCHITECTURE 14, row 15).
 - **The live Smaily API has never been called**; every run used the mock.
+- **Deferred clean-up:** ARCHITECTURE 13, Story 1.8 and "Queued clean-up".
 - **Open follow-ups:** the live-sync guest gates take effect only once Story
   2.3 sets `guest`; the unsubscriber list is paged by page number, so a list
   that shrinks during one first run can skip one address (2.x had the same).
@@ -90,16 +79,16 @@ A box is ticked only when the real flow was exercised; a line names how.
 
 0. **Foundation** — _Done (CON-370)._
 1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
-2. **Contacts and modes** — _2.1, 2.2, 2.4 done; 2.3 next, after 3.1._
-3. **Admin screens** (Dashboard, setup, Settings, Log; EN + ET) — _3.1 running._
-4. **Store automations and language routing** — _4.1 backend in progress._
+2. **Contacts and modes** — _Done (2.1–2.4)._
+3. **Admin screens** — _Dashboard, setup, Settings done; Log in flight; no ET._
+4. **Store automations and language routing** — _Built; Automations tab next._
 5. **Intelligence, tracking, recommendations, privacy.**
 6. **Release** — installation report, upgrade guide, rc1, upgrade walk.
 
 ## Decisions (2026-11-20)
 
-Recorded in `docs/ARCHITECTURE.md` section 15 (11–16 are Erkki's, all on
-2026-11-20). "≠" marks where the owner overrode the agent-side proposal.
+Recorded in `docs/ARCHITECTURE.md` section 15 (10–16 and 19–21 are Erkki's,
+all on 2026-11-20). "≠": the owner overrode the agent-side proposal.
 
 1. Background tasks: cron URL plus a visitor-traffic fallback tick.
 2. ≠ Consent: merchant-confirmed setting plus `consentOverride()`.
@@ -110,15 +99,16 @@ Recorded in `docs/ARCHITECTURE.md` section 15 (11–16 are Erkki's, all on
 7. Campaign Intelligence: one connection per separately set-up shop.
 8. Uninstall removes all module data after the disconnect and the report.
 9. ≠ Scope: multishop "separate stores" is in the first release.
-10. Gauge: the 14 capabilities. Stock alerts (§6c) are out (CON-371).
-11. Reconcile two-way in "Subscribers only": Smaily re-subscribe → `newsletter = 1`.
-12. First reconcile per account: unsubscribes only, from Smaily's list.
-13. "All customers": a guest-checkout customer only with "include guests" on.
-14. "Subscribers only": a ticked-box guest only with "include guests" on.
+10. Gauge: the 14 capabilities. Stock alerts (§6c, CON-371): right after 3.0.0.
+11–12. Reconcile two-way in "Subscribers only"; first run: unsubscribes only.
+13–14. A guest-checkout customer is sent only with "include guests" on.
 15. New-version notice from GitHub now; Smaily's own notice later (CON-380).
 16. The code follows the Marketplace technical rules from the start (CON-379).
 17. Admin colours: the Campaign Intelligence palette, own components (CON-377).
 18. Contract copy re-synced: still v1.35.0; §6c built and switched off.
+19. Admin screens show a contact's address as the siblings do.
+20. Separate stores → one store removes other shops' own settings (Magento).
+21. The wording of the consent-mode and layout confirmations is approved.
 
 Orchestrator (technical, reversible): the upgrade script never fails (3.7);
 `language` is `NOT NULL DEFAULT ''` (2.2); the menu sits under Customers
@@ -151,5 +141,5 @@ upgrade, with a notice (3.3; the owner may overturn it).
 
 Linear: Feature P-CON-324; Epics CON-373 (upgrade; four of seven criteria
 met) and CON-378 (contacts); CON-379 (Marketplace rules); CON-380
-(new-version notice); CON-371 (stock alerts, out of 3.0.0); CON-377
-(colours); engine ask INT-306; SUB-28. Gauge: 1/14.
+(new-version notice); CON-371 (stock alerts, right after 3.0.0); CON-377
+(colours); engine ask INT-306; SUB-28. Gauge: 3/14.
