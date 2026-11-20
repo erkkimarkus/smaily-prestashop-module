@@ -142,7 +142,7 @@ class AbandonedCartSweeper
             return 1;
         }
 
-        $fields = $this->builder->build(new \Cart($idCart), $address, $this->settings->cartFields($idShop));
+        $fields = $this->builder->build(new \Cart($idCart), $address);
         unset($fields['email']);
         $payload = ['id_cart' => $idCart, 'email' => $address['email'], 'fields' => $fields + Trigger::marker(Trigger::ABANDONED_CART)];
         $this->tracker->queued($idCart, $this->queue->enqueue(AbandonedCartHandler::EVENT_TYPE, $idShop, $payload, $entity, $language));

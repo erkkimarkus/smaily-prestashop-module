@@ -37,14 +37,6 @@ final class AutomationSettingsTest extends TestCase
         self::assertSame(15, (new FakeAutomationSettings([]))->cartDelayMinutes(1));
     }
 
-    public function testTheCartFieldsAreTheKnownNamesOfTheStoredList(): void
-    {
-        $settings = new FakeAutomationSettings([0 => [AutomationSettings::CART_FIELDS => 'first_name,price,unknown,name']]);
-
-        self::assertSame(['first_name', 'price', 'name'], $settings->cartFields(1));
-        self::assertSame([], (new FakeAutomationSettings([]))->cartFields(1));
-    }
-
     public function testEachTriggerHasItsOwnMarkerFieldStampedInUtc(): void
     {
         self::assertSame(

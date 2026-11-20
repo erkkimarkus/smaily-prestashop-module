@@ -27,9 +27,9 @@ require_once __DIR__ . '/../../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/CartFixture.php';
 
 /**
- * A store with the abandoned-cart automation on (workflow 102, delay 15 minutes, every template
- * field) through one Smaily account that the Smaily mock accepts, and the module's services with
- * the mock's transport. The update check asks no real GitHub.
+ * A store with the abandoned-cart automation on (workflow 102, delay 15 minutes) through one
+ * Smaily account that the Smaily mock accepts, and the module's services with the mock's
+ * transport. The update check asks no real GitHub.
  */
 abstract class AbandonedCartTestCase extends IntegrationTestCase
 {
@@ -67,7 +67,6 @@ abstract class AbandonedCartTestCase extends IntegrationTestCase
         $settings = new AutomationSettings();
         $settings->setEnabled(Trigger::ABANDONED_CART, true, 0);
         $settings->setCartDelayMinutes(15, 0);
-        $settings->setCartFields(AutomationSettings::CART_FIELD_NAMES, 0);
         $this->mode(ContactSyncMode::ALL_CUSTOMERS);
         $this->services = $this->services();
     }

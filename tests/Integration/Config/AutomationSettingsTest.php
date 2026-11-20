@@ -53,7 +53,6 @@ final class AutomationSettingsTest extends IntegrationTestCase
         self::assertFalse($settings->enabled(Trigger::FIRST_ORDER, $idShop));
         self::assertTrue($settings->enabled(Trigger::ABANDONED_CART, $idShop));
         self::assertSame(45, $settings->cartDelayMinutes($idShop));
-        self::assertSame(AutomationSettings::CART_FIELD_NAMES, $settings->cartFields($idShop));
     }
 
     public function testAShopsOwnValueLeavesTheGlobalOne(): void
@@ -65,13 +64,11 @@ final class AutomationSettingsTest extends IntegrationTestCase
         self::assertTrue($settings->setEnabled(Trigger::FIRST_ORDER, true, 0));
         self::assertTrue($settings->setEnabled(Trigger::FIRST_ORDER, false, $shop));
         self::assertTrue($settings->setCartDelayMinutes(60, $shop));
-        self::assertTrue($settings->setCartFields(['price', 'first_name', 'unknown'], $shop));
 
         self::assertTrue($settings->enabled(Trigger::FIRST_ORDER, $this->defaultShopId()));
         self::assertFalse($settings->enabled(Trigger::FIRST_ORDER, $shop));
         self::assertSame(60, $settings->cartDelayMinutes($shop));
         self::assertSame(15, $settings->cartDelayMinutes($this->defaultShopId()));
-        self::assertSame(['first_name', 'price'], $settings->cartFields($shop));
-        self::assertSame('first_name,price', LegacyStore::row(AutomationSettings::CART_FIELDS, (int) \Shop::getGroupFromShop($shop), $shop));
+        self::assertSame('60', LegacyStore::row(AutomationSettings::CART_DELAY_MINUTES, (int) \Shop::getGroupFromShop($shop), $shop));
     }
 }

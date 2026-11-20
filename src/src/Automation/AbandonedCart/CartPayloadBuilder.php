@@ -30,12 +30,16 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * The address fields of a cart's reminder, field by field the payload that 2.x sent
- * (AbandonedCartController::generatePayload() of 2.2.0), in its order and value types:
- *   `email`; `is_abandoned_cart` 'true'; `force_opt_in` false; `first_name` and `last_name` when
- *   selected; `product_<field>_<n>` for the fields base_price, description, name, price, quantity
- *   and sku and n = 1..10, '' where the slot holds no product or the field is not selected (an
- *   empty value clears the previous cart's value in Smaily); `over_10_products` (bool).
+ * The address fields of a cart's reminder: field by field the payload that 2.x sent with every box
+ * of its field picker ticked (AbandonedCartController::generatePayload() of 2.2.0), in its order
+ * and value types:
+ *   `email`; `is_abandoned_cart` 'true'; `force_opt_in` false; `first_name` and `last_name`;
+ *   `product_<field>_<n>` for the fields base_price, description, name, price, quantity and sku
+ *   and n = 1..10, '' where the slot holds no product (an empty value clears the previous cart's
+ *   value in Smaily); `over_10_products` (bool).
+ * There is no field picker, as in the sibling connectors: every product field is always sent, and
+ * a name is sent when it is known and left out when it is empty (Smaily keeps an absent field and
+ * wipes an empty one). The template decides what it shows.
  * A product's name and description are its short texts in the cart's language, `sku` its
  * reference, `quantity` its quantity in the cart, `price` and `base_price` its unit price with and
  * without reductions, formatted in the cart's currency with the number format of the cart's
@@ -55,21 +59,20 @@ class CartPayloadBuilder
 
     /**
      * @param array{email: string, first_name: string, last_name: string} $address
-     * @param list<string> $fields the selected fields (AutomationSettings::cartFields())
      *
      * @return array<string, mixed>
      */
-    public function build(\Cart $cart, array $address, array $fields): array
+    public function build(\Cart $cart, array $address): array
     {
         $payload = [
             'email' => $address['email'],
             'is_abandoned_cart' => 'true',
             'force_opt_in' => false,
         ];
-        if (in_array('first_name', $fields, true)) {
+        if ($address['first_name'] !== '') {
             $payload['first_name'] = $address['first_name'];
         }
-        if (in_array('last_name', $fields, true)) {
+        if ($address['last_name'] !== '') {
             $payload['last_name'] = $address['last_name'];
         }
         foreach (self::PRODUCT_FIELDS as $field) {
@@ -77,7 +80,6 @@ class CartPayloadBuilder
                 $payload['product_' . $field . '_' . $slot] = '';
             }
         }
-        $selected = array_values(array_intersect(self::PRODUCT_FIELDS, $fields));
 
         $context = \Context::getContext();
         $saved = [$context->cart, $context->language, $context->currency, $context->currentLocale];
@@ -96,7 +98,7 @@ class CartPayloadBuilder
         $payload['over_10_products'] = count($products) > self::SLOTS;
         foreach (array_slice(array_values($products), 0, self::SLOTS) as $i => $product) {
             $slot = $i + 1;
-            foreach ($selected as $field) {
+            foreach (self::PRODUCT_FIELDS as $field) {
                 switch ($field) {
                     case 'base_price':
                         $value = $locale->formatPrice($product['price_without_reduction'], $currency);

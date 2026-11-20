@@ -52,12 +52,6 @@ class AutomationSettings extends Settings
     /** Minutes after the cart's last change before its reminder goes. */
     public const CART_DELAY_MINUTES = self::PREFIX . 'CART_DELAY_MINUTES';
 
-    /** The abandoned-cart template fields to send, comma-separated, of CART_FIELD_NAMES. */
-    public const CART_FIELDS = self::PREFIX . 'CART_FIELDS';
-
-    /** The abandoned-cart template fields of 2.x, in their order. */
-    public const CART_FIELD_NAMES = ['first_name', 'last_name', 'name', 'description', 'sku', 'price', 'base_price', 'quantity'];
-
     /** The shortest cart delay, and the delay when none is stored (2.x installed 15). */
     public const MIN_CART_DELAY_MINUTES = 15;
 
@@ -97,28 +91,5 @@ class AutomationSettings extends Settings
         }
 
         return $this->set(self::CART_DELAY_MINUTES, (string) $minutes, $idShop);
-    }
-
-    /**
-     * The abandoned-cart template fields to send, of CART_FIELD_NAMES, in the stored order.
-     *
-     * @return list<string>
-     */
-    public function cartFields(int $idShop): array
-    {
-        return array_values(array_intersect(
-            explode(',', (string) $this->get(self::CART_FIELDS, $idShop)),
-            self::CART_FIELD_NAMES
-        ));
-    }
-
-    /**
-     * Stores the known names of $fields in the order of CART_FIELD_NAMES, as the upgrade does.
-     *
-     * @param list<string> $fields
-     */
-    public function setCartFields(array $fields, int $idShop): bool
-    {
-        return $this->set(self::CART_FIELDS, implode(',', array_intersect(self::CART_FIELD_NAMES, $fields)), $idShop);
     }
 }

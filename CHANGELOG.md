@@ -15,6 +15,7 @@
 - Asks for confirmation before a Contacts save that changes who is synced to Smaily.
 - Keeps the product RSS feed at its 2.x address with its 2.x parameters (`category_id`, `limit`, `sort_by`, `sort_order`), so feed URLs in existing Smaily templates keep working.
 - A multishop store runs its shops as one store or as separate stores, and changes that in Settings. In one store, a shop can use its own Smaily account or its own Contacts settings. A change from separate stores to one store gives every shop the settings of the selected shop and removes the other shops' own settings.
+- The abandoned-cart reminder always carries the name, description, SKU, price, base price and quantity of up to 10 products, and the customer's first and last name when the store knows them. The choice of fields is gone: a store that had fields unticked in 2.x sends them all after the upgrade.
 
 ### 2.2.0
 

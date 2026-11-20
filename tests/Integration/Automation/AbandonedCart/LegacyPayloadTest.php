@@ -5,7 +5,6 @@ namespace Tests\Integration\Automation\AbandonedCart;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartAddress;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartPayloadBuilder;
-use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Controller\AbandonedCartController;
 use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCart;
 use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCartCollection;
@@ -17,32 +16,24 @@ require_once __DIR__ . '/AbandonedCartTestCase.php';
 /**
  * Acceptance 1: the reminder of a cart equals, field by field, the payload that 2.2.0's own code
  * (AbandonedCartController::generatePayload() over AbandonedCartCollection, still in the tree)
- * builds for the same cart, with the same field selection, in the same language and currency.
+ * builds for the same cart with every box of its field picker ticked, in the same language and
+ * currency. The store holds no field selection: every field is always sent.
  */
 final class LegacyPayloadTest extends AbandonedCartTestCase
 {
     /**
-     * @return array<string, array{list<string>, int}>
+     * @return array<string, array{int}>
      */
-    public function selections(): array
+    public function cartSizes(): array
     {
-        return [
-            'every field, 11 products' => [AutomationSettings::CART_FIELD_NAMES, 11],
-            'every field, 2 products' => [AutomationSettings::CART_FIELD_NAMES, 2],
-            'name and price only, 3 products' => [['name', 'price'], 3],
-            'nothing selected, 1 product' => [[], 1],
-        ];
+        return ['11 products' => [11], '10 products' => [10], '2 products' => [2], '1 product' => [1]];
     }
 
     /**
-     * @dataProvider selections
-     *
-     * @param list<string> $fields
+     * @dataProvider cartSizes
      */
-    public function testTheReminderEqualsThe2xPayload(array $fields, int $products): void
+    public function testTheReminderEqualsThe2xPayloadWithEveryBoxTicked(int $products): void
     {
-        (new AutomationSettings())->setCartFields($fields, 0);
-        LegacyStore::reloadConfiguration();
         $idCart = $this->fixture->cart($this->fixture->customer(self::ADDRESS), 20, $products);
 
         self::assertSame(1, $this->sweep());
@@ -51,17 +42,17 @@ final class LegacyPayloadTest extends AbandonedCartTestCase
         self::assertArrayHasKey('abandoned_cart_automation_at', $sent);
         unset($sent['abandoned_cart_automation_at']);
 
-        $legacy = $this->legacyPayload($idCart, $fields);
-        self::assertCount(3 + 60 + 1 + count(array_intersect(['first_name', 'last_name'], $fields)), $legacy);
+        $legacy = $this->legacyPayload($idCart);
+        self::assertCount(3 + 2 + 60 + 1, $legacy);
         self::assertSame($legacy, $sent);
+        self::assertSame(['Testfirst', 'Testlast'], [$sent['first_name'], $sent['last_name']]);
         self::assertSame($products > 10, $sent['over_10_products']);
-        if (in_array('price', $fields, true)) {
-            self::assertMatchesRegularExpression('/\d/', $sent['product_price_1'], 'a formatted price');
-            self::assertSame($products > 1 ? 1 : 0, preg_match('/\d/', $sent['product_price_2']));
+        foreach (CartPayloadBuilder::PRODUCT_FIELDS as $field) {
+            for ($slot = 1; $slot <= CartPayloadBuilder::SLOTS; ++$slot) {
+                self::assertSame($slot <= $products, $sent['product_' . $field . '_' . $slot] !== '', $field . ' of slot ' . $slot);
+            }
         }
-        if ($fields === []) {
-            self::assertSame([''], array_values(array_unique(array_filter($sent, static fn (string $key): bool => strpos($key, 'product_') === 0, ARRAY_FILTER_USE_KEY))));
-        }
+        self::assertMatchesRegularExpression('/\d/', $sent['product_price_1'], 'a formatted price');
     }
 
     public function testTheBuilderAloneEqualsThe2xPayload(): void
@@ -70,28 +61,20 @@ final class LegacyPayloadTest extends AbandonedCartTestCase
         $address = (new CartAddress())->read($idCart);
         self::assertNotNull($address);
 
-        self::assertSame(
-            $this->legacyPayload($idCart, AutomationSettings::CART_FIELD_NAMES),
-            (new CartPayloadBuilder())->build(new \Cart($idCart), $address, AutomationSettings::CART_FIELD_NAMES)
-        );
+        self::assertSame($this->legacyPayload($idCart), (new CartPayloadBuilder())->build(new \Cart($idCart), $address));
     }
 
     /**
      * The payload of 2.2.0's code path for the cart: the cart as AbandonedCartCollection reads it,
-     * and generatePayload() with the 2.x field list, while the context holds the cart, its language
-     * and its currency (2.x took them from the cron request).
-     *
-     * @param list<string> $fields
+     * and generatePayload() with every field of the 2.x list ticked, while the context holds the
+     * cart, its language and its currency (2.x took them from the cron request).
      *
      * @return array<string, mixed>
      */
-    private function legacyPayload(int $idCart, array $fields): array
+    private function legacyPayload(int $idCart): array
     {
         LegacyStore::createSentCarts(0);
-        $selection = [];
-        foreach (AutomationSettings::CART_FIELD_NAMES as $field) {
-            $selection[$field] = in_array($field, $fields, true);
-        }
+        $selection = array_fill_keys(['first_name', 'last_name', 'name', 'description', 'sku', 'price', 'base_price', 'quantity'], true);
         $configuration = new class(['SMAILY_CART_SYNCRONIZE_ADDITIONAL' => json_encode($selection)]) implements ConfigurationInterface {
             /** @var array<string, string> */
             private array $values;

@@ -46,8 +46,6 @@ final class LegacyConfigMapper
 {
     private const CONTACT_FIELDS = ['first_name', 'last_name', 'birthday', 'website'];
 
-    private const CART_FIELDS = ['first_name', 'last_name', 'name', 'description', 'sku', 'price', 'base_price', 'quantity'];
-
     private const TOKEN_KEYS = ['SMAILY_CUSTOMER_CRON_TOKEN', 'SMAILY_CART_CRON_TOKEN'];
 
     private const RSS_SORT_BY = ['date_add', 'date_upd', 'name', 'price', 'id_product'];
@@ -359,7 +357,6 @@ final class LegacyConfigMapper
                 (int) $this->read('SMAILY_ABANDONED_CART_TIME', $cartFrom)
             ),
             'SMAILY_CONNECT_CART_ENABLED' => $cart ? '1' : '0',
-            'SMAILY_CONNECT_CART_FIELDS' => implode(',', $this->fields('SMAILY_CART_SYNCRONIZE_ADDITIONAL', $cartFrom, self::CART_FIELDS)),
             'SMAILY_CONNECT_CHECKOUT_CHECKBOX' => '0',
             'SMAILY_CONNECT_CONTACTS_CONFIRMED' => $contacts ? '1' : '0',
             'SMAILY_CONNECT_CONTACTS_ENABLED' => $contacts ? '1' : '0',

@@ -73,7 +73,7 @@ Contact synchronization is set under **Settings -> Contacts**.
 
 4. You can **choose timing** when cart is considered abandoned, minimum time 15 minutes.
 
-5. There is also an option to **add additional fields** about abandoned carts to send personalized reminder emails.
+5. Every reminder carries the customer's first and last name and the name, description, SKU, price, base price and quantity of up to 10 products in the cart, so the template can send personalized reminder emails.
 
 ![Abandoned cart emails](assets/4_abandoned_cart.png)
 

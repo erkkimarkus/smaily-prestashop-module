@@ -318,7 +318,6 @@ writes.
 | `SMAILY_CONNECT_CONTACTS_FIELDS` | global or shop | Comma list of the contact fields to send, `store` first, then the known names of `first_name,last_name,birthday,website` that the legacy list ticked, in that order. The code reads only the four names; it sends `store` always. |
 | `SMAILY_CONNECT_RECONCILE_CURSORS` | global | JSON object: the reconcile's cursor per Smaily account (section 6.5). |
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. |
-| `SMAILY_CONNECT_CART_FIELDS` | global or shop | Comma list of the abandoned-cart template fields, the known names of `first_name,last_name,name,description,sku,price,base_price,quantity` that the legacy list ticked, in that order. |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults: the category id (`0` = all products), the number of products (1 to 250), the sort field and `desc` or `asc`. The migration writes each only when the legacy value is valid. `Config\RssSettings` reads them, and `Admin\Settings\RssPanel` writes them from Settings > RSS; a value that is not stored, or that the feed does not take, reads as the feed's own default (50 products, `date_upd`, `desc`). The feed reads only its URL's parameters, never these keys. |
 | `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); a fresh install creates it on its first read (section 4.3). |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
@@ -411,7 +410,8 @@ regenerates it) breaks decryption.
 |---|---|
 | `SMAILY_SUBDOMAIN`, `SMAILY_USERNAME` | Migrated into `smaily_connect_account`, then deleted. |
 | `SMAILY_PASSWORD` | Encrypted into `smaily_connect_account`. Deleted only after a read-back decrypts to the same value. |
-| `SMAILY_ENABLE_CUSTOMER_SYNC`, `SMAILY_ENABLE_CRON` (1.6.x), `SMAILY_SYNCRONIZE_ADDITIONAL`, `SMAILY_OPTIN_ENABLED`, `SMAILY_OPTIN_AUTORESPONDER`, `SMAILY_ENABLE_ABANDONED_CART`, `SMAILY_CART_AUTORESPONDER`, `SMAILY_ABANDONED_CART_TIME`, `SMAILY_CART_SYNCRONIZE_ADDITIONAL` | Migrated (section 3), then deleted. |
+| `SMAILY_ENABLE_CUSTOMER_SYNC`, `SMAILY_ENABLE_CRON` (1.6.x), `SMAILY_SYNCRONIZE_ADDITIONAL`, `SMAILY_OPTIN_ENABLED`, `SMAILY_OPTIN_AUTORESPONDER`, `SMAILY_ENABLE_ABANDONED_CART`, `SMAILY_CART_AUTORESPONDER`, `SMAILY_ABANDONED_CART_TIME` | Migrated (section 3), then deleted. |
+| `SMAILY_CART_SYNCRONIZE_ADDITIONAL` | Read once for the rule of section 3.3 (2.x stopped on a list that is not JSON), then deleted. Its selection is not migrated: the reminder always carries every field (section 7). |
 | `SMAILY_RSS_CATEGORY_ID`, `_LIMIT`, `_SORT_BY`, `_SORT_ORDER` | Migrated to `SMAILY_CONNECT_RSS_*`, then deleted. |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | **Kept and read.** Every token row that is empty or `NULL`, and the global row when none exists, gets a new random token (32 hex characters) at its own scope, with a `cron_token_replaced` notice each (section 3.4). A non-empty token never changes. |
 | Table `smaily_cart` | Rows copied into `smaily_connect_cart` as `mailed` (section 2.2). **[D]** The upgrade leaves the table untouched; uninstall drops it (section 11.4). A later release drops it on upgrade, so until then a manual reinstall of 2.x does not resend reminders. |
@@ -489,7 +489,7 @@ shares customers. Hooks (the welcome opt-in) ran in each shop's own context.
 | Welcome | `SMAILY_OPTIN_ENABLED` on in the scope's own context, an account at the scope, and a workflow id that is empty or a positive integer. | `no_account`; `no_workflow` (a workflow value that is not a positive integer). |
 | First order | Off. | Did not exist. |
 | Abandoned cart | All of these, read at the default shop: `SMAILY_ENABLE_ABANDONED_CART` on; an account; `SMAILY_CART_AUTORESPONDER` a positive integer; for 2.x code, `SMAILY_CART_SYNCRONIZE_ADDITIONAL` is a JSON map. Also: the cart cron reached the scope's carts (the default shop, or a shop in the default shop's group when that group shares customers), and the scope's account equals the default shop's. | `not_default_shop`; `no_account`; `no_workflow`; `field_list_not_json` (2.x stopped with a `TypeError` on such a list, section 0); `carts_not_reached`; `other_account`. |
-| Abandoned cart settings | Where the feature stays on, `_CART_DELAY_MINUTES` (at least 15) and `_CART_FIELDS` come from the default shop; elsewhere from the scope's own. | — |
+| Abandoned cart settings | Where the feature stays on, `_CART_DELAY_MINUTES` (at least 15) comes from the default shop; elsewhere from the scope's own. The 2.x field selection is not migrated (section 7). | — |
 | Mapping rows | Welcome: the chosen workflow id, or the generic opt-in trigger row (`workflow_id` `NULL`, `optin_trigger` 1) where the welcome stays on without one (decision 5). Abandoned cart: the chosen workflow id. A chosen workflow id is seeded also where the feature stays off, so the merchant finds it when he switches the feature on. | — |
 | Language mode | `single`. | 2.x had one account. |
 | Shop layout | Separate stores when no global account exists and at least two shops hold different own subdomains. Otherwise one store. | Magento `WebsiteOverrides::holdsSeparateAccounts()`. |
@@ -1179,11 +1179,18 @@ those two files. The map and `Install\HookList` then agree again.
 
 **[D]** The abandoned-cart payload keeps the 2.x template fields byte-compatible: the 10 product slots
 with `''` for unused slots (the empty values clear the previous cart in Smaily,
-`woo:docs/LESSONS.md` §2.21), `over_10_products`, `is_abandoned_cart`, `force_opt_in = false`. Two
-2.x gates are removed because they are dead switches on fresh installs (`woo:` §2.21): product slots
-and first/last name are always sent. **[D]** Each automation writes its marker (`welcome_automation_at`,
-`first_order_automation_at`, `abandoned_cart_automation_at`) as a contact field on the trigger, as the
-siblings do.
+`woo:docs/LESSONS.md` §2.21), `over_10_products`, `is_abandoned_cart`, `force_opt_in = false`.
+**[D]** (owner, 2026-11-20) The 2.x field picker is gone, as in the sibling connectors
+(`magento:Model/AbandonedCart/PayloadBuilder.php`, `woo:includes/Smaily/CartPayloadBuilder.php`): it
+is a dead switch on a fresh install (`woo:` §2.21), and 3.0.0 has no screen for it. Every reminder
+carries every product field (name, description, sku, price, base_price, quantity) in all 10 slots,
+and `first_name` and `last_name` when they are known; a name that is unknown or empty is left out,
+because Smaily keeps an absent field and wipes an empty one. The payload equals, field by field, what
+2.2.0 sends with every box ticked; a store that had fewer boxes ticked sends more after the upgrade.
+No setting holds a selection, and the upgrade migrates none.
+
+**[D]** Each automation writes its marker (`welcome_automation_at`, `first_order_automation_at`,
+`abandoned_cart_automation_at`) as a contact field on the trigger, as the siblings do.
 
 ---
 
@@ -1997,7 +2004,9 @@ has one owner:
 - **Owns.** `src/src/Automation/AbandonedCart/`.
 - **Depends on.** 4.1, 1.6.
 - **Acceptance.**
-  1. The payload of a cart equals the 2.x payload field by field, with the 10 slots.
+  1. The payload of a cart equals, field by field, the payload that 2.2.0 sends with every box of its
+     field picker ticked, with the 10 slots and `over_10_products`; a cart whose shopper's names are
+     not known carries no name field (section 7).
   2. A cart with a migrated `smaily_cart` row is never reminded.
   3. An order withdraws a pending reminder for that address.
   4. The consent gate of decision 3 skips with a reason that the Log shows.
@@ -2203,4 +2212,5 @@ Later decisions of 2026-11-20:
 | Separate stores → one store | **DECIDED:** separate stores → one store removes the other shops' own settings, as Magento does: the selected shop's values become the shared ones, and every shop's own Smaily account rows, Contacts values, automation values and mapping rows are removed, whether or not they differ. The contacts confirmation is never copied or removed. | Owner (Erkki) | 5.1 | 3.3 |
 | Wording of the confirmations | **DECIDED:** the consent-mode and layout confirmations' wording is approved: the consent-mode confirmations as built, and the change to one store with Magento's text ("website" read as "shop"). | Owner (Erkki) | 10.3 | 3.3 |
 | Discount codes in store automations | **DECIDED:** discount codes in store automations are in 3.0.0, as a Story of their own after the Automations tab and the Log page. "Edit design" stays out. | Owner (Erkki) | 13 | 4.4 |
+| Which fields the abandoned-cart reminder carries | **DECIDED:** the abandoned-cart reminder always carries every field, as the siblings do: every product field in all 10 slots, and the shopper's names when known. No field picker; the 2.x selection is not migrated. | Owner (Erkki) | 7 | 4.3 |
 | The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |

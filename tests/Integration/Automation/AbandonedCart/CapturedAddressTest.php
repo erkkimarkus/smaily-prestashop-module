@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Automation\AbandonedCart;
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 
 require_once __DIR__ . '/AbandonedCartTestCase.php';
@@ -14,7 +15,11 @@ require_once __DIR__ . '/AbandonedCartTestCase.php';
  */
 final class CapturedAddressTest extends AbandonedCartTestCase
 {
-    public function testACapturedAddressIsReminded(): void
+    /**
+     * The shopper's names are not known, so the reminder carries no name field (an empty one would
+     * wipe the contact's name in Smaily); it carries every product field of the cart's 2 products.
+     */
+    public function testACapturedAddressIsRemindedWithoutNameFields(): void
     {
         $idCart = $this->captured(20);
 
@@ -23,7 +28,14 @@ final class CapturedAddressTest extends AbandonedCartTestCase
 
         self::assertCount(1, $this->reminders());
         $address = $this->reminders()[0]['body']['addresses'][0];
-        self::assertSame([self::ADDRESS, '', ''], [$address['email'], $address['first_name'], $address['last_name']]);
+        self::assertSame(self::ADDRESS, $address['email']);
+        self::assertArrayNotHasKey('first_name', $address);
+        self::assertArrayNotHasKey('last_name', $address);
+        foreach (CartPayloadBuilder::PRODUCT_FIELDS as $field) {
+            self::assertNotSame('', $address['product_' . $field . '_1'], $field);
+            self::assertNotSame('', $address['product_' . $field . '_2'], $field);
+            self::assertSame('', $address['product_' . $field . '_3'], $field);
+        }
         self::assertSame(CartTracker::MAILED, $this->cartRow($idCart)['status']);
     }
 

@@ -74,7 +74,6 @@ final class ShopOverrides extends Settings
             AutomationSettings::FIRST_ORDER_ENABLED,
             AutomationSettings::CART_ENABLED,
             AutomationSettings::CART_DELAY_MINUTES,
-            AutomationSettings::CART_FIELDS,
         ],
     ];
 

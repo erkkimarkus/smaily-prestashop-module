@@ -13,8 +13,9 @@ require_once __DIR__ . '/AbandonedCartTestCase.php';
 
 /**
  * A store that 2.2.0 left (tests/fixtures/legacy/2.2.0-configured.sql: reminder on, workflow 102,
- * delay 45 minutes, every template field) reminds after the upgrade with its own workflow, delay
- * and fields, and never reminds a cart that 2.x reminded.
+ * delay 45 minutes; here with no box of the 2.x field picker ticked) reminds after the upgrade with
+ * its own workflow and delay and with every template field, and never reminds a cart that 2.x
+ * reminded.
  */
 final class UpgradedStoreReminderTest extends AbandonedCartTestCase
 {
@@ -27,6 +28,12 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
         parent::setUp();
         LegacyStore::clear();
         LegacyStore::loadFixture('2.2.0-configured.sql');
+        // What 2.2.0 stores when the form is saved with no field ticked.
+        self::db()->update(
+            'configuration',
+            ['value' => '{"first_name":false,"last_name":false,"name":false,"description":false,"sku":false,"price":false,"base_price":false,"quantity":false}'],
+            '`name` = \'SMAILY_CART_SYNCRONIZE_ADDITIONAL\''
+        );
         $this->idCustomer = $this->fixture->customer(self::ADDRESS);
         $this->legacyCart = $this->fixture->cart($this->idCustomer, 60 * 26);
         // 2.x reminded this cart: its SentCart row, written a day and a half ago.
@@ -82,9 +89,10 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
     }
 
     /**
-     * Proof 8: the reminder uses the migrated workflow, delay and field selection.
+     * Proof 8: the reminder uses the migrated workflow and delay, and carries the shopper's names
+     * and every product field though 2.x had no field ticked.
      */
-    public function testTheReminderUsesTheMigratedWorkflowDelayAndFields(): void
+    public function testTheReminderUsesTheMigratedWorkflowAndDelayAndCarriesEveryField(): void
     {
         $other = $this->fixture->cart($this->idCustomer, 30);
         self::assertSame(0, $this->sweep(), 'the migrated delay is 45 minutes');
@@ -99,7 +107,10 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
         $address = $reminders[0]['body']['addresses'][0];
         self::assertSame(['Testfirst', 'Testlast'], [$address['first_name'], $address['last_name']]);
         foreach (['name', 'description', 'sku', 'price', 'base_price', 'quantity'] as $field) {
-            self::assertNotSame('', $address['product_' . $field . '_1'], $field . ' is selected');
+            self::assertNotSame('', $address['product_' . $field . '_1'], $field . ' of the first product');
+            self::assertNotSame('', $address['product_' . $field . '_2'], $field . ' of the second product');
+            self::assertSame('', $address['product_' . $field . '_3'], $field . ' of an unused slot');
         }
+        self::assertFalse($address['over_10_products']);
     }
 }

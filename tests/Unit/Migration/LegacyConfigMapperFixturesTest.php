@@ -43,7 +43,6 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 0 => [
                     'SMAILY_CONNECT_CART_DELAY_MINUTES' => '15',
                     'SMAILY_CONNECT_CART_ENABLED' => '0',
-                    'SMAILY_CONNECT_CART_FIELDS' => '',
                     'SMAILY_CONNECT_CHECKOUT_CHECKBOX' => '0',
                     'SMAILY_CONNECT_CONTACTS_CONFIRMED' => '0',
                     'SMAILY_CONNECT_CONTACTS_ENABLED' => '0',
@@ -78,7 +77,6 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 0 => [
                     'SMAILY_CONNECT_CART_DELAY_MINUTES' => '45',
                     'SMAILY_CONNECT_CART_ENABLED' => '1',
-                    'SMAILY_CONNECT_CART_FIELDS' => 'first_name,last_name,name,description,sku,price,base_price,quantity',
                     'SMAILY_CONNECT_CHECKOUT_CHECKBOX' => '0',
                     'SMAILY_CONNECT_CONTACTS_CONFIRMED' => '1',
                     'SMAILY_CONNECT_CONTACTS_ENABLED' => '1',
@@ -123,7 +121,6 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 0 => [
                     'SMAILY_CONNECT_CART_DELAY_MINUTES' => '45',
                     'SMAILY_CONNECT_CART_ENABLED' => '1',
-                    'SMAILY_CONNECT_CART_FIELDS' => 'first_name,last_name,name,description,sku,price,base_price,quantity',
                     'SMAILY_CONNECT_CHECKOUT_CHECKBOX' => '0',
                     'SMAILY_CONNECT_CONTACTS_CONFIRMED' => '1',
                     'SMAILY_CONNECT_CONTACTS_ENABLED' => '1',
