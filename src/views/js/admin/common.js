@@ -23,8 +23,8 @@
 
 /*
  * The shell of the Smaily Connect admin pages (views/templates/admin/layout/): the JSON endpoint
- * helper, "Finish upgrade", dismissing the upgrade notices and the invitation, the Settings tabs and
- * the Initial setup steps. Plain JavaScript, no build.
+ * helper, "Finish upgrade", dismissing the upgrade notices, the notice of a newer release and the
+ * invitation, the Settings tabs and the Initial setup steps. Plain JavaScript, no build.
  *
  * window.smailyConnect.api(url, body) posts JSON to an endpoint of Admin\Api with the page's token
  * and resolves to the answer's `data`; it rejects with an Error whose message is the answer's
@@ -114,6 +114,13 @@
         var notice = target.closest('[data-smaily-notice]');
         smailyConnect.api(root.getAttribute('data-smaily-api-dismiss-notice'), {id: notice.getAttribute('data-smaily-notice')}).then(function () {
           notice.parentNode.removeChild(notice);
+        }).catch(function (error) {
+          window.alert(error.message);
+        });
+      } else if (action === 'dismiss-update') {
+        var update = target.closest('[data-smaily-update]');
+        smailyConnect.api(root.getAttribute('data-smaily-api-dismiss-update'), {version: update.getAttribute('data-smaily-update')}).then(function () {
+          update.parentNode.removeChild(update);
         }).catch(function (error) {
           window.alert(error.message);
         });

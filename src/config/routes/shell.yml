@@ -19,3 +19,10 @@ smailyforprestashop_api_dismiss_invitation:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation::execute
     _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_dismiss_update:
+  path: /smailyforprestashop/api/dismiss-update
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissUpdate::execute
+    _legacy_controller: AdminSmailyConnectSettings

@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Update\UpdateNotice;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -44,8 +45,8 @@ use Symfony\Component\HttpFoundation\Response;
  * but the Initial setup there while a fresh install's setup is not finished, and renders the
  * page's frame (views/templates/admin/layout/<page>.html.twig, or a page template that extends it)
  * with the shell around it: the Smaily Connect logo, the pending-upgrade banner, the upgrade
- * notices and the page navigation. The page's content comes from the templates of each page's
- * folder that the frame includes by name.
+ * notices, the notice of a newer release and the page navigation. The page's content comes from
+ * the templates of each page's folder that the frame includes by name.
  *
  * FrameworkBundleAdminController works on PrestaShop 8 and 9 (deprecated since 9.0; its successor
  * exists only from 9.0). The shop is the one that PrestaShop's own shop selector set.
@@ -126,6 +127,7 @@ abstract class BaseController extends FrameworkBundleAdminController
                 'upgrade' => $upgrade,
                 // The notices tell what the finished upgrade did; until then the banner speaks.
                 'notices' => $upgrade === null ? $this->notices() : [],
+                'update' => self::updateNotice(),
                 'token' => $this->get('security.csrf.token_manager')->getToken(self::API_TOKEN_ID)->getValue(),
                 'invitation_dismissed' => (new AdminSettings())->isInvitationDismissed(time()),
             ],
@@ -146,6 +148,21 @@ abstract class BaseController extends FrameworkBundleAdminController
         $state = Services::instance()->get(Upgrade300::class)->state();
 
         return ['status' => ($state['status'] ?? '') === 'failed' ? 'failed' : 'pending'];
+    }
+
+    /**
+     * The newer release to tell the merchant about, or null. The pending-upgrade banner has
+     * priority: no release shows while the migration is not finished.
+     *
+     * @return array{version: string, download_url: string, release_url: string}|null
+     */
+    public static function updateNotice(): ?array
+    {
+        if (self::pendingUpgrade() !== null) {
+            return null;
+        }
+
+        return Services::instance()->get(UpdateNotice::class)->current();
     }
 
     private function pageTitle(string $page): string

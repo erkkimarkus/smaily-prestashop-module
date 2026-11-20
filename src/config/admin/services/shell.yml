@@ -32,3 +32,6 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissUpdate:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissUpdate

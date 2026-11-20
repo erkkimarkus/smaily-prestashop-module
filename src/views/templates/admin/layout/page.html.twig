@@ -1,6 +1,7 @@
 {#
  # The frame of the four Smaily Connect pages inside PrestaShop's back-office layout: the Smaily
- # Connect logo, the pending-upgrade banner, the upgrade notices, then the page (block smaily_page).
+ # Connect logo, the pending-upgrade banner, the notice of a newer release (links only: the module
+ # never downloads or installs one), the upgrade notices, then the page (block smaily_page).
  # Everything the module draws sits in the root .smaily-ui, which scopes views/css/admin.css.
  #
  # `smaily` comes from Admin\BaseController::renderPage(). The logo enters once on the page the
@@ -21,6 +22,7 @@
        data-smaily-api-finish-upgrade="{{ path('smailyforprestashop_api_finish_upgrade') }}"
        data-smaily-api-dismiss-notice="{{ path('smailyforprestashop_api_dismiss_notice') }}"
        data-smaily-api-dismiss-invitation="{{ path('smailyforprestashop_api_dismiss_invitation') }}"
+       data-smaily-api-dismiss-update="{{ path('smailyforprestashop_api_dismiss_update') }}"
        data-label-error="{{ 'Something went wrong. Try again; if it keeps failing, see the PrestaShop logs.'|trans }}"
        data-label-working="{{ 'Finishing the upgrade…'|trans }}"
        data-label-upgrade-done="{{ 'The upgrade is finished.'|trans }}">
@@ -52,6 +54,22 @@
           <div class="smaily-result smaily-banner__result" data-smaily-result role="status"></div>
         </div>
         <button type="button" class="btn smaily-btn-primary smaily-banner__action" data-smaily-action="finish-upgrade">{{ 'Finish upgrade'|trans }}</button>
+      </div>
+    {% endif %}
+
+    {% if smaily.update %}
+      <div class="alert alert-info smaily-notice" role="status" data-smaily-update="{{ smaily.update.version }}">
+        <button type="button" class="close" data-smaily-action="dismiss-update" aria-label="{{ 'Dismiss'|trans }}">
+          <span aria-hidden="true"><i class="material-icons">close</i></span>
+        </button>
+        <div class="alert-text">
+          <p>
+            {{ 'Smaily Connect %version% is available.'|trans({'%version%': smaily.update.version}) }}
+            <a href="{{ smaily.update.download_url }}" target="_blank" rel="noopener noreferrer">{{ 'Download'|trans }}</a>
+            &middot;
+            <a href="{{ smaily.update.release_url }}" target="_blank" rel="noopener noreferrer">{{ 'What’s new'|trans }}</a>
+          </p>
+        </div>
       </div>
     {% endif %}
 
