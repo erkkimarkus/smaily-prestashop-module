@@ -63,17 +63,17 @@ final class ContactCaptureTest extends IntegrationTestCase
 
     public function testARegistrationWithTheBoxTickedIsAConsentChange(): void
     {
-        $customer = $this->customer($this->shop, 'shopper1@example.test', true);
+        $customer = $this->customer($this->shop, 'capture1@example.test', true);
 
         self::module()->hookActionCustomerAccountAdd(['newCustomer' => $customer]);
 
         self::assertSame(1, $this->events()->commit());
         self::assertSame([[
             'id_shop' => $this->shop,
-            'entity_id' => 'shopper1@example.test',
+            'entity_id' => 'capture1@example.test',
             'language' => $this->language,
             'payload' => [
-                'email' => 'shopper1@example.test',
+                'email' => 'capture1@example.test',
                 'source' => 'customer',
                 'subscribed' => true,
                 'consent_changed' => true,
@@ -87,7 +87,7 @@ final class ContactCaptureTest extends IntegrationTestCase
 
     public function testARegistrationWithoutTheBoxIsNoConsentChange(): void
     {
-        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($this->shop, 'shopper1@example.test', false)]);
+        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($this->shop, 'capture1@example.test', false)]);
         $this->events()->commit();
 
         self::assertSame([[false, false, false]], $this->flags('subscribed', 'consent_changed', 'checkout'));
@@ -97,7 +97,7 @@ final class ContactCaptureTest extends IntegrationTestCase
     {
         \Context::getContext()->controller = $this->orderStep();
 
-        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($this->shop, 'shopper1@example.test', true, ['is_guest' => 1])]);
+        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($this->shop, 'capture1@example.test', true, ['is_guest' => 1])]);
         $this->events()->commit();
 
         self::assertSame([[true, true, true, true]], $this->flags('subscribed', 'consent_changed', 'checkout', 'guest'));
@@ -109,7 +109,7 @@ final class ContactCaptureTest extends IntegrationTestCase
      */
     public function testAnAccountEditThatSwitchesTheConsentOffQueuesOneRowWithTheChange(): void
     {
-        $customer = $this->customer($this->shop, 'shopper1@example.test', true);
+        $customer = $this->customer($this->shop, 'capture1@example.test', true);
         $customer->newsletter = false;
 
         self::assertTrue($customer->update());
@@ -121,7 +121,7 @@ final class ContactCaptureTest extends IntegrationTestCase
 
     public function testASaveThatKeepsTheConsentIsAProfileChange(): void
     {
-        $customer = $this->customer($this->shop, 'shopper1@example.test', true);
+        $customer = $this->customer($this->shop, 'capture1@example.test', true);
         $customer->firstname = 'Otherfirst';
 
         self::assertTrue($customer->update());
@@ -136,7 +136,7 @@ final class ContactCaptureTest extends IntegrationTestCase
      */
     public function testASaveThatSwitchesTheConsentOnIsAConsentChange(): void
     {
-        $customer = $this->customer($this->shop, 'shopper1@example.test', false);
+        $customer = $this->customer($this->shop, 'capture1@example.test', false);
         $customer->newsletter = true;
 
         self::assertTrue($customer->update());
@@ -152,7 +152,7 @@ final class ContactCaptureTest extends IntegrationTestCase
     {
         $other = $this->addShop((int) \Shop::getGroupFromShop($this->shop));
         \Shop::setContext(\Shop::CONTEXT_SHOP, $this->shop);
-        $customer = $this->customer($other, 'shopper1@example.test', false);
+        $customer = $this->customer($other, 'capture1@example.test', false);
         $customer->newsletter = true;
 
         self::assertTrue($customer->update());
@@ -166,7 +166,7 @@ final class ContactCaptureTest extends IntegrationTestCase
         $other = $this->addShop((int) \Shop::getGroupFromShop($this->shop));
         \Configuration::updateValue(ContactsSettings::ENABLED, '0', false, (int) \Shop::getGroupFromShop($other), $other);
 
-        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($other, 'shopper1@example.test', true)]);
+        self::module()->hookActionCustomerAccountAdd(['newCustomer' => $this->customer($other, 'capture1@example.test', true)]);
 
         self::assertSame(0, $this->events()->commit());
     }
@@ -174,7 +174,7 @@ final class ContactCaptureTest extends IntegrationTestCase
     public function testAnOrderIsACheckoutInTheOrdersShopAndLanguage(): void
     {
         $other = $this->addShop((int) \Shop::getGroupFromShop($this->shop));
-        $customer = $this->customer($this->shop, 'shopper1@example.test', true, ['is_guest' => 1]);
+        $customer = $this->customer($this->shop, 'capture1@example.test', true, ['is_guest' => 1]);
         $order = new \Order();
         $order->id_shop = $other;
         $order->id_lang = $this->idLang;
@@ -188,15 +188,15 @@ final class ContactCaptureTest extends IntegrationTestCase
 
     public function testANewsletterBlockSubscribeOfAnAddressWithoutAnAccount(): void
     {
-        $this->addNewsletterRow($this->shop, 'shopper1@example.test', true, $this->idLang);
+        $this->addNewsletterRow($this->shop, 'capture1@example.test', true, $this->idLang);
 
-        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'shopper1@example.test', 'action' => '0']);
+        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'capture1@example.test', 'action' => '0']);
         $this->events()->commit();
 
         $rows = $this->rows();
         self::assertSame([$this->shop, $this->language], [$rows[0]['id_shop'], $rows[0]['language']]);
         self::assertSame([
-            'email' => 'shopper1@example.test',
+            'email' => 'capture1@example.test',
             'source' => 'newsletter_block',
             'subscribed' => true,
             'consent_changed' => true,
@@ -210,21 +210,21 @@ final class ContactCaptureTest extends IntegrationTestCase
      */
     public function testABlockSubscribeWaitingForTheVerificationQueuesNothingUntilTheLink(): void
     {
-        $row = $this->addNewsletterRow($this->shop, 'shopper1@example.test', false, $this->idLang);
-        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'shopper1@example.test', 'action' => 0]);
+        $row = $this->addNewsletterRow($this->shop, 'capture1@example.test', false, $this->idLang);
+        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'capture1@example.test', 'action' => 0]);
         self::assertSame(0, $this->events()->commit());
 
         self::db()->update('emailsubscription', ['active' => 1], 'id = ' . $row);
-        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'shopper1@example.test', 'action' => 0]);
+        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'capture1@example.test', 'action' => 0]);
 
         self::assertSame(1, $this->events()->commit());
     }
 
     public function testANewsletterBlockSubscribeOfACustomerQueuesTheCustomer(): void
     {
-        $this->addCustomer($this->shop, 'shopper1@example.test', true, $this->idLang, ['is_guest' => 1]);
+        $this->addCustomer($this->shop, 'capture1@example.test', true, $this->idLang, ['is_guest' => 1]);
 
-        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'shopper1@example.test', 'action' => '0']);
+        self::module()->hookActionNewsletterRegistrationAfter(['email' => 'capture1@example.test', 'action' => '0']);
         $this->events()->commit();
 
         self::assertSame([['customer', true, true, true]], $this->flags('source', 'subscribed', 'consent_changed', 'guest'));
@@ -235,9 +235,9 @@ final class ContactCaptureTest extends IntegrationTestCase
      */
     public function testANewsletterBlockUnsubscribeOfAGuestQueuesTheUnsubscribe(): void
     {
-        $row = $this->addNewsletterRow($this->shop, 'shopper1@example.test', true, $this->idLang);
+        $row = $this->addNewsletterRow($this->shop, 'capture1@example.test', true, $this->idLang);
 
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper1@example.test', 'action' => '1']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture1@example.test', 'action' => '1']);
         self::db()->delete('emailsubscription', 'id = ' . $row);
 
         self::assertSame(1, $this->events()->commit());
@@ -246,9 +246,9 @@ final class ContactCaptureTest extends IntegrationTestCase
 
     public function testANewsletterBlockUnsubscribeOfACustomerQueuesTheUnsubscribe(): void
     {
-        $id = $this->addCustomer($this->shop, 'shopper1@example.test', true, $this->idLang);
+        $id = $this->addCustomer($this->shop, 'capture1@example.test', true, $this->idLang);
 
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper1@example.test', 'action' => '1']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture1@example.test', 'action' => '1']);
         self::db()->update('customer', ['newsletter' => 0], 'id_customer = ' . $id);
 
         self::assertSame(1, $this->events()->commit());
@@ -261,21 +261,21 @@ final class ContactCaptureTest extends IntegrationTestCase
      */
     public function testANewsletterBlockUnsubscribeThatChangesNothingQueuesNothing(): void
     {
-        $this->addNewsletterRow($this->shop, 'shopper1@example.test', true, $this->idLang);
-        $this->addCustomer($this->shop, 'shopper2@example.test', false, $this->idLang);
+        $this->addNewsletterRow($this->shop, 'capture1@example.test', true, $this->idLang);
+        $this->addCustomer($this->shop, 'capture2@example.test', false, $this->idLang);
 
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper1@example.test', 'action' => '1']);
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper2@example.test', 'action' => '1']);
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper3@example.test', 'action' => '1']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture1@example.test', 'action' => '1']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture2@example.test', 'action' => '1']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture3@example.test', 'action' => '1']);
 
         self::assertSame(0, $this->events()->commit());
     }
 
     public function testANewsletterBlockSubscribeSubmitIsNotAnUnsubscribe(): void
     {
-        $row = $this->addNewsletterRow($this->shop, 'shopper1@example.test', true, $this->idLang);
+        $row = $this->addNewsletterRow($this->shop, 'capture1@example.test', true, $this->idLang);
 
-        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'shopper1@example.test', 'action' => '0']);
+        Dispatcher::dispatch('actionNewsletterRegistrationBefore', ['email' => 'capture1@example.test', 'action' => '0']);
         self::db()->delete('emailsubscription', 'id = ' . $row);
 
         self::assertSame(0, $this->events()->commit());
