@@ -29,16 +29,23 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\RequestRefusedException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
+
 /**
  * A handler's outcome for a row whose send failed: the reason the Log shows, and whether the row
  * stops for good or takes the retry ladder (RetryPolicy). The classification of the sibling
  * connectors (Magento's Model\Queue\Failure):
  *  - permanent: a refusal that a retry cannot change, parked on the first attempt. A 4xx other
- *    than 429, as `permanent_http_<code>: <message>`; Smaily's envelope code 203 "invalid data" on
- *    HTTP 200, as `permanent_envelope_203: <message>`; or a handler's own verdict (a malformed
- *    payload, an event type no handler takes).
+ *    than 429, as `permanent_http_<code>: <message>`; a Smaily envelope code that the client marks
+ *    permanent (203 "invalid data" on HTTP 200), as `permanent_envelope_<code>: <message>`; or a
+ *    handler's own verdict (a malformed payload, an event type no handler takes).
  *  - temporary: anything else (a 429, spaced by its Retry-After; a 5xx; a network failure; any
  *    other envelope code), which keeps the ladder.
+ *
+ * Which Smaily answers are permanent is decided once, by the type of the Smaily client's error
+ * (Smaily\Exception); of() reads that verdict.
  *
  * A reason is short and names no person: the message a handler passes is the client's own text
  * (the HTTP status, the code), never a request body or the remote server's text.
@@ -49,11 +56,6 @@ final class Failure
      * The failure class a permanent refusal's reason starts with, followed by `: ` and the message.
      */
     public const CLASS_REGEX = 'permanent_(http|envelope)_[0-9]+';
-
-    /**
-     * Smaily envelope codes that a retry with the same data cannot pass.
-     */
-    public const PERMANENT_ENVELOPE_CODES = [203];
 
     private string $reason;
 
@@ -98,23 +100,24 @@ final class Failure
     }
 
     /**
-     * A request that Smaily refused with HTTP 200 and a code other than 101 in its body.
-     */
-    public static function envelope(int $code, string $message): self
-    {
-        if (in_array($code, self::PERMANENT_ENVELOPE_CODES, true)) {
-            return self::permanent(sprintf('permanent_envelope_%d: %s', $code, $message));
-        }
-
-        return self::temporary($message);
-    }
-
-    /**
-     * An error a handler threw or handed back. It is kept by its type, its code and the place it
-     * was thrown, never its text, which can quote a customer's data.
+     * An error a handler threw or handed back. A failure of the Smaily client keeps the verdict
+     * that its type carries and its message, which names no person. Any other error is kept by its
+     * type, its code and the place it was thrown, never its text, which can quote a customer's data.
      */
     public static function of(\Throwable $error): self
     {
+        if ($error instanceof RequestRefusedException) {
+            return self::permanent(sprintf('permanent_http_%d: %s', $error->getHttpStatus(), $error->getMessage()));
+        }
+        if ($error instanceof ApiException) {
+            return $error->isPermanent()
+                ? self::permanent(sprintf('permanent_envelope_%d: %s', $error->getSmailyCode(), $error->getMessage()))
+                : self::temporary($error->getMessage());
+        }
+        if ($error instanceof TransportException) {
+            return self::temporary($error->getMessage(), $error->getRetryAfter());
+        }
+
         return self::temporary(sprintf(
             '%s at %s:%d (code %s)',
             get_class($error),

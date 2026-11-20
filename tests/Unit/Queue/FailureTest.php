@@ -5,6 +5,9 @@ namespace Tests\Unit\Queue;
 
 use PHPUnit\Framework\TestCase;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
 
 /**
  * A refusal that a retry cannot change parks the row on its first attempt, with the reason the Log
@@ -48,9 +51,13 @@ final class FailureTest extends TestCase
         self::assertNull($failure->retryAfter());
     }
 
-    public function testParksSmailyCode203(): void
+    /**
+     * The Smaily client decides which answers are permanent (Smaily\Exception); the queue reads its
+     * verdict from the error's type.
+     */
+    public function testParksSmailyCode203AsTheClientTypesIt(): void
     {
-        $failure = Failure::envelope(203, 'Smaily API returned code 203');
+        $failure = Failure::of(new ApiException(203));
 
         self::assertTrue($failure->isPermanent());
         self::assertSame('permanent_envelope_203: Smaily API returned code 203', $failure->reason());
@@ -58,10 +65,27 @@ final class FailureTest extends TestCase
 
     public function testRetriesAnyOtherSmailyCode(): void
     {
-        $failure = Failure::envelope(225, 'Smaily API returned code 225');
+        $failure = Failure::of(new ApiException(225));
 
         self::assertFalse($failure->isPermanent());
         self::assertSame('Smaily API returned code 225', $failure->reason());
+    }
+
+    public function testParksARequestTheClientTypesAsRefused(): void
+    {
+        $failure = Failure::of(new AuthenticationException('Smaily API credentials were rejected', 401));
+
+        self::assertTrue($failure->isPermanent());
+        self::assertSame('permanent_http_401: Smaily API credentials were rejected', $failure->reason());
+    }
+
+    public function testRetriesATransportFailureAfterTheDelayItAskedFor(): void
+    {
+        $failure = Failure::of(new TransportException('Smaily API request failed with HTTP 429', 429, 120));
+
+        self::assertFalse($failure->isPermanent());
+        self::assertSame('Smaily API request failed with HTTP 429', $failure->reason());
+        self::assertSame(120, $failure->retryAfter());
     }
 
     public function testParksAHandlersOwnVerdict(): void

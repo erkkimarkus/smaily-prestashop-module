@@ -11,6 +11,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Pending;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -132,7 +133,7 @@ final class FlusherTest extends IntegrationTestCase
         $limited = $this->queue->enqueue('test.sync', 1, ['n' => 3]);
         $outcomes = [
             $refused => Failure::http(401, 'Smaily answered HTTP 401'),
-            $invalid => Failure::envelope(203, 'Smaily API returned code 203'),
+            $invalid => Failure::of(new ApiException(203)),
             $limited => Failure::http(429, 'Smaily answered HTTP 429', 120),
         ];
 
