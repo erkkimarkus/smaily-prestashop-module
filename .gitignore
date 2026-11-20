@@ -3,3 +3,5 @@
 /build/
 /dist/
 /.phpunit.cache/
+/.claude/worktrees/
+/.claude/settings.local.json
