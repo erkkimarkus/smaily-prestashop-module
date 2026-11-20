@@ -3,11 +3,15 @@
  * A Smaily API mock for `php -S`: the endpoints the module calls, answered as Smaily answers them.
  *
  * State lives in the JSON file that SMAILY_MOCK_STATE names: the API user's credentials, the
- * unsubscribers that the contact list returns, and every request received. SmailyMockServer writes
+ * unsubscribers that the contact list returns, the action log that the history returns, and every
+ * request received. SmailyMockServer writes
  * and reads it.
  *
  * - Wrong or missing credentials: HTTP 401.
  * - GET  /api/contact.php?list=2&limit=&offset=  one page of unsubscribers; offset counts pages.
+ * - GET  /api/history.php?since_seq_id=&limit=&actions=  the action log: the rows whose seq_id is
+ *                               above since_seq_id, oldest first, of the comma-separated actions
+ *                               only when `actions` is given, at most `limit`.
  * - POST /api/contact.php       one contact or a list; each needs an email, else code 203.
  * - POST /api/autoresponder.php `addresses`, each with an email, else code 203; `autoresponder` is
  *                               optional (without it Smaily starts its "opted in" workflows).
@@ -69,6 +73,20 @@ if ($method === 'GET' && $path === '/api/contact.php' && ($_GET['list'] ?? null)
         array_slice($state['unsubscribers'] ?? [], $offset * $limit, $limit)
     );
     $answer(200, $rows);
+
+    return true;
+}
+
+if ($method === 'GET' && $path === '/api/history.php') {
+    $since = (int) ($_GET['since_seq_id'] ?? 0);
+    $limit = max(1, (int) ($_GET['limit'] ?? 100));
+    $actions = isset($_GET['actions']) ? explode(',', (string) $_GET['actions']) : null;
+    $rows = array_values(array_filter(
+        $state['history'] ?? [],
+        static fn (array $row): bool => (int) $row['seq_id'] > $since && ($actions === null || in_array($row['action'], $actions, true))
+    ));
+    usort($rows, static fn (array $a, array $b): int => (int) $a['seq_id'] <=> (int) $b['seq_id']);
+    $answer(200, array_slice($rows, 0, $limit));
 
     return true;
 }

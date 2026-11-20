@@ -110,6 +110,16 @@ final class SmailyMockServer
     }
 
     /**
+     * The rows of the action log that history.php answers from.
+     *
+     * @param list<array{seq_id: int, email: string, action: string}> $rows
+     */
+    public function setHistory(array $rows): void
+    {
+        $this->writeState(['history' => $rows] + $this->state());
+    }
+
+    /**
      * @return list<array{method: string, path: string, query: array<string, string>, content_type: ?string, body: mixed, authorized: bool}>
      */
     public function requests(): array
