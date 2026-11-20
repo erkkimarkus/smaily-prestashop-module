@@ -123,10 +123,8 @@
     <li><a href="{{ path('smailyforprestashop_log') }}">{{ 'Log'|trans }}</a> — {{ 'every delivery to Smaily and Campaign Intelligence with retry; check here first if something seems off'|trans }}</li>
   </ul>
 </div>
-<div class="smaily-footer smaily-overview-footer">
-  <span></span>
-  <div class="smaily-footer__end">
-    <a class="btn btn-outline-secondary" href="{{ path('smailyforprestashop_settings') }}">{{ 'Open Settings'|trans }}</a>
-    <a class="btn smaily-btn-primary" href="{{ path('smailyforprestashop_dashboard') }}">{{ 'Go to Dashboard'|trans }}</a>
-  </div>
+{# Not .smaily-footer: common.js takes the setup's first .smaily-footer for Back and Continue. #}
+<div class="d-flex justify-content-end mt-4 pt-3 border-top">
+  <a class="btn btn-outline-secondary mr-2" href="{{ path('smailyforprestashop_settings') }}">{{ 'Open Settings'|trans }}</a>
+  <a class="btn smaily-btn-primary" href="{{ path('smailyforprestashop_dashboard') }}">{{ 'Go to Dashboard'|trans }}</a>
 </div>

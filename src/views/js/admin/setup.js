@@ -172,7 +172,8 @@
     var shape = panel('store-shape');
     if (shape && shape.getAttribute('data-first') === '1') {
       container.querySelector('.smaily-steps').hidden = true;
-      container.querySelector('.smaily-footer').hidden = true;
+      container.style.gridTemplateColumns = 'minmax(0, 1fr)';
+      container.querySelector('.smaily-setup__pane > .smaily-footer').hidden = true;
       container.querySelector('[data-smaily-shape-page]').hidden = true;
       var invitation = container.querySelector('[data-smaily-invitation]');
       if (invitation) {

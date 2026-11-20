@@ -10,7 +10,8 @@
 {% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name} only %}
 <div data-smaily-shape-page>
   {% if smaily_setup.connection is null %}
-    <div class="smaily-card">
+    {# The bar of separate stores above says it already. #}
+    <div class="smaily-card"{% if smaily_setup.shape %} hidden{% endif %}>
       <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
     </div>
   {% else %}
