@@ -29,11 +29,15 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartAddress;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
@@ -55,9 +59,11 @@ final class FirstOrderAutomation implements ProviderInterface
             $services->get(SubscriberPayloadBuilder::class),
             $services->get(ScopeResolver::class)
         ));
-        $services->set(QueueProvider::handlerId(FirstOrderTrigger::EVENT_TYPE), fn (Services $services): AutomationHandler => new AutomationHandler(
-            Trigger::FIRST_ORDER,
-            $services->get(TriggerSender::class)
+        $services->set(QueueProvider::handlerId(FirstOrderTrigger::EVENT_TYPE), fn (Services $services): FirstOrderHandler => new FirstOrderHandler(
+            new AutomationHandler(Trigger::FIRST_ORDER, $services->get(TriggerSender::class)),
+            $services->get(Router::class),
+            new CartAddress(),
+            new MarketingConsent($services->get(ContactsSettings::class), $services->get(Transport::class))
         ));
         $services->listen('actionValidateOrder', static function (array $params) use ($services): void {
             $services->get(FirstOrderTrigger::class)->orderValidated($params);

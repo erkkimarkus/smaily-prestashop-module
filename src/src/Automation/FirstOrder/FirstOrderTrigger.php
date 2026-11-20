@@ -45,14 +45,14 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
  *  - the customer has no earlier order, in any state: an order with a lower id. A cart split into
  *    several orders in one request is one first order, the first of them;
  *  - the automation is on in the order's shop.
- * As in both siblings, it asks neither the consent mode nor the newsletter consent nor the contact
- * sync: the trigger's `force_opt_in` is false, so a contact who unsubscribed in Smaily stays
- * unsubscribed.
+ * It asks neither the consent mode nor the contact sync here: the consent is checked at send time
+ * (FirstOrderHandler). The trigger's `force_opt_in` is false, so a contact who unsubscribed in
+ * Smaily stays unsubscribed.
  *
- * The row carries the address and the fields that the contact sync sends (`store` and the selected
- * fields), the siblings' order fields (`order_id`, the order's reference; `order_total`, the total
- * paid; `order_currency`) and the `first_order_automation_at` marker stamped now, in the order's
- * shop and language.
+ * The row carries the address, the order's cart (`id_cart`, for the consent check) and the fields
+ * that the contact sync sends (`store` and the selected fields), the siblings' order fields
+ * (`order_id`, the order's reference; `order_total`, the total paid; `order_currency`) and the
+ * `first_order_automation_at` marker stamped now, in the order's shop and language.
  */
 final class FirstOrderTrigger
 {
@@ -119,7 +119,7 @@ final class FirstOrderTrigger
         $this->queue->enqueue(
             self::EVENT_TYPE,
             $idShop,
-            ['email' => $email, 'fields' => $fields + Trigger::marker(Trigger::FIRST_ORDER)],
+            ['email' => $email, 'id_cart' => (int) $order->id_cart, 'fields' => $fields + Trigger::marker(Trigger::FIRST_ORDER)],
             strlen($email) <= 64 ? $email : null,
             $language !== '' ? $language : null
         );
