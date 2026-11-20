@@ -119,7 +119,7 @@ final class PendingMigrationTest extends IntegrationTestCase
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'migration'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'migration'], $report->jobs());
         self::assertFalse($built);
     }
 

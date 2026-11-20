@@ -52,6 +52,7 @@ final class Services
         Provider\ScopeProvider::class,
         Provider\ContactSyncProvider::class,
         Provider\ContactsProvider::class,
+        Provider\ContactReconcileProvider::class,
         Provider\AutomationProvider::class,
         Provider\EngineProvider::class,
         Provider\StorefrontProvider::class,
