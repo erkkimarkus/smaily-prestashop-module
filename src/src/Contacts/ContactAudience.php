@@ -145,7 +145,15 @@ final class ContactAudience
     }
 
     /**
-     * Whether an abandoned-cart reminder goes out (decision 3, the siblings' rule).
+     * Whether an abandoned-cart reminder goes out (owner decision of 2026-11-20, the siblings' rule):
+     * the same for a registered customer and a guest-checkout customer, whatever "include guests"
+     * says, which gates the contact sync only. A contact that Smaily holds as unsubscribed is never
+     * reminded. Otherwise:
+     *  - all customers: every cart;
+     *  - subscribers only: with the store's consent (`newsletter = 1`, an active newsletter-block
+     *    row of the address, or the box ticked in this checkout), or a subscribed Smaily contact;
+     *  - checkout opt-in only: with the box ticked in this checkout, or a subscribed Smaily contact
+     *    (WooCommerce's rule: an earlier store subscription alone does not count).
      *
      * @param bool $newsletter the cart's customer has `newsletter = 1`
      * @param bool $newsletterBlock the address has an active `emailsubscription` row
@@ -154,19 +162,17 @@ final class ContactAudience
      */
     public function remindsCart(bool $newsletter, bool $newsletterBlock, bool $boxTicked, string $smailyStatus): bool
     {
+        if ($smailyStatus === self::SMAILY_UNSUBSCRIBED) {
+            return false;
+        }
         $smailySubscribed = $smailyStatus === self::SMAILY_SUBSCRIBED;
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
-                return $smailyStatus !== self::SMAILY_UNSUBSCRIBED;
+                return true;
             case ContactSyncMode::CHECKOUT_OPTIN:
                 return $boxTicked || $smailySubscribed;
             default:
-                $consent = $newsletter
-                    || ($newsletterBlock && $this->mode->includesNewsletterGuests())
-                    || $boxTicked
-                    || $smailySubscribed;
-
-                return $consent && $smailyStatus !== self::SMAILY_UNSUBSCRIBED;
+                return $newsletter || $newsletterBlock || $boxTicked || $smailySubscribed;
         }
     }
 }

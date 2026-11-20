@@ -225,7 +225,7 @@ final class ContactAudienceTest extends TestCase
         return [
             'subscribers: newsletter = 1' => [self::SUBSCRIBERS, false, true, false, false, $unknown, true],
             'subscribers: block row, guests on' => [self::SUBSCRIBERS, true, false, true, false, $unknown, true],
-            'subscribers: block row, guests off' => [self::SUBSCRIBERS, false, false, true, false, $unknown, false],
+            'subscribers: block row, guests off' => [self::SUBSCRIBERS, false, false, true, false, $unknown, true],
             'subscribers: box ticked' => [self::SUBSCRIBERS, false, false, false, true, $unknown, true],
             'subscribers: subscribed in Smaily' => [self::SUBSCRIBERS, false, false, false, false, $subscribed, true],
             'subscribers: no consent' => [self::SUBSCRIBERS, true, false, false, false, $unknown, false],
@@ -235,6 +235,10 @@ final class ContactAudienceTest extends TestCase
             'checkout opt-in: box ticked' => [self::CHECKOUT, false, false, false, true, $unknown, true],
             'checkout opt-in: subscribed in Smaily' => [self::CHECKOUT, false, false, false, false, $subscribed, true],
             'checkout opt-in: newsletter = 1 only' => [self::CHECKOUT, true, true, true, false, $unknown, false],
+            'checkout opt-in: box ticked, unsubscribed in Smaily' => [self::CHECKOUT, false, false, false, true, $unsubscribed, false],
+            'checkout opt-in: subscribed in Smaily, guests off' => [self::CHECKOUT, false, false, false, false, $subscribed, true],
+            'all customers: guests off' => [self::ALL, false, false, false, false, $unknown, true],
+            'all customers: subscribed in Smaily' => [self::ALL, false, false, false, false, $subscribed, true],
         ];
     }
 
