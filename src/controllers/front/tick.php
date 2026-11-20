@@ -27,29 +27,17 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\DoorFrontController;
 
 /**
  * The tick URL: it runs the background jobs that are due (Scheduler\Door) when its token is the
  * tick token.
  */
-class SmailyforprestashopTickModuleFrontController extends ModuleFrontController
+class SmailyforprestashopTickModuleFrontController extends DoorFrontController
 {
-    public function initContent()
+    protected function door(): string
     {
-        $token = Tools::getValue('token');
-        [$status, $answer] = Services::instance()->get(Door::class)->open(
-            Door::TICK,
-            is_string($token) ? $token : '',
-            (int) $this->context->shop->id,
-            (int) ini_get('max_execution_time')
-        );
-
-        http_response_code($status);
-        header('Content-Type: text/plain; charset=utf-8');
-        echo $answer . "\n";
-
-        exit;
+        return Door::TICK;
     }
 }

@@ -27,29 +27,17 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\DoorFrontController;
 
 /**
  * The customer sync cron URL of 2.x, kept for merchants' crontabs: it runs the tick
  * (Scheduler\Door) when its token is the customer cron token.
  */
-class SmailyforprestashopSmailyCustomerCronModuleFrontController extends ModuleFrontController
+class SmailyforprestashopSmailyCustomerCronModuleFrontController extends DoorFrontController
 {
-    public function initContent()
+    protected function door(): string
     {
-        $token = Tools::getValue('token');
-        [$status, $answer] = Services::instance()->get(Door::class)->open(
-            Door::CUSTOMER_CRON,
-            is_string($token) ? $token : '',
-            (int) $this->context->shop->id,
-            (int) ini_get('max_execution_time')
-        );
-
-        http_response_code($status);
-        header('Content-Type: text/plain; charset=utf-8');
-        echo $answer . "\n";
-
-        exit;
+        return Door::CUSTOMER_CRON;
     }
 }
