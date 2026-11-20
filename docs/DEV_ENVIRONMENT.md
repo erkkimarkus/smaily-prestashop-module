@@ -2,8 +2,8 @@
 
 This recipe runs a local PrestaShop with the module from `src/`. It was run on 2026-11-20 on macOS
 (Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, first with the 3.0.0
-skeleton and the event queue, later with stage 1 complete and Story 2.1. Each step says whether it
-was verified, and on which code.
+skeleton and the event queue, later with stage 1 complete and Story 2.1, and last with Stories 1.8,
+2.2 and 2.4 and the new-version check. Each step says whether it was verified, and on which code.
 
 The admin user and password are the demo ones in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -83,9 +83,9 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 278 tests, 1337 assertions on 8.0.0, 8.2.8 and 9.2.0 at the
-stage 1 integration commit; 350 tests, 1399 assertions on 8.2.8 and 9.2.0 after Story 2.1 was merged
-with Story 1.7 (the count of that Story's run). `PS_ROOT_DIR` makes the test bootstrap boot the
+Last verified results, all passing: 585 tests, 2333 assertions on 8.2.8 and 9.2.0 with Stories 1.8,
+2.2 and 2.4 and the new-version check, as the worker that ran them reported; 8.0.0 last ran at the
+stage 1 integration commit (278 tests, 1337 assertions). `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
@@ -93,6 +93,21 @@ container, and a second Composer autoloader from another path stops PHP with "Ca
 A test that starts a PHP subprocess (the concurrency workers under `tests/Integration/`) reads the
 subprocess's output. The subprocess prints with `fwrite(STDOUT, …)`, not `echo`: the shop's bootstrap
 can buffer what `echo` prints, and the test then waits for a line that never comes.
+
+The integration tests call no real outside service: the Smaily calls go to the Smaily mock
+(`tests/Integration/Fixtures/SmailyMockServer.php`), and the GitHub release call goes to the GitHub
+mock (`GithubMockServer.php`). A test that runs the whole tick stubs the update check. Two known
+gaps:
+
+- The Smaily mock's transport sends only `https://<subdomain>.sendsmaily.net` to the mock and passes
+  any other host on to the real HTTP client. A test that runs the whole tick with that transport
+  could reach a real outside service. Stub every other outside call in such a test.
+- Some test does not restore the cron tokens it found. After a full suite run, the dev shop refuses
+  the cron or tick token it had before; read the new token from the `configuration` table.
+
+Page traffic in the dev shop runs the fallback tick, and with it the daily update check against the
+real GitHub (`api.github.com`, no store data). Two tests pin the tick's full job list
+(`SchedulerProviderTest`, `PendingMigrationTest`): a change that registers a scheduler job edits both.
 
 `composer test` does not work inside the dev shop. It runs `phpunit --configuration
 ../phpunit.xml.dist`, and the folder above the module in the shop is `modules/`, which holds no
@@ -150,13 +165,14 @@ Results on 2026-11-20:
 - With the skeleton and the event queue: all 10 checks `ok` on flashlight 8.0.0, 8.2.8 and 9.2.0, and
   on the official image `prestashop/prestashop:9.2.0-8.1` with `PS_COMPOSE=docker-compose.official.yaml`
   (the image CI uses for 9.2.0).
-- With stage 1 complete: the in-shop test counts of section 4 on flashlight 8.0.0, 8.2.8 and 9.2.0.
-  The official image did not run with this code.
+- With stage 1 complete: the in-shop test counts of that time on flashlight 8.0.0, 8.2.8 and 9.2.0.
+- With Stories 1.8, 2.2 and 2.4 and the new-version check: 10 of 10 checks on flashlight 8.2.8 and
+  9.2.0, with the in-shop counts of section 4, as the worker that ran them reported.
+- The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
-of that request finishes the migration and stores the version again, and the script then inserts a
-second row for the key. This is a known defect of the script (ARCHITECTURE section 13, Story 1.8); no
-check fails because of it.
+of that request finishes the migration and stores the version again. The script then restores the
+version only when no row holds it, so the shop keeps exactly one schema-version row.
 
 The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
