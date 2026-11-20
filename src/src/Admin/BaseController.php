@@ -115,14 +115,17 @@ abstract class BaseController extends FrameworkBundleAdminController
             return $this->redirectToRoute($entry);
         }
 
+        $upgrade = self::pendingUpgrade();
+
         return $this->render($template ?? sprintf(self::TEMPLATE, $page), $parameters + [
             'layoutTitle' => $this->pageTitle($page),
             'smaily' => [
                 'page' => $page,
                 'entry' => self::PAGES[$page]['route'] === $entry,
                 'version' => $module->version,
-                'upgrade' => self::pendingUpgrade(),
-                'notices' => $this->notices(),
+                'upgrade' => $upgrade,
+                // The notices tell what the finished upgrade did; until then the banner speaks.
+                'notices' => $upgrade === null ? $this->notices() : [],
                 'token' => $this->get('security.csrf.token_manager')->getToken(self::API_TOKEN_ID)->getValue(),
                 'invitation_dismissed' => (new AdminSettings())->isInvitationDismissed(time()),
             ],
