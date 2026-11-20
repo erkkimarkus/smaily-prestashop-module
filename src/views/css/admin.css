@@ -844,49 +844,6 @@
   accent-color: var(--smaily-primary);
 }
 
-/* Status pills. */
-.smaily-ui .smaily-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--smaily-muted);
-  background: var(--smaily-surface-2);
-  border: 1px solid var(--smaily-border);
-  border-radius: 999px;
-}
-
-.smaily-ui .smaily-pill[hidden] {
-  display: none;
-}
-
-.smaily-ui .smaily-pill__dot {
-  width: 8px;
-  height: 8px;
-  background: currentColor;
-  border-radius: 50%;
-}
-
-.smaily-ui .smaily-pill--active {
-  color: #2e7d32;
-  background: #eaf6ec;
-  border-color: #b9dfc0;
-}
-
-.smaily-ui .smaily-pill--pending {
-  color: var(--smaily-tint-text);
-  background: var(--smaily-tint);
-  border-color: var(--smaily-tint-border);
-}
-
-.smaily-ui .smaily-pill--failed {
-  color: #c0392b;
-  background: var(--smaily-danger-tint);
-  border-color: #f5c2bd;
-}
-
 .smaily-ui .smaily-connection-status {
   display: flex;
   align-items: center;
@@ -1124,6 +1081,7 @@
   color: #fff;
 }
 
+/* Status pills, on every page. */
 .smaily-ui .smaily-pill {
   display: inline-flex;
   align-items: center;
@@ -1138,6 +1096,10 @@
   background: var(--smaily-surface-2);
   border: 1px solid var(--smaily-border);
   border-radius: 11px;
+}
+
+.smaily-ui .smaily-pill[hidden] {
+  display: none;
 }
 
 .smaily-ui .smaily-pill__dot {
