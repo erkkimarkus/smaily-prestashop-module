@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 
@@ -45,13 +46,16 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
  * address as they are, the automation's `*_automation_at` marker among them (stamped when the event
  * was queued). A payload of another shape fails for good with `malformed_payload`.
  */
-final class AutomationHandler implements HandlerInterface
+final class AutomationHandler implements HandlerInterface, ExchangeSource
 {
     public const FAILED_MALFORMED_PAYLOAD = 'malformed_payload';
 
     private string $trigger;
 
     private TriggerSender $sender;
+
+    /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
+    private array $exchanges = [];
 
     /**
      * @param string $trigger the automation of the rows (Automation\Trigger)
@@ -64,16 +68,28 @@ final class AutomationHandler implements HandlerInterface
 
     public function handle(array $events): array
     {
+        $this->exchanges = [];
         $outcomes = [];
         foreach ($events as $event) {
             $id = (int) $event['id'];
             $payload = self::decode((string) $event['payload']);
-            $outcomes[$id] = $payload === null
-                ? Failure::permanent(self::FAILED_MALFORMED_PAYLOAD)
-                : $this->sender->send($this->trigger, (int) $event['id_shop'], (string) ($event['language'] ?? ''), $payload['email'], $payload['fields']);
+            if ($payload === null) {
+                $outcomes[$id] = Failure::permanent(self::FAILED_MALFORMED_PAYLOAD);
+                continue;
+            }
+            $outcomes[$id] = $this->sender->send($this->trigger, (int) $event['id_shop'], (string) ($event['language'] ?? ''), $payload['email'], $payload['fields']);
+            $exchange = $this->sender->lastExchange();
+            if ($exchange !== null) {
+                $this->exchanges[$id] = $exchange;
+            }
         }
 
         return $outcomes;
+    }
+
+    public function exchanges(): array
+    {
+        return $this->exchanges;
     }
 
     /**

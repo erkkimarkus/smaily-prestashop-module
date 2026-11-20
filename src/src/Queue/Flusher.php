@@ -38,6 +38,9 @@ if (!defined('_PS_VERSION_')) {
  * the retry ladder. One poison row never owns the pass: when a handler throws for a batch, each row
  * of the batch is handed to it again alone, so only the row that throws fails. A handler therefore
  * reports a failure of the wire as that row's outcome and throws only on a fault of its own.
+ *
+ * Where the handler tells what it sent for a row (ExchangeSource), the row keeps that request and
+ * its answer, whatever the outcome.
  */
 final class Flusher
 {
@@ -122,10 +125,15 @@ final class Flusher
             return;
         }
 
+        $exchanges = $handler instanceof ExchangeSource ? $handler->exchanges() : [];
         $sent = [];
         $waiting = [];
         foreach ($rows as $row) {
             $outcome = $outcomes[(int) $row['id']] ?? null;
+            $exchange = $exchanges[(int) $row['id']] ?? null;
+            if ($exchange !== null) {
+                $this->queue->recordExchange($row, $exchange['request'], $exchange['response']);
+            }
             if ($outcome === true) {
                 $sent[] = $row;
             } elseif ($outcome instanceof Pending) {

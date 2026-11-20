@@ -48,12 +48,18 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * they are; where the shop's workflow branches on the contact's language (mode `c`), it also
  * carries `language`. The caller adds the trigger's marker field (Trigger::marker()) when the event
  * is queued, as the sibling connectors do.
+ *
+ * lastExchange() holds the request body of the last send() and the answer to it, for the Log's
+ * Details; null when that send posted nothing.
  */
 final class TriggerSender
 {
     private Router $router;
 
     private Transport $transport;
+
+    /** @var array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}|null */
+    private ?array $lastExchange = null;
 
     public function __construct(Router $router, Transport $transport)
     {
@@ -71,6 +77,7 @@ final class TriggerSender
      */
     public function send(string $trigger, int $idShop, string $language, string $email, array $fields)
     {
+        $this->lastExchange = null;
         $match = $this->router->route($trigger, $idShop, $language);
         if ($match instanceof Skipped) {
             return $match;
@@ -89,13 +96,23 @@ final class TriggerSender
         $payload['force_opt_in'] = false;
 
         $account = $match->account();
+        $client = new Client($this->transport, $account->subdomain(), $account->username(), $account->password());
         try {
-            (new Client($this->transport, $account->subdomain(), $account->username(), $account->password()))
-                ->post(Client::ENDPOINT_AUTORESPONDER, $payload);
+            $client->post(Client::ENDPOINT_AUTORESPONDER, $payload);
         } catch (SmailyClientException $error) {
             return Failure::of($error);
+        } finally {
+            $this->lastExchange = $client->lastExchange();
         }
 
         return true;
+    }
+
+    /**
+     * @return array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}|null
+     */
+    public function lastExchange(): ?array
+    {
+        return $this->lastExchange;
     }
 }

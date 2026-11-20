@@ -51,6 +51,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
  * TransportException; an answer whose code is not 101 is an ApiException. A message names the HTTP
  * status, the code or the network error, never Smaily's answer and never a credential. The client
  * does not retry and writes no log line: the caller decides both.
+ *
+ * lastExchange() holds what the last request sent and what came back, for the Log's Details: the
+ * request body (or the query of a read), and the answer's HTTP status with its JSON body, less any
+ * `message` (Smaily's text can name a contact). An answer that is not JSON keeps its status only.
+ * It never holds a credential.
  */
 class Client
 {
@@ -70,6 +75,9 @@ class Client
     private string $username;
 
     private string $password;
+
+    /** @var array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}|null */
+    private ?array $lastExchange = null;
 
     public function __construct(Transport $transport, string $subdomain, string $username, string $password)
     {
@@ -100,6 +108,17 @@ class Client
     }
 
     /**
+     * The last request's body and the answer to it: null before any request, and a null answer when
+     * none arrived.
+     *
+     * @return array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}|null
+     */
+    public function lastExchange(): ?array
+    {
+        return $this->lastExchange;
+    }
+
+    /**
      * @param array<string, mixed> $options
      *
      * @return array<int|string, mixed>
@@ -109,6 +128,7 @@ class Client
         if (preg_match(self::PLAIN_SUBDOMAIN, $this->subdomain) !== 1) {
             throw new InvalidSubdomainException();
         }
+        $this->lastExchange = ['request' => (array) ($options['json'] ?? $options['query'] ?? []), 'response' => null];
 
         try {
             $response = $this->transport->request(
@@ -125,6 +145,7 @@ class Client
 
         $status = $response->status();
         $decoded = json_decode($response->body(), true);
+        $this->lastExchange['response'] = ['http_status' => $status, 'body' => is_array($decoded) ? self::withoutMessages($decoded) : null];
 
         if ($status >= 400) {
             if (is_array($decoded) && (int) ($decoded['code'] ?? 0) === PlanBlockedException::SMAILY_CODE) {
@@ -149,6 +170,23 @@ class Client
         }
 
         return $decoded;
+    }
+
+    /**
+     * @param array<int|string, mixed> $body
+     *
+     * @return array<int|string, mixed>
+     */
+    private static function withoutMessages(array $body): array
+    {
+        unset($body['message']);
+        foreach ($body as $key => $value) {
+            if (is_array($value)) {
+                $body[$key] = self::withoutMessages($value);
+            }
+        }
+
+        return $body;
     }
 
     /**

@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
@@ -61,7 +62,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * The payload: {"id_cart": int, "email": string, "fields": {...}}; a row that the sweep closed holds
  * only `id_cart`.
  */
-class AbandonedCartHandler implements HandlerInterface
+class AbandonedCartHandler implements HandlerInterface, ExchangeSource
 {
     public const EVENT_TYPE = 'automation.abandoned_cart';
 
@@ -89,6 +90,9 @@ class AbandonedCartHandler implements HandlerInterface
 
     private MarketingConsent $consent;
 
+    /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
+    private array $exchanges = [];
+
     public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport)
     {
         $this->tracker = $tracker;
@@ -100,12 +104,18 @@ class AbandonedCartHandler implements HandlerInterface
 
     public function handle(array $events): array
     {
+        $this->exchanges = [];
         $outcomes = [];
         foreach ($events as $event) {
             $outcomes[(int) $event['id']] = $this->one($event);
         }
 
         return $outcomes;
+    }
+
+    public function exchanges(): array
+    {
+        return $this->exchanges;
     }
 
     /**
@@ -165,6 +175,10 @@ class AbandonedCartHandler implements HandlerInterface
         }
 
         $outcome = $this->sender->send(Trigger::ABANDONED_CART, $idShop, (string) $event['language'], $email, $payload['fields']);
+        $exchange = $this->sender->lastExchange();
+        if ($exchange !== null) {
+            $this->exchanges[(int) $event['id']] = $exchange;
+        }
         if ($outcome === true) {
             $this->tracker->mailed($idCart);
         } elseif ($outcome instanceof Skipped) {

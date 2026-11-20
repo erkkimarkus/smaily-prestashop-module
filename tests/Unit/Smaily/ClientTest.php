@@ -253,6 +253,54 @@ final class ClientTest extends TestCase
         return new Client(new SymfonyTransport($this->recorder($responses)), 'demo', 'api-user', self::PASSWORD);
     }
 
+    public function testTheLastExchangeHoldsTheRequestBodyAndTheAnswerWithoutItsMessage(): void
+    {
+        $client = $this->client([
+            new MockResponse('{"code": 101, "message": "OK"}'),
+            new MockResponse('{"code": 203, "message": "contact@example.test is invalid", "errors": [{"field": "email", "message": "bad"}]}'),
+        ]);
+        self::assertNull($client->lastExchange());
+
+        $client->post(Client::ENDPOINT_CONTACT, [['email' => 'contact@example.test']]);
+        self::assertSame(
+            ['request' => [['email' => 'contact@example.test']], 'response' => ['http_status' => 200, 'body' => ['code' => 101]]],
+            $client->lastExchange()
+        );
+
+        try {
+            $client->post(Client::ENDPOINT_CONTACT, [['email' => 'contact@example.test']]);
+            self::fail('code 203 is an API error');
+        } catch (ApiException $error) {
+            self::assertSame(['http_status' => 200, 'body' => ['code' => 203, 'errors' => [['field' => 'email']]]], $client->lastExchange()['response']);
+        }
+    }
+
+    public function testTheLastExchangeOfARefusalKeepsTheStatusAndOfNoAnswerNothing(): void
+    {
+        $client = $this->client([
+            new MockResponse('<html>Unauthorized</html>', ['http_code' => 401]),
+            new MockResponse('', ['error' => 'Could not resolve host']),
+        ]);
+
+        try {
+            $client->get(Client::ENDPOINT_CONTACT, ['email' => 'contact@example.test']);
+            self::fail('401 refuses the request');
+        } catch (AuthenticationException $error) {
+            self::assertSame(
+                ['request' => ['email' => 'contact@example.test'], 'response' => ['http_status' => 401, 'body' => null]],
+                $client->lastExchange()
+            );
+        }
+
+        try {
+            $client->post(Client::ENDPOINT_CONTACT, [['email' => 'contact@example.test']]);
+            self::fail('no answer is a transport failure');
+        } catch (TransportException $error) {
+            self::assertSame(['request' => [['email' => 'contact@example.test']], 'response' => null], $client->lastExchange());
+        }
+        self::assertStringNotContainsString(self::PASSWORD, (string) json_encode($client->lastExchange()));
+    }
+
     /**
      * @param list<MockResponse> $responses
      */

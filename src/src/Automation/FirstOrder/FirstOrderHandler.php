@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartAddress;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
@@ -47,7 +48,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * customer's `newsletter = 1`, an active newsletter-block row of the address, and the box ticked in
  * the checkout of the order's cart (CartAddress). A row that passes goes to AutomationHandler.
  */
-final class FirstOrderHandler implements HandlerInterface
+final class FirstOrderHandler implements HandlerInterface, ExchangeSource
 {
     private AutomationHandler $rows;
 
@@ -56,6 +57,9 @@ final class FirstOrderHandler implements HandlerInterface
     private CartAddress $addresses;
 
     private MarketingConsent $consent;
+
+    /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
+    private array $exchanges = [];
 
     public function __construct(AutomationHandler $rows, Router $router, CartAddress $addresses, MarketingConsent $consent)
     {
@@ -67,13 +71,24 @@ final class FirstOrderHandler implements HandlerInterface
 
     public function handle(array $events): array
     {
+        $this->exchanges = [];
         $outcomes = [];
         foreach ($events as $event) {
             $id = (int) $event['id'];
-            $outcomes[$id] = $this->check($event) ?? $this->rows->handle([$event])[$id];
+            $outcome = $this->check($event);
+            if ($outcome === null) {
+                $outcome = $this->rows->handle([$event])[$id];
+                $this->exchanges += $this->rows->exchanges();
+            }
+            $outcomes[$id] = $outcome;
         }
 
         return $outcomes;
+    }
+
+    public function exchanges(): array
+    {
+        return $this->exchanges;
     }
 
     /**

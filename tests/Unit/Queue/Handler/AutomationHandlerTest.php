@@ -118,6 +118,26 @@ final class AutomationHandlerTest extends TestCase
         self::assertStringNotContainsString('handler1', $outcomes[7]->reason());
     }
 
+    public function testASentRowTellsItsRequestAndTheAnswerAndASkippedRowNothing(): void
+    {
+        $handler = $this->handler(Trigger::WELCOME);
+        $handler->handle([
+            self::row(7, 1, 'et', ['email' => 'handler1@example.test', 'fields' => ['store' => 'shop.example.test']]),
+            self::row(8, 3, 'et', ['email' => 'handler2@example.test', 'fields' => []]),
+        ]);
+
+        self::assertSame([7 => [
+            'request' => ['autoresponder' => 101, 'addresses' => [['email' => 'handler1@example.test', 'store' => 'shop.example.test']], 'force_opt_in' => false],
+            'response' => ['http_status' => 200, 'body' => ['code' => 101]],
+        ]], $handler->exchanges());
+
+        $this->answer = static fn (): Response => new Response(503, 'Unavailable');
+        $handler->handle([self::row(9, 1, 'et', ['email' => 'handler1@example.test', 'fields' => []])]);
+
+        self::assertSame([9], array_keys($handler->exchanges()));
+        self::assertSame(['http_status' => 503, 'body' => null], $handler->exchanges()[9]['response']);
+    }
+
     /**
      * @return iterable<string, array{string}>
      */

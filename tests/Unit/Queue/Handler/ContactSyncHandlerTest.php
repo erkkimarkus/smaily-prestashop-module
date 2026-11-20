@@ -291,6 +291,33 @@ final class ContactSyncHandlerTest extends TestCase
         }
     }
 
+    public function testEachSentRowTellsItsOwnContactAndTheAnswer(): void
+    {
+        $handler = $this->handler();
+        $handler->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test')),
+            $this->row(2, 1, $this->payload('shopper2@example.test')),
+            $this->row(3, 3, $this->payload('shopper3@example.test')),
+        ]);
+
+        self::assertSame([
+            1 => [
+                'request' => [['email' => 'shopper1@example.test', 'store' => 'shop1.example.test', 'language' => 'en', 'first_name' => 'Testfirst', 'last_name' => 'Testlast']],
+                'response' => ['http_status' => 200, 'body' => ['code' => 101]],
+            ],
+            2 => [
+                'request' => [['email' => 'shopper2@example.test', 'store' => 'shop1.example.test', 'language' => 'en', 'first_name' => 'Testfirst', 'last_name' => 'Testlast']],
+                'response' => ['http_status' => 200, 'body' => ['code' => 101]],
+            ],
+        ], $handler->exchanges(), 'a skipped row sent nothing; no row holds another row\'s contact');
+
+        $this->answer = static fn (array $contacts): Response => new Response(503, 'Unavailable');
+        $handler->handle([$this->row(4, 1, $this->payload('shopper4@example.test'))]);
+
+        self::assertSame([4], array_keys($handler->exchanges()), 'the exchanges are those of the last call');
+        self::assertSame(['http_status' => 503, 'body' => null], $handler->exchanges()[4]['response']);
+    }
+
     /**
      * @param array<int, array<string, string>> $settings settings by shop, over the global ones
      */

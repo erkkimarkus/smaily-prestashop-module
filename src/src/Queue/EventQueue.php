@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Log\PayloadRedactor;
+
 /**
  * The durable queue of marketing events to Smaily, in the table smaily_connect_event_queue.
  *
@@ -43,6 +45,9 @@ if (!defined('_PS_VERSION_')) {
  * only those rows, in one order, and do not deadlock each other. The claim and the stale-claim return
  * force the primary key: when fewer rows are due than ids are named, MySQL and MariaDB otherwise walk
  * the status index and lock its entries of rows that other flushes are closing.
+ *
+ * `last_request` and `last_response` hold what the last attempt sent and what came back, for the
+ * Log's Details: JSON without secrets (Log\PayloadRedactor), with the contact's data as it was sent.
  *
  * Times are UTC, read from the clock this queue is given.
  */
@@ -66,6 +71,11 @@ final class EventQueue
      * The width of the column last_error.
      */
     private const ERROR_LENGTH = 255;
+
+    /**
+     * The bytes that the column last_response holds (TEXT).
+     */
+    private const RESPONSE_BYTES = 65535;
 
     /** @var callable(): int */
     private $clock;
@@ -96,7 +106,7 @@ final class EventQueue
             self::quote($eventType),
             self::quote($entityId),
             self::quote($language),
-            self::quote(json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            self::quote(self::json($payload)),
             self::quote(self::STATUS_PENDING),
             $now,
             $now
@@ -167,6 +177,34 @@ final class EventQueue
             self::quote(self::STATUS_PENDING),
             implode(', ', $ids),
             $condition
+        ));
+    }
+
+    /**
+     * Stores on a claimed row what this attempt sent and what came back, without secrets. A null
+     * $response (no answer arrived) keeps the answer of an earlier attempt. An answer too long for
+     * its column keeps its HTTP status only.
+     *
+     * @param array<string, mixed> $row
+     * @param array<int|string, mixed> $request the row's own part of the request body
+     * @param array{http_status: int, body: mixed}|null $response
+     */
+    public function recordExchange(array $row, array $request, ?array $response): void
+    {
+        $assignments = '`last_request` = ' . self::quote(self::json(PayloadRedactor::redact($request)));
+        if ($response !== null) {
+            $stored = self::json(PayloadRedactor::redact($response));
+            if (strlen($stored) > self::RESPONSE_BYTES) {
+                $stored = self::json(['http_status' => $response['http_status'], 'body' => null]);
+            }
+            $assignments .= ', `last_response` = ' . self::quote($stored);
+        }
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET %s WHERE `id` = %d AND `claim_token` = %s',
+            self::table(),
+            $assignments,
+            (int) $row['id'],
+            self::quote((string) $row['claim_token'])
         ));
     }
 
@@ -306,6 +344,14 @@ final class EventQueue
     private function time(int $offset): string
     {
         return self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() + $offset));
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    private static function json(array $value): string
+    {
+        return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     private static function error(string $reason): string

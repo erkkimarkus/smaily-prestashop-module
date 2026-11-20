@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
@@ -59,8 +60,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * failure of the wire is the outcome of every row of the group. A row that cannot go ends skipped
  * with a reason code: its shop's contact sync is off, the contact is outside the shop's audience, or
  * its account is missing or has no credentials. A reason never names the contact.
+ *
+ * exchanges() gives each sent row its own contact of the request body, never the contacts posted
+ * with it, and the answer to that request.
  */
-final class ContactSyncHandler implements HandlerInterface
+final class ContactSyncHandler implements HandlerInterface, ExchangeSource
 {
     public const EVENT_TYPE = 'contact.sync';
 
@@ -82,6 +86,9 @@ final class ContactSyncHandler implements HandlerInterface
 
     private Transport $transport;
 
+    /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
+    private array $exchanges = [];
+
     public function __construct(ScopeResolver $scopes, ContactsSettings $settings, SubscriberPayloadBuilder $builder, Transport $transport)
     {
         $this->scopes = $scopes;
@@ -92,6 +99,7 @@ final class ContactSyncHandler implements HandlerInterface
 
     public function handle(array $events): array
     {
+        $this->exchanges = [];
         $outcomes = [];
         /** @var array<string, array{client: Client, contacts: array<int, array<string, string|int>>}> $groups */
         $groups = [];
@@ -144,6 +152,11 @@ final class ContactSyncHandler implements HandlerInterface
         return $outcomes;
     }
 
+    public function exchanges(): array
+    {
+        return $this->exchanges;
+    }
+
     /**
      * @param array<int, array<string, string|int>> $contacts by row id
      *
@@ -151,10 +164,9 @@ final class ContactSyncHandler implements HandlerInterface
      */
     private function send(Client $client, array $contacts): array
     {
+        $outcome = true;
         try {
             $client->post(Client::ENDPOINT_CONTACT, array_values($contacts));
-
-            return array_fill_keys(array_keys($contacts), true);
         } catch (ApiException $error) {
             if (count($contacts) > 1 && $error->getSmailyCode() === ApiException::CODE_INVALID_DATA) {
                 $outcomes = [];
@@ -164,12 +176,18 @@ final class ContactSyncHandler implements HandlerInterface
 
                 return $outcomes;
             }
-            $failure = Failure::of($error);
+            $outcome = Failure::of($error);
         } catch (SmailyClientException $error) {
-            $failure = Failure::of($error);
+            $outcome = Failure::of($error);
+        }
+        $exchange = $client->lastExchange();
+        if ($exchange !== null) {
+            foreach ($contacts as $id => $contact) {
+                $this->exchanges[$id] = ['request' => [$contact], 'response' => $exchange['response']];
+            }
         }
 
-        return array_fill_keys(array_keys($contacts), $failure);
+        return array_fill_keys(array_keys($contacts), $outcome);
     }
 
     /**
