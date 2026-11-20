@@ -65,4 +65,18 @@ abstract class Settings
 
         return \Configuration::updateValue($key, $value, false, (int) \Shop::getGroupFromShop($idShop), $idShop);
     }
+
+    /**
+     * Removes a shop's own value, so the shop reads the global one again. It deletes the shop's
+     * row whatever the admin's shop context: a shop row that holds NULL would read as '' and not
+     * fall back, and deleteFromContext() does nothing in the "All shops" context.
+     */
+    protected function removeShopValue(string $key, int $idShop): void
+    {
+        if ($idShop <= 0) {
+            throw new \InvalidArgumentException('Only a shop holds an own value.');
+        }
+
+        \Configuration::deleteFromGivenContext($key, (int) \Shop::getGroupFromShop($idShop), $idShop);
+    }
 }
