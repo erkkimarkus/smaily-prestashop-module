@@ -50,23 +50,27 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * resolve to the account that reported it (ScopeResolver), so a shop is never changed by another
  * shop's account.
  *
- * The first run of an account (no cursor stored for it) applies only the unsubscribes of the log it
- * replays, and skips every `optin` in it (owner, 2026-11-20): 2.x never sent a newsletter-block
- * unsubscribe to Smaily, so an opt-in in that log may belong to a shopper who has unsubscribed in
- * the store since. The first run lasts until it has read the log to its end, over as many ticks as
- * that takes; every run after it applies both directions.
+ * The first run of an account (no cursor stored for it) applies nothing from the log (owner,
+ * 2026-11-20): 2.x never sent a newsletter-block unsubscribe to Smaily, so an opt-in in that log may
+ * belong to a shopper who has unsubscribed in the store since. It reads the log to its end only to
+ * learn the last `seq_id`, then pages through Smaily's current unsubscriber list (contact.php,
+ * `list=2`, as 2.x did) and switches those addresses off. The log's end is taken before the list:
+ * a change that Smaily logs after that end is replayed both ways by the next run, and an unsubscribe
+ * logged before it is on the list, which is read after it. Every run after the first applies both
+ * directions.
  *
  * The writes go straight to the tables, so they fire no hook and queue nothing back to Smaily. The
- * cursor of each account is stored under CURSORS after every chunk, so a run that the deadline
- * stops goes on from there: the last `seq_id` read, a number, or `{"seq_id": <n>, "first_run":
- * true}` while the first run has not read the log to its end. A log line names the shop, the
- * language and the failure only, never a contact.
+ * cursor of each account is stored under CURSORS after every chunk or page, so a run that the
+ * deadline stops goes on from there. A log line names the shop, the language and the failure only,
+ * never a contact.
  */
 final class Reconciler
 {
     /**
-     * JSON: the last seq_id read by account, keyed "<id_shop>:<language>:<subdomain>"; a number, or
-     * {"seq_id": <n>, "first_run": true} until the account's first run has read the log to its end.
+     * JSON by account, keyed "<id_shop>:<language>:<subdomain>": the last seq_id read, a number, once
+     * the first run is done; during the first run {"seq_id": <n>, "first_run": true} while it reads
+     * the log, and {"seq_id": <log end>, "first_run": true, "list_page": <p>} while it reads the
+     * unsubscriber list from page p.
      */
     public const CURSORS = 'SMAILY_CONNECT_RECONCILE_CURSORS';
 
@@ -74,6 +78,9 @@ final class Reconciler
     public const ACTIONS = ['optin', 'optout', 'delete', 'complaint'];
 
     public const PAGE_SIZE = 10000;
+
+    /** The page size of the unsubscriber list, as 2.x read it. */
+    public const LIST_PAGE_SIZE = 1000;
 
     /** How many log rows are applied between two deadline checks. */
     private const CHUNK = 500;
@@ -151,38 +158,96 @@ final class Reconciler
     {
         $client = new Client($this->transport, $account->subdomain(), $account->username(), $account->password());
         $cursorKey = $key . ':' . strtolower($account->subdomain());
-        [$seqId, $firstRun] = self::cursor($cursorKey);
+        [$seqId, $firstRun, $listPage] = self::cursor($cursorKey);
+        if ($firstRun) {
+            return $this->firstRun($client, $cursorKey, $seqId, $listPage, $key, $shops, $deadline);
+        }
         $changed = 0;
         do {
-            $rows = $client->get('history', [
-                'since_seq_id' => $seqId,
-                'limit' => $this->pageSize,
-                'actions' => implode(',', self::ACTIONS),
-            ]);
-            $rows = array_values(array_filter($rows, static fn ($row): bool => is_array($row) && isset($row['seq_id'])));
-            usort($rows, static fn (array $a, array $b): int => (int) $a['seq_id'] <=> (int) $b['seq_id']);
-
+            $rows = $this->historyPage($client, $seqId);
             foreach (array_chunk($rows, self::CHUNK) as $chunk) {
                 $subscribed = [];
                 foreach ($chunk as $row) {
                     $email = strtolower(trim((string) ($row['email'] ?? '')));
-                    if ($email !== '' && in_array($row['action'] ?? null, self::ACTIONS, true) && !($firstRun && $row['action'] === self::OPTIN)) {
+                    if ($email !== '' && in_array($row['action'] ?? null, self::ACTIONS, true)) {
                         $subscribed[$email] = $row['action'] === self::OPTIN;
                     }
                 }
                 $changed += $this->apply($subscribed, $key, $shops);
                 $seqId = (int) end($chunk)['seq_id'];
-                self::saveCursor($cursorKey, $seqId, $firstRun);
+                self::saveCursor($cursorKey, $seqId);
                 if ($deadline->passed()) {
                     return $changed;
                 }
             }
         } while (count($rows) >= $this->pageSize);
-        if ($firstRun) {
-            self::saveCursor($cursorKey, $seqId, false);
-        }
 
         return $changed;
+    }
+
+    /**
+     * The first run: the log read to its end without applying it, then the unsubscriber list.
+     *
+     * @param int|null $listPage the list's next page; null while the log is still being read
+     * @param list<int> $shops
+     */
+    private function firstRun(Client $client, string $cursorKey, int $seqId, ?int $listPage, string $key, array $shops, Deadline $deadline): int
+    {
+        while ($listPage === null) {
+            $rows = $this->historyPage($client, $seqId);
+            if ($rows !== []) {
+                $seqId = (int) end($rows)['seq_id'];
+            }
+            if (count($rows) < $this->pageSize) {
+                $listPage = 0;
+            }
+            self::saveCursor($cursorKey, $seqId, $listPage, true);
+            if ($deadline->passed()) {
+                return 0;
+            }
+        }
+
+        $limit = min($this->pageSize, self::LIST_PAGE_SIZE);
+        $changed = 0;
+        do {
+            $rows = $client->get(Client::ENDPOINT_CONTACT, ['list' => 2, 'limit' => $limit, 'offset' => $listPage]);
+            $emails = [];
+            foreach ($rows as $row) {
+                $email = is_array($row) ? strtolower(trim((string) ($row['email'] ?? ''))) : '';
+                if ($email !== '') {
+                    $emails[$email] = false;
+                }
+            }
+            $changed += $this->apply($emails, $key, $shops);
+            // Smaily counts the list's offset in pages.
+            ++$listPage;
+            if (count($rows) < $limit) {
+                self::saveCursor($cursorKey, $seqId);
+
+                return $changed;
+            }
+            self::saveCursor($cursorKey, $seqId, $listPage, true);
+        } while (!$deadline->passed());
+
+        return $changed;
+    }
+
+    /**
+     * One page of the account's action log after $seqId, oldest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function historyPage(Client $client, int $seqId): array
+    {
+        $rows = $client->get('history', [
+            'since_seq_id' => $seqId,
+            'limit' => $this->pageSize,
+            'actions' => implode(',', self::ACTIONS),
+        ]);
+        $rows = array_values(array_filter($rows, static fn ($row): bool => is_array($row) && isset($row['seq_id'])));
+        usort($rows, static fn (array $a, array $b): int => (int) $a['seq_id'] <=> (int) $b['seq_id']);
+
+        return $rows;
     }
 
     /**
@@ -277,24 +342,35 @@ final class Reconciler
     }
 
     /**
-     * The account's last seq_id read, and whether its first run goes on: no cursor is the start of
-     * the first run.
+     * The account's last seq_id read, whether its first run goes on, and the first run's next page
+     * of the unsubscriber list (null while it reads the log): no cursor is the start of the first run.
      *
-     * @return array{0: int, 1: bool}
+     * @return array{0: int, 1: bool, 2: int|null}
      */
     private static function cursor(string $cursorKey): array
     {
         $cursor = self::cursors()[$cursorKey] ?? ['seq_id' => 0, 'first_run' => true];
+        if (!is_array($cursor)) {
+            return [(int) $cursor, false, null];
+        }
 
-        return is_array($cursor) ? [(int) ($cursor['seq_id'] ?? 0), !empty($cursor['first_run'])] : [(int) $cursor, false];
+        return [(int) ($cursor['seq_id'] ?? 0), !empty($cursor['first_run']), isset($cursor['list_page']) ? (int) $cursor['list_page'] : null];
     }
 
-    private static function saveCursor(string $cursorKey, int $seqId, bool $firstRun): void
+    /**
+     * Stores a finished first run's cursor, a number, or with $firstRun the first run's progress.
+     * A finished first run is never stored back as a first run.
+     */
+    private static function saveCursor(string $cursorKey, int $seqId, ?int $listPage = null, bool $firstRun = false): void
     {
         [$stored, $storedFirstRun] = self::cursor($cursorKey);
         $seqId = max($seqId, $stored);
         $cursors = self::cursors();
-        $cursors[$cursorKey] = $firstRun && $storedFirstRun ? ['seq_id' => $seqId, 'first_run' => true] : $seqId;
+        if ($firstRun && $storedFirstRun) {
+            $cursors[$cursorKey] = ['seq_id' => $seqId, 'first_run' => true] + ($listPage === null ? [] : ['list_page' => $listPage]);
+        } else {
+            $cursors[$cursorKey] = $seqId;
+        }
         \Configuration::updateGlobalValue(self::CURSORS, (string) json_encode($cursors));
     }
 
@@ -302,7 +378,7 @@ final class Reconciler
      * The stored cursors, read from the table: another request may have written them after this
      * one loaded the configuration.
      *
-     * @return array<string, int|array{seq_id: int, first_run: bool}>
+     * @return array<string, int|array{seq_id: int, first_run: bool, list_page?: int}>
      */
     private static function cursors(): array
     {
