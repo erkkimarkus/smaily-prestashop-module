@@ -81,7 +81,7 @@ final class DoorTest extends IntegrationTestCase
             [Door::CART_CRON, 'anything'],
         ];
         foreach ($refused as [$door, $token]) {
-            self::assertSame([403, 'Access denied.'], $this->door()->open($door, $token, 1, 30), $door);
+            self::assertSame([403, 'Access denied!'], $this->door()->open($door, $token, 1, 30), $door);
         }
         self::assertNull((new TickSettings())->storedState()->lastTickAt(), 'no tick ran');
     }
