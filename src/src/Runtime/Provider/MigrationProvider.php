@@ -29,14 +29,31 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyReader;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
  * Registers the services and hook listeners of the legacy migration and its admin notices.
+ *
+ * `$services->get(Upgrade300::class)->runPending()` finishes a pending migration; it is safe to call
+ * at any time and does nothing once the schema is current.
  */
 final class MigrationProvider implements ProviderInterface
 {
     public function register(Services $services): void
     {
+        $services->set(MigrationNotices::class, fn (): MigrationNotices => new MigrationNotices());
+        $services->set(Upgrade300::class, fn (Services $services): Upgrade300 => new Upgrade300(
+            new LegacyReader(),
+            new LegacyConfigMapper(),
+            $services->get(AccountStore::class),
+            $services->get(MigrationNotices::class),
+            new LegacyOverride(_PS_OVERRIDE_DIR_)
+        ));
     }
 }

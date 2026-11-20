@@ -7,7 +7,10 @@ leave in a shop. The 3.0.0 upgrade test loads one of them into a shop and then r
 |---|---|---|
 | `2.2.0-fresh-install.sql` | 2.2.0 | **Observed.** Module installed with `bin/console prestashop:module install` on PrestaShop 9.2.0, rows dumped. |
 | `2.2.0-configured.sql` | 2.2.0 | **Observed output, derived input.** The module's own write code ran in a PrestaShop 9.2.0 shop and the rows were dumped. The form input was built by hand (see below). |
-| `1.6.2-configured.sql` | 1.6.2 | **Derived from code.** Not run. Written from `git show 1.6.2:src/...`. |
+| `1.6.2-configured.sql` | 1.6.2 | **Derived from code.** Written from `git show 1.6.2:src/...`. Loaded on 8.2.8 and 9.2.0 since (see "Loaded into a database"). |
+| `2.2.0-multistore-shared.sql` | 2.2.0 | **Derived** from the observed write pattern (section "Multistore"). Multistore on, a minimal shop 2 in shop group 1 (no shared customers), and only the global rows of `2.2.0-configured.sql`: both shops share one setup. |
+| `2.2.0-multistore-own-rows.sql` | 2.2.0 | **Derived** as above. The same global rows, plus a row for every key at shop 2 as a save in shop 2's context writes them: another account (`other-store`, `other-api-user`, `not-a-real-password-either`), opt-in workflow 103, abandoned cart workflow 104, other field lists. |
+| `override-2.x.ps_emailsubscription.php.txt` | 2.0.0–2.2.0 | Byte copy of `src/overrides/ps_emailsubscription.php`, identical at every 2.x tag (SHA-256 `5fb063e2…`). The `.txt` name keeps code-style tools from rewriting it. |
 
 All values are invented: subdomain `example-store`, user `api-user`, password `not-a-real-password`,
 tokens `abc123def456` / `fed654cba321`, autoresponder ids 101 (opt-in) and 102 (abandoned cart).
@@ -95,8 +98,8 @@ stored `''`, `false` or `null` becomes SQL `NULL` (observed for every empty 2.2.
 - Table `ps_smaily_cart`. No release from 2.0.0 to 2.2.0 ships an `upgrade/` folder, so nothing converts
   1.6.x data on the way to 2.x.
 
-None of the three SQL files has been loaded back into a database: the Colima VM's Docker disk filled
-up before that step (see `docs/DEV_ENVIRONMENT.md`). The 2.2.0 rows are copied from the dumps.
+The 2.2.0 rows are copied from the dumps. See "Loaded into a database" for what loading the files
+showed.
 
 ## Other 1.6.x state (derived from code)
 
@@ -110,6 +113,15 @@ up before that step (see `docs/DEV_ENVIRONMENT.md`). The 2.2.0 rows are copied f
   `actionFrontControllerSetMedia`, `actionCustomerAccountAdd`. The resolution of the old names through
   `ps_hook_alias` is an assumption.
 - No override, no `actionCustomerAccountUpdate` or `actionNewsletterRegistrationAfter` hook.
+
+## Multistore fixtures
+
+The two `2.2.0-multistore-*.sql` files add shop 2 themselves: a `shop` row copied from shop 1 and a
+`shop_url` row (`virtual_uri` `second/`), and they set `PS_MULTISHOP_FEATURE_ACTIVE` to `1`. That is
+enough for PrestaShop's configuration and shop classes and for the migration; it is no browsable
+storefront (no `*_shop` association rows). Part 2 enables the module in shop 2. To undo: delete the
+shop 2 rows of `shop`, `shop_url`, `module_shop` and `configuration`, and set the multistore switch
+back to `0`.
 
 ## Multistore
 
