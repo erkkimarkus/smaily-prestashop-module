@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The Settings page. The shell renders its frame (layout/settings.html.twig); this controller
@@ -49,6 +50,16 @@ use Symfony\Component\HttpFoundation\Response;
 final class SettingsController extends BaseController
 {
     private const TEMPLATE = '@Modules/smailyforprestashop/views/templates/admin/settings/index.html.twig';
+
+    /**
+     * PrestaShop 8 (Symfony 4.4) gives a controller that is a service only the services its class
+     * subscribes, and the translator is not among them: the page then stops with "Service
+     * translator not found". PrestaShop 9 subscribes it already.
+     */
+    public static function getSubscribedServices(): array
+    {
+        return parent::getSubscribedServices() + ['translator' => '?' . TranslatorInterface::class];
+    }
 
     public function index(Request $request): Response
     {
