@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Rss;
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -20,6 +21,32 @@ final class RssFeedTest extends IntegrationTestCase
     private const FEED = '/index.php?fc=module&module=smailyforprestashop&controller=SmailyRssFeed';
 
     private const ITEM_FIELDS = ['title', 'link', 'guid', 'pubDate', 'description', 'enclosure', 'smly:price'];
+
+    /** @var list<array<string, mixed>> */
+    private array $savedTickState = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // A storefront request runs the fallback tick when the last tick is stale, with the daily
+        // update check against GitHub: a tick that ran just now keeps the feed's requests to the feed.
+        $this->savedTickState = (array) self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . TickSettings::TICK_STATE . '\'');
+        $settings = new TickSettings();
+        $settings->saveState($settings->storedState()->withTick('cron', time()));
+    }
+
+    protected function tearDown(): void
+    {
+        if (defined('_PS_ROOT_DIR_')) {
+            \Configuration::deleteByName(TickSettings::TICK_STATE);
+            foreach ($this->savedTickState as $row) {
+                self::db()->insert('configuration', $row, true);
+            }
+            \Configuration::resetStaticCache();
+            \Configuration::loadConfiguration();
+        }
+        parent::tearDown();
+    }
 
     public function testTheFeedWithoutParametersAnswersTheNewest50UpdatedProducts(): void
     {
