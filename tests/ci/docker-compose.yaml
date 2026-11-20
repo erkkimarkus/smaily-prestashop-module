@@ -6,13 +6,13 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      - PS_DOMAIN=localhost:8000
+      - PS_DOMAIN=localhost:${CI_PORT:-8000}
       - INSTALL_MODULES_DIR=/ps-modules
     volumes:
       - ../../dist:/ps-modules:ro
       - ./api-client-smoke.php:/tests/api-client-smoke.php:ro
     ports:
-      - 8000:80
+      - ${CI_PORT:-8000}:80
 
   mysql:
     image: mariadb:lts

@@ -1,6 +1,5 @@
 services:
   prestashop:
-    container_name: prestashop
     image: ${PS_IMAGE:-prestashop/prestashop-flashlight:9.2.0-nginx}
     depends_on:
       mysql:
@@ -17,7 +16,6 @@ services:
     - ./post-scripts:/tmp/post-scripts
 
   mysql:
-    container_name: prestashop_db
     image: mariadb:lts
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect"]
@@ -40,7 +38,6 @@ services:
     - prestashop-db-data:/var/lib/mysql
 
   phpmyadmin:
-    container_name: phpmyadmin
     image: phpmyadmin/phpmyadmin
     depends_on:
     - mysql
@@ -55,7 +52,6 @@ services:
 
   mailhog:
     image: mailhog/mailhog:latest
-    container_name: mailhog
     ports:
     - ${MAILHOG_PORT:-8025}:8025
 

@@ -9,7 +9,7 @@ services:
         condition: service_healthy
     environment:
       - PS_INSTALL_AUTO=1
-      - PS_DOMAIN=localhost:8000
+      - PS_DOMAIN=localhost:${CI_PORT:-8000}
       - PS_FOLDER_ADMIN=admin-dev
       - DB_SERVER=mysql
       - DB_NAME=prestashop
@@ -36,7 +36,7 @@ services:
         sed -i 's# rm -r /# rm -rf /#' /tmp/docker_run.sh
         exec /tmp/docker_run.sh
     ports:
-      - 8000:80
+      - ${CI_PORT:-8000}:80
 
   mysql:
     image: mariadb:lts

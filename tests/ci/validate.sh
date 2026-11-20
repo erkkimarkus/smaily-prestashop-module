@@ -9,10 +9,13 @@
 #
 # Set KEEP=1 to leave the shop running at http://localhost:8000 (admin-dev, admin@prestashop.com /
 # prestashop) for a look around.
+#
+# CI_PORT moves the shop off port 8000, and COMPOSE_PROJECT_NAME off the Compose project "ci", so that
+# two checkouts can run this script at the same time.
 set -u
 cd "$(dirname "$0")"
 COMPOSE="docker compose -f ${PS_COMPOSE:-docker-compose.yaml}"
-URL="http://localhost:8000"
+URL="http://localhost:${CI_PORT:-8000}"
 fails=0
 tmp=$(mktemp -d)
 
