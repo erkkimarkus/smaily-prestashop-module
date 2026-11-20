@@ -36,8 +36,9 @@ if (!defined('_PS_VERSION_')) {
  *  - all customers: every customer, and Smaily keeps the subscription status;
  *  - checkout opt-in only: a checkout with the newsletter box ticked, and nothing else.
  *
- * "Include guests" adds the newsletter-block subscribers without an account (`emailsubscription`);
- * it has no effect in checkout opt-in only. An unknown stored mode reads as subscribers only, so a
+ * "Include guests" adds the newsletter-block subscribers without an account (`emailsubscription`)
+ * and the guest-checkout customers (`is_guest = 1`); in subscribers only a guest-checkout customer
+ * goes only with the newsletter box ticked. It has no effect in checkout opt-in only. An unknown stored mode reads as subscribers only, so a
  * bad value never widens the audience.
  */
 final class ContactSyncMode

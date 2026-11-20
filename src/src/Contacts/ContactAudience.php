@@ -84,11 +84,11 @@ final class ContactAudience
 
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
-                return $this->allCustomersSends($guest);
+                return $this->sendsGuest($guest);
             case ContactSyncMode::CHECKOUT_OPTIN:
                 return $checkout && $subscribed && $consentChanged;
             default:
-                return $subscribed || $consentChanged;
+                return $this->sendsGuest($guest) && ($subscribed || $consentChanged);
         }
     }
 
@@ -116,20 +116,22 @@ final class ContactAudience
     {
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
-                return $this->allCustomersSends($guest);
+                return $this->sendsGuest($guest);
             case ContactSyncMode::CHECKOUT_OPTIN:
                 return false;
             default:
-                return $subscribed;
+                return $this->sendsGuest($guest) && $subscribed;
         }
     }
 
     /**
-     * All customers sends every registered customer, and a guest-checkout customer only when
-     * "include guests" is on, whether or not the newsletter box was ticked (owner, 2026-11-20; the
-     * legitimate-interest preset of the WooCommerce connector).
+     * All customers and subscribers only send a guest-checkout customer only when "include guests"
+     * is on (owner, 2026-11-20; the legitimate-interest and consent presets of the WooCommerce
+     * connector): in all customers whether or not the newsletter box was ticked, in subscribers only
+     * when it was. A registered customer is not gated. Checkout opt-in only does not ask: there a
+     * ticked box sends a guest as it sends a registered customer, as in WooCommerce.
      */
-    private function allCustomersSends(bool $guest): bool
+    private function sendsGuest(bool $guest): bool
     {
         return !$guest || $this->mode->includesNewsletterGuests();
     }

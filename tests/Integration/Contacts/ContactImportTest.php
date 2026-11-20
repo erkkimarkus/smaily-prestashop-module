@@ -128,6 +128,7 @@ final class ContactImportTest extends IntegrationTestCase
         $this->addCustomer($this->shopA, 'subscriber@example.test', true, $this->idLang);
         $this->addCustomer($this->shopA, 'customer@example.test', false, $this->idLang);
         $this->addCustomer($this->shopB, 'guest-checkout@example.test', false, $this->idLang, ['is_guest' => 1]);
+        $this->addCustomer($this->shopB, 'subscribed-guest@example.test', true, $this->idLang, ['is_guest' => 1]);
         $this->addCustomer($this->shopA, 'deleted@example.test', true, $this->idLang, ['deleted' => 1]);
         $this->addNewsletterRow($this->shopB, 'block@example.test', true, $this->idLang);
         $this->addNewsletterRow($this->shopA, 'inactive-block@example.test', false, $this->idLang);
@@ -154,9 +155,9 @@ final class ContactImportTest extends IntegrationTestCase
     public function audiences(): array
     {
         return [
-            'subscribers only, with guests' => [ContactSyncMode::SUBSCRIBERS, true, ['subscriber@example.test', 'block@example.test']],
+            'subscribers only, with guests' => [ContactSyncMode::SUBSCRIBERS, true, ['subscriber@example.test', 'subscribed-guest@example.test', 'block@example.test']],
             'subscribers only, without guests' => [ContactSyncMode::SUBSCRIBERS, false, ['subscriber@example.test']],
-            'all customers, with guests' => [ContactSyncMode::ALL_CUSTOMERS, true, ['subscriber@example.test', 'customer@example.test', 'guest-checkout@example.test', 'block@example.test']],
+            'all customers, with guests' => [ContactSyncMode::ALL_CUSTOMERS, true, ['subscriber@example.test', 'customer@example.test', 'guest-checkout@example.test', 'subscribed-guest@example.test', 'block@example.test']],
             'all customers, without guests' => [ContactSyncMode::ALL_CUSTOMERS, false, ['subscriber@example.test', 'customer@example.test']],
             'checkout opt-in only' =>[ContactSyncMode::CHECKOUT_OPTIN, true, []],
         ];

@@ -120,8 +120,10 @@ final class ContactAudienceTest extends TestCase
     /**
      * A guest-checkout customer (`is_guest = 1`) beside a registered one (owner, 2026-11-20): in all
      * customers a guest goes only when "include guests" is on, whether or not the newsletter box was
-     * ticked, as WooCommerce's legitimate-interest preset decides; the other modes are as for a
-     * registered customer. The live event is a checkout that ticked the box or not.
+     * ticked, as WooCommerce's legitimate-interest preset decides; in subscribers only a guest who
+     * ticked the box goes only when "include guests" is on, as WooCommerce's consent preset decides;
+     * in checkout opt-in only a guest is as a registered customer. The live event is a checkout that
+     * ticked the box or not.
      *
      * @return array<string, array{string, bool, bool, bool, bool, bool}>
      */
@@ -135,7 +137,10 @@ final class ContactAudienceTest extends TestCase
             'all customers, guests on: guest who ticked the box' => [self::ALL, true, true, true, true, true],
             'all customers, guests off: guest' => [self::ALL, false, true, false, false, false],
             'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, false, false],
-            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, true, true],
+            'subscribers, guests on: registered who ticked the box' => [self::SUBSCRIBERS, true, false, true, true, true],
+            'subscribers, guests off: registered who ticked the box' => [self::SUBSCRIBERS, false, false, true, true, true],
+            'subscribers, guests on: guest who ticked the box' => [self::SUBSCRIBERS, true, true, true, true, true],
+            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, false, false],
             'subscribers, guests off: guest' => [self::SUBSCRIBERS, false, true, false, false, false],
             'checkout opt-in, guests off: guest who ticked the box' => [self::CHECKOUT, false, true, true, true, false],
         ];
