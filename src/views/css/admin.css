@@ -1270,3 +1270,85 @@
   margin: 0;
   color: var(--smaily-muted);
 }
+
+/*
+ * Settings: Connection, Contacts and RSS (Story 3.3) — each tab's own footer with its Save, the
+ * switch "Use its own … on this shop" and the muted tab while a save would remove the shop's own
+ * values, the store layout's Change, and the RSS feed URL builder (Magento's Settings measures).
+ */
+.smaily-ui .smaily-tab-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  max-width: 780px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-own-toggle {
+  max-width: 780px;
+  margin: 0 0 16px;
+}
+
+.smaily-ui .smaily-muted {
+  opacity: .5;
+}
+
+.smaily-ui .smaily-store-shape__change {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--smaily-brand-text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.smaily-ui .smaily-store-shape__change:hover {
+  text-decoration: underline;
+}
+
+.smaily-ui .smaily-rss-builder {
+  max-width: 520px;
+}
+
+.smaily-ui .smaily-rss-builder__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.smaily-ui .smaily-rss-builder__field,
+.smaily-ui .smaily-rss-builder__label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-rss-builder__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.smaily-ui .smaily-rss-builder__label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.smaily-ui .smaily-rss-builder__url {
+  display: flex;
+  gap: 8px;
+}
+
+.smaily-ui .smaily-rss-builder__url .form-control {
+  flex: 1;
+  min-width: 0;
+  font-family: SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  background: var(--smaily-surface-2);
+}
