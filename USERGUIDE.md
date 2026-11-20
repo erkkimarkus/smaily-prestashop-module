@@ -16,16 +16,25 @@ This guide will help you set up and configure Smaily for PrestaShop module.
 
 ## Connecting module to Smaily account
 
-1. To start using Smaily extension navigate to **Modules -> Module Manager** section. On the configuration page, find **Smaily for PrestaShop**, then click on **Configure**.
+1. Open **Customers -> Smaily Connect** in the back office. The **Configure** button of the module in **Modules -> Module Manager** opens the same pages. A new store starts in the **Initial setup**; afterwards the account is under **Settings -> Connection**.
 
-2. You will be presented with a configuration page for entering your Smaily API credentials - **subdomain, username, and password**.
-   You can follow our [API user creation guide](https://smaily.com/help/api/general/create-api-user/).
+2. Enter your Smaily API credentials - **subdomain, username, and password**.
+   You can follow our [API user creation guide](https://smaily.com/help/api/general/create-api-user/). If your Smaily address is `https://demo.sendsmaily.net`, the subdomain is `demo`; pasting the full address also works.
 
-3. Copy your API user credentials to the appropriate fields in the module configuration page.
+3. Click **Test connection** to check the credentials without saving them.
 
-4. Click **Connect** to save the API user configuration.
+4. Click **Save Connection**. The **Status** line shows whether the store is connected. A saved password is never shown again: leave the password field empty to keep it.
 
-![API credentials section](assets/2_account_connection.png)
+A store with several languages also chooses how languages are handled: **Single language** (every language the same), **Per-language Smaily accounts**, **One account, per-language workflows**, or **One workflow branching by language**.
+
+### Stores with several shops
+
+A multishop store first answers **How are your shops run?**
+
+- **One store in several versions**: the shops are country or language versions of one business, on one Smaily account. You set the store up once. To give one shop its own Smaily account or its own Contacts settings, pick the shop in the shop selector at the top of the page and tick **Use its own Smaily account on this shop** or **Use its own Contacts settings on this shop**.
+- **Separate stores**: each shop is a business of its own, with its own Smaily account, contacts and automations. Pick a shop in the shop selector at the top of the page and set each shop up on its own.
+
+**Change** next to the answer in **Settings** switches between the two. From one store to separate stores, each shop keeps the settings it uses now, as its own. From separate stores to one store, all shops then use the settings of the shop you have selected, and the other shops' own settings are removed; the page asks you to confirm first.
 
 ## Adding newsletter subscription form to your store
 
@@ -42,14 +51,17 @@ We however recommend you place a Newsletter Subscription form on your website, t
 
 ## Customer synchronization
 
-Registered customers, who have opted for the newsletter will be added to Smaily's subscriber database during synchronization.
+Contact synchronization is set under **Settings -> Contacts**.
 
-1. Enable automatic customer synchronization feature under **Customer synchronization** section.
-2. There is an option to import **additional fields** available from the store into Smaily to personalize newsletter emails.
-3. The synchronization can be automated using the cron URL. Recommended synchronization interval is once a day or less.
-4. New customers who sign up with newsletter enabled can be added to Smaily, by enabling trigger opt-in on customer signup.
-5. An autoresponder can be selected for new customers who sign up with newsletter, the autoresponder won't work if the setting is disabled.
-   ![Customer synchronization section](assets/3_customer_sync.png)
+1. Turn on **Sync contacts to Smaily**.
+2. Choose who is synced. This is a lawful-basis choice: pick the option that matches how you have asked your customers for permission.
+   - **Subscribers only (consent)**: only customers who opted into the newsletter are synced. Unsubscribes in Smaily are mirrored back to PrestaShop.
+   - **All customers (legitimate interest)**: every registered customer is synced.
+   - **Checkout opt-in only**: nobody is synced automatically, only shoppers who tick the newsletter checkbox at checkout.
+3. **Include guests** also syncs newsletter subscribers without an account and customers who checked out as guests.
+4. Under **Extra fields to sync with each contact**, pick the fields that personalize your newsletters: first name, last name, date of birth, website. Empty values are never sent.
+5. Click **Save Contacts**. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.
+6. Under **Initial contact import**, **Start import** sends the contacts that your Contacts settings sync to Smaily once, in the background. New and changed contacts are synced on their own afterwards.
 
 ## Abandoned cart emails
 
@@ -67,13 +79,11 @@ Registered customers, who have opted for the newsletter will be added to Smaily'
 
 ## RSS
 
-Smaily's module can create an RSS link of available PrestaShop products.
-The module provides several options for generating an RSS feed link.
+Smaily's module provides an RSS feed of the store's products. **Settings -> RSS** builds the feed URL:
 
-1. **Products category**: selecting a category will display only products under that category in the RSS feed.
-2. **Product limit**: limit what is the maximum amount of products displayed in the RSS feed. Limit can be a value between 1 and 250.
-3. **Order by**: sorting order of the products in the RSS feed. Possible options are: date added, date updated, name, price, product ID.
-4. **Order direction**: in which direction will the module order products.
+1. **Category ID (optional)**: only products of that category are in the feed. Category IDs are shown in **Catalog -> Categories**.
+2. **Number of products**: the maximum number of products in the feed, between 1 and 250.
+3. **Sort by**: date created, date updated, product name, price or product ID.
+4. **Sort order**: descending or ascending.
 
-The generated RSS feed link can be copied to your template editor's RSS block to display products directly in your newsletter. For this, you can follow our [RSS feed manual](https://smaily.com/help/user-manual/templates/adding-rss-feed-to-template/).
-![RSS section](assets/5_rss_feed.png)
+Click **Copy** next to **Feed URL** and paste the URL into the RSS block of the Smaily template editor to show products in your newsletter. For this, you can follow our [RSS feed manual](https://smaily.com/help/user-manual/templates/adding-rss-feed-to-template/). **Save** keeps the chosen values as the builder's defaults. Feed URLs that you copied from an earlier version of the module keep working.

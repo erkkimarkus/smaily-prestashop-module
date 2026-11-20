@@ -11,6 +11,10 @@
 - In subscribers only, mirrors unsubscribes and re-subscribes in Smaily to the store. The first check after the upgrade takes only unsubscribes, from Smaily's list of unsubscribers as 2.x did, and marks nobody subscribed again.
 - Sends guest-checkout customers to Smaily only when "include guests" is on. In checkout opt-in only, a ticked newsletter box is sent in any case. An upgraded store has "include guests" on.
 - A cron or tick URL that completes an interrupted upgrade answers "OK: ran migration."
+- Replaces the 2.x configuration page with the Settings page under Customers > Smaily Connect. Its Connection tab holds the Smaily account, with Test connection and the connection's status; its Contacts tab holds contact synchronization, the consent mode, the extra fields and the first import; its RSS tab builds the product feed URL.
+- Asks for confirmation before a Contacts save that changes who is synced to Smaily.
+- Keeps the product RSS feed at its 2.x address with its 2.x parameters (`category_id`, `limit`, `sort_by`, `sort_order`), so feed URLs in existing Smaily templates keep working.
+- A multishop store runs its shops as one store or as separate stores, and changes that in Settings. In one store, a shop can use its own Smaily account or its own Contacts settings. A change from separate stores to one store gives every shop the settings of the selected shop and removes the other shops' own settings.
 
 ### 2.2.0
 
