@@ -55,6 +55,9 @@ class ContactsSettings extends Settings
     /** The selected fields, comma-separated Smaily names; `store` among them is always sent anyway. */
     public const FIELDS = self::PREFIX . 'CONTACTS_FIELDS';
 
+    /** `1` the module shows its own newsletter checkbox at checkout (where ps_emailsubscription does not). */
+    public const CHECKOUT_CHECKBOX = self::PREFIX . 'CHECKOUT_CHECKBOX';
+
     /**
      * Whether a shop's contacts go to Smaily: sync is on and its settings were confirmed. Nothing
      * stored is off.
@@ -80,5 +83,63 @@ class ContactsSettings extends Settings
             explode(',', (string) $this->get(self::FIELDS, $idShop)),
             SubscriberPayloadBuilder::FIELDS
         ));
+    }
+
+    /**
+     * The stored checkout checkbox setting of a shop, or null when none is stored.
+     */
+    public function checkoutCheckbox(int $idShop): ?bool
+    {
+        $value = $this->get(self::CHECKOUT_CHECKBOX, $idShop);
+
+        return $value === null ? null : $value === '1';
+    }
+
+    /**
+     * Whether any Contacts setting is stored for the shop or globally.
+     */
+    public function isStored(int $idShop): bool
+    {
+        return $this->get(self::MODE, $idShop) !== null;
+    }
+
+    /**
+     * Stores a shop's mode and "include guests" (0 = the global scope).
+     */
+    public function setMode(ContactSyncMode $mode, int $idShop): bool
+    {
+        return $this->set(self::MODE, $mode->mode(), $idShop)
+            && $this->set(self::GUESTS, $mode->includesNewsletterGuests() ? '1' : '0', $idShop);
+    }
+
+    /**
+     * Stores a shop's selected fields, known names only, `store` first as the upgrade writes them.
+     *
+     * @param list<string> $fields
+     */
+    public function setFields(array $fields, int $idShop): bool
+    {
+        $known = array_values(array_intersect(SubscriberPayloadBuilder::FIELDS, $fields));
+
+        return $this->set(self::FIELDS, implode(',', array_merge(['store'], $known)), $idShop);
+    }
+
+    public function setCheckoutCheckbox(bool $show, int $idShop): bool
+    {
+        return $this->set(self::CHECKOUT_CHECKBOX, $show ? '1' : '0', $idShop);
+    }
+
+    public function setEnabled(bool $enabled, int $idShop): bool
+    {
+        return $this->set(self::ENABLED, $enabled ? '1' : '0', $idShop);
+    }
+
+    /**
+     * Marks a shop's Contacts settings as confirmed by the merchant: with sync on, its contacts go to
+     * Smaily from now on.
+     */
+    public function confirm(int $idShop): bool
+    {
+        return $this->set(self::CONFIRMED, '1', $idShop);
     }
 }
