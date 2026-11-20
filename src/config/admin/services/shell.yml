@@ -1,0 +1,34 @@
+# The controllers of the admin shell: the entry, the four pages and the shell's JSON endpoints.
+#
+# Each controller names its class: PrestaShop 8.0 does not take a service's class from its id. Admin
+# code reaches the runtime through Runtime\Services, so a controller takes no constructor
+# arguments.
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\EntryController:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\EntryController
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogController:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogController
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\FinishUpgrade:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\FinishUpgrade
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissNotice:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissNotice
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation

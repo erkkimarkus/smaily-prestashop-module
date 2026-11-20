@@ -1,13 +1,5 @@
-services:
-  _defaults:
-    public: true
-    autowire: true
-    autoconfigure: true
-
-  # The admin controllers: the entry and the page controllers (Admin/[<Page>/]<Name>Controller.php)
-  # and the JSON endpoints (Admin/Api/). PrestaShop 9 builds a controller only as a service. Admin
-  # code reaches the runtime through Runtime\Services, so these classes take no constructor
-  # arguments.
-  PrestaShop\Module\SmailyForPrestaShop\Admin\:
-    resource: '../../src/Admin/{*Controller.php,*/*Controller.php,Api/*.php}'
-    exclude: '../../src/Admin/*/index.php'
+# The admin controllers are services: PrestaShop 9 builds a module's admin controller only as a
+# service. Each area lists its own controllers in a file of config/admin/services/, so that it adds
+# them without editing another area's file.
+imports:
+  - { resource: 'services/*.yml' }
