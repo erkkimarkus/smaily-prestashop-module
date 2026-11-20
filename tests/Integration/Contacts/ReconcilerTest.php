@@ -132,6 +132,7 @@ final class ReconcilerTest extends IntegrationTestCase
      */
     public function testAReSubscribeInSmailySwitchesTheCustomersConsentBackOnAndQueuesNothing(): void
     {
+        $this->storeCursors([$this->cursorKeyA() => 4]);
         $customer = $this->addCustomer($this->shopA, 'shopper1@example.test', false, $this->idLang);
         $guest = $this->addNewsletterRow($this->shopA, 'shopper2@example.test', false, $this->idLang);
         $this->mock->setHistory([
@@ -145,6 +146,110 @@ final class ReconcilerTest extends IntegrationTestCase
         self::assertSame(1, $this->newsletter($customer));
         self::assertSame(0, $this->active($guest), 'A re-subscribe changes no newsletter-block row.');
         self::assertSame(0, $this->queuedRows());
+    }
+
+    /**
+     * The owner's decision of 2026-11-20: the first run of an account replays the log for its
+     * unsubscribes only. 2.x never sent a newsletter-block unsubscribe to Smaily, so an opt-in in
+     * that log may belong to a shopper who has unsubscribed in the store since.
+     */
+    public function testTheFirstRunOfAnAccountTakesOnlyItsUnsubscribes(): void
+    {
+        $leaving = $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $optedIn = $this->addCustomer($this->shopA, 'shopper2@example.test', false, $this->idLang);
+        $this->mock->setHistory([
+            ['seq_id' => 1, 'email' => 'shopper1@example.test', 'action' => 'optout'],
+            ['seq_id' => 2, 'email' => 'shopper2@example.test', 'action' => 'optin'],
+        ]);
+
+        self::assertSame(1, $this->reconciler()->run($this->deadline()));
+
+        self::assertSame([0, 0], [$this->newsletter($leaving), $this->newsletter($optedIn)]);
+        self::assertSame(0, $this->queuedRows());
+        self::assertSame(2, $this->storedCursors()[$this->cursorKeyA()]);
+    }
+
+    public function testAnOptinAfterTheFirstRunIsApplied(): void
+    {
+        $customer = $this->addCustomer($this->shopA, 'shopper1@example.test', false, $this->idLang);
+        $backlog = [['seq_id' => 1, 'email' => 'shopper1@example.test', 'action' => 'optin']];
+        $this->mock->setHistory($backlog);
+        $this->reconciler()->run($this->deadline());
+        self::assertSame(0, $this->newsletter($customer));
+
+        $this->mock->setHistory(array_merge($backlog, [['seq_id' => 2, 'email' => 'shopper1@example.test', 'action' => 'optin']]));
+
+        self::assertSame(1, $this->reconciler()->run($this->deadline()));
+        self::assertSame(1, $this->newsletter($customer));
+        self::assertSame(0, $this->queuedRows());
+    }
+
+    /**
+     * The first run stays a first run until it has read the log to its end, over as many ticks as
+     * that takes: the stored cursor carries the mark until then.
+     */
+    public function testAFirstRunThatNeedsTwoTicksAppliesNoOptinOfItsBacklog(): void
+    {
+        $leaving = $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $second = $this->addCustomer($this->shopA, 'shopper2@example.test', false, $this->idLang);
+        $third = $this->addCustomer($this->shopA, 'shopper3@example.test', false, $this->idLang);
+        $backlog = [
+            ['seq_id' => 1, 'email' => 'shopper1@example.test', 'action' => 'optout'],
+            ['seq_id' => 2, 'email' => 'shopper2@example.test', 'action' => 'optin'],
+            ['seq_id' => 3, 'email' => 'shopper3@example.test', 'action' => 'optin'],
+        ];
+        $this->mock->setHistory($backlog);
+        $calls = 0;
+        $afterOneChunk = new Deadline(2.0, static function () use (&$calls): float {
+            return (float) ++$calls;
+        });
+
+        self::assertSame(1, $this->reconciler(1)->run($afterOneChunk));
+        self::assertSame(0, $this->newsletter($leaving));
+        self::assertSame(['seq_id' => 1, 'first_run' => true], $this->storedCursors()[$this->cursorKeyA()]);
+
+        self::assertSame(0, $this->reconciler(1)->run($this->deadline()));
+        self::assertSame([0, 0], [$this->newsletter($second), $this->newsletter($third)]);
+        self::assertSame(3, $this->storedCursors()[$this->cursorKeyA()]);
+
+        $this->mock->setHistory(array_merge($backlog, [['seq_id' => 4, 'email' => 'shopper2@example.test', 'action' => 'optin']]));
+        self::assertSame(1, $this->reconciler(1)->run($this->deadline()));
+        self::assertSame([1, 0], [$this->newsletter($second), $this->newsletter($third)]);
+    }
+
+    public function testAnAccountAddedLaterStartsWithItsOwnFirstRun(): void
+    {
+        self::db()->delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $this->shopB);
+        $inA = $this->addCustomer($this->shopA, 'shopper1@example.test', false, $this->idLang);
+        $inB = $this->addCustomer($this->shopB, 'shopper2@example.test', false, $this->idLang);
+        $this->mock->setHistory([['seq_id' => 1, 'email' => 'shopper3@example.test', 'action' => 'optout']]);
+        $this->reconciler(10000, false)->run($this->deadline());
+
+        $this->saveAccount($this->shopB, 'shopb', self::PASSWORD);
+        $this->mock->setHistory([
+            ['seq_id' => 1, 'email' => 'shopper3@example.test', 'action' => 'optout'],
+            ['seq_id' => 2, 'email' => 'shopper1@example.test', 'action' => 'optin'],
+            ['seq_id' => 3, 'email' => 'shopper2@example.test', 'action' => 'optin'],
+        ]);
+
+        self::assertSame(1, $this->reconciler(10000, false)->run($this->deadline()));
+        self::assertSame([1, 0], [$this->newsletter($inA), $this->newsletter($inB)]);
+    }
+
+    /**
+     * A cursor stored before the first-run mark existed (a number) is a run that has read the log.
+     */
+    public function testACursorInTheOldShapeIsNotAFirstRun(): void
+    {
+        $this->storeCursors([$this->cursorKeyA() => 5]);
+        $customer = $this->addCustomer($this->shopA, 'shopper1@example.test', false, $this->idLang);
+        $this->mock->setHistory([['seq_id' => 6, 'email' => 'shopper1@example.test', 'action' => 'optin']]);
+
+        self::assertSame(1, $this->reconciler()->run($this->deadline()));
+
+        self::assertSame(1, $this->newsletter($customer));
+        self::assertSame('5', $this->historyRequests()[0]['query']['since_seq_id']);
+        self::assertSame(6, $this->storedCursors()[$this->cursorKeyA()]);
     }
 
     /**
@@ -332,6 +437,32 @@ final class ReconcilerTest extends IntegrationTestCase
     private function historyRequests(): array
     {
         return array_values(array_filter($this->mock->requests(), static fn (array $request): bool => $request['path'] === '/api/history.php'));
+    }
+
+    /**
+     * The key of shop A's account in the stored cursors.
+     */
+    private function cursorKeyA(): string
+    {
+        return $this->shopA . '::shopa';
+    }
+
+    /**
+     * @param array<string, mixed> $cursors
+     */
+    private function storeCursors(array $cursors): void
+    {
+        \Configuration::updateGlobalValue(Reconciler::CURSORS, (string) json_encode($cursors));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function storedCursors(): array
+    {
+        $json = self::db()->getValue('SELECT `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . Reconciler::CURSORS . '\'', false);
+
+        return (array) json_decode((string) $json, true);
     }
 
     private function queuedRows(): int

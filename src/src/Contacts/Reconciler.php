@@ -50,14 +50,24 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * resolve to the account that reported it (ScopeResolver), so a shop is never changed by another
  * shop's account.
  *
+ * The first run of an account (no cursor stored for it) applies only the unsubscribes of the log it
+ * replays, and skips every `optin` in it (owner, 2026-11-20): 2.x never sent a newsletter-block
+ * unsubscribe to Smaily, so an opt-in in that log may belong to a shopper who has unsubscribed in
+ * the store since. The first run lasts until it has read the log to its end, over as many ticks as
+ * that takes; every run after it applies both directions.
+ *
  * The writes go straight to the tables, so they fire no hook and queue nothing back to Smaily. The
- * cursor of each account (the last `seq_id` applied, a number) is stored under CURSORS after every
- * chunk, so a run that the deadline stops goes on from there. A log line names the shop, the
+ * cursor of each account is stored under CURSORS after every chunk, so a run that the deadline
+ * stops goes on from there: the last `seq_id` read, a number, or `{"seq_id": <n>, "first_run":
+ * true}` while the first run has not read the log to its end. A log line names the shop, the
  * language and the failure only, never a contact.
  */
 final class Reconciler
 {
-    /** JSON: the last applied seq_id by account, keyed "<id_shop>:<language>:<subdomain>". */
+    /**
+     * JSON: the last seq_id read by account, keyed "<id_shop>:<language>:<subdomain>"; a number, or
+     * {"seq_id": <n>, "first_run": true} until the account's first run has read the log to its end.
+     */
     public const CURSORS = 'SMAILY_CONNECT_RECONCILE_CURSORS';
 
     /** The actions of the log that change consent; every one but `optin` unsubscribes. */
@@ -141,10 +151,11 @@ final class Reconciler
     {
         $client = new Client($this->transport, $account->subdomain(), $account->username(), $account->password());
         $cursorKey = $key . ':' . strtolower($account->subdomain());
+        [$seqId, $firstRun] = self::cursor($cursorKey);
         $changed = 0;
         do {
             $rows = $client->get('history', [
-                'since_seq_id' => self::cursor($cursorKey),
+                'since_seq_id' => $seqId,
                 'limit' => $this->pageSize,
                 'actions' => implode(',', self::ACTIONS),
             ]);
@@ -155,17 +166,21 @@ final class Reconciler
                 $subscribed = [];
                 foreach ($chunk as $row) {
                     $email = strtolower(trim((string) ($row['email'] ?? '')));
-                    if ($email !== '' && in_array($row['action'] ?? null, self::ACTIONS, true)) {
+                    if ($email !== '' && in_array($row['action'] ?? null, self::ACTIONS, true) && !($firstRun && $row['action'] === self::OPTIN)) {
                         $subscribed[$email] = $row['action'] === self::OPTIN;
                     }
                 }
                 $changed += $this->apply($subscribed, $key, $shops);
-                self::saveCursor($cursorKey, (int) end($chunk)['seq_id']);
+                $seqId = (int) end($chunk)['seq_id'];
+                self::saveCursor($cursorKey, $seqId, $firstRun);
                 if ($deadline->passed()) {
                     return $changed;
                 }
             }
         } while (count($rows) >= $this->pageSize);
+        if ($firstRun) {
+            self::saveCursor($cursorKey, $seqId, false);
+        }
 
         return $changed;
     }
@@ -261,15 +276,25 @@ final class Reconciler
         return $account->idShop() . ':' . $account->language();
     }
 
-    private static function cursor(string $cursorKey): int
+    /**
+     * The account's last seq_id read, and whether its first run goes on: no cursor is the start of
+     * the first run.
+     *
+     * @return array{0: int, 1: bool}
+     */
+    private static function cursor(string $cursorKey): array
     {
-        return (int) (self::cursors()[$cursorKey] ?? 0);
+        $cursor = self::cursors()[$cursorKey] ?? ['seq_id' => 0, 'first_run' => true];
+
+        return is_array($cursor) ? [(int) ($cursor['seq_id'] ?? 0), !empty($cursor['first_run'])] : [(int) $cursor, false];
     }
 
-    private static function saveCursor(string $cursorKey, int $seqId): void
+    private static function saveCursor(string $cursorKey, int $seqId, bool $firstRun): void
     {
+        [$stored, $storedFirstRun] = self::cursor($cursorKey);
+        $seqId = max($seqId, $stored);
         $cursors = self::cursors();
-        $cursors[$cursorKey] = max($seqId, (int) ($cursors[$cursorKey] ?? 0));
+        $cursors[$cursorKey] = $firstRun && $storedFirstRun ? ['seq_id' => $seqId, 'first_run' => true] : $seqId;
         \Configuration::updateGlobalValue(self::CURSORS, (string) json_encode($cursors));
     }
 
@@ -277,7 +302,7 @@ final class Reconciler
      * The stored cursors, read from the table: another request may have written them after this
      * one loaded the configuration.
      *
-     * @return array<string, int>
+     * @return array<string, int|array{seq_id: int, first_run: bool}>
      */
     private static function cursors(): array
     {
