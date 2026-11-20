@@ -44,6 +44,9 @@ final class Schema
 
     /**
      * Columns and indexes of each table, without the prefix.
+     *
+     * The `language` of an account or a mapping row is '' for "no language" (the shop's account, the
+     * default row), never NULL: MySQL lets NULL repeat under a unique key.
      */
     private const TABLES = [
         'smaily_connect_event_queue' => '
@@ -105,7 +108,7 @@ final class Schema
         'smaily_connect_account' => '
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `id_shop` INT UNSIGNED NOT NULL DEFAULT 0,
-            `language` CHAR(2) NULL,
+            `language` CHAR(2) NOT NULL DEFAULT \'\',
             `subdomain` VARCHAR(63) NOT NULL,
             `username` VARCHAR(128) NOT NULL,
             `password_enc` TEXT NOT NULL,
@@ -117,7 +120,7 @@ final class Schema
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `id_shop` INT UNSIGNED NOT NULL DEFAULT 0,
             `trigger` VARCHAR(32) NOT NULL,
-            `language` CHAR(2) NULL,
+            `language` CHAR(2) NOT NULL DEFAULT \'\',
             `account_key` VARCHAR(16) NOT NULL,
             `workflow_id` INT UNSIGNED NULL,
             `optin_trigger` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,

@@ -36,4 +36,28 @@ final class SchemaTest extends TestCase
             self::assertStringEndsWith(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci', $statement);
         }
     }
+
+    /**
+     * A NULL language would let MySQL accept two rows for one shop under the unique key; the empty
+     * string stands for "no language" instead.
+     *
+     * @dataProvider tablesKeyedByLanguage
+     */
+    public function testTheLanguageOfAnAccountOrAMappingIsNeverNull(string $table): void
+    {
+        $statement = Schema::createStatements('shop_', 'InnoDB')[$table];
+
+        self::assertStringContainsString("`language` CHAR(2) NOT NULL DEFAULT ''", $statement);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function tablesKeyedByLanguage(): array
+    {
+        return [
+            'account' => ['smaily_connect_account'],
+            'automation mapping' => ['smaily_connect_automation_mapping'],
+        ];
+    }
 }
