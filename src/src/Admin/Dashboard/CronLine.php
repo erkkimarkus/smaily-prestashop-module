@@ -47,6 +47,6 @@ final class CronLine extends AbstractJsonAction
     {
         $token = Services::instance()->get(TickSettings::class)->token(TickSettings::TICK_TOKEN, 0);
 
-        return ['line' => BackgroundTasks::cronLine(DashboardController::tickUrl($token))];
+        return ['line' => BackgroundTasks::cronLine(BackgroundTasks::tickUrl($token))];
     }
 }

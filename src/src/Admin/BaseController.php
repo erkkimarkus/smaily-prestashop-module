@@ -54,6 +54,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 abstract class BaseController extends FrameworkBundleAdminController
 {
+    use ContextTranslation;
+
     public const DOMAIN = 'Modules.Smailyforprestashop.Admin';
 
     /** The CSRF token id of the JSON endpoints (Api\AbstractJsonAction). */
@@ -94,6 +96,16 @@ abstract class BaseController extends FrameworkBundleAdminController
     }
 
     /**
+     * Whether the page opens: the employee may read it, and it is not sent to the Initial setup. A
+     * controller asks before it collects what only an opened page shows; renderPage() answers
+     * the request either way.
+     */
+    protected function opens(string $page): bool
+    {
+        return $this->isGranted('read', self::PAGES[$page]['tab']) && ($page === 'setup' || !self::isSetupForced());
+    }
+
+    /**
      * Renders one of the four pages: its frame, or $template when the page has a template that
      * extends the frame. $parameters reach the templates as they are.
      *
@@ -112,9 +124,8 @@ abstract class BaseController extends FrameworkBundleAdminController
         // A fresh install's menu holds PrestaShop's copy of the parent tab until a page repairs it.
         Menu::install($module->getTabs());
 
-        $entry = self::entryRoute();
-        if ($page !== 'setup' && $entry === self::PAGES['setup']['route']) {
-            return $this->redirectToRoute($entry);
+        if (!$this->opens($page)) {
+            return $this->redirectToRoute(self::PAGES['setup']['route']);
         }
 
         $upgrade = self::pendingUpgrade();
@@ -123,7 +134,7 @@ abstract class BaseController extends FrameworkBundleAdminController
             'layoutTitle' => $this->pageTitle($page),
             'smaily' => [
                 'page' => $page,
-                'entry' => self::PAGES[$page]['route'] === $entry,
+                'entry' => self::PAGES[$page]['route'] === self::entryRoute(),
                 'version' => $module->version,
                 'upgrade' => $upgrade,
                 // The notices tell what the finished upgrade did; until then the banner speaks.
@@ -177,17 +188,13 @@ abstract class BaseController extends FrameworkBundleAdminController
     }
 
     /**
-     * The parent asks the controller's container for "translator".
-     *
-     * @param string $key
-     * @param string $domain
-     * @param array<string, mixed> $parameters
-     *
-     * @return string
+     * The name of a shop, or null when the store has no such shop.
      */
-    protected function trans($key, $domain, array $parameters = [])
+    public static function shopName(int $idShop): ?string
     {
-        return self::translator()->trans($key, $parameters, $domain);
+        $shop = \Shop::getShop($idShop);
+
+        return is_array($shop) ? (string) $shop['name'] : null;
     }
 
     private function pageTitle(string $page): string
@@ -211,11 +218,7 @@ abstract class BaseController extends FrameworkBundleAdminController
     {
         $messages = new NoticeMessages(
             self::translator(),
-            static function (int $idShop): string {
-                $shop = \Shop::getShop($idShop);
-
-                return is_array($shop) ? (string) $shop['name'] : (string) $idShop;
-            }
+            static fn (int $idShop): string => self::shopName($idShop) ?? (string) $idShop
         );
 
         return array_map(static fn (array $notice): array => [

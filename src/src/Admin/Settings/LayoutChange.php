@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ConnectionPanel;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
 /**
@@ -44,7 +45,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
  *   removed, as Magento removes every website's (owner, 2026-11-20). The page asks first. The
  *   contacts confirmation is not an own value and stays (ShopOverrides).
  *
- * The Campaign Intelligence connection is not moved (it is not built yet).
+ * The Campaign Intelligence connection is not moved (it is not built yet). A store that has not
+ * said how its shops are run answers "one store" through Admin\Setup\StoreShapePanel, not here.
  */
 final class LayoutChange
 {
@@ -65,19 +67,25 @@ final class LayoutChange
         $this->shops = $shops;
     }
 
+    /**
+     * The shop whose values all shops use after a change to one store: the shop of PrestaShop's
+     * shop selector, or the default shop with "All shops" selected (0).
+     */
+    public static function promotedShop(int $selectedShop): int
+    {
+        return $selectedShop > 0 ? $selectedShop : (int) \Configuration::get('PS_SHOP_DEFAULT');
+    }
+
     public function toSeparateStores(): void
     {
         if ($this->layout->separateStores()) {
             return;
         }
-        $shops = ($this->shops)();
-        $otherAccount = [];
-        foreach ($shops as $idShop) {
-            $otherAccount[$idShop] = $this->overrides->usesOtherAccount($idShop);
+        $takesMappings = [];
+        foreach (($this->shops)() as $idShop) {
+            $takesMappings[$idShop] = !$this->overrides->usesOtherAccount($idShop);
         }
-        foreach ($shops as $idShop) {
-            $this->overrides->copySharedToShop($idShop, !$otherAccount[$idShop]);
-        }
+        $this->overrides->copySharedToShops($takesMappings);
         $this->overrides->removeShared();
         $this->layout->setSeparateStores(true);
     }
@@ -88,11 +96,6 @@ final class LayoutChange
     public function toOneStore(int $idShop): void
     {
         if (!$this->layout->separateStores()) {
-            // A store that became multishop after its setup answers the question for the first time.
-            if (!$this->layout->layoutChosen()) {
-                $this->layout->setSeparateStores(false);
-            }
-
             return;
         }
         $shops = ($this->shops)();
@@ -100,11 +103,8 @@ final class LayoutChange
             throw new \InvalidArgumentException('Not a shop of this store.');
         }
         $this->overrides->promoteToShared($idShop);
+        ConnectionPanel::shareLanguageMode($this->layout);
         $this->layout->setSeparateStores(false);
-        foreach ($shops as $shop) {
-            foreach (array_keys(ShopOverrides::KEYS) as $section) {
-                $this->overrides->removeOwn($section, $shop);
-            }
-        }
+        $this->overrides->removeAllOwn($shops);
     }
 }

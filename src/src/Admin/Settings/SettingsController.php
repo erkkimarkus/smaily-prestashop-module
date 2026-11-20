@@ -60,12 +60,12 @@ final class SettingsController extends BaseController
         $overrides = $panels->overrides();
 
         $ownShop = $context->ownShop();
+        $shared = $context->shared();
+        $connectionScope = $context->connectionScope($overrides);
         $own = $ownShop === null ? null : [
-            'connection' => $overrides->hasOwn(ShopOverrides::CONNECTION, $ownShop),
+            'connection' => $connectionScope !== $shared,
             'contacts' => $overrides->hasOwn(ShopOverrides::CONTACTS, $ownShop),
         ];
-        $shared = $context->shared();
-        $connectionScope = $context->scope($own['connection'] ?? false);
         $connection = $setup->connection()->values($connectionScope);
         $contacts = $setup->contacts()->values($context->scope($own['contacts'] ?? false));
         $target = $shared->targetShop();
@@ -75,26 +75,19 @@ final class SettingsController extends BaseController
         return $this->renderPage('settings', [
             'smaily_settings' => [
                 'shape' => $setup->shape()->values($shared),
-                'shop_name' => $shared->separateStores() && $target !== null ? self::shopName($target) : '',
+                'shop_name' => $shared->separateStores() && $target !== null ? (string) self::shopName($target) : '',
                 // Whose values all shops use after a change to one store: the shop the merchant looks at.
-                'promoted_shop' => self::shopName($selected > 0 ? $selected : (int) \Configuration::get('PS_SHOP_DEFAULT')),
+                'promoted_shop' => (string) self::shopName(LayoutChange::promotedShop($selected)),
                 'own' => $own,
                 'invitation' => $connection !== null && $connection['subdomain'] === '',
                 'connection' => $connection,
                 'languages' => $connectionScope->languages(),
-                'language_modes' => $ownShop === null ? $connectionScope->languageModes() : $context->scope(true)->languageModes(),
-                'account_per_language_elsewhere' => $ownShop === null && $shared->multilingual() && !$shared->offersAccountPerLanguage(),
+                'language_modes' => $context->languageModes(),
+                'account_per_language_elsewhere' => $context->accountPerLanguageElsewhere(),
                 'contacts' => $contacts,
                 'import' => $target === null ? null : $import->progress($target),
                 'rss' => $panels->rss()->values(),
             ],
         ], self::TEMPLATE);
-    }
-
-    private static function shopName(int $idShop): string
-    {
-        $shop = \Shop::getShop($idShop);
-
-        return is_array($shop) ? (string) $shop['name'] : '';
     }
 }

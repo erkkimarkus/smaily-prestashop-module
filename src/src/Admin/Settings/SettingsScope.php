@@ -65,17 +65,12 @@ final class SettingsScope
         if (!$setup->multishop() || $setup->separateStores() || $selectedShop <= 0) {
             return new self($setup, null);
         }
-        $languages = [];
-        foreach (\Language::getLanguages(true, $selectedShop) as $row) {
-            $iso = strtolower((string) $row['iso_code']);
-            if (!isset($languages[$iso])) {
-                $languages[$iso] = (string) $row['name'];
-            }
-        }
+        $chosen = $layout->layoutChosen();
 
+        // The scope all shops share differs from the selected shop's in the shop alone.
         return new self(
-            SetupScope::current($layout, 0),
-            new SetupScope(true, true, $layout->layoutChosen(), $selectedShop, $languages, $setup->shopNames())
+            new SetupScope(true, false, $chosen, 0, $setup->languages(), $setup->shopNames()),
+            new SetupScope(true, true, $chosen, $selectedShop, SetupScope::languagesOf($selectedShop), $setup->shopNames())
         );
     }
 
@@ -100,5 +95,31 @@ final class SettingsScope
     public function shared(): SetupScope
     {
         return $this->shared;
+    }
+
+    /**
+     * The scope Settings > Connection shows: a selected shop's own account where it holds one,
+     * else the shared one.
+     */
+    public function connectionScope(ShopOverrides $overrides): SetupScope
+    {
+        return $this->scope($this->own !== null && $overrides->hasOwn(ShopOverrides::CONNECTION, (int) $this->ownShop()));
+    }
+
+    /**
+     * The language modes Settings > Connection offers: a shop that may hold its own account is
+     * offered a shop's own modes, which its switch shows and hides.
+     *
+     * @return list<string>
+     */
+    public function languageModes(): array
+    {
+        return ($this->own ?? $this->shared)->languageModes();
+    }
+
+    /** An account per language is offered for one shop only, and the page edits all shops. */
+    public function accountPerLanguageElsewhere(): bool
+    {
+        return $this->own === null && $this->shared->multilingual() && !$this->shared->offersAccountPerLanguage();
     }
 }

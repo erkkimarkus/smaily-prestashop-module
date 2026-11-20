@@ -84,4 +84,24 @@ final class AccountStore
             . ' `password_enc` = VALUES(`password_enc`), `date_upd` = VALUES(`date_upd`)'
         );
     }
+
+    /**
+     * Deletes the account of a shop and language, if one is stored.
+     */
+    public function delete(int $idShop, string $language): bool
+    {
+        return \Db::getInstance()->delete(self::TABLE, '`id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\'');
+    }
+
+    /**
+     * The shop and language of each stored account.
+     *
+     * @return list<array{id_shop: string, language: string}>
+     */
+    public function scopes(): array
+    {
+        $rows = \Db::getInstance()->executeS('SELECT `id_shop`, `language` FROM `' . _DB_PREFIX_ . self::TABLE . '`', true, false);
+
+        return is_array($rows) ? array_values($rows) : [];
+    }
 }

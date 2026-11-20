@@ -29,7 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\StoreShapePanel;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -37,21 +38,27 @@ use Symfony\Component\HttpFoundation\Request;
  * POST {"shape": "one" | "separate"}. To one store, the values of the shop selected in
  * PrestaShop's shop selector (the default shop with "All shops") become the shared ones and every
  * shop's own values are removed; the page asks the merchant before it posts. The same shape as now
- * changes nothing.
+ * changes nothing. A store that has not said how its shops are run answers "one" through the
+ * Initial setup's panel (Admin\Setup\StoreShapePanel), which owns that first answer.
  */
 final class ChangeLayout extends AbstractSettingsAction
 {
     protected function handle(Request $request, int $idShop)
     {
         $shape = (string) ($this->body($request)['shape'] ?? '');
-        if (!\Shop::isFeatureActive() || !in_array($shape, ['one', 'separate'], true)) {
-            return $this->fieldErrors([['field' => 'shape', 'message' => $this->trans('Pick how your shops are run.', BaseController::DOMAIN)]]);
+        $settings = $this->settings();
+        $scope = $settings->context($idShop)->shared();
+        $panel = $settings->setup()->shape();
+        $errors = $panel->shapeErrors($scope, $shape);
+        if ($errors !== []) {
+            return $this->fieldErrors($errors);
         }
-        $change = $this->settings()->layoutChange();
-        if ($shape === 'separate') {
-            $change->toSeparateStores();
+        if ($shape === StoreShapePanel::SEPARATE_STORES) {
+            $settings->layoutChange()->toSeparateStores();
+        } elseif ($scope->separateStores()) {
+            $settings->layoutChange()->toOneStore(LayoutChange::promotedShop($idShop));
         } else {
-            $change->toOneStore($idShop > 0 ? $idShop : (int) \Configuration::get('PS_SHOP_DEFAULT'));
+            $panel->save($scope, ['shape' => $shape]);
         }
 
         return [];

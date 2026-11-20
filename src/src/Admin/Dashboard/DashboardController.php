@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
@@ -49,7 +50,7 @@ final class DashboardController extends BaseController
 {
     public function index(Request $request): Response
     {
-        if (!$this->isGranted('read', self::PAGES['dashboard']['tab']) || self::entryRoute() !== self::PAGES['dashboard']['route']) {
+        if (!$this->opens('dashboard')) {
             // The shell refuses the page, or sends it to the Initial setup.
             return $this->renderPage('dashboard');
         }
@@ -57,7 +58,7 @@ final class DashboardController extends BaseController
         $services = Services::instance();
         $facts = new DashboardFacts(
             new DashboardQueries(),
-            new DashboardSettings(),
+            $services->get(ContactsSettings::class),
             $services->get(StoreLayout::class),
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
@@ -78,13 +79,5 @@ final class DashboardController extends BaseController
             'smaily_dashboard' => $view,
             'smaily_invitation' => $view['invitation'],
         ]);
-    }
-
-    /**
-     * The tick URL with its token (ARCHITECTURE 4.3).
-     */
-    public static function tickUrl(string $token): string
-    {
-        return \Context::getContext()->link->getModuleLink('smailyforprestashop', 'tick', ['token' => $token], true);
     }
 }

@@ -29,8 +29,11 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
-use Symfony\Component\HttpFoundation\Request;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\TestSmaily;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
  * "Test connection" and the connection's state on Settings > Connection, through the Initial
@@ -43,25 +46,12 @@ use Symfony\Component\HttpFoundation\Request;
  * shared one. Like the setup's test, it takes the right to change Settings: it sends typed
  * credentials to Smaily.
  */
-final class TestConnection extends AbstractSettingsAction
+final class TestConnection extends TestSmaily
 {
-    protected function handle(Request $request, int $idShop)
+    protected function scope(int $idShop): SetupScope
     {
-        $data = $this->body($request);
-        $settings = $this->settings();
-        $context = $settings->context($idShop);
-        $shop = $context->ownShop();
-        $scope = $context->scope($shop !== null && $settings->overrides()->hasOwn(ShopOverrides::CONNECTION, $shop));
-        $connection = $settings->setup()->connection();
+        $settings = new SettingsPanels(Services::instance(), BaseController::translator());
 
-        if (!empty($data['saved'])) {
-            return $connection->checkStored($scope, (string) ($data['language'] ?? '')) ?? ['connected' => null];
-        }
-        $result = $connection->test($scope, $data);
-        if ($result['errors'] !== []) {
-            return $this->fieldErrors($result['errors']);
-        }
-
-        return ['connected' => $result['connected'], 'error' => $result['error']];
+        return $settings->context($idShop)->connectionScope($settings->overrides());
     }
 }

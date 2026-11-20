@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -49,7 +50,7 @@ final class DashboardFacts
 
     private DashboardQueries $queries;
 
-    private DashboardSettings $settings;
+    private ContactsSettings $contacts;
 
     private StoreLayout $layout;
 
@@ -61,14 +62,14 @@ final class DashboardFacts
 
     public function __construct(
         DashboardQueries $queries,
-        DashboardSettings $settings,
+        ContactsSettings $contacts,
         StoreLayout $layout,
         AccountResolver $resolver,
         AccountStore $accounts,
         TickSettings $ticks
     ) {
         $this->queries = $queries;
-        $this->settings = $settings;
+        $this->contacts = $contacts;
         $this->layout = $layout;
         $this->resolver = $resolver;
         $this->accounts = $accounts;
@@ -90,8 +91,8 @@ final class DashboardFacts
             'separate_stores' => $this->layout->separateStores(),
             'account' => null,
             'any_account' => false,
-            'contacts_enabled' => $this->settings->contactsEnabled($idShop),
-            'contacts_confirmed' => $this->settings->contactsConfirmed($idShop),
+            'contacts_enabled' => $this->contacts->enabled($idShop),
+            'contacts_confirmed' => $this->contacts->confirmed($idShop),
             'tick' => $this->ticks->state(),
             'now' => $now,
             'contact_syncs' => null,
@@ -119,7 +120,7 @@ final class DashboardFacts
 
     private function anyAccount(): bool
     {
-        foreach ($this->queries->accountScopes() as $scope) {
+        foreach ($this->accounts->scopes() as $scope) {
             $account = $this->accounts->find((int) $scope['id_shop'], (string) $scope['language']);
             if ($account !== null && $account->hasCredentials()) {
                 return true;

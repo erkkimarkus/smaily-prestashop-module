@@ -34,7 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
 /**
- * The Dashboard's reads of the event queue, the job table and the account table: read-only SQL,
+ * The Dashboard's reads of the event queue and the job table: read-only SQL,
  * each statement bounded by an index or by a row limit, so the page stays fast on a queue of a
  * million rows. The queue classes have no such reads; a later clean-up can move them there.
  *
@@ -43,7 +43,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *   `next_retry_at`) or (`created_at`), whichever the optimizer finds narrower.
  * - failedSince(): `status` = failed, through the index (`status`, `next_retry_at`).
  * - latestRows(), latestJobs(): the newest rows by primary key.
- * - accountScopes(): the account table, one row per shop and language.
  */
 final class DashboardQueries
 {
@@ -131,16 +130,6 @@ final class DashboardQueries
             self::table(JobStore::TABLE),
             $limit
         ));
-    }
-
-    /**
-     * The shop and language of each stored Smaily account.
-     *
-     * @return list<array{id_shop: string, language: string}>
-     */
-    public function accountScopes(): array
-    {
-        return self::rows('SELECT `id_shop`, `language` FROM ' . self::table('smaily_connect_account'));
     }
 
     /**

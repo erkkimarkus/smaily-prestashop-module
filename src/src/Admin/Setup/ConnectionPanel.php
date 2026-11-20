@@ -171,7 +171,7 @@ final class ConnectionPanel
             // A language left empty has no account of its own any more: the fallback takes it.
             foreach (array_keys($scope->languages()) as $iso) {
                 if (!isset($accounts[$iso])) {
-                    \Db::getInstance()->delete('smaily_connect_account', '`id_shop` = ' . $target . ' AND `language` = \'' . pSQL($iso) . '\'');
+                    $this->accounts->delete($target, $iso);
                 }
             }
             $this->layout->setFallbackLanguage($fallback, $target);
@@ -239,6 +239,18 @@ final class ConnectionPanel
         }
 
         return ['subdomain' => $account->subdomain()] + $this->check->check($account->subdomain(), $account->username(), $account->password());
+    }
+
+    /**
+     * After a shop's values became the values all shops share (Settings\LayoutChange): a Smaily
+     * account per language is a shop's own setting, so the shared mode `a` becomes Single language
+     * (ARCHITECTURE 5.1, Magento's promoteToStoreWide()).
+     */
+    public static function shareLanguageMode(StoreLayout $layout): void
+    {
+        if ($layout->languageMode(0) === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE) {
+            $layout->setLanguageMode(StoreLayout::MODE_SINGLE, 0);
+        }
     }
 
     /**

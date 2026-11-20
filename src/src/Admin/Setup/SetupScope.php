@@ -80,14 +80,6 @@ final class SetupScope
     {
         $multishop = (bool) \Shop::isFeatureActive();
         $separate = $multishop && $layout->separateStores();
-        $languages = [];
-        $rows = $separate && $selectedShop > 0 ? \Language::getLanguages(true, $selectedShop) : \Language::getLanguages(true);
-        foreach ($rows as $row) {
-            $iso = strtolower((string) $row['iso_code']);
-            if (!isset($languages[$iso])) {
-                $languages[$iso] = (string) $row['name'];
-            }
-        }
         $shopNames = [];
         if ($multishop) {
             foreach (\Shop::getShops(false) as $shop) {
@@ -95,7 +87,25 @@ final class SetupScope
             }
         }
 
-        return new self($multishop, $separate, $layout->layoutChosen(), $selectedShop, $languages, $shopNames);
+        return new self($multishop, $separate, $layout->layoutChosen(), $selectedShop, self::languagesOf($separate ? $selectedShop : 0), $shopNames);
+    }
+
+    /**
+     * The active languages of a shop, or with 0 of the whole store.
+     *
+     * @return array<string, string> ISO code => name
+     */
+    public static function languagesOf(int $idShop): array
+    {
+        $languages = [];
+        foreach (\Language::getLanguages(true, $idShop > 0 ? $idShop : false) as $row) {
+            $iso = strtolower((string) $row['iso_code']);
+            if (!isset($languages[$iso])) {
+                $languages[$iso] = (string) $row['name'];
+            }
+        }
+
+        return $languages;
     }
 
     /** The store has two or more shops, and PrestaShop's multishop is on. */

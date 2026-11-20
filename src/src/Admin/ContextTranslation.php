@@ -23,28 +23,27 @@
  */
 declare(strict_types=1);
 
-namespace PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard;
+namespace PrestaShop\Module\SmailyForPrestaShop\Admin;
 
 if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
-use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
-
 /**
- * The settings that the Dashboard reads and no settings class exposes on its own: read only,
- * through Config\Settings's scope rule (the shop's own value, else the global one).
+ * trans() of the admin pages and their JSON endpoints: the parent controller asks its container
+ * for "translator", which PrestaShop 8.2.8 does not hold (BaseController::translator()).
  */
-final class DashboardSettings extends Settings
+trait ContextTranslation
 {
-    public function contactsEnabled(int $idShop): bool
+    /**
+     * @param string $key
+     * @param string $domain
+     * @param array<string, mixed> $parameters
+     *
+     * @return string
+     */
+    protected function trans($key, $domain, array $parameters = [])
     {
-        return $this->get(ContactsSettings::ENABLED, $idShop) === '1';
-    }
-
-    public function contactsConfirmed(int $idShop): bool
-    {
-        return $this->get(ContactsSettings::CONFIRMED, $idShop) === '1';
+        return BaseController::translator()->trans($key, $parameters, $domain);
     }
 }

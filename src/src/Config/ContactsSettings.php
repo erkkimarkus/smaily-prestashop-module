@@ -67,6 +67,18 @@ class ContactsSettings extends Settings
         return $this->get(self::ENABLED, $idShop) === '1' && $this->get(self::CONFIRMED, $idShop) === '1';
     }
 
+    /** Whether a shop's contact sync is switched on. */
+    public function enabled(int $idShop): bool
+    {
+        return $this->get(self::ENABLED, $idShop) === '1';
+    }
+
+    /** Whether a shop's Contacts settings were confirmed. */
+    public function confirmed(int $idShop): bool
+    {
+        return $this->get(self::CONFIRMED, $idShop) === '1';
+    }
+
     public function mode(int $idShop): ContactSyncMode
     {
         return new ContactSyncMode((string) $this->get(self::MODE, $idShop), $this->get(self::GUESTS, $idShop) === '1');

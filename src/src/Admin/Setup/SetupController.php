@@ -65,7 +65,6 @@ final class SetupController extends BaseController
         /** @var ContactImport $import */
         $import = $services->get(ContactImport::class);
         $progress = $target === null ? null : $import->progress($target);
-        $shop = $scope->separateStores() && $target !== null ? \Shop::getShop($target) : null;
 
         return $this->renderPage('setup', [
             'smaily_setup_step' => $step,
@@ -73,7 +72,7 @@ final class SetupController extends BaseController
             'smaily_invitation' => $connection !== null && $connection['subdomain'] === '',
             'smaily_setup' => [
                 'shape' => $panels->shape()->values($scope),
-                'shop_name' => is_array($shop) ? (string) $shop['name'] : '',
+                'shop_name' => $scope->separateStores() && $target !== null ? (string) self::shopName($target) : '',
                 'connection' => $connection,
                 'languages' => $scope->languages(),
                 'language_modes' => $scope->languageModes(),

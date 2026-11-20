@@ -82,6 +82,14 @@ final class BackgroundTasks
     }
 
     /**
+     * The tick URL with its token (ARCHITECTURE 4.3).
+     */
+    public static function tickUrl(string $token): string
+    {
+        return \Context::getContext()->link->getModuleLink('smailyforprestashop', 'tick', ['token' => $token], true);
+    }
+
+    /**
      * The crontab line that calls $url every minute.
      */
     public static function cronLine(string $url): string

@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\ContextTranslation;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShopBundle\Controller\Admin\FrameworkBundleAdminController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -52,6 +53,8 @@ use Symfony\Component\HttpFoundation\Request;
  */
 abstract class AbstractJsonAction extends FrameworkBundleAdminController
 {
+    use ContextTranslation;
+
     /** The right on the route's tab: `read` for an endpoint that changes nothing. */
     protected const PERMISSION = 'update';
 
@@ -79,20 +82,6 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
      * @return array<string, mixed>|JsonResponse the data of a successful answer, or an error()
      */
     abstract protected function handle(Request $request, int $idShop);
-
-    /**
-     * The parent asks the controller's container for "translator" (BaseController::translator()).
-     *
-     * @param string $key
-     * @param string $domain
-     * @param array<string, mixed> $parameters
-     *
-     * @return string
-     */
-    protected function trans($key, $domain, array $parameters = [])
-    {
-        return BaseController::translator()->trans($key, $parameters, $domain);
-    }
 
     /**
      * @param array<string, mixed> $data

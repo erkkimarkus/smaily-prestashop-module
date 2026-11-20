@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -39,23 +40,34 @@ use Symfony\Component\HttpFoundation\Request;
  * stored account (the Overview's connection state), answering `{"connected", "error", "subdomain"}`,
  * or `{"connected": null}` when none is stored. Empty fields and a refused subdomain ask nothing and
  * answer with the fields at fault.
+ *
+ * Not final: Settings > Connection asks the same of the scope that its tab shows
+ * (Api\Settings\TestConnection).
  */
-final class TestSmaily extends AbstractSetupAction
+class TestSmaily extends AbstractSetupAction
 {
     protected function handle(Request $request, int $idShop)
     {
         $data = $this->body($request);
-        $panels = $this->panels();
-        $scope = $panels->scope($idShop);
+        $scope = $this->scope($idShop);
+        $connection = $this->panels()->connection();
 
         if (!empty($data['saved'])) {
-            return $panels->connection()->checkStored($scope, (string) ($data['language'] ?? '')) ?? ['connected' => null];
+            return $connection->checkStored($scope, (string) ($data['language'] ?? '')) ?? ['connected' => null];
         }
-        $result = $panels->connection()->test($scope, $data);
+        $result = $connection->test($scope, $data);
         if ($result['errors'] !== []) {
             return $this->fieldErrors($result['errors']);
         }
 
         return ['connected' => $result['connected'], 'error' => $result['error']];
+    }
+
+    /**
+     * The scope whose account the page shows.
+     */
+    protected function scope(int $idShop): SetupScope
+    {
+        return $this->panels()->scope($idShop);
     }
 }

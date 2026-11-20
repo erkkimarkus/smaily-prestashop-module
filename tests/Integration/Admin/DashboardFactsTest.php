@@ -5,7 +5,6 @@ namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardFacts;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardQueries;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
@@ -167,7 +166,7 @@ final class DashboardFactsTest extends IntegrationTestCase
         $services = Services::instance();
         $facts = new DashboardFacts(
             new DashboardQueries(),
-            new DashboardSettings(),
+            new ContactsSettings(),
             $services->get(StoreLayout::class),
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),

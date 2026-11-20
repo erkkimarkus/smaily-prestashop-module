@@ -75,6 +75,20 @@ final class StoreShapePanel
     }
 
     /**
+     * Why $shape is not an answer: the store has one shop, or the shape is none of the two.
+     *
+     * @return list<array{field: string, message: string}>
+     */
+    public function shapeErrors(SetupScope $scope, string $shape): array
+    {
+        if (!$scope->multishop() || !in_array($shape, [self::ONE_STORE, self::SEPARATE_STORES], true)) {
+            return [['field' => 'shape', 'message' => $this->trans('Pick how your shops are run.')]];
+        }
+
+        return [];
+    }
+
+    /**
      * Stores the posted `shape`.
      *
      * @param array<string, mixed> $data
@@ -84,8 +98,9 @@ final class StoreShapePanel
     public function save(SetupScope $scope, array $data): array
     {
         $shape = (string) ($data['shape'] ?? '');
-        if (!$scope->multishop() || !in_array($shape, [self::ONE_STORE, self::SEPARATE_STORES], true)) {
-            return [['field' => 'shape', 'message' => $this->trans('Pick how your shops are run.')]];
+        $errors = $this->shapeErrors($scope, $shape);
+        if ($errors !== []) {
+            return $errors;
         }
         $separate = $shape === self::SEPARATE_STORES;
         if (!$scope->asksLayoutFirst()) {

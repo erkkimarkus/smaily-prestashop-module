@@ -50,6 +50,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  *   checkbox. The confirmation (CONTACTS_CONFIRMED) is not an own value: it is never copied or
  *   removed, as in Magento.
  * - The automations: their switches, the cart delay and fields, and the shop's mapping rows.
+ *
+ * A change of the shop layout (LayoutChange) reloads the configuration once, after its last
+ * removal: copySharedToShops() and promoteToShared() only write, and a write keeps the loaded
+ * configuration current.
  */
 final class ShopOverrides extends Settings
 {
@@ -95,10 +99,8 @@ final class ShopOverrides extends Settings
      */
     public function hasOwn(string $section, int $idShop): bool
     {
-        foreach (self::KEYS[$section] as $key) {
-            if ($this->ownValue($key, $idShop) !== null) {
-                return true;
-            }
+        if ($this->storedValues(self::KEYS[$section], $idShop) !== []) {
+            return true;
         }
         if ($section === self::CONNECTION) {
             return $this->accounts->find($idShop, '') !== null;
@@ -112,16 +114,20 @@ final class ShopOverrides extends Settings
      */
     public function removeOwn(string $section, int $idShop): void
     {
-        foreach (self::KEYS[$section] as $key) {
-            if ($this->ownValue($key, $idShop) !== null) {
-                $this->removeShopValue($key, $idShop);
-            }
-        }
-        if ($section === self::CONNECTION) {
-            \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $idShop);
-        } elseif ($section === self::AUTOMATIONS) {
-            foreach ($this->mappings->rows($idShop) as $row) {
-                $this->mappings->delete($idShop, $row['trigger'], $row['language'], $row['account_key']);
+        $this->deleteOwn($section, $idShop);
+        $this->reload();
+    }
+
+    /**
+     * Separate stores to one store: removes the own values of the three sections of every shop.
+     *
+     * @param list<int> $shops
+     */
+    public function removeAllOwn(array $shops): void
+    {
+        foreach ($shops as $idShop) {
+            foreach (array_keys(self::KEYS) as $section) {
+                $this->deleteOwn($section, $idShop);
             }
         }
         $this->reload();
@@ -160,33 +166,34 @@ final class ShopOverrides extends Settings
 
     public function removeAccount(int $idShop, string $language): void
     {
-        \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\'');
+        $this->accounts->delete($idShop, $language);
     }
 
     /**
-     * One store to separate stores, for one shop: every shared value of the three sections that
-     * the shop does not hold becomes its own, as stored. A shop on another Smaily account gets no
-     * shared mapping row: it never read them (Magento CON-190).
+     * One store to separate stores: every shared value of the three sections that a shop does not
+     * hold becomes its own, as stored. A shop on another Smaily account gets no shared mapping
+     * row: it never read them (Magento CON-190).
+     *
+     * @param array<int, bool> $shops each shop's id => whether it takes the shared mapping rows
      */
-    public function copySharedToShop(int $idShop, bool $withMappings): void
+    public function copySharedToShops(array $shops): void
     {
-        foreach (self::KEYS as $keys) {
-            foreach ($keys as $key) {
-                $shared = $this->storedValue($key);
-                if ($shared !== null && $this->ownValue($key, $idShop) === null) {
-                    $this->set($key, $shared, $idShop);
+        $keys = array_merge(...array_values(self::KEYS));
+        $shared = $this->storedValues($keys, null);
+        $languages = $this->accountLanguages(0);
+        foreach ($shops as $idShop => $withMappings) {
+            foreach (array_diff_key($shared, $this->storedValues($keys, $idShop)) as $key => $value) {
+                $this->set($key, $value, $idShop);
+            }
+            foreach ($languages as $language) {
+                if ($this->accounts->find($idShop, $language) === null) {
+                    $this->copyAccountRow(0, $idShop, $language);
                 }
             }
-        }
-        foreach ($this->accountLanguages(0) as $language) {
-            if ($this->accounts->find($idShop, $language) === null) {
-                $this->copyAccountRow(0, $idShop, $language);
+            if ($withMappings) {
+                $this->copyMappings(0, $idShop);
             }
         }
-        if ($withMappings) {
-            $this->copyMappings(0, $idShop);
-        }
-        $this->reload();
     }
 
     /**
@@ -201,48 +208,70 @@ final class ShopOverrides extends Settings
             }
         }
         \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
-        foreach ($this->mappings->rows(0) as $row) {
-            $this->mappings->delete(0, $row['trigger'], $row['language'], $row['account_key']);
-        }
+        $this->removeMappings(0);
         $this->reload();
     }
 
     /**
-     * Separate stores to one store: the shop's values become the values all shops share. A Smaily
-     * account per language is a shop's own setting, so the shared language mode `a` becomes
-     * Single language, and the shared account is the shop's account of no language (its fallback
-     * account), as Magento's promoteToStoreWide() does. The shop's accounts of a language are
-     * not shared: they go with its own values (removeOwn()), as Magento's go.
+     * Separate stores to one store: the shop's values become the values all shops share, as
+     * stored, and the shared account is the shop's account of no language (its fallback account),
+     * as Magento's promoteToStoreWide() does. The shop's accounts of a language are not shared:
+     * they go with its own values (removeAllOwn()), as Magento's go.
      */
     public function promoteToShared(int $idShop): void
     {
-        foreach (self::KEYS as $keys) {
-            foreach ($keys as $key) {
-                // The shop's own value, else the shared one it reads now (an upgrade can leave one).
-                $value = $this->ownValue($key, $idShop) ?? $this->storedValue($key);
-                if ($key === StoreLayout::LANGUAGE_MODE && $value === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE) {
-                    $value = StoreLayout::MODE_SINGLE;
-                }
-                if ($value !== null) {
-                    $this->set($key, $value);
-                }
-            }
+        $keys = array_merge(...array_values(self::KEYS));
+        // The shop's own value, else the shared one it reads now (an upgrade can leave one).
+        foreach ($this->storedValues($keys, $idShop) + $this->storedValues($keys, null) as $key => $value) {
+            $this->set($key, $value);
         }
         \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
         $this->copyAccountRow($idShop, 0, '');
-        foreach ($this->mappings->rows(0) as $row) {
-            $this->mappings->delete(0, $row['trigger'], $row['language'], $row['account_key']);
-        }
+        $this->removeMappings(0);
         $this->copyMappings($idShop, 0);
-        $this->reload();
     }
 
     /**
-     * The value stored at exactly the shop's scope (null: none), past this request's cache.
+     * The values stored at exactly the shop's scope, or with null at the scope all shops share,
+     * read past this request's cache as storedValue() reads one: key => value, without the keys
+     * that hold no row or NULL there.
+     *
+     * @param list<string> $keys
+     *
+     * @return array<string, string>
      */
-    private function ownValue(string $key, int $idShop): ?string
+    private function storedValues(array $keys, ?int $idShop): array
     {
-        return $this->storedValue($key, $idShop);
+        $rows = \Db::getInstance()->executeS(sprintf(
+            'SELECT `name`, `value` FROM `%sconfiguration` WHERE `name` IN (\'%s\') AND `value` IS NOT NULL AND %s',
+            _DB_PREFIX_,
+            implode('\', \'', array_map('pSQL', $keys)),
+            $idShop !== null && $idShop > 0 ? sprintf('`id_shop` = %d', $idShop) : '`id_shop_group` IS NULL AND `id_shop` IS NULL'
+        ), true, false);
+
+        return array_column(is_array($rows) ? $rows : [], 'value', 'name');
+    }
+
+    /**
+     * Removes the shop's own values of the section; the caller reloads the configuration.
+     */
+    private function deleteOwn(string $section, int $idShop): void
+    {
+        foreach (array_keys($this->storedValues(self::KEYS[$section], $idShop)) as $key) {
+            $this->removeShopValue($key, $idShop);
+        }
+        if ($section === self::CONNECTION) {
+            \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $idShop);
+        } elseif ($section === self::AUTOMATIONS) {
+            $this->removeMappings($idShop);
+        }
+    }
+
+    private function removeMappings(int $idShop): void
+    {
+        foreach ($this->mappings->rows($idShop) as $row) {
+            $this->mappings->delete($idShop, $row['trigger'], $row['language'], $row['account_key']);
+        }
     }
 
     /**
