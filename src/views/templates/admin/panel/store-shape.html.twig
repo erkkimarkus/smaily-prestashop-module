@@ -7,7 +7,9 @@
  # wait for it. Otherwise the bar names the layout; in separate stores PrestaShop's own shop
  # selector in the header picks the shop that the page sets up (`shop_name`, empty for "All shops").
  #
- # Takes `shape` (StoreShapePanel::values()) and `shop_name`.
+ # Takes `shape` (StoreShapePanel::values()) and `shop_name`. Settings also passes `changeable`
+ # (the bar's Change, which opens the choice of a layout change, Admin\Settings\LayoutChange) and
+ # `promoted_shop` (the shop whose values all shops use after a change to one store).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if shape %}
@@ -20,6 +22,9 @@
       <div class="smaily-store-shape__bar">
         <span class="smaily-store-shape__label">{{ 'Your shops'|trans }}</span>
         <strong class="smaily-store-shape__name">{{ shapes[shape.shape][0] }}</strong>
+        {% if changeable|default(false) %}
+          <button type="button" class="smaily-store-shape__change" data-smaily-action="shape-change">{{ 'Change'|trans }}</button>
+        {% endif %}
         {% if shape.shape == 'separate' %}
           <span class="smaily-store-shape__shop">
             {% if shop_name %}
@@ -48,6 +53,32 @@
         </div>
         <div class="smaily-actions">
           <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-shape">{{ 'Continue'|trans }}</button>
+          <span class="smaily-result" data-smaily-shape-result role="status"></span>
+        </div>
+      </div>
+    {% endif %}
+    {% if changeable|default(false) and not shape.first %}
+      {# Change: the choice with what each direction does to the settings, Save and Cancel. #}
+      <div class="smaily-card smaily-shape-choice" data-smaily-shape-change hidden>
+        <h2>{{ 'How are your shops run?'|trans }}</h2>
+        <p>{{ 'This installation has %count% shops: %shops%.'|trans({'%count%': shape.shops|length, '%shops%': shape.shops|join(', ')}) }}</p>
+        <div role="radiogroup" data-smaily-field="shape">
+          {% for value, card in shapes %}
+            <label class="smaily-choice{{ value == shape.shape ? ' is-selected' : '' }}">
+              <input class="smaily-choice__input" type="radio" name="smaily-shape-change" value="{{ value }}"{{ value == shape.shape ? ' checked' : '' }}>
+              <span class="smaily-choice__radio" aria-hidden="true"></span>
+              <span class="smaily-choice__body">
+                <span class="smaily-choice__title-row"><span class="smaily-choice__title">{{ card[0] }}</span></span>
+                <span class="smaily-choice__desc">{{ card[1] }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="separate" hidden>{{ 'Each shop keeps the settings it uses now, as its own. Change them for each shop afterwards.'|trans }}</p>
+        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="one" hidden>{{ 'All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. A shop whose own settings differ keeps them as its own, so every shop goes on syncing as it does now.'|trans({'%shop%': promoted_shop|default('')}) }}</p>
+        <div class="smaily-actions">
+          <button type="button" class="btn smaily-btn-primary" data-smaily-action="shape-save">{{ 'Save'|trans }}</button>
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="shape-cancel">{{ 'Cancel'|trans }}</button>
           <span class="smaily-result" data-smaily-shape-result role="status"></span>
         </div>
       </div>
