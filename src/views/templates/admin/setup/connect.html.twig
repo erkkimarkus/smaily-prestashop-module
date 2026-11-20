@@ -1,0 +1,25 @@
+{#
+ # Initial setup, step 1 (Connect): how the shops are run, where that applies, then the Connection
+ # panel under the setup's own intro (Magento's wizard step 1). In separate stores with "All shops"
+ # selected, the step says to pick a shop instead.
+ #
+ # `smaily_setup` comes from Admin\Setup\SetupController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set panel = '@Modules/smailyforprestashop/views/templates/admin/panel/' %}
+{% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name} only %}
+<div data-smaily-shape-page>
+  {% if smaily_setup.connection is null %}
+    <div class="smaily-card">
+      <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+    </div>
+  {% else %}
+    <p class="smaily-intro">{{ 'You can find or create API credentials in Smaily under gear icon → Integrations. The password is stored encrypted and never leaves your server.'|trans }}</p>
+    {% include panel ~ 'connection.html.twig' with {
+      connection: smaily_setup.connection,
+      languages: smaily_setup.languages,
+      language_modes: smaily_setup.language_modes,
+      account_per_language_elsewhere: smaily_setup.account_per_language_elsewhere,
+    } only %}
+  {% endif %}
+</div>

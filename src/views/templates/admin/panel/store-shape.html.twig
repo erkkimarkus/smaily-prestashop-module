@@ -1,0 +1,56 @@
+{#
+ # How the shops of a multishop store are run (Magento's panel/store-shape.phtml, "website" read as
+ # "shop"): shared by the Initial setup and Settings, saved by Admin\Setup\StoreShapePanel. A store
+ # with one shop draws nothing.
+ #
+ # While no layout is stored (`shape.first`), the choice shows alone and the page's steps or tabs
+ # wait for it. Otherwise the bar names the layout; in separate stores PrestaShop's own shop
+ # selector in the header picks the shop that the page sets up (`shop_name`, empty for "All shops").
+ #
+ # Takes `shape` (StoreShapePanel::values()) and `shop_name`.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if shape %}
+  {% set shapes = {
+    one: ['One store in several versions'|trans, 'The shops are country or language versions of one business, on one Smaily account. You set the store up once; a shop differs only where you give it its own settings.'|trans],
+    separate: ['Separate stores'|trans, 'Each shop is a business of its own, with its own Smaily account, contacts and automations. You set each shop up on its own, as a single store.'|trans],
+  } %}
+  <div class="smaily-panel smaily-store-shape" data-smaily-panel="store-shape" data-shape="{{ shape.shape }}" data-first="{{ shape.first ? 1 : 0 }}">
+    {% if not shape.first %}
+      <div class="smaily-store-shape__bar">
+        <span class="smaily-store-shape__label">{{ 'Your shops'|trans }}</span>
+        <strong class="smaily-store-shape__name">{{ shapes[shape.shape][0] }}</strong>
+        {% if shape.shape == 'separate' %}
+          <span class="smaily-store-shape__shop">
+            {% if shop_name %}
+              {{ 'You are setting up %shop%. Pick another shop in the shop selector at the top of the page.'|trans({'%shop%': shop_name}) }}
+            {% else %}
+              {{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}
+            {% endif %}
+          </span>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="smaily-card smaily-shape-choice">
+        <h2>{{ 'How are your shops run?'|trans }}</h2>
+        <p>{{ 'This installation has %count% shops: %shops%.'|trans({'%count%': shape.shops|length, '%shops%': shape.shops|join(', ')}) }}</p>
+        <div role="radiogroup" data-smaily-field="shape">
+          {% for value, card in shapes %}
+            <label class="smaily-choice{{ value == 'one' ? ' is-selected' : '' }}">
+              <input class="smaily-choice__input" type="radio" name="smaily-shape" value="{{ value }}"{{ value == 'one' ? ' checked' : '' }}>
+              <span class="smaily-choice__radio" aria-hidden="true"></span>
+              <span class="smaily-choice__body">
+                <span class="smaily-choice__title-row"><span class="smaily-choice__title">{{ card[0] }}</span></span>
+                <span class="smaily-choice__desc">{{ card[1] }}</span>
+              </span>
+            </label>
+          {% endfor %}
+        </div>
+        <div class="smaily-actions">
+          <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-shape">{{ 'Continue'|trans }}</button>
+          <span class="smaily-result" data-smaily-shape-result role="status"></span>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+{% endif %}

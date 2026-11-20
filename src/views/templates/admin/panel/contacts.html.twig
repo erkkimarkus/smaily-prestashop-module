@@ -1,0 +1,85 @@
+{#
+ # The Contacts panel: shared by the Initial setup (step 2) and Settings > Contacts, read and saved
+ # by Admin\Setup\ContactsPanel. Magento's panel/subscribers.phtml with the fields and the guest
+ # rule PrestaShop has; no "Let Smaily send the opt-in confirmation emails" switch, because
+ # PrestaShop's newsletter module keeps its own emails.
+ #
+ # Takes `contacts` (ContactsPanel::values()), `context` ('setup' or 'settings'), `all_shops` (the
+ # shop names when one save starts sync on every shop of a multishop store, else empty) and
+ # `import` (ContactImport::progress() of the scope, or null).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set settings_page = context|default('setup') == 'settings' %}
+{% set show_switch = settings_page or (contacts.stored and not contacts.active) %}
+{% set modes = {
+  subscribers: ['Subscribers only (consent)'|trans, 'Only customers who opted into the newsletter are synced. Unsubscribes in Smaily are mirrored back to PrestaShop automatically (two-way sync).'|trans, true],
+  all_customers: ['All customers (legitimate interest)'|trans, 'Every registered customer is synced; anyone who has not unsubscribed can receive your emails (soft opt-in). Soft opt-in allows marketing emails only about products similar to those the customer bought, and the customer must have had a clear way to refuse at purchase. Every email needs an unsubscribe link. You are responsible for the legal basis.'|trans, false],
+  checkout_optin: ['Checkout opt-in only'|trans, 'Nobody is synced automatically — only shoppers who tick the newsletter checkbox at checkout.'|trans, false],
+} %}
+{% set field_labels = {
+  first_name: 'First name'|trans,
+  last_name: 'Last name'|trans,
+  birthday: 'Date of birth'|trans,
+  website: 'Website'|trans,
+} %}
+<div class="smaily-panel" data-smaily-panel="contacts" data-active="{{ contacts.active ? 1 : 0 }}">
+  <div class="smaily-card">
+    {% if show_switch %}
+      <div class="smaily-inline-toggle">
+        <label><input type="checkbox" data-smaily-field="enabled"{{ contacts.active ? ' checked' : '' }}> {{ 'Sync contacts to Smaily'|trans }}</label>
+      </div>
+    {% endif %}
+    <p>{{ settings_page
+      ? 'This is a lawful-basis choice. Pick the preset that matches how you have asked your customers for permission.'|trans
+      : 'This is a lawful-basis choice. Pick the preset that matches how you have asked your customers for permission — you can change it later in Settings > Contacts.'|trans }}</p>
+    {% if not show_switch and not contacts.active %}
+      <p class="smaily-note smaily-note--strong">
+        {% if all_shops|default([]) is not empty %}
+          {{ 'Saving this step starts contact sync on every shop: %shops%.'|trans({'%shops%': all_shops|join(', ')}) }}
+        {% else %}
+          {{ 'Contacts start syncing to Smaily when you save this step.'|trans }}
+        {% endif %}
+      </p>
+    {% endif %}
+
+    <div role="radiogroup" data-smaily-field="mode">
+      {% for value, card in modes %}
+        <label class="smaily-choice{{ value == contacts.mode ? ' is-selected' : '' }}">
+          <input class="smaily-choice__input" type="radio" name="smaily-contacts-mode" value="{{ value }}"{{ value == contacts.mode ? ' checked' : '' }}>
+          <span class="smaily-choice__radio" aria-hidden="true"></span>
+          <span class="smaily-choice__body">
+            <span class="smaily-choice__title-row">
+              <span class="smaily-choice__title">{{ card[0] }}</span>
+              {% if card[2] %}<span class="smaily-choice__badge">{{ 'Recommended'|trans }}</span>{% endif %}
+            </span>
+            <span class="smaily-choice__desc">{{ card[1] }}</span>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <fieldset class="smaily-field smaily-checkboxes" data-smaily-field="fields">
+      <legend>{{ 'Extra fields to sync with each contact'|trans }}</legend>
+      <div class="smaily-checkboxes__grid">
+        {% for value, label in field_labels %}
+          <label><input type="checkbox" value="{{ value }}"{{ value in contacts.fields ? ' checked' : '' }}> {{ label }}</label>
+        {% endfor %}
+      </div>
+      <p class="smaily-note">{{ 'Empty values are never sent, so existing Smaily data is not wiped.'|trans }}</p>
+    </fieldset>
+
+    <div class="smaily-inline-toggle">
+      <label><input type="checkbox" data-smaily-field="guests"{{ contacts.guests ? ' checked' : '' }}> {{ 'Include guests'|trans }}</label>
+      <p class="smaily-note">{{ 'Also sync newsletter subscribers who signed up in the newsletter block without an account, and customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way.'|trans }}</p>
+    </div>
+
+    <div class="smaily-inline-toggle">
+      <label><input type="checkbox" data-smaily-field="checkout_checkbox"{{ contacts.checkout_checkbox ? ' checked' : '' }}> {{ 'Show a newsletter checkbox at checkout'|trans }}</label>
+      {% if contacts.newsletter_module %}
+        <p class="smaily-note">{{ 'PrestaShop\'s newsletter module (ps_emailsubscription) already shows a newsletter checkbox at checkout, so Smaily Connect adds none of its own.'|trans }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% include '@Modules/smailyforprestashop/views/templates/admin/panel/contact-import.html.twig' %}
+</div>

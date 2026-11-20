@@ -1,0 +1,132 @@
+{#
+ # Initial setup, step 5 (Overview, "Summary and last check"): what is set, each line with an Edit
+ # link back to its step, then Magento's closing card (where everything lives from now on) and its
+ # two ways on, Open Settings and Go to Dashboard. The setup is finished by Finish on the step
+ # before (SaveStep `finish`), as in Magento; this step only shows the result. The connection
+ # state of each Smaily account is asked of Smaily when the step shows (setup.js).
+ #
+ # `smaily_setup` comes from Admin\Setup\SetupController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set o = smaily_setup.overview %}
+{% set language_modes = {
+  single: 'Single language'|trans,
+  a: 'Per-language Smaily accounts'|trans,
+  b: 'One account, per-language workflows'|trans,
+  c: 'One workflow branching by language'|trans,
+} %}
+{% set contact_modes = {
+  subscribers: 'Subscribers only (consent)'|trans,
+  all_customers: 'All customers (legitimate interest)'|trans,
+  checkout_optin: 'Checkout opt-in only'|trans,
+} %}
+{% set field_labels = {first_name: 'First name'|trans, last_name: 'Last name'|trans, birthday: 'Date of birth'|trans, website: 'Website'|trans} %}
+{% macro edit(step, label) %}<a href="#" class="smaily-summary__edit" data-smaily-action="setup-goto" data-step="{{ step }}">{{ label }}</a>{% endmacro %}
+{% set edit_label = 'Edit'|trans %}
+{% import _self as summary %}
+
+{% if o is not null %}
+  <div class="smaily-card smaily-summary" data-smaily-overview>
+    <dl class="smaily-summary__list">
+      {% for account in o.accounts %}
+        <div class="smaily-summary__row">
+          <dt>{{ account.language == '' ? 'Smaily account'|trans : 'Smaily account for %language%'|trans({'%language%': account.name}) }}</dt>
+          <dd>
+            <code>{{ account.subdomain }}.sendsmaily.net</code>
+            <span class="smaily-pill" data-smaily-account-state="{{ account.language }}"><span class="smaily-pill__dot" aria-hidden="true"></span><span data-smaily-pill-text>{{ 'Checking…'|trans }}</span></span>
+            {% if account.fallback %}<span class="smaily-note">{{ 'Default fallback account'|trans }}</span>{% endif %}
+          </dd>
+          <dd class="smaily-summary__action">{{ summary.edit(1, edit_label) }}</dd>
+        </div>
+      {% else %}
+        <div class="smaily-summary__row">
+          <dt>{{ 'Smaily account'|trans }}</dt>
+          <dd><span class="smaily-pill smaily-pill--off"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ 'Not connected'|trans }}</span></dd>
+          <dd class="smaily-summary__action">{{ summary.edit(1, edit_label) }}</dd>
+        </div>
+      {% endfor %}
+      {% if o.shape is not null %}
+        <div class="smaily-summary__row">
+          <dt>{{ 'Your shops'|trans }}</dt>
+          <dd>{{ o.shape == 'separate' ? 'Separate stores'|trans : 'One store in several versions'|trans }}</dd>
+          <dd class="smaily-summary__action">{{ summary.edit(1, edit_label) }}</dd>
+        </div>
+      {% endif %}
+      {% if o.language_mode is not null %}
+        <div class="smaily-summary__row">
+          <dt>{{ 'Languages'|trans }}</dt>
+          <dd>{{ language_modes[o.language_mode] }}</dd>
+          <dd class="smaily-summary__action">{{ summary.edit(1, edit_label) }}</dd>
+        </div>
+      {% endif %}
+      <div class="smaily-summary__row">
+        <dt>{{ 'Who should be synced to Smaily?'|trans }}</dt>
+        <dd>{{ o.contacts.active ? contact_modes[o.contacts.mode] : 'Not saved yet: nothing syncs to Smaily.'|trans }}</dd>
+        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+      </div>
+      <div class="smaily-summary__row">
+        <dt>{{ 'Extra fields to sync with each contact'|trans }}</dt>
+        <dd>
+          {%- set chosen = [] -%}
+          {%- for field in o.contacts.fields %}{% set chosen = chosen|merge([field_labels[field]]) %}{% endfor -%}
+          {{ chosen is empty ? 'None'|trans : chosen|join(', ') }}
+        </dd>
+        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+      </div>
+      <div class="smaily-summary__row">
+        <dt>{{ 'Include guests'|trans }}</dt>
+        <dd>{{ o.contacts.guests ? 'On'|trans : 'Off'|trans }}</dd>
+        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+      </div>
+      <div class="smaily-summary__row">
+        <dt>{{ 'Show a newsletter checkbox at checkout'|trans }}</dt>
+        <dd>
+          {% if o.contacts.newsletter_module %}
+            {{ 'PrestaShop\'s newsletter module shows it'|trans }}
+          {% else %}
+            {{ o.contacts.checkout_checkbox ? 'On'|trans : 'Off'|trans }}
+          {% endif %}
+        </dd>
+        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+      </div>
+      <div class="smaily-summary__row">
+        <dt>{{ 'Initial contact import'|trans }}</dt>
+        <dd>
+          {% if o.import is null %}
+            {{ 'Not started'|trans }}
+          {% elseif o.import.status == 'done' %}
+            {{ 'Done, %sent% of %total% synced.'|trans({'%sent%': o.import.sent, '%total%': o.import.total}) }}
+          {% elseif o.import.status == 'cancelled' %}
+            {{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans({'%sent%': o.import.sent, '%total%': o.import.total}) }}
+          {% elseif o.import.status == 'failed' %}
+            {{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans({'%sent%': o.import.sent, '%total%': o.import.total}) }}
+          {% else %}
+            {{ 'Importing…'|trans }} {{ '%sent% of %total%'|trans({'%sent%': o.import.sent, '%total%': o.import.total}) }}
+          {% endif %}
+        </dd>
+        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+      </div>
+      <div class="smaily-summary__row">
+        <dt>{{ 'Background tasks last ran'|trans }}</dt>
+        <dd>{{ o.last_tick is null ? 'Not yet'|trans : o.last_tick }}</dd>
+        <dd class="smaily-summary__action"></dd>
+      </div>
+    </dl>
+  </div>
+{% endif %}
+
+<div class="smaily-card smaily-summary">
+  <p data-smaily-overview-connected hidden>{{ 'Smaily Connect is now syncing in near-real-time. Here is where everything lives from now on:'|trans }}</p>
+  <p data-smaily-overview-not-connected>{{ 'Syncing starts once Smaily accepts the credentials — check them in Settings > Connection and test the connection. Here is where everything lives from now on:'|trans }}</p>
+  <ul class="smaily-overview-links">
+    <li><a href="{{ path('smailyforprestashop_settings') }}">{{ 'Settings'|trans }}</a> — {{ 'every setting from the initial setup as always-available tabs, including the historical imports and the RSS feed URL builder'|trans }}</li>
+    <li><a href="{{ path('smailyforprestashop_log') }}">{{ 'Log'|trans }}</a> — {{ 'every delivery to Smaily and Campaign Intelligence with retry; check here first if something seems off'|trans }}</li>
+  </ul>
+</div>
+<div class="smaily-footer smaily-overview-footer">
+  <span></span>
+  <div class="smaily-footer__end">
+    <a class="btn btn-outline-secondary" href="{{ path('smailyforprestashop_settings') }}">{{ 'Open Settings'|trans }}</a>
+    <a class="btn smaily-btn-primary" href="{{ path('smailyforprestashop_dashboard') }}">{{ 'Go to Dashboard'|trans }}</a>
+  </div>
+</div>

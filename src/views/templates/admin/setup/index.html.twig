@@ -1,0 +1,45 @@
+{#
+ # The Initial setup page: the shell's frame (layout/setup.html.twig) with the setup's endpoints and
+ # words for views/js/admin/setup.js, which saves each step through Admin\Api\Setup.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/setup.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% block smaily_page %}
+  <div class="smaily-setup-root" data-smaily-setup-root
+       data-api-save="{{ path('smailyforprestashop_api_setup_save') }}"
+       data-api-test="{{ path('smailyforprestashop_api_setup_test') }}"
+       data-api-import="{{ path('smailyforprestashop_api_setup_import') }}"
+       data-api-import-progress="{{ path('smailyforprestashop_api_setup_import_progress') }}"
+       data-setup-url="{{ path('smailyforprestashop_setup') }}"
+       data-label-testing="{{ 'Testing…'|trans }}"
+       data-label-connected="{{ 'Connected'|trans }}"
+       data-label-connected-next="{{ 'Connected! Continue to the next step.'|trans }}"
+       data-label-not-connected="{{ 'Not connected'|trans }}"
+       data-label-failed="{{ 'Connection failed.'|trans }}"
+       data-label-saving-failed="{{ 'Saving failed.'|trans }}"
+       data-label-saving="{{ 'Saving…'|trans }}"
+       data-label-queued="{{ 'Queued — the import starts on the next scheduled run…'|trans }}"
+       data-label-importing="{{ 'Importing…'|trans }}"
+       data-label-progress="{{ '%sent% of %total%'|trans }}"
+       data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
+       data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
+       data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
+       data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
+       data-label-sync-off="{{ 'Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.'|trans }}"
+       data-label-canceling="{{ 'Canceling…'|trans }}"
+       data-label-start="{{ 'Start import'|trans }}"
+       data-label-run-again="{{ 'Run again'|trans }}"
+       data-label-state-pending="{{ 'Pending'|trans }}"
+       data-label-state-running="{{ 'Running'|trans }}"
+       data-label-state-done="{{ 'Done'|trans }}"
+       data-label-state-stopped="{{ 'Stopped'|trans }}"
+       data-label-state-cancelled="{{ 'Canceled'|trans }}">
+    {{ parent() }}
+  </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/setup.js') }}?v={{ smaily.version }}"></script>
+{% endblock %}

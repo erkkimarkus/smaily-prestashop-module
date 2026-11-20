@@ -1,0 +1,19 @@
+{#
+ # Initial setup, step 2 (Contacts): the Contacts panel, which also holds the first contact import.
+ # In separate stores with "All shops" selected, the step says to pick a shop instead.
+ #
+ # `smaily_setup` comes from Admin\Setup\SetupController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_setup.contacts is null %}
+  <div class="smaily-card">
+    <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+  </div>
+{% else %}
+  {% include '@Modules/smailyforprestashop/views/templates/admin/panel/contacts.html.twig' with {
+    contacts: smaily_setup.contacts,
+    context: 'setup',
+    all_shops: smaily_setup.all_shops,
+    import: smaily_setup.import,
+  } only %}
+{% endif %}
