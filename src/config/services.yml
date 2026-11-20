@@ -1,0 +1,9 @@
+services:
+  _defaults:
+    public: true
+
+  # The runtime's one instance graph, which hooks and front controllers reach through
+  # Runtime\Services::instance(); controllers get the same object from the container.
+  PrestaShop\Module\SmailyForPrestaShop\Runtime\Services:
+    class: PrestaShop\Module\SmailyForPrestaShop\Runtime\Services
+    factory: ['PrestaShop\Module\SmailyForPrestaShop\Runtime\Services', 'instance']
