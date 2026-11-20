@@ -21,7 +21,6 @@ cherry-pick (run the host unit tests after each; push to `origin`).
 
 | Worktree branch | Work | Notes |
 |---|---|---|
-| `worktree-agent-a2e0957c6cbbb9651` | Dashboard content (Story 3.2, second half) — FINISHED, 5 commits, not landed | Cherry-pick conflicts in `src/views/css/admin.css` (two blocks appended at the file's end — keep both). Suite 1064 tests green on 8.2.8 and 9.2.0 on its branch. Screenshots in `build/screens/3.2-dashboard/` |
 | `worktree-agent-ad9811a9450936b49` | Settings: Connection, Contacts, RSS; deletes the legacy 2.x admin page | Screenshots in `build/screens/3.3/` |
 
 **DEFECT TO VERIFY AND FIX FIRST (reported by the first-order worker, observed
@@ -33,15 +32,6 @@ on the request, a shopper who registered or logged in got no session id in
 the cookie and was logged out on the next request. Reproduce on 8.x and
 9.2.0, fix (write the cookie before finishing the request), add a browser
 test of login and registration with a due tick. Nothing ships before this.
-
-**SECOND DEFECT TO FIX FIRST (reported by the Dashboard worker):** on
-PrestaShop 8.2.8 every Smaily Connect admin page answers HTTP 500 —
-`Admin\BaseController` (`pageTitle()`, `notices()`) and the JSON actions'
-error paths ask the controller's service locator for "translator", which
-8.2.8 does not give (8.0.0 and 9.2.0 rendered in the shell's own
-screenshots). Proposed fix: PrestaShop's context translator. The Dashboard
-worker's 8.2.8 screenshots used an uncommitted local patch. Add 8.2.8 to
-every admin Story's browser proof from now on.
 
 A branch with no commits beyond its base was interrupted: dispatch that
 Story again from its section in `docs/ARCHITECTURE.md` 13. Leftover docker
