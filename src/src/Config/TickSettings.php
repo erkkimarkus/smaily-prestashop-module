@@ -64,10 +64,18 @@ final class TickSettings extends Settings
             return $token;
         }
 
-        $token = bin2hex(random_bytes(16));
+        $token = self::newToken();
         $this->set($key, $token);
 
         return $token;
+    }
+
+    /**
+     * A new random door token: 32 hexadecimal characters.
+     */
+    public static function newToken(): string
+    {
+        return bin2hex(random_bytes(16));
     }
 
     /**
