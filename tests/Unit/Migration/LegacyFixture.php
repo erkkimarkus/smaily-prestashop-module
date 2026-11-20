@@ -36,4 +36,22 @@ final class LegacyFixture
 
         return new LegacyState($previousVersion, false, 1, [1 => 1], [], $rows, (int) $sentCarts);
     }
+
+    /**
+     * A mapping row as the plan seeds it for one language mode "single".
+     *
+     * @return array<string, int|string|null>
+     */
+    public static function mapping(int $idShop, string $trigger, ?int $workflowId): array
+    {
+        return [
+            'id_shop' => $idShop,
+            'trigger' => $trigger,
+            'language' => '',
+            'account_key' => 'default',
+            'workflow_id' => $workflowId,
+            'optin_trigger' => $workflowId === null ? 1 : 0,
+            'is_default_fallback' => 1,
+        ];
+    }
 }

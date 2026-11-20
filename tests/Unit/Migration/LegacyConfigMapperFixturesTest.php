@@ -100,8 +100,8 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 ['id_shop' => 0, 'language' => '', 'subdomain' => 'example-store', 'username' => 'api-user'],
             ],
             'mappings' => [
-                self::mapping(0, 'welcome', 101),
-                self::mapping(0, 'abandoned_cart', 102),
+                LegacyFixture::mapping(0, 'welcome', 101),
+                LegacyFixture::mapping(0, 'abandoned_cart', 102),
             ],
             'tokens_to_generate' => [],
             'copy_sent_carts' => true,
@@ -145,8 +145,8 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 ['id_shop' => 0, 'language' => '', 'subdomain' => 'examplestore', 'username' => 'api-user'],
             ],
             'mappings' => [
-                self::mapping(0, 'welcome', 101),
-                self::mapping(0, 'abandoned_cart', 102),
+                LegacyFixture::mapping(0, 'welcome', 101),
+                LegacyFixture::mapping(0, 'abandoned_cart', 102),
             ],
             'tokens_to_generate' => [],
             'copy_sent_carts' => true,
@@ -188,22 +188,6 @@ final class LegacyConfigMapperFixturesTest extends TestCase
             'store,first_name,last_name,birthday,website',
             $plan['settings'][0]['SMAILY_CONNECT_CONTACTS_FIELDS']
         );
-        self::assertSame([self::mapping(0, 'welcome', 101), self::mapping(0, 'abandoned_cart', 102)], $plan['mappings']);
-    }
-
-    /**
-     * @return array<string, int|string|null>
-     */
-    public static function mapping(int $idShop, string $trigger, ?int $workflowId): array
-    {
-        return [
-            'id_shop' => $idShop,
-            'trigger' => $trigger,
-            'language' => '',
-            'account_key' => 'default',
-            'workflow_id' => $workflowId,
-            'optin_trigger' => $workflowId === null ? 1 : 0,
-            'is_default_fallback' => 1,
-        ];
+        self::assertSame([LegacyFixture::mapping(0, 'welcome', 101), LegacyFixture::mapping(0, 'abandoned_cart', 102)], $plan['mappings']);
     }
 }

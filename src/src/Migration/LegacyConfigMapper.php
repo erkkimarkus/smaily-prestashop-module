@@ -177,14 +177,11 @@ final class LegacyConfigMapper
 
     /**
      * Whether a switch was on as the previous code tested it: 2.x by PHP truthiness, 1.6.x by
-     * comparing with '1' (its cron switch as an integer).
+     * comparing with '1'.
      */
     private function switchOn(string $key, ?int $idShop): bool
     {
         $value = $this->read($key, $idShop);
-        if ($key === 'SMAILY_ENABLE_CRON') {
-            return (int) $value === 1;
-        }
         if ($this->legacy1x()) {
             return $value === '1';
         }
