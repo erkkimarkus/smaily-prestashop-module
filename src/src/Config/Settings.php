@@ -45,7 +45,7 @@ abstract class Settings
     {
         // hasKey() reads only the loaded configuration, which a deleteByName() of any key drops.
         if (!\Configuration::configurationIsLoaded()) {
-            \Configuration::loadConfiguration();
+            $this->reload();
         }
         if ($idShop > 0 && \Configuration::hasKey($key, null, null, $idShop)) {
             return (string) \Configuration::get($key, null, null, $idShop);
@@ -64,6 +64,59 @@ abstract class Settings
         }
 
         return \Configuration::updateValue($key, $value, false, (int) \Shop::getGroupFromShop($idShop), $idShop);
+    }
+
+    /**
+     * The JSON object or list stored under $key, read as get() reads it (null: the global scope);
+     * [] when none is stored or the value is not one.
+     *
+     * @return array<mixed>
+     */
+    protected function getJson(string $key, ?int $idShop = null): array
+    {
+        $value = json_decode((string) $this->get($key, $idShop ?? 0), true);
+
+        return is_array($value) ? $value : [];
+    }
+
+    /**
+     * Stores $value as JSON under $key, as set() stores it (null: the global scope).
+     *
+     * @param array<mixed> $value
+     */
+    protected function setJson(string $key, array $value, ?int $idShop = null): bool
+    {
+        return $this->set($key, (string) json_encode($value), $idShop ?? 0);
+    }
+
+    /**
+     * Makes PrestaShop load its configuration again from the database, dropping what this request
+     * loaded before.
+     */
+    protected function reload(): void
+    {
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+    }
+
+    /**
+     * The value stored now under $key at exactly the global scope (null) or shop $idShop, read past
+     * the configuration this request loaded, so also a value that another request wrote after this
+     * one started. Null when no row is stored there, or the row holds NULL.
+     */
+    protected function storedValue(string $key, ?int $idShop = null): ?string
+    {
+        $scope = $idShop !== null && $idShop > 0
+            ? sprintf('`id_shop` = %d', $idShop)
+            : '`id_shop_group` IS NULL AND `id_shop` IS NULL';
+        $value = \Db::getInstance()->getValue(sprintf(
+            'SELECT `value` FROM `%sconfiguration` WHERE `name` = \'%s\' AND %s',
+            _DB_PREFIX_,
+            pSQL($key),
+            $scope
+        ), false);
+
+        return is_string($value) ? $value : null;
     }
 
     /**

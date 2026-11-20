@@ -54,21 +54,14 @@ final class TickSettings extends Settings
      */
     public function token(string $key, int $idShop): string
     {
-        $token = \Configuration::get($key, null, (int) \Shop::getGroupFromShop($idShop), $idShop);
-        if ($token !== false && $token !== null) {
-            return (string) $token;
+        $token = self::read($key, $idShop);
+        if ($token === null) {
+            // The configuration this request loaded may predate a token that another request stored.
+            $this->reload();
+            $token = self::read($key, $idShop);
         }
-
-        // The configuration this request loaded may predate a token that another request stored.
-        $stored = (int) \Db::getInstance()->getValue(sprintf(
-            'SELECT COUNT(*) FROM `%sconfiguration` WHERE `name` = \'%s\'',
-            _DB_PREFIX_,
-            pSQL($key)
-        ), false);
-        if ($stored > 0) {
-            \Configuration::loadConfiguration();
-
-            return (string) \Configuration::get($key, null, (int) \Shop::getGroupFromShop($idShop), $idShop);
+        if ($token !== null) {
+            return $token;
         }
 
         $token = bin2hex(random_bytes(16));
@@ -83,9 +76,7 @@ final class TickSettings extends Settings
      */
     public function state(): TickState
     {
-        $json = \Configuration::getGlobalValue(self::TICK_STATE);
-
-        return TickState::fromJson(is_string($json) ? $json : null);
+        return TickState::fromJson($this->get(self::TICK_STATE));
     }
 
     /**
@@ -94,17 +85,22 @@ final class TickSettings extends Settings
      */
     public function storedState(): TickState
     {
-        $json = \Db::getInstance()->getValue(sprintf(
-            'SELECT `value` FROM `%sconfiguration` WHERE `name` = \'%s\' AND `id_shop_group` IS NULL AND `id_shop` IS NULL',
-            _DB_PREFIX_,
-            self::TICK_STATE
-        ), false);
-
-        return TickState::fromJson(is_string($json) ? $json : null);
+        return TickState::fromJson($this->storedValue(self::TICK_STATE));
     }
 
     public function saveState(TickState $state): void
     {
         $this->set(self::TICK_STATE, $state->toJson());
+    }
+
+    /**
+     * The token under $key as 2.x read it, at shop $idShop, then its group, then the global scope;
+     * null when none of them holds one.
+     */
+    private static function read(string $key, int $idShop): ?string
+    {
+        $token = \Configuration::get($key, null, (int) \Shop::getGroupFromShop($idShop), $idShop);
+
+        return $token === false || $token === null ? null : (string) $token;
     }
 }

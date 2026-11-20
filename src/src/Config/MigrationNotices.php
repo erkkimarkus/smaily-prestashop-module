@@ -64,9 +64,7 @@ final class MigrationNotices extends Settings
      */
     public function all(): array
     {
-        $notices = json_decode((string) $this->get(self::KEY), true);
-
-        return is_array($notices) ? array_values($notices) : [];
+        return array_values($this->getJson(self::KEY));
     }
 
     public function dismiss(string $id): void
@@ -82,7 +80,7 @@ final class MigrationNotices extends Settings
      */
     private function store(array $notices): void
     {
-        if (!$this->set(self::KEY, (string) json_encode($notices))) {
+        if (!$this->setJson(self::KEY, $notices)) {
             throw new \RuntimeException('The admin notices could not be stored.');
         }
     }

@@ -92,6 +92,29 @@ final class SettingsMultistoreTest extends IntegrationTestCase
         self::assertSame('global', $this->settings->read(self::KEY, $this->shop));
     }
 
+    public function testJsonIsReadAndWrittenAtTheScopeItNames(): void
+    {
+        self::assertSame([], $this->settings->readJson(self::KEY, $this->shop));
+        self::assertTrue($this->settings->writeJson(self::KEY, ['scope' => 'global']));
+        self::assertTrue($this->settings->writeJson(self::KEY, ['scope' => 'own'], $this->shop));
+
+        self::assertSame(['scope' => 'global'], $this->settings->readJson(self::KEY));
+        self::assertSame(['scope' => 'own'], $this->settings->readJson(self::KEY, $this->shop));
+        self::assertSame(['scope' => 'global'], $this->settings->readJson(self::KEY, $this->otherShop));
+    }
+
+    public function testTheStoredValueIsTheRowAtExactlyTheScopeItNames(): void
+    {
+        $this->settings->write(self::KEY, 'global', 0);
+        $this->settings->write(self::KEY, 'own', $this->shop);
+        self::db()->update('configuration', ['value' => 'written elsewhere'], sprintf('`name` = \'%s\' AND `id_shop` = %d', self::KEY, $this->shop));
+
+        self::assertSame('global', $this->settings->stored(self::KEY));
+        self::assertSame('written elsewhere', $this->settings->stored(self::KEY, $this->shop));
+        self::assertNull($this->settings->stored(self::KEY, $this->otherShop), 'no fallback to the global row');
+        self::assertSame('own', $this->settings->read(self::KEY, $this->shop), 'the request keeps what it loaded');
+    }
+
     private function enterContext(string $context): void
     {
         $group = (int) \Shop::getGroupFromShop($this->shop);
@@ -145,5 +168,26 @@ final class RemovingProbeSettings extends Settings
     public function removeOwn(string $key, int $idShop): void
     {
         $this->removeShopValue($key, $idShop);
+    }
+
+    /**
+     * @return array<mixed>
+     */
+    public function readJson(string $key, ?int $idShop = null): array
+    {
+        return $this->getJson($key, $idShop);
+    }
+
+    /**
+     * @param array<mixed> $value
+     */
+    public function writeJson(string $key, array $value, ?int $idShop = null): bool
+    {
+        return $this->setJson($key, $value, $idShop);
+    }
+
+    public function stored(string $key, ?int $idShop = null): ?string
+    {
+        return $this->storedValue($key, $idShop);
     }
 }
