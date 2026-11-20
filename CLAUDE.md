@@ -109,9 +109,12 @@ only when its real flow has been exercised.
 13. Privacy: export, erasure, and a shopper's opt-out of personalization
 14. Administration screens in English and Estonian
 
+Discount codes in store automations are part of 3.0.0 as a Story of their
+own (owner, 2026-11-20; Linear CON-393, a sub-issue of CON-381).
+
 **Out of 3.0.0:** creating or editing email designs or Smaily workflows
-from inside the module ("Edit design"); transactional emails; discount codes
-in automations; "Try Intelligence free" and the console sign-in link;
+from inside the module ("Edit design"); transactional emails;
+"Try Intelligence free" and the console sign-in link;
 PrestaShop 1.7 support (those stores stay on 1.6.x); an own signup form or
 third-party form integrations; storefront languages beyond EN/ET; the
 PrestaShop Addons listing update. A task that drifts into one of these
