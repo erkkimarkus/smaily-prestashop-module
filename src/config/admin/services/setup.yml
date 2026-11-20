@@ -1,0 +1,19 @@
+# The JSON endpoints of the Initial setup. Each controller names its class: PrestaShop 8.0 does not
+# take a service's class from its id.
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\TestSmaily:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\TestSmaily
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress

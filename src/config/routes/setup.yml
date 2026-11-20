@@ -1,0 +1,29 @@
+# The JSON endpoints of the Initial setup (Admin\Api\Setup). Their rights are those of the Initial
+# setup's menu tab.
+smailyforprestashop_api_setup_save:
+  path: /smailyforprestashop/api/setup/save
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_test:
+  path: /smailyforprestashop/api/setup/test-smaily
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\TestSmaily::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_import:
+  path: /smailyforprestashop/api/setup/contact-import
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_import_progress:
+  path: /smailyforprestashop/api/setup/contact-import-progress
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress::execute
+    _legacy_controller: AdminSmailyConnectSetup
