@@ -452,6 +452,441 @@
         <target>Kontaktide sünkroonimise cron-URL-il polnud võtit, nii et igaüks sai seda käivitada. Sellel on nüüd uus võti, seega selle vana crontabi rida enam ei tööta. Kasuta ühte cron-rida, mille leiad: Töölaud &gt; Taustatööd &gt; Näita cron-rida. See käivitab kõik tööd ja asendab mõlemad vanad crontabi read.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="cd6a96263056acafdc1f2d5b5ec63f23">
+        <source>Every delivery lands here: contact syncs and automation triggers to Smaily. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.</source>
+        <target>Iga saadetis jõuab siia: kontaktide sünkroonimised ja automaatikate käivitused Smailysse. Ebaõnnestunud read proovivad automaatselt uuesti kasvava ooteajaga kuni 5 katset; kõik, mis ikka veel ebaõnnestunud, saab valida ja käsitsi uuesti proovida. Saadetud ridu hoitakse 30 päeva, ebaõnnestunuid 90. Kui midagi paistab Smailys puudu olevat, vaata kõigepealt siia.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="83342a4b49cd7493b5a859f1ab2634da">
+        <source>%count% event failed in the last 24 hours</source>
+        <target>Viimase 24 tunni jooksul ebaõnnestus %count% sündmus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3e6a17fa3d0fbacba8d4c35000eed9ba">
+        <source>%count% events failed in the last 24 hours</source>
+        <target>Viimase 24 tunni jooksul ebaõnnestus %count% sündmust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b1ce4d3b5cca634d239b2294bd9a11e">
+        <source>Most retry automatically with backoff; anything still failed can be retried manually from the grid.</source>
+        <target>Enamik proovitakse automaatselt tagasilangusega uuesti; endiselt ebaõnnestunuid saab tabelist käsitsi uuesti proovida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="dbc21052e49ff575d6456181a1f05b3e">
+        <source>Show failed (24h)</source>
+        <target>Näita ebaõnnestunuid (24 h)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="50ab1d847e175723e3f782f780d72b16">
+        <source>Send again</source>
+        <target>Saada uuesti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="64527c09dcb35869878f4b408c839acb">
+        <source>Send this event again? A new attempt is queued; the failed row is kept as history.</source>
+        <target>Kas saata see sündmus uuesti? Järjekorda pannakse uus katse; ebaõnnestunud rida jääb ajaloona alles.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5e11f242728827f3316258ed5a6ca7c1">
+        <source>Retry events</source>
+        <target>Proovi sündmusi uuesti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1d397defc79b3821731c91dc6ea56ada">
+        <source>Retry the selected failed events?</source>
+        <target>Kas proovida valitud ebaõnnestunud sündmusi uuesti?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6327b4e59f58137083214a1fec358855">
+        <source>Retry</source>
+        <target>Proovi uuesti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c9a18f2ce0a9e0343f4f71acb151a2e3">
+        <source>Copied to the clipboard.</source>
+        <target>Kopeeritud lõikelauale.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ec13b934ff4684db09d2d7bca07b2182">
+        <source>Copying failed — select the payload and copy it manually.</source>
+        <target>Kopeerimine ebaõnnestus — märgista andmesisu ja kopeeri käsitsi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f31bbdd1b3e85bccd652680e16935819">
+        <source>Source</source>
+        <target>Allikas</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a1fa27779242b4902f7ae3bdd5c6d508">
+        <source>Type</source>
+        <target>Tüüp</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1a434befae3f49ae09347ded52032f6f">
+        <source>Entity</source>
+        <target>Kirje</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ec53a8c4f07baed5d8825072c89799be">
+        <source>Status</source>
+        <target>Olek</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7ba3b8236d48d4f4c5ec03c3fe6b75a9">
+        <source>Attempts</source>
+        <target>Katsed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="458fa150184ffb273e52535a7809b671">
+        <source>Last Error</source>
+        <target>Viimane viga</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0eceeb45861f9585dd7a97a3e36f85c6">
+        <source>Created</source>
+        <target>Loodud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ff0a3b7f3daef040faf89a88fdac01b7">
+        <source>Updated</source>
+        <target>Uuendatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="06df33001c1d7187fdd81ea1f5b277aa">
+        <source>Actions</source>
+        <target>Tegevused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3ec365dd533ddb7ef3d1c111186ce872">
+        <source>Details</source>
+        <target>Üksikasjad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ce0be71e33226e4c1db2bcea5959f16b">
+        <source>Log</source>
+        <target>Logi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a907cb05be5af6b34db3e7dbe074ee3c">
+        <source>Attempt history</source>
+        <target>Katsete ajalugu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="09ef4a29d0cd7ec3e360d492bc27a601">
+        <source>The row keeps only its latest attempt, so earlier attempts are listed without a time or an error.</source>
+        <target>Rida hoiab alles ainult viimase katse, seega on varasemad katsed loetletud ilma aja ja veata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1cd6874c03742c1f7c033982becf2bd8">
+        <source>Failure class: %class%</source>
+        <target>Tõrkeklass: %class%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="18c0a5bfbcabf50bf08ff5fe31d0779f">
+        <source>No payload stored for this row.</source>
+        <target>Sellel real ei ole salvestatud andmesisu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d3f1ed6424dc6c87a182801a8a8e3556">
+        <source>Last response</source>
+        <target>Viimane vastus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bec3e0adc8778bc63276da65409d44ae">
+        <source>Passwords and API keys are never shown.</source>
+        <target>Paroole ja API võtmeid ei näidata kunagi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bdc3fc08ca0b3e6c937c1ebc523205fb">
+        <source>Copy payload</source>
+        <target>Kopeeri andmesisu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f48bd404959029e42e4b9cab0486a205">
+        <source>Import #%id%</source>
+        <target>Import #%id%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3be59a8b04c3ca05d796f183a39f8104">
+        <source>Event #%id%</source>
+        <target>Sündmus #%id%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="92de805ae582ce6049f832471539737c">
+        <source>Last error</source>
+        <target>Viimane viga</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fffcb4d1e12c96b2f571f77ad25878b8">
+        <source>Reason</source>
+        <target>Põhjus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8cf7915e18dcecf120de3f8d8339f2dc">
+        <source>Attempt %number%</source>
+        <target>Katse %number%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4575feb036d1d0db1d49bc1d3f81c122">
+        <source>%attempts% of %max%</source>
+        <target>%attempts% / %max%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="54d4bef85de67a0847d7c947bd6604e4">
+        <source>Re-sent from event #%id% by %employee% on %date%</source>
+        <target>Uuesti saadetud sündmuse #%id% põhjal, saatis %employee% kuupäeval %date%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="be49feeefe4bd6a8cf0c4b686fdf2875">
+        <source>Payload (as sent)</source>
+        <target>Andmesisu (nagu saadeti)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2c0738da12d937e1f527e184f257b289">
+        <source>Payload (queued, nothing was sent for this row)</source>
+        <target>Andmesisu (järjekorras, selle rea jaoks ei saadetud midagi)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ad902bb597190d470bcdcc37c82e1d53">
+        <source>Payload (queued, not sent yet)</source>
+        <target>Andmesisu (järjekorras, veel saatmata)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a2a96243593f29e39345b9a93a78cbab">
+        <source>No response recorded — this row has not been attempted yet.</source>
+        <target>Vastust ei ole salvestatud — seda rida ei ole veel saata proovitud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1ead115e0abc2c18b54eca19e152e945">
+        <source>No response received — the server did not answer. The last error says why.</source>
+        <target>Vastust ei saabunud — server ei vastanud. Põhjuse ütleb viimane viga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2ca1723527000b0d542dde7d50eeef5d">
+        <source>No response — nothing was sent for this row.</source>
+        <target>Vastust pole — selle rea jaoks ei saadetud midagi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2d13df6f8b5e4c5af9f87e0dc39df69d">
+        <source>Pending</source>
+        <target>Ootel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e4b0c2b6d59cb4cf3e169a9886008087">
+        <source>Sending</source>
+        <target>Saatmisel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7f8c0283f16925caed8e632086b81b9c">
+        <source>Sent</source>
+        <target>Saadetud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d7c8c85bf79bbe1b7188497c32c3b0ca">
+        <source>Failed</source>
+        <target>Ebaõnnestunud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f62dedad685b570f499b61e94084dab2">
+        <source>Withdrawn</source>
+        <target>Tagasi võetud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d9c8f187972e6320a34e9c40b4cba605">
+        <source>Skipped</source>
+        <target>Vahele jäetud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b2f31b90fe1c2cc33a52233c1925df3">
+        <source>Queued</source>
+        <target>Järjekorda pandud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5bda814c4aedb126839228f1a3d92f09">
+        <source>Running</source>
+        <target>Töötab</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f92965e2c8a7afb3c1b9a5c09a263636">
+        <source>Done</source>
+        <target>Valmis</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a149e85a44aeec9140e92733d9ed694e">
+        <source>Cancelled</source>
+        <target>Katkestatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="67edd3b99247c9eb5884a02802a20fa7">
+        <source>Delivered</source>
+        <target>Kohale toimetatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2b7dabba0077abe3732e0418b048a56b">
+        <source>Scheduled</source>
+        <target>Ajastatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5706de961fb376d701be6e7762d8b09c">
+        <source>Waiting</source>
+        <target>Ootab</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b6e0b0c90cfbddfe767f137f8066d1df">
+        <source>In progress</source>
+        <target>Pooleli</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a6d8be9f14317d403a43af4f6d6fbc9b">
+        <source>Campaign Intelligence</source>
+        <target>Campaign Intelligence</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6d74ccc2609abc84dfd7bc92b8c588de">
+        <source>Smaily</source>
+        <target>Smaily</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a512791ceae9851d6b7a9a24e6a35f4d">
+        <source>Skipped — nothing was sent, and this row will not retry: retrying could not change the reason shown below.</source>
+        <target>Vahele jäetud — midagi ei saadetud ja see rida ei proovi uuesti: kordamine ei muudaks allpool näidatud põhjust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b5cbeda8a74320958d141be3df97fe56">
+        <source>Delivered — no retries needed.</source>
+        <target>Kohale toimetatud — kordusi pole vaja.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="241cf1159148182ff5d0f5f948a80c3e">
+        <source>A delivery attempt is in progress right now.</source>
+        <target>Saatmiskatse on praegu pooleli.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="858c010935e7ecb676b36e5234258e4f">
+        <source>Stopped after %attempts% of %max% attempts — retrying could not change the outcome, so this row will NOT retry on its own. Fix the cause shown below, then select it in the log and press Retry.</source>
+        <target>Peatus pärast %attempts% katset %max%-st — kordamine ei muudaks tulemust, seega see rida EI proovi enam ise uuesti. Kõrvalda allpool näidatud põhjus, seejärel vali rida logis ja vajuta Proovi uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="63a5650369104d42afb17139abe0275d">
+        <source>All %max% automatic attempts are used up — this row will NOT retry on its own. Select it in the log and press Retry to queue it again.</source>
+        <target>Kõik %max% automaatset katset on ära kasutatud — see rida EI proovi enam ise uuesti. Vali rida logis ja vajuta Proovi uuesti, et see uuesti järjekorda panna.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="054e68d6b6e6776ec91dfaddbec03446">
+        <source>Next automatic retry: %date% (attempt %attempt% of %max%).</source>
+        <target>Järgmine automaatne kordus: %date% (katse %attempt% / %max%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f983eebdf4a615102e5146ad53469f66">
+        <source>Waiting for the next queue flush (runs every minute).</source>
+        <target>Ootab järgmist järjekorra töötlust (käivitub iga minut).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="18b06070f53dcf353d84d14377e861bd">
+        <source>Skipped: this shopper has not agreed to marketing emails in the store, and is not a subscribed contact in Smaily. Nothing was sent.</source>
+        <target>Vahele jäetud: see ostja pole poes turunduskirjadega nõustunud ega ole Smailys tellija. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f73f7d7bdc7397785480d80bfaef1c27">
+        <source>Skipped: this shopper unsubscribed in Smaily. Nothing was sent.</source>
+        <target>Vahele jäetud: see ostja on Smailys loobunud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b33463e58a047ca447bf16e29936191b">
+        <source>Skipped: this address already got an abandoned-cart reminder for another cart in the last 24 hours. Nothing was sent.</source>
+        <target>Vahele jäetud: sellele aadressile saadeti viimase 24 tunni jooksul juba teise ostukorvi meeldetuletus. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cdb17731cbc9fa30e3421d2d827598b8">
+        <source>Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.</source>
+        <target>Vahele jäetud: selle automaatika päästikuga pole seotud ühtegi Smaily töövoogu. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2203894efc305c09dfddad35841ca76e">
+        <source>Only a failed event can be sent again.</source>
+        <target>Uuesti saata saab ainult ebaõnnestunud sündmust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="415f73fdd515ca0b1a9cda41740e0302">
+        <source>This reminder was withdrawn because the shopper completed the purchase; it cannot be re-sent.</source>
+        <target>See meeldetuletus võeti tagasi, sest ostja viis ostu lõpule; seda ei saa uuesti saata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4d9731964d946ed0e95843800b16907d">
+        <source>A later message of this kind already reached this contact; sending again would deliver it twice.</source>
+        <target>Seda liiki hilisem kiri on sellele kontaktile juba kohale jõudnud; uuesti saatmine toimetaks selle kohale teist korda.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7577e5609b3effa9adc73db196f067f0">
+        <source>This contact's data was erased; the event cannot be re-sent.</source>
+        <target>Selle kontakti andmed on kustutatud; sündmust ei saa uuesti saata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="00a2d3a5d97fa860325a089ce7f433b4">
+        <source>This log row no longer exists — it has likely been pruned by retention.</source>
+        <target>Seda logirida ei ole enam olemas — tõenäoliselt on see säilitusreegli järgi kustutatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="44173463b8e37caf7de9f0cde03d8f25">
+        <source>The event could not be queued again — please try again.</source>
+        <target>Sündmust ei õnnestunud uuesti järjekorda panna — palun proovi uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="18e771ff7d5d1a5411888a0a1cb31e30">
+        <source>Event queued to be sent again.</source>
+        <target>Sündmus on uuesti saatmiseks järjekorda pandud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ad95b371aceda0f24e477769a904fc37">
+        <source>%retried% event(s) queued for retry, %skipped% skipped because sending again would not be safe.</source>
+        <target>%retried% sündmus(t) pandi uuesti proovimiseks järjekorda, %skipped% jäeti vahele, sest uuesti saatmine poleks ohutu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7ab93c4ecb3d1f83bc8137f7b37ed40c">
+        <source>%retried% event(s) queued for retry.</source>
+        <target>%retried% sündmus(t) pandi uuesti proovimiseks järjekorda.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6ea0c00aded656a8d5b13f01f134c08a">
+        <source>%count% contact</source>
+        <target>%count% kontakt</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0df448812e9b2ff4bc530252d8c07cca">
+        <source>%count% contacts</source>
+        <target>%count% kontakti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="73e2d7ff5c7f20678acbbb4d0e34334e">
+        <source>Queued — the import starts on the next scheduled run…</source>
+        <target>Järjekorras — import käivitub järgmisel ajastatud käivitusel…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f79bd767629afa1c419e6dbe891e8b23">
+        <source>%sent% of %total%</source>
+        <target>%sent% / %total%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="75983c843b3fb6c96092b6a706221ba2">
+        <source>Canceled — %sent% of %total% synced. Starting again begins a fresh import.</source>
+        <target>Katkestatud — %sent% / %total% sünkroonitud. Uuesti alustamine käivitab värske impordi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c40fda24676538b505eb6459e54c48cd">
+        <source>Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.</source>
+        <target>Peatus enne viga — seni sünkroonitud %sent% / %total%. Uuesti käivitamiseks vajuta „Käivita uuesti“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2e8e331263fce97fb6920849587e352c">
+        <source>Done, %sent% of %total% synced — %failed% failed.</source>
+        <target>Valmis, %sent% / %total% sünkroonitud — %failed% ebaõnnestus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b323ff7c97ce68293ed6b355be6e1655">
+        <source>Done, %sent% of %total% synced.</source>
+        <target>Valmis, %sent% / %total% sünkroonitud.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>
