@@ -18,13 +18,32 @@ final class WorkflowListTest extends TestCase
     /** @var list<array{host: string, path: string, query: array<string, mixed>}> */
     private array $requests = [];
 
-    public function testListsTheActiveWorkflowsOfTheAccount(): void
+    /**
+     * The call and the reading of the Magento connector (SmailyClient::getAutomationWorkflows()):
+     * the workflows that the API can start, by id and title; one that is switched off is left out.
+     */
+    public function testListsTheFormSubmittedWorkflowsOfTheAccountThatAreSwitchedOn(): void
     {
-        $list = $this->list(new Response(200, '[{"id": 101, "name": "Welcome", "status": "ACTIVE"}, {"id": "102", "name": "Cart"}, {"name": "No id"}, "x"]'))
-            ->of(new Account(0, '', 'shared', 'api-user', 'not-a-real-password'));
+        $list = $this->list(new Response(200, (string) json_encode([
+            ['id' => 101, 'title' => 'Welcome', 'trigger_type' => 'form_submitted', 'is_enabled' => true],
+            ['id' => '102', 'title' => 'Cart'],
+            ['id' => 103, 'title' => 'Draft', 'trigger_type' => 'form_submitted', 'is_enabled' => false],
+            ['id' => 104, 'name' => 'Named as the old list names it'],
+            ['id' => 105],
+            ['title' => 'No id'],
+            'x',
+        ])))->of(new Account(0, '', 'shared', 'api-user', 'not-a-real-password'));
 
-        self::assertSame(['workflows' => [['id' => 101, 'name' => 'Welcome'], ['id' => 102, 'name' => 'Cart']], 'error' => null], $list);
-        self::assertSame([['host' => 'shared.sendsmaily.net', 'path' => '/api/autoresponder.php', 'query' => ['status' => 'ACTIVE']]], $this->requests);
+        self::assertSame([
+            'workflows' => [
+                ['id' => 101, 'name' => 'Welcome'],
+                ['id' => 102, 'name' => 'Cart'],
+                ['id' => 104, 'name' => 'Named as the old list names it'],
+                ['id' => 105, 'name' => '105'],
+            ],
+            'error' => null,
+        ], $list);
+        self::assertSame([['host' => 'shared.sendsmaily.net', 'path' => '/api/workflows.php', 'query' => ['trigger_type' => 'form_submitted']]], $this->requests);
     }
 
     /**

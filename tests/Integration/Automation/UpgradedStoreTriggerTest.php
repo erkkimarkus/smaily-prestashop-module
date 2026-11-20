@@ -117,15 +117,17 @@ final class UpgradedStoreTriggerTest extends IntegrationTestCase
     }
 
     /**
-     * Acceptance D: the workflows come from the account that is asked, and a failure is a code.
+     * Acceptance D: the workflows come from the account that is asked, with Magento's call, and a
+     * failure is a code. A workflow with another trigger or switched off is not offered.
      */
     public function testListsTheWorkflowsOfTheAccountThatIsAsked(): void
     {
         $this->upgrade('2.2.0-configured.sql', '2.2.0');
         $this->mock->setWorkflows([
-            ['id' => 101, 'name' => 'Welcome', 'status' => 'ACTIVE'],
-            ['id' => 102, 'name' => 'Abandoned cart', 'status' => 'ACTIVE'],
-            ['id' => 103, 'name' => 'Paused', 'status' => 'INACTIVE'],
+            ['id' => 101, 'title' => 'Welcome', 'trigger_type' => 'form_submitted', 'is_enabled' => true],
+            ['id' => 102, 'title' => 'Abandoned cart', 'trigger_type' => 'form_submitted', 'is_enabled' => true],
+            ['id' => 103, 'title' => 'Switched off', 'trigger_type' => 'form_submitted', 'is_enabled' => false],
+            ['id' => 104, 'title' => 'Another trigger', 'trigger_type' => 'subscriber_joined', 'is_enabled' => true],
         ]);
         $account = Services::fromProviders(Services::PROVIDERS)->get(Router::class)->accountFor($this->idShop, 'default');
 
@@ -133,7 +135,7 @@ final class UpgradedStoreTriggerTest extends IntegrationTestCase
             ['workflows' => [['id' => 101, 'name' => 'Welcome'], ['id' => 102, 'name' => 'Abandoned cart']], 'error' => null],
             (new WorkflowList($this->mock->transport()))->of($account)
         );
-        self::assertSame(['GET', '/api/autoresponder.php', ['status' => 'ACTIVE'], 'api-user'], [
+        self::assertSame(['GET', '/api/workflows.php', ['trigger_type' => 'form_submitted'], 'api-user'], [
             $this->mock->requests()[0]['method'],
             $this->mock->requests()[0]['path'],
             $this->mock->requests()[0]['query'],

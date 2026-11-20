@@ -4,7 +4,7 @@
  *
  * State lives in the JSON file that SMAILY_MOCK_STATE names: the API user's credentials, the
  * unsubscribers that the contact list returns, the action log that the history returns, the
- * workflows that the autoresponder list returns, and every request received, with the API user it
+ * workflows that the two workflow lists return, and every request received, with the API user it
  * named. SmailyMockServer writes
  * and reads it.
  *
@@ -16,7 +16,10 @@
  * - GET  /api/history.php?since_seq_id=&limit=&actions=  the action log: the rows whose seq_id is
  *                               above since_seq_id, oldest first, of the comma-separated actions
  *                               only when `actions` is given, at most `limit`.
- * - POST /api/contact.php       one contact or a list; each needs an email, else code 203.
+ * - GET  /api/workflows.php?trigger_type=  the workflows of that trigger type, all without it, as
+ *                               Smaily lists them: {"id", "title", "trigger_type", "is_enabled"}.
+ * - GET  /api/autoresponder.php?status=  the workflows of that status, all without it.
+ * - POST /api/contact.php      one contact or a list; each needs an email, else code 203.
  * - POST /api/autoresponder.php `addresses`, each with an email, else code 203; `autoresponder` is
  *                               optional (without it Smaily starts its "opted in" workflows).
  * - Anything else: HTTP 404.
@@ -116,6 +119,16 @@ if ($method === 'GET' && $path === '/api/autoresponder.php') {
     $answer(200, array_values(array_filter(
         $state['workflows'] ?? [],
         static fn (array $workflow): bool => $status === null || ($workflow['status'] ?? null) === $status
+    )));
+
+    return true;
+}
+
+if ($method === 'GET' && $path === '/api/workflows.php') {
+    $type = $_GET['trigger_type'] ?? null;
+    $answer(200, array_values(array_filter(
+        $state['workflows'] ?? [],
+        static fn (array $workflow): bool => $type === null || ($workflow['trigger_type'] ?? null) === $type
     )));
 
     return true;

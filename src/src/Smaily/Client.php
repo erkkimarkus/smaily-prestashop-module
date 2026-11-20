@@ -56,6 +56,7 @@ class Client
 {
     public const ENDPOINT_CONTACT = 'contact';
     public const ENDPOINT_AUTORESPONDER = 'autoresponder';
+    public const ENDPOINT_WORKFLOWS = 'workflows';
 
     /** One DNS label: letters, digits and inner hyphens, at most 63 characters. */
     private const PLAIN_SUBDOMAIN = '/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i';

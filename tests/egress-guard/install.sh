@@ -37,7 +37,7 @@ chown -R www-data /tmp/smaily-mock
 grep -q "smaily-egress" /usr/local/etc/php-fpm.conf || printf "\n[www]\n; smaily-egress\nenv[https_proxy] = http://127.0.0.1:3128\nenv[http_proxy] = http://127.0.0.1:3128\nenv[no_proxy] = localhost,127.0.0.1\n" >> /usr/local/etc/php-fpm.conf
 '
 $dc exec -T -u www-data -e MOCK_USER="$MOCK_USER" -e MOCK_PASSWORD="$MOCK_PASSWORD" prestashop sh -c '
-  php -r "file_put_contents(\"/tmp/smaily-mock/state.json\", json_encode([\"credentials\" => [\"username\" => getenv(\"MOCK_USER\"), \"password\" => getenv(\"MOCK_PASSWORD\")], \"workflows\" => [[\"id\" => 11, \"name\" => \"Welcome\", \"status\" => \"active\"]]]));"
+  php -r "file_put_contents(\"/tmp/smaily-mock/state.json\", json_encode([\"credentials\" => [\"username\" => getenv(\"MOCK_USER\"), \"password\" => getenv(\"MOCK_PASSWORD\")], \"workflows\" => [[\"id\" => 11, \"title\" => \"Welcome\", \"trigger_type\" => \"form_submitted\", \"is_enabled\" => true, \"name\" => \"Welcome\", \"status\" => \"active\"]]]));"
   [ -f /tmp/smaily-mock/nginx.pid ] && kill -0 $(cat /tmp/smaily-mock/nginx.pid) 2>/dev/null || nginx -c /tmp/smaily-mock/nginx.conf
   kill -USR2 $(pgrep -f "[p]hp-fpm: master")
 '

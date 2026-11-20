@@ -40,9 +40,14 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\RequestRefusedExcepti
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 
 /**
- * The workflows of one Smaily account that a mapping row can pick: `GET autoresponder.php` with
- * `status=ACTIVE`, as the WooCommerce connector lists them. Asked each time, as the sibling
- * connectors ask; nothing is cached. A failure is a reason code, never Smaily's text.
+ * The workflows of one Smaily account that a mapping row can pick: `GET workflows.php` with
+ * `trigger_type=form_submitted`, read as the Magento connector reads it
+ * (SmailyClient::getAutomationWorkflows()). `POST autoresponder.php` starts only a workflow with
+ * the "form submitted" trigger; it refuses any other with code 221, though `GET autoresponder.php`
+ * lists it as active. A workflow that is switched off (`is_enabled` false) is left out: Smaily
+ * accepts its trigger and sends nothing. The name is the workflow's `title`, else its `name`, else
+ * its id. The answer is one list, without pages. Asked each time, as the sibling connectors ask;
+ * nothing is cached. A failure is a reason code, never Smaily's text.
  */
 final class WorkflowList
 {
@@ -87,16 +92,20 @@ final class WorkflowList
 
         try {
             $rows = (new Client($this->transport, $account->subdomain(), $account->username(), $account->password()))
-                ->get(Client::ENDPOINT_AUTORESPONDER, ['status' => 'ACTIVE']);
+                ->get(Client::ENDPOINT_WORKFLOWS, ['trigger_type' => 'form_submitted']);
         } catch (SmailyClientException $error) {
             return ['workflows' => [], 'error' => self::reason($error)];
         }
 
         $workflows = [];
         foreach ($rows as $row) {
-            if (is_array($row) && (int) ($row['id'] ?? 0) > 0) {
-                $workflows[] = ['id' => (int) $row['id'], 'name' => (string) ($row['name'] ?? '')];
+            if (!is_array($row) || (int) ($row['id'] ?? 0) <= 0) {
+                continue;
             }
+            if (array_key_exists('is_enabled', $row) && !$row['is_enabled']) {
+                continue;
+            }
+            $workflows[] = ['id' => (int) $row['id'], 'name' => (string) ($row['title'] ?? $row['name'] ?? $row['id'])];
         }
 
         return ['workflows' => $workflows, 'error' => null];

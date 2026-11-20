@@ -139,9 +139,10 @@ final class SmailyMockServer
     }
 
     /**
-     * The workflows that the autoresponder list answers with.
+     * The workflows that workflows.php answers with, by their `trigger_type`, and autoresponder.php,
+     * by their `status`.
      *
-     * @param list<array{id: int, name: string, status: string}> $workflows
+     * @param list<array{id: int, title?: string, trigger_type?: string, is_enabled?: bool, name?: string, status?: string}> $workflows
      */
     public function setWorkflows(array $workflows): void
     {
