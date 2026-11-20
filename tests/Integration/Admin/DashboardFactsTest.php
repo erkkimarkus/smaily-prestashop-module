@@ -235,7 +235,8 @@ final class DashboardFactsTest extends IntegrationTestCase
     {
         self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'smaily_connect_event_queue`');
         self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'smaily_connect_job`');
-        self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'smaily_connect_account` WHERE `id_shop` IN (0, ' . self::OTHER_SHOP . ')');
+        // Every account: any_account reads them all.
+        self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'smaily_connect_account`');
         \Configuration::deleteByName(ContactsSettings::ENABLED);
         \Configuration::deleteByName(ContactsSettings::CONFIRMED);
     }
