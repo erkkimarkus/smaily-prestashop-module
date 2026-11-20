@@ -1,8 +1,8 @@
 # Local development environment
 
 This recipe runs a local PrestaShop with the module from `src/`. It was run on 2026-11-20 on macOS
-(Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB, 30 GiB Docker disk), Docker Compose 5.5.1,
-from module version 2.2.0. Each step says whether it was verified there.
+(Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, from module version
+3.0.0 (the skeleton and the event queue). Each step says whether it was verified there.
 
 The admin user and password are the demo ones in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -18,14 +18,17 @@ comes first:
 
     composer install --working-dir src/
 
-## 2. Unit tests and code style (verified)
+The tests use PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0. The lock holds PHP CS Fixer at
+3.52.1.
+
+## 2. Unit tests and code style on the host (verified)
 
     src/vendor/bin/phpunit
     (cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
 
-Result on PHP 8.5.11: 8 tests, 23 assertions, all pass; PHP CS Fixer: 0 of 51 files to fix.
-CI runs the same on PHP 8.1. The verified run set `PHP_CS_FIXER_IGNORE_ENV=1`, as PHP CS Fixer may
-not support the newest PHP.
+On the host, PHPUnit runs the unit tests and skips the integration tests, which need a shop (section
+4). Result on PHP 8.5.11: 67 tests, 138 assertions, 24 skipped; PHP CS Fixer: 0 of 88 files to fix.
+The run set `PHP_CS_FIXER_IGNORE_ENV=1`, as PHP CS Fixer may not support the newest PHP.
 
 ## 3. Pick a project name and free ports
 
@@ -33,6 +36,7 @@ not support the newest PHP.
 
 | Variable | Default | Use |
 |---|---|---|
+| `COMPOSE_PROJECT_NAME` | the folder name | Names the containers, volumes and network |
 | `PS_IMAGE` | `prestashop/prestashop-flashlight:9.2.0-nginx` | Shop image, e.g. `prestashop/prestashop-flashlight:8.2.8-8.0-nginx` |
 | `PS_PORT` | `8080` | Host port of the shop; also sets `PS_DOMAIN` |
 | `PMA_PORT` | `8888` | Host port of phpMyAdmin |
@@ -43,14 +47,14 @@ Check that the ports are free first:
 
     for p in 8081 8082 8026; do lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null && echo "$p busy"; done
 
-The verified run used this `.env`, because other projects held 8080 and 8888:
+Example `.env`, for a machine where other projects hold 8080 and 8888:
 
     COMPOSE_PROJECT_NAME=smaily-presta-dev
     PS_PORT=8081
     PMA_PORT=8082
     MAILHOG_PORT=8026
 
-## 4. Start the shop (verified on PrestaShop 9.2.0)
+## 4. Start the shop and run the tests in it (verified on PrestaShop 9.2.0)
 
 Start only the shop and its database. phpMyAdmin and MailHog are optional and cost memory:
 
@@ -59,48 +63,83 @@ Start only the shop and its database. phpMyAdmin and MailHog are optional and co
 The first start pulls the image (1.5 GB for 9.2.0) and restores the demo database; the storefront
 answered HTTP 200 about 2.5 minutes after the command, most of it the pull.
 
-The shop does **not** install the module on its own. `src/` is only mounted into
-`modules/smailyforprestashop`. Install it with the PrestaShop console:
+The shop does **not** install the module on its own. `src/` is mounted into
+`modules/smailyforprestashop`, and the repository is mounted read-only at `/smaily`. Install the module
+with the PrestaShop console:
 
     docker compose exec -u www-data prestashop php bin/console prestashop:module install smailyforprestashop
 
-Verified result: `Install action on module smailyforprestashop succeeded`, `ps_module` row version
-2.2.0, active, three hooks, the `ps_smaily_cart` table and the `SMAILY_*` defaults.
+Verified result of a fresh 3.0.0 install: `Install action on module smailyforprestashop succeeded`, the
+`ps_module` row at version 3.0.0, 31 hooks, the 9 `ps_smaily_connect_*` tables and the configuration key
+`SMAILY_CONNECT_SCHEMA_VERSION`. A fresh install creates no `smaily_cart` table, no other `SMAILY_*`
+key and no override file.
+
+Run the unit and integration tests inside the shop, from the module's own folder:
+
+    docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
+      php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
+
+Verified result: 67 tests, 349 assertions, all pass. `PS_ROOT_DIR` makes the test bootstrap boot the
+shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
+not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
+container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
+
+`composer test` does not work inside the dev shop. It runs `phpunit --configuration
+../phpunit.xml.dist`, and the folder above the module in the shop is `modules/`, which holds no
+`phpunit.xml.dist` (verified: `Could not read "../phpunit.xml.dist"`). It also does not set
+`PS_ROOT_DIR`.
 
 - Storefront: `http://localhost:$PS_PORT/`
 - Admin: `http://localhost:$PS_PORT/admin-dev/` (PrestaShop 9 serves the login at `/admin-dev/login`)
-- Module configuration: `http://localhost:$PS_PORT/admin-dev/index.php?controller=SmailyForPrestaShopConfiguration`,
-  which redirects to `/admin-dev/index.php/modules/smailyforprestashop/configuration`. Verified: HTTP 200
-  after login, page title "Smaily for Prestashop", the account form present.
 - Database: `docker compose exec mysql mariadb -uprestashop -pprestashop prestashop`
 
 Memory of the running pair on PrestaShop 9.2.0: shop 344 MiB, MariaDB 156 MiB, about 0.5 GiB together.
-Disk: the 9.2.0 image 1.54 GB, the 8.2.8 image 1.12 GB, the two volumes about 0.7 GB.
+Disk: the 9.2.0 image 1.54 GB, the 8.2.8 image 1.12 GB, the 8.0.0 image 1.1 GB, the two volumes about
+0.7 GB.
 
 Code changes in `src/` show at once, as the folder is mounted. After a change to services or routes,
 clear the cache: `docker compose exec -u www-data prestashop php bin/console cache:clear`.
 
 ## 5. PrestaShop 8
 
-Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (the CI image) in `.env` and use a
-different `COMPOSE_PROJECT_NAME`, or reset the environment first: the volumes keep the files and the
-database of the image they were created with.
+Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (PrestaShop 8.2.8 on PHP 8.0) or
+`prestashop/prestashop-flashlight:8.0.0-8.0-nginx` (8.0.0 on PHP 8.0) in `.env`, and use a different
+`COMPOSE_PROJECT_NAME`, or reset the environment first: the volumes keep the files and the database of
+the image they were created with.
 
-Verified on 8.2.8 through the CI script only (step 6): the zip installs, hooks, table, override, RSS feed
-and cron controllers check out. The dev stack on 8.2.8 with the admin configuration page was **not**
-verified: its database container stopped with "No space left on device", because the Colima VM's
-Docker disk was full (see "Disk").
+Verified on 8.2.8 and 8.0.0 through the CI script (section 6). The dev stack itself was verified on
+9.2.0 only.
 
 ## 6. CI validation script (verified)
 
-    composer --working-dir src package
+    composer --working-dir src package       # builds dist/smailyforprestashop.zip
+    composer install --working-dir src       # the tests in the shop use the development dependencies
     PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx tests/ci/validate.sh
     PS_IMAGE=prestashop/prestashop-flashlight:9.2.0-nginx tests/ci/validate.sh
 
-`composer package` built `dist/smailyforprestashop.zip` (424 KB, 98 files, no dev dependencies).
-`validate.sh` passed all 10 checks on each image, in about 70 seconds once the image was present.
-It uses its own Compose project (`ci`) on port 8000 and removes its containers and volumes at the end.
-The API client check sends its request to a mock transport, not to Smaily.
+`validate.sh` starts a throwaway shop that installs `dist/smailyforprestashop.zip` (no development
+dependencies), and prints one `ok` or `FAIL` line per check, 10 lines in all:
+
+1. The module is installed and active with the version of the main class.
+2. Every hook of `Install\HookList` is registered.
+3. Every table of `Install\Schema` exists.
+4. The schema version is stored.
+5. The unit and integration tests pass inside the shop. For this step the module folder points at the
+   repository's `src/`, as in the dev shop, so that one Composer autoloader is loaded; the zip's folder
+   is put back afterwards.
+6. The storefront answers 200 while the schema version is unset.
+7. The API client sends one request through the HTTP client of this PrestaShop, to a mock transport,
+   not to Smaily.
+8. The RSS feed answers 200 with an RSS document.
+9. The two cron controllers refuse a wrong token.
+
+Result on 2026-11-20: all 10 checks `ok`, with 67 tests and 349 assertions in step 5, on flashlight
+8.0.0, 8.2.8 and 9.2.0, and on the official image `prestashop/prestashop:9.2.0-8.1` with
+`PS_COMPOSE=docker-compose.official.yaml` (the image CI uses for 9.2.0).
+
+The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
+it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
+its containers, volumes and network at the end; `KEEP=1` leaves the shop up.
 
 ## 7. Installing or upgrading from a built zip
 
@@ -137,9 +176,10 @@ that makes Compose recreate the shop container (image, ports, environment), rese
 demo dump even though the volume survives; the module is then no longer installed. `stop`/`start` keep
 the database. This follows from `/run.sh` in the 9.2.0 image and was not tried.
 
-## 9. Several git worktrees at once
+## 9. Several git worktrees at once (verified)
 
-Recommended: each worktree gets its own `.env` with its own `COMPOSE_PROJECT_NAME` and ports. Compose
+The Compose files set no fixed container names, so stacks with different project names and ports run
+side by side (verified: the runs of section 6 ran beside another worktree's CI stack). Give each worktree its own `.env` with its own `COMPOSE_PROJECT_NAME` and ports. Compose
 then keeps separate containers, volumes and networks per worktree, and each shop mounts the `src/` of
 its own worktree:
 
@@ -148,20 +188,25 @@ its own worktree:
     PMA_PORT=8182
     MAILHOG_PORT=8126
 
-Verified: the project name and the port variables (one worktree, project `smaily-presta-dev`, ports
-8081/8082/8026). **Blocker:** `docker-compose.yaml` still sets fixed `container_name` values
-(`prestashop`, `prestashop_db`, `phpmyadmin`, `mailhog`), and Docker allows each name once per machine.
-Until those lines go, only one dev stack can run at a time, whatever the project name. The same holds
-for `tests/ci/validate.sh`, which always uses project `ci` and port 8000.
+The same holds for `tests/ci/validate.sh` with `COMPOSE_PROJECT_NAME` and `CI_PORT` (section 6).
 
-Run one shop at a time anyway when memory is short: one shop with its database takes about 0.5 GiB.
+Run one shop at a time when memory is short: one shop with its database takes about 0.5 GiB.
+
+**Colima** cannot bind-mount a path under `/private/tmp` (macOS's `/tmp`) into a container. Keep every
+checkout that a shop mounts under the home directory.
+
+## 10. CI on GitHub
+
+`.github/workflows/validate.yaml` runs on pull requests and on pushes to `master` and `v3`: PHP syntax
+on 8.0 and 8.5, PHP CS Fixer, PHPUnit on the host, and `tests/ci/validate.sh` on 8.2.8 (flashlight,
+PHP 8.0) and 9.2.0 (official image, PHP 8.1). No workflow run exists on the fork yet: GitHub keeps a
+fork's workflows off until the owner enables them once in the repository's Actions tab. Until then, CI
+on `v3` is unverified, and the local `validate.sh` runs of section 6 are the evidence.
 
 ## Disk
 
-The verified run filled the Colima VM's 30 GiB Docker disk: other projects' images and volumes took
-most of it, and the two flashlight images (2.7 GB) and the volumes of this stack (about 1 GB) took the
-rest. A full Docker disk breaks every container that writes, also other projects' databases. Check
-before a pull:
+A full Docker disk breaks every container that writes, also other projects' databases. The first
+verified run filled a 30 GiB Colima disk; the disk is now larger. Check before a pull:
 
     colima ssh -- df -h /var/lib/docker
     docker system df
