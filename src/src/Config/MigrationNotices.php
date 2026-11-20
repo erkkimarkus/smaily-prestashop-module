@@ -36,7 +36,7 @@ if (!defined('_PS_VERSION_')) {
  */
 final class MigrationNotices extends Settings
 {
-    public const KEY = self::PREFIX . 'NOTICES';
+    public const KEY = 'SMAILY_CONNECT_NOTICES';
 
     /** An override file of ps_emailsubscription that 2.x did not ship stays in place; params: path. */
     public const OVERRIDE_LEFT_IN_PLACE = 'override_left_in_place';
