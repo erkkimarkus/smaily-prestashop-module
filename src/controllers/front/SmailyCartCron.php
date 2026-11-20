@@ -27,24 +27,28 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Controller\AbandonedCartController;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
 
+/**
+ * The abandoned-cart cron URL of 2.x, kept for merchants' crontabs: it runs the tick
+ * (Scheduler\Door) when its token is the cart cron token.
+ */
 class SmailyforprestashopSmailyCartCronModuleFrontController extends ModuleFrontController
 {
-    public function __construct()
-    {
-        parent::__construct();
-    }
-
     public function initContent()
     {
-        parent::initContent();
-        header('Content-Type: text/plain');
+        $token = Tools::getValue('token');
+        [$status, $answer] = Services::instance()->get(Door::class)->open(
+            Door::CART_CRON,
+            is_string($token) ? $token : '',
+            (int) $this->context->shop->id,
+            (int) ini_get('max_execution_time')
+        );
 
-        $controller = new AbandonedCartController($this->get('prestashop.adapter.legacy.configuration'));
-        if (!$controller->sync(Tools::getValue('token'))) {
-            exit(1);
-        }
+        http_response_code($status);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $answer . "\n";
 
         exit;
     }
