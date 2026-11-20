@@ -1,0 +1,22 @@
+# The JSON endpoints of the Log (Admin\Log). Their rights are those of the Log's menu tab: reading
+# opens Details, changing allows "Send again" and "Retry".
+smailyforprestashop_api_log_details:
+  path: /smailyforprestashop/api/log/details
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details::execute
+    _legacy_controller: AdminSmailyConnectLog
+
+smailyforprestashop_api_log_resend:
+  path: /smailyforprestashop/api/log/send-again
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain::execute
+    _legacy_controller: AdminSmailyConnectLog
+
+smailyforprestashop_api_log_retry:
+  path: /smailyforprestashop/api/log/retry
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry::execute
+    _legacy_controller: AdminSmailyConnectLog

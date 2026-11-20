@@ -1,0 +1,10 @@
+{#
+ # The Log page: the shell's frame (layout/log.html.twig), which draws log/list.html.twig, with
+ # views/js/admin/log.js for Details, "Send again" and "Retry".
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/log.html.twig' %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/log.js') }}?v={{ smaily.version }}"></script>
+{% endblock %}

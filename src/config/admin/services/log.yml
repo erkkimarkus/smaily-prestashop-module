@@ -1,0 +1,15 @@
+# The Log's JSON endpoints. The Log page's own controller is listed in shell.yml.
+services:
+  _defaults:
+    public: true
+    autowire: true
+    autoconfigure: true
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry

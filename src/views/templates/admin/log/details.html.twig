@@ -1,0 +1,105 @@
+{#
+ # The Details of one row of the Log, as the Magento connector's log/details.phtml draws them: the
+ # row's id, type and status; its summary; the attempts in order; what happens next; the last error
+ # or the skip reason; the payload as it was sent; the last answer. An import job shows its summary,
+ # its progress line and its last error.
+ #
+ # `details` comes from Admin\Log\LogView::details() through Admin\Log\Details. The payload and the
+ # answer are already without secrets (Log\PayloadRedactor); the contact's data shows in full.
+ # log.js copies the text of [data-smaily-payload] and sends [data-smaily-log-resend].
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+<div class="smaily-log-details">
+  <div class="smaily-log-details__head">
+    <span class="smaily-log-details__id">{{ details.title }}</span>
+    <span class="smaily-log-details__title">
+      <span class="smaily-log-details__type">{{ details.type }}</span>
+      <span class="smaily-pill smaily-pill--{{ details.status.variant }}"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ details.status.label }}</span>
+    </span>
+  </div>
+
+  <dl class="smaily-log-details__summary">
+    <dt>{{ 'Source'|trans }}</dt>
+    <dd>{{ details.source }}</dd>
+    {% if details.entity != '' %}
+      <dt>{{ 'Entity'|trans }}</dt>
+      <dd>{{ details.entity }}</dd>
+    {% endif %}
+    {% if not details.job %}
+      <dt>{{ 'Attempts'|trans }}</dt>
+      <dd>{{ details.attempts }}</dd>
+    {% endif %}
+    <dt>{{ 'Created'|trans }}</dt>
+    <dd>{{ details.created }}</dd>
+    <dt>{{ 'Updated'|trans }}</dt>
+    <dd>{{ details.updated }}</dd>
+  </dl>
+
+  {% if not details.job %}
+    {% if details.resent != '' %}
+      <p class="smaily-log-details__note">{{ details.resent }}</p>
+    {% endif %}
+
+    <h3>{{ 'Attempt history'|trans }}</h3>
+    <ol class="smaily-log-timeline">
+      {% for entry in details.history %}
+        <li class="smaily-log-timeline__item is-{{ entry.result }}">
+          <span class="smaily-log-timeline__dot" aria-hidden="true"></span>
+          <span class="smaily-log-timeline__body">
+            <span class="smaily-log-timeline__title">
+              {{ entry.title }}
+              {% if entry.badge != '' %}<span class="smaily-log-timeline__badge">{{ entry.badge }}</span>{% endif %}
+            </span>
+            {% if entry.time != '' %}<span class="smaily-log-timeline__time">{{ entry.time }}</span>{% endif %}
+            {% if entry.detail != '' %}<span class="smaily-log-timeline__detail">{{ entry.detail }}</span>{% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if details.history_is_partial %}
+      <p class="smaily-log-details__note">{{ 'The row keeps only its latest attempt, so earlier attempts are listed without a time or an error.'|trans }}</p>
+    {% endif %}
+  {% endif %}
+
+  <div class="smaily-log-details__outcome{{ details.outcome.terminal ? ' is-terminal' }}">
+    <span aria-hidden="true">&#8635;</span><span>{{ details.outcome.text }}</span>
+  </div>
+
+  {% if details.error != '' %}
+    <h3>{{ details.error_title }}</h3>
+    <pre class="smaily-log-details__pre{{ details.error_is_reason ? '' : ' is-error' }}">{{ details.error }}</pre>
+    {% if details.failure_class|default('') != '' %}
+      <p class="smaily-log-details__note">{{ 'Failure class: %class%'|trans({'%class%': details.failure_class}) }}</p>
+    {% endif %}
+  {% endif %}
+
+  {% if not details.job %}
+    <h3>{{ details.payload_title }}</h3>
+    {% if details.payload != '' %}
+      <pre class="smaily-log-details__pre" data-smaily-payload>{{ details.payload }}</pre>
+    {% else %}
+      <p class="smaily-log-details__note">{{ 'No payload stored for this row.'|trans }}</p>
+    {% endif %}
+
+    <h3>{{ 'Last response'|trans }}</h3>
+    {% if details.response != '' %}
+      <pre class="smaily-log-details__pre{{ details.response_is_error ? ' is-error' }}">{{ details.response }}</pre>
+    {% else %}
+      <p class="smaily-log-details__note">{{ details.no_response }}</p>
+    {% endif %}
+
+    <p class="smaily-log-details__note">{{ 'Passwords and API keys are never shown.'|trans }}</p>
+
+    {% if details.resend or details.payload != '' %}
+      <div class="smaily-log-details__foot">
+        {% if details.resend %}
+          <button type="button" class="btn btn-outline-secondary" data-smaily-log-resend="{{ details.log_id }}">{{ 'Send again'|trans }}</button>
+        {% endif %}
+        {% if details.payload != '' %}
+          <button type="button" class="btn btn-link" data-smaily-log-copy>{{ 'Copy payload'|trans }}</button>
+        {% endif %}
+        <span class="smaily-result" data-smaily-log-copy-status role="status" aria-live="polite"></span>
+      </div>
+    {% endif %}
+  {% endif %}
+</div>

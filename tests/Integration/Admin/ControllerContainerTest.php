@@ -12,12 +12,16 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details as LogDetails;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\MigrationPlan;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,7 +36,8 @@ use Twig\Environment;
  * Symfony's AbstractController subscribes to and no "translator" (facts file 6.6); every page and
  * every JSON error answered HTTP 500 there. These tests give each controller such a locator, on
  * whichever PrestaShop the suite runs: every page renders with its title and its notices, every
- * JSON error path answers with its worded error, and so does each endpoint of the Settings page.
+ * JSON error path answers with its worded error, and so does each endpoint of the Settings page
+ * and of the Log.
  *
  * Twig, the authorization checker and the CSRF token manager are stand-ins; the browser check of
  * the pages covers the real ones.
@@ -53,12 +58,14 @@ final class ControllerContainerTest extends IntegrationTestCase
         // A finished setup: no page is sent to the Initial setup, which would need the router.
         (new AdminSettings())->setSetupState(AdminSettings::SETUP_DONE);
         \Configuration::deleteByName(MigrationNotices::KEY);
+        self::db()->delete(EventQueue::TABLE);
         $this->rendered = [];
     }
 
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
+            self::db()->delete(EventQueue::TABLE);
             \Configuration::deleteByName(MigrationNotices::KEY);
             if ($this->setupState === null) {
                 \Configuration::deleteByName(AdminSettings::SETUP_STATE);
@@ -180,6 +187,111 @@ final class ControllerContainerTest extends IntegrationTestCase
         self::assertSame($message, $answer['error']['message'] ?? null);
     }
 
+    public function testTheLogHandsItsFilteredListToTwig(): void
+    {
+        $failed = $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'Smaily API request failed with HTTP 500']);
+        $this->queueRow(['entity_id' => 'shopper2@example.test']);
+        $controller = new LogController();
+        $controller->setContainer($this->locator());
+
+        $response = $controller->index(new Request(['status' => 'failed', '_token' => 'url-token', 'page' => '7']));
+
+        self::assertSame(200, $response->getStatusCode());
+        $log = $this->rendered['smaily_log'];
+        self::assertSame(
+            [['status' => 'failed'], 'url-token', 1, 1, 1, 1, true],
+            [$log['filter'], $log['token'], $log['total'], $log['page'], $log['pages'], $log['failed'], $log['can_update']]
+        );
+        self::assertSame(
+            ['smaily-' . $failed, 'Smaily', 'shopper1@example.test', 'Failed', 'Smaily API request failed with HTTP 500', true],
+            [$log['rows'][0]['log_id'], $log['rows'][0]['source'], $log['rows'][0]['entity'], $log['rows'][0]['status']['label'], $log['rows'][0]['error'], $log['rows'][0]['resend']]
+        );
+        self::assertSame(['Pending', 'Sending', 'Sent', 'Failed', 'Withdrawn', 'Skipped', 'Queued', 'Running', 'Done', 'Cancelled'], array_column($log['statuses'], 'label'));
+        self::assertSame(['Smaily', 'Campaign Intelligence'], array_column($log['sources'], 'label'));
+    }
+
+    public function testTheLogWithoutRightsHandsNothingToTwig(): void
+    {
+        $this->queueRow();
+        $controller = new LogController();
+        $controller->setContainer($this->locator(false));
+
+        $response = $controller->index(new Request());
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(['layoutTitle' => 'Smaily Connect — Log'], $this->rendered);
+    }
+
+    /**
+     * The Log's endpoints: [action, body, HTTP status, error code or null, error or answer message].
+     * `:sent` and `:failed` stand for the log ids of a delivered and a failed row.
+     *
+     * @return array<string, array{class-string<AbstractJsonAction>, array<string, mixed>, int, string|null, string|null}>
+     */
+    public function logEndpoints(): array
+    {
+        $gone = 'This log row no longer exists — it has likely been pruned by retention.';
+
+        return [
+            'details of a row that is gone' => [LogDetails::class, ['id' => 'smaily-999999999'], 404, 'not_found', $gone],
+            'details of no log id' => [LogDetails::class, ['id' => '1 OR 1=1'], 404, 'not_found', $gone],
+            'details of a row' => [LogDetails::class, ['id' => ':failed'], 200, null, null],
+            'send again of a row that is gone' => [SendAgain::class, [], 404, 'not_found', $gone],
+            'send again of a delivered row' => [SendAgain::class, ['id' => ':sent'], 409, 'refused', 'Only a failed event can be sent again.'],
+            'send again of a failed row' => [SendAgain::class, ['id' => ':failed'], 200, null, 'Event queued to be sent again.'],
+            'retry of nothing' => [MassRetry::class, [], 200, null, '0 event(s) queued for retry.'],
+            'retry of a delivered row' => [MassRetry::class, ['ids' => [':sent', 'job-1', 'x']], 200, null, '0 event(s) queued for retry.'],
+            'retry of the failed rows' => [MassRetry::class, ['all' => true, 'filter' => ['status' => 'failed']], 200, null, '1 event(s) queued for retry.'],
+        ];
+    }
+
+    /**
+     * @dataProvider logEndpoints
+     *
+     * @param class-string<AbstractJsonAction> $action
+     * @param array<string, mixed> $body
+     */
+    public function testALogEndpointAnswersInWords(string $action, array $body, int $status, ?string $code, ?string $message): void
+    {
+        $ids = [
+            ':failed' => 'smaily-' . $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'Smaily API request failed with HTTP 500']),
+            ':sent' => 'smaily-' . $this->queueRow(['entity_id' => 'shopper2@example.test']),
+        ];
+        array_walk_recursive($body, static function (&$value) use ($ids): void {
+            $value = $ids[$value] ?? $value;
+        });
+
+        $response = $this->execute(new $action(), $this->locator(), $body, ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log']);
+
+        $answer = json_decode((string) $response->getContent(), true);
+        self::assertSame($status, $response->getStatusCode());
+        self::assertSame($code, $answer['error']['code'] ?? null);
+        self::assertSame($message, $answer['error']['message'] ?? $answer['data']['message'] ?? null);
+        if ($action === LogDetails::class && $status === 200) {
+            self::assertSame(['html' => ''], $answer['data'], 'the panel is what Twig rendered');
+            self::assertSame(['Event #' . substr($ids[':failed'], 7), true], [$this->rendered['details']['title'], $this->rendered['details']['resend']]);
+        }
+    }
+
+    public function testALogEndpointRefusesAMissingRightAndAStalePageToken(): void
+    {
+        $id = 'smaily-' . $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'x']);
+        $route = ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log'];
+
+        foreach ([LogDetails::class, SendAgain::class, MassRetry::class] as $action) {
+            self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), ['id' => $id, 'ids' => [$id]], $route));
+            self::assertError(403, 'invalid_token', 'The page has expired. Reload it and try again.', $this->execute(new $action(), $this->locator(true, false), ['id' => $id, 'ids' => [$id]], $route));
+        }
+        self::assertSame(
+            [['failed', '5']],
+            array_map(
+                static fn (array $row): array => array_map('strval', array_values($row)),
+                self::db()->executeS('SELECT `status`, `attempts` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`', true, false)
+            ),
+            'a refused request changes nothing'
+        );
+    }
+
     public function testAnEndpointThatThrowsAnswersInWords(): void
     {
         $failing = new class extends AbstractJsonAction {
@@ -231,6 +343,28 @@ final class ControllerContainerTest extends IntegrationTestCase
         $request->headers->set('X-Smaily-Token', 'page-token');
 
         return $action->execute($request);
+    }
+
+    /**
+     * An event-queue row of the default shop, last changed now; delivered unless $columns say else.
+     *
+     * @param array<string, mixed> $columns
+     */
+    private function queueRow(array $columns = []): int
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        self::db()->insert(EventQueue::TABLE, $columns + [
+            'id_shop' => (int) \Configuration::get('PS_SHOP_DEFAULT'),
+            'event_type' => 'contact.sync',
+            'entity_id' => 'shopper1@example.test',
+            'payload' => '{"email":"shopper1@example.test"}',
+            'status' => 'sent',
+            'attempts' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return (int) self::db()->Insert_ID();
     }
 
     private static function assertError(int $status, string $code, string $message, JsonResponse $response): void

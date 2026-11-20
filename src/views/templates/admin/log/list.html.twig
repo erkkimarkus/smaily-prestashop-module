@@ -1,0 +1,188 @@
+{#
+ # The Log's list, in the Magento connector's column order: Source, Type, Entity, Status, Attempts,
+ # Last Error, Created (newest first), Updated, Actions; a filter under each heading that has one.
+ # Above it the introduction and, while rows failed in the last 24 hours, the failed banner.
+ #
+ # `smaily_log` comes from Admin\Log\LogController. The filter form is a GET form, so it carries
+ # PrestaShop's token of the page's address itself. log.js opens Details in the panel at the end, asks
+ # before "Send again" and "Retry" in the dialog, and shows their answer in the flash line.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_log is defined %}
+  {% set log = smaily_log %}
+  {% set route = 'smailyforprestashop_log' %}
+
+  <p class="smaily-intro">{{ 'Every delivery lands here: contact syncs and automation triggers to Smaily. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.'|trans }}</p>
+
+  {% if log.failed > 0 %}
+    <div class="smaily-banner smaily-log__banner" role="status">
+      <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">
+          {% if log.failed == 1 %}
+            {{ '%count% event failed in the last 24 hours'|trans({'%count%': log.failed}) }}
+          {% else %}
+            {{ '%count% events failed in the last 24 hours'|trans({'%count%': log.failed}) }}
+          {% endif %}
+        </div>
+        <div class="smaily-banner__message">{{ 'Most retry automatically with backoff; anything still failed can be retried manually from the grid.'|trans }}</div>
+      </div>
+      <a class="btn btn-outline-secondary smaily-banner__action" href="{{ path(route, {status: 'failed'}) }}">{{ 'Show failed (24h)'|trans }}</a>
+    </div>
+  {% endif %}
+
+  <div class="alert smaily-log__flash" role="status" data-smaily-log-flash hidden>
+    <div class="alert-text"><p></p></div>
+  </div>
+
+  <div class="smaily-card smaily-log__card" data-smaily-log
+       data-api-details="{{ path('smailyforprestashop_api_log_details') }}"
+       data-api-resend="{{ path('smailyforprestashop_api_log_resend') }}"
+       data-api-retry="{{ path('smailyforprestashop_api_log_retry') }}"
+       data-filter="{{ log.filter|json_encode }}"
+       data-label-resend-title="{{ 'Send again'|trans }}"
+       data-label-resend-message="{{ 'Send this event again? A new attempt is queued; the failed row is kept as history.'|trans }}"
+       data-label-retry-title="{{ 'Retry events'|trans }}"
+       data-label-retry-message="{{ 'Retry the selected failed events?'|trans }}"
+       data-label-retry="{{ 'Retry'|trans }}"
+       data-label-copied="{{ 'Copied to the clipboard.'|trans }}"
+       data-label-copy-failed="{{ 'Copying failed — select the payload and copy it manually.'|trans }}">
+    <div class="smaily-log__toolbar">
+      {% if log.can_update %}
+        <button type="button" class="btn btn-outline-secondary" data-smaily-log-retry disabled>{{ 'Retry'|trans }}</button>
+        <label class="smaily-log__all">
+          <input type="checkbox" data-smaily-log-all{{ log.total == 0 ? ' disabled' }}>
+          {{ 'Select all'|trans({}, 'Admin.Actions') }} ({{ log.total }})
+        </label>
+      {% endif %}
+      <span class="smaily-log__count">{{ log.from }}–{{ log.to }} / {{ log.total }}</span>
+    </div>
+
+    <form method="get" action="{{ path(route) }}" class="smaily-log__form">
+      <input type="hidden" name="_token" value="{{ log.token }}">
+      <div class="table-responsive">
+        <table class="table smaily-log__table">
+          <thead>
+            <tr>
+              <th class="smaily-log__check">
+                {% if log.can_update %}
+                  <input type="checkbox" data-smaily-log-page aria-label="{{ 'Select all'|trans({}, 'Admin.Actions') }}">
+                {% endif %}
+              </th>
+              <th>{{ 'Source'|trans }}</th>
+              <th>{{ 'Type'|trans }}</th>
+              <th>{{ 'Entity'|trans }}</th>
+              <th>{{ 'Status'|trans }}</th>
+              <th>{{ 'Attempts'|trans }}</th>
+              <th>{{ 'Last Error'|trans }}</th>
+              <th>{{ 'Created'|trans }}</th>
+              <th>{{ 'Updated'|trans }}</th>
+              <th>{{ 'Actions'|trans }}</th>
+            </tr>
+            <tr class="smaily-log__filters">
+              <th></th>
+              <th>
+                <select name="source" class="form-control" aria-label="{{ 'Source'|trans }}">
+                  <option value=""></option>
+                  {% for source in log.sources %}
+                    <option value="{{ source.value }}"{{ log.filter.source|default('') == source.value ? ' selected' }}>{{ source.label }}</option>
+                  {% endfor %}
+                </select>
+              </th>
+              <th><input type="text" name="type" value="{{ log.filter.type|default('') }}" class="form-control" aria-label="{{ 'Type'|trans }}"></th>
+              <th><input type="text" name="entity" value="{{ log.filter.entity|default('') }}" class="form-control" aria-label="{{ 'Entity'|trans }}"></th>
+              <th>
+                <select name="status" class="form-control" aria-label="{{ 'Status'|trans }}">
+                  <option value=""></option>
+                  {% for status in log.statuses %}
+                    <option value="{{ status.value }}"{{ log.filter.status|default('') == status.value ? ' selected' }}>{{ status.label }}</option>
+                  {% endfor %}
+                </select>
+              </th>
+              <th></th>
+              <th><input type="text" name="last_error" value="{{ log.filter.last_error|default('') }}" class="form-control" aria-label="{{ 'Last Error'|trans }}"></th>
+              {% for range in ['created', 'updated'] %}
+                <th class="smaily-log__range">
+                  <input type="date" name="{{ range }}_from" value="{{ log.filter[range ~ '_from']|default('') }}" class="form-control" aria-label="{{ 'From'|trans({}, 'Admin.Global') }}" title="{{ 'From'|trans({}, 'Admin.Global') }}">
+                  <input type="date" name="{{ range }}_to" value="{{ log.filter[range ~ '_to']|default('') }}" class="form-control" aria-label="{{ 'To'|trans({}, 'Admin.Global') }}" title="{{ 'To'|trans({}, 'Admin.Global') }}">
+                </th>
+              {% endfor %}
+              <th class="smaily-log__search">
+                <button type="submit" class="btn btn-primary">{{ 'Search'|trans({}, 'Admin.Actions') }}</button>
+                {% if log.filter is not empty %}
+                  <a class="btn btn-link" href="{{ path(route) }}">{{ 'Reset'|trans({}, 'Admin.Actions') }}</a>
+                {% endif %}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in log.rows %}
+              <tr data-smaily-log-row="{{ row.log_id }}">
+                <td class="smaily-log__check">
+                  {% if log.can_update and row.selectable %}
+                    <input type="checkbox" value="{{ row.log_id }}" data-smaily-log-select>
+                  {% endif %}
+                </td>
+                <td>{{ row.source }}</td>
+                <td><code>{{ row.type }}</code></td>
+                <td class="smaily-log__entity">{{ row.entity }}</td>
+                <td><span class="smaily-pill smaily-pill--{{ row.status.variant }}"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ row.status.label }}</span></td>
+                <td>{{ row.attempts }}</td>
+                <td class="smaily-log__error">{{ row.error }}</td>
+                <td class="smaily-log__time">{{ row.created }}</td>
+                <td class="smaily-log__time">{{ row.updated }}</td>
+                <td class="smaily-log__actions">
+                  <button type="button" class="btn btn-link" data-smaily-log-details="{{ row.log_id }}">{{ 'Details'|trans }}</button>
+                  {% if log.can_update and row.resend %}
+                    <button type="button" class="btn btn-link" data-smaily-log-resend="{{ row.log_id }}">{{ 'Send again'|trans }}</button>
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="10" class="smaily-log__none">{{ 'No records found'|trans({}, 'Admin.Global') }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+
+    {% if log.pages > 1 %}
+      <nav class="smaily-log__pager" aria-label="{{ 'Log'|trans }}">
+        <ul class="pagination">
+          <li class="page-item{{ log.page == 1 ? ' disabled' }}">
+            <a class="page-link" href="{{ path(route, log.filter|merge({page: log.page - 1})) }}">{{ 'Previous'|trans({}, 'Admin.Global') }}</a>
+          </li>
+          {% for number in max(1, log.page - 2)..min(log.pages, log.page + 2) %}
+            <li class="page-item{{ number == log.page ? ' active' }}">
+              <a class="page-link" href="{{ path(route, log.filter|merge({page: number})) }}"{{ number == log.page ? ' aria-current="page"' }}>{{ number }}</a>
+            </li>
+          {% endfor %}
+          <li class="page-item{{ log.page == log.pages ? ' disabled' }}">
+            <a class="page-link" href="{{ path(route, log.filter|merge({page: log.page + 1})) }}">{{ 'Next'|trans({}, 'Admin.Global') }}</a>
+          </li>
+        </ul>
+      </nav>
+    {% endif %}
+  </div>
+
+  <div class="smaily-drawer" data-smaily-log-drawer hidden>
+    <div class="smaily-drawer__backdrop" data-smaily-log-close></div>
+    <aside class="smaily-drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'Details'|trans }}">
+      <button type="button" class="smaily-drawer__close" data-smaily-log-close aria-label="{{ 'Close'|trans({}, 'Admin.Actions') }}">&times;</button>
+      <div class="smaily-drawer__body" data-smaily-log-drawer-body></div>
+    </aside>
+  </div>
+
+  <div class="smaily-dialog" data-smaily-log-dialog hidden>
+    <div class="smaily-dialog__box" role="alertdialog" aria-modal="true" aria-labelledby="smaily-log-dialog-title" aria-describedby="smaily-log-dialog-message">
+      <h2 class="smaily-dialog__title" id="smaily-log-dialog-title"></h2>
+      <p class="smaily-dialog__message" id="smaily-log-dialog-message"></p>
+      <div class="smaily-dialog__actions">
+        <button type="button" class="btn btn-outline-secondary" data-smaily-log-dialog-cancel>{{ 'Cancel'|trans({}, 'Admin.Actions') }}</button>
+        <button type="button" class="btn smaily-btn-primary" data-smaily-log-dialog-confirm></button>
+      </div>
+    </div>
+  </div>
+{% endif %}
