@@ -64,9 +64,16 @@ schema=$(sql "SELECT value FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SC
 [ -n "$schema" ]; report $? "the schema version is stored (got '${schema:-none}')"
 
 echo "* Running the unit and integration tests inside the shop"
-$COMPOSE exec -T -u www-data -e PS_ROOT_DIR=/var/www/html -w /smaily/src prestashop \
-    php vendor/bin/phpunit --configuration ../phpunit.xml.dist
+# The zip's vendor/ and the repository's src/vendor/ come from one composer.lock, so both declare the
+# same ComposerAutoloaderInit class, and PrestaShop includes the module's autoloader when it builds a
+# container. While the tests run, the module folder points at the repository's src/ (as in the dev
+# shop), so only one autoloader is ever loaded; the zip's folder is put back afterwards.
+module=/var/www/html/modules/smailyforprestashop
+$COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-zip && ln -s /smaily/src $module"
+$COMPOSE exec -T -u www-data -e PS_ROOT_DIR=/var/www/html -w /var/www/html prestashop \
+    php $module/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 report $? "unit and integration tests"
+$COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-repo && mv /tmp/smailyforprestashop-zip $module"
 
 echo "* Opening the storefront while the schema version is unset"
 sql "DELETE FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'"
