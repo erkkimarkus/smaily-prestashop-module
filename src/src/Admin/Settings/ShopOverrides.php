@@ -34,7 +34,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
-use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
@@ -214,7 +213,7 @@ final class ShopOverrides extends Settings
      * account per language is a shop's own setting, so the shared language mode `a` becomes
      * Single language, and the shared account is the shop's account of no language (its fallback
      * account), as Magento's promoteToStoreWide() does. The shop's accounts of a language are
-     * copied too, unread while the shared mode is not `a`, so that no account is lost.
+     * not shared: they go with its own values (removeOwn()), as Magento's go.
      */
     public function promoteToShared(int $idShop): void
     {
@@ -231,57 +230,11 @@ final class ShopOverrides extends Settings
             }
         }
         \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
-        foreach ($this->accountLanguages($idShop) as $language) {
-            $this->copyAccountRow($idShop, 0, $language);
-        }
+        $this->copyAccountRow($idShop, 0, '');
         foreach ($this->mappings->rows(0) as $row) {
             $this->mappings->delete(0, $row['trigger'], $row['language'], $row['account_key']);
         }
         $this->copyMappings($idShop, 0);
-        $this->reload();
-    }
-
-    /**
-     * Separate stores to one store, for each shop after the promotion: the shop's own values that
-     * equal the shared ones go, so the shop reads the shared values; an own value that differs
-     * stays, so the shop goes on exactly as before. Its own Smaily account stays as a whole while
-     * its language mode differs from the shared one (mode `a`); its own automations stay as a
-     * whole while it holds another Smaily account than the shared one (Magento CON-190).
-     */
-    public function removeOwnEqualToShared(int $idShop): void
-    {
-        $sharedMode = $this->storedValue(StoreLayout::LANGUAGE_MODE);
-        $ownMode = $this->ownValue(StoreLayout::LANGUAGE_MODE, $idShop);
-        if ($ownMode === null || $ownMode === $sharedMode) {
-            foreach (self::KEYS[self::CONNECTION] as $key) {
-                if ($this->ownValue($key, $idShop) !== null) {
-                    $this->removeShopValue($key, $idShop);
-                }
-            }
-            foreach ($this->accountLanguages($idShop) as $language) {
-                if (self::sameAccount($this->accounts->find($idShop, $language), $this->accounts->find(0, $language))) {
-                    $this->removeAccount($idShop, $language);
-                }
-            }
-        }
-        $this->reload();
-
-        foreach ([self::CONTACTS, self::AUTOMATIONS] as $section) {
-            foreach (self::KEYS[$section] as $key) {
-                $own = $this->ownValue($key, $idShop);
-                if ($own !== null && $own === $this->storedValue($key)) {
-                    $this->removeShopValue($key, $idShop);
-                }
-            }
-        }
-        if (!$this->usesOtherAccount($idShop)) {
-            $shared = array_map([self::class, 'mappingKey'], $this->mappings->rows(0));
-            foreach ($this->mappings->rows($idShop) as $row) {
-                if (in_array(self::mappingKey($row), $shared, true)) {
-                    $this->mappings->delete($idShop, $row['trigger'], $row['language'], $row['account_key']);
-                }
-            }
-        }
         $this->reload();
     }
 
@@ -351,28 +304,5 @@ final class ShopOverrides extends Settings
                 $fallbacks[$row['trigger']] = true;
             }
         }
-    }
-
-    /**
-     * @param array{trigger: string, language: string, account_key: string, workflow_id: int|null, optin_trigger: bool, is_default_fallback: bool} $row
-     */
-    private static function mappingKey(array $row): string
-    {
-        return implode('|', [
-            $row['trigger'],
-            $row['language'],
-            $row['account_key'],
-            (string) $row['workflow_id'],
-            (int) $row['optin_trigger'],
-            (int) $row['is_default_fallback'],
-        ]);
-    }
-
-    private static function sameAccount(?Account $own, ?Account $shared): bool
-    {
-        return $own !== null && $shared !== null
-            && strcasecmp($own->subdomain(), $shared->subdomain()) === 0
-            && $own->username() === $shared->username()
-            && $own->password() === $shared->password();
     }
 }

@@ -35,8 +35,9 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Changes how the shops of a configured multishop store are run (Admin\Settings\LayoutChange):
  * POST {"shape": "one" | "separate"}. To one store, the values of the shop selected in
- * PrestaShop's shop selector (the default shop with "All shops") become the shared ones; the page
- * asks the merchant before it posts. The same shape as now changes nothing.
+ * PrestaShop's shop selector (the default shop with "All shops") become the shared ones and every
+ * shop's own values are removed; the page asks the merchant before it posts. The same shape as now
+ * changes nothing.
  */
 final class ChangeLayout extends AbstractSettingsAction
 {

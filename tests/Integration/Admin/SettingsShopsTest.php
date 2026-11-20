@@ -206,42 +206,47 @@ final class SettingsShopsTest extends IntegrationTestCase
         );
     }
 
-    public function testSeparateStoresToOneStoreAndBackLosesNoAccount(): void
+    public function testSeparateStoresToOneStoreRemovesEveryShopsOwnValues(): void
     {
         $this->oneStoreConfigured();
-        // An account of a language that an earlier mode `a` left: unread, but never lost.
+        // An account of a language that an earlier mode `a` left: every shop gets it as its own.
         $this->accounts->save(new Account(0, 'et', 'demo-et', self::USERNAME, self::PASSWORD));
         $this->layoutChange()->toSeparateStores();
-        // In separate stores, shop C takes another account and per-language accounts.
+        // In separate stores, shop C takes another account, per-language accounts and a workflow.
         $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
         $this->accounts->save(new Account($this->shopC, 'en', 'other', self::USERNAME, self::PASSWORD));
         \Configuration::updateValue(StoreLayout::LANGUAGE_MODE, 'a', false, null, $this->shopC);
         \Configuration::updateValue(StoreLayout::FALLBACK_LANGUAGE, 'en', false, null, $this->shopC);
+        $this->mappings->upsert($this->shopC, 'welcome', '', 'default', 7);
+        // Shop B differs in one Contacts value and has confirmed its Contacts settings.
         \Configuration::updateValue(ContactsSettings::GUESTS, '1', false, null, $this->shopB);
+        (new ContactsSettings())->confirm($this->shopB);
         $before = $this->whatShopsRead();
-        $accountsBefore = $this->accountRows();
+        self::assertSame('other', $before[$this->shopC]['account'][0]);
+        self::assertCount(7, $this->accountRows(), 'three shops with two accounts each, and shop C\'s own of a language');
 
         $this->layoutChange()->toOneStore($this->shopA);
 
         self::assertFalse((new StoreLayout())->separateStores());
-        self::assertSame($before, $this->whatShopsRead());
+        $after = $this->whatShopsRead();
         $overrides = $this->overrides();
-        self::assertFalse($overrides->hasOwn(ShopOverrides::CONNECTION, $this->shopA), 'the promoted shop reads the shared values');
-        self::assertFalse($overrides->hasOwn(ShopOverrides::CONTACTS, $this->shopA));
-        self::assertTrue($overrides->hasOwn(ShopOverrides::CONTACTS, $this->shopB), 'a differing value stays the shop\'s own');
-        self::assertTrue($overrides->hasOwn(ShopOverrides::CONNECTION, $this->shopC));
+        foreach ([$this->shopA, $this->shopB, $this->shopC] as $shop) {
+            self::assertSame($before[$this->shopA], $after[$shop], 'every shop reads what the promoted shop read');
+            foreach (array_keys(ShopOverrides::KEYS) as $section) {
+                self::assertFalse($overrides->hasOwn($section, $shop), 'no shop holds own values of ' . $section);
+            }
+            self::assertSame(0, $this->mappingCount($shop));
+            self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $shop . ' AND `value` IS NULL', false), 'nothing was written as NULL');
+        }
+        self::assertSame([], $this->accountRows(), 'no shop holds an account row, differing or not');
+        self::assertSame(1, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '` WHERE `id_shop` = 0', false), 'the shared account alone is left');
+        self::assertSame('demo', $this->accounts->find(0, '')->subdomain());
         self::assertSame(1, $this->mappingCount(0));
-        self::assertSame(0, $this->mappingCount($this->shopA) + $this->mappingCount($this->shopB));
-        self::assertNotNull($this->accounts->find(0, 'et'), 'the unread account of a language is kept');
-        self::assertNull($this->accounts->find($this->shopB, 'et'), 'an account equal to the shared one goes');
-
-        $this->layoutChange()->toSeparateStores();
-
-        self::assertSame($before, $this->whatShopsRead());
-        self::assertSame($accountsBefore, $this->accountRows(), 'every shop holds the accounts it held');
+        self::assertSame(['shop' => 1, 'global' => 6], $this->contactRows($this->shopB), 'only the confirmation stays at the shop: it is not an own value');
+        self::assertSame(['shop' => 0, 'global' => 6], $this->contactRows($this->shopC));
     }
 
-    public function testSeparateStoresToOneStoreMakesAnAccountPerLanguageTheShopsOwn(): void
+    public function testSeparateStoresToOneStoreNeverSharesAnAccountPerLanguage(): void
     {
         $this->oneStoreConfigured();
         $this->layoutChange()->toSeparateStores();
@@ -252,8 +257,9 @@ final class SettingsShopsTest extends IntegrationTestCase
         $this->layoutChange()->toOneStore($this->shopA);
 
         self::assertSame('single', (new StoreLayout())->languageMode(0), 'an account per language is never shared');
-        self::assertSame('a', (new StoreLayout())->languageMode($this->shopA));
-        self::assertNotNull($this->accounts->find($this->shopA, 'en'));
+        self::assertSame('single', (new StoreLayout())->languageMode($this->shopA), 'the promoted shop reads the shared mode');
+        self::assertNull($this->accounts->find($this->shopA, 'en'), 'its account of a language goes with its own values');
+        self::assertNull($this->accounts->find(0, 'en'));
         self::assertSame('demo', $this->accounts->find(0, '')->subdomain());
     }
 

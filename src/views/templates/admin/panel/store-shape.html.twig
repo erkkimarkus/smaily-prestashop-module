@@ -75,7 +75,7 @@
           {% endfor %}
         </div>
         <p class="smaily-note smaily-note--strong" data-smaily-shape-note="separate" hidden>{{ 'Each shop keeps the settings it uses now, as its own. Change them for each shop afterwards.'|trans }}</p>
-        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="one" hidden>{{ 'All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. A shop whose own settings differ keeps them as its own, so every shop goes on syncing as it does now.'|trans({'%shop%': promoted_shop|default('')}) }}</p>
+        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="one" hidden>{{ 'All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. The other shops\' own settings are removed.'|trans({'%shop%': promoted_shop|default('')}) }}</p>
         <div class="smaily-actions">
           <button type="button" class="btn smaily-btn-primary" data-smaily-action="shape-save">{{ 'Save'|trans }}</button>
           <button type="button" class="btn btn-outline-secondary" data-smaily-action="shape-cancel">{{ 'Cancel'|trans }}</button>

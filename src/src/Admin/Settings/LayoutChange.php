@@ -33,20 +33,18 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
 /**
  * Changes how the shops of a configured store are run, from Settings (Magento's
- * StoreLayout::toSeparateStores() and toOneStore(), CON-279), so that every shop syncs exactly as
- * it did before the change and no Smaily account is lost in either direction:
+ * StoreLayout::toSeparateStores() and toOneStore(), CON-279):
  *
  * - One store to separate stores: each shop keeps the values it reads now as its own (the shared
  *   values it does not hold are copied to it, the password still encrypted), and the shared values
- *   go, so a shop added later starts with nothing set.
+ *   go, so a shop added later starts with nothing set. Every shop syncs exactly as it did.
  * - Separate stores to one store: the values of the shop the merchant looks at (the default shop
- *   with "All shops" selected) become the shared values. Where another shop's own value equals the
- *   shared one, it goes; where it differs, the shop keeps it as its own (Settings then shows its
- *   switch "Use its own … on this shop" ticked). Magento removes every website's own values here;
- *   keeping the ones that differ is what makes the change reversible without losing an account.
+ *   with "All shops" selected) become the shared values, and every shop's own values of the Smaily
+ *   account (with its accounts of a language), the Contacts settings and the automations are
+ *   removed, as Magento removes every website's (owner, 2026-11-20). The page asks first. The
+ *   contacts confirmation is not an own value and stays (ShopOverrides).
  *
- * The steps run in an order that leaves every shop reading what it read before, should the request
- * stop half-way. The Campaign Intelligence connection is not moved (it is not built yet).
+ * The Campaign Intelligence connection is not moved (it is not built yet).
  */
 final class LayoutChange
 {
@@ -104,7 +102,9 @@ final class LayoutChange
         $this->overrides->promoteToShared($idShop);
         $this->layout->setSeparateStores(false);
         foreach ($shops as $shop) {
-            $this->overrides->removeOwnEqualToShared($shop);
+            foreach (array_keys(ShopOverrides::KEYS) as $section) {
+                $this->overrides->removeOwn($section, $shop);
+            }
         }
     }
 }
