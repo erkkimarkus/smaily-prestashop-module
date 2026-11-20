@@ -1,8 +1,8 @@
 # Architecture of Smaily Connect for PrestaShop 3.0.0
 
-This document is the architecture proposal for version 3.0.0 of the module `smailyforprestashop`.
-It was written on 2026-11-20, before any 3.0.0 code. Workers build to it. The product owner confirms
-the design-level choices that section 15 lists.
+This document is the binding architecture of version 3.0.0 of the module `smailyforprestashop`.
+It was written on 2026-11-20, before any 3.0.0 code. Workers build to it. The product owner decided
+the design-level choices on 2026-11-20; section 15 records them.
 
 ## How to read this document
 
@@ -11,7 +11,7 @@ Every direction carries one of three markers.
 | Marker | Meaning | Who can change it |
 |---|---|---|
 | **[D]** | A decision that this document takes on the evidence. It binds every worker. | The orchestrator, with a note in this file. |
-| **[R]** | A recommendation. The owner confirms it or picks another option. Until the owner answers, workers build nothing that rests on it. | The owner. |
+| **[R]** | A recommendation that waits for the owner. None is left: the owner decided all eight on 2026-11-20, and each former [R] is now [D] (section 15). | The owner. |
 | **[O]** | An open question. The answerer is named in section 14. | The named answerer. |
 
 Short names for sibling sources:
@@ -20,19 +20,21 @@ Short names for sibling sources:
 |---|---|
 | `magento:` | `/Users/erkkimarkus/Downloads/smaily/connect-magento/` (Smaily Connect for Magento, 3.0.0, the closest analog: a PHP module rewritten in place with a legacy upgrade) |
 | `woo:` | `/Users/erkkimarkus/Downloads/smaily/connect-woo/` (Smaily Connect for WooCommerce, the reference for platform-neutral parts) |
-| contract | `docs/RECENGINE_API_CONTRACT.md` v1.34.0, a byte copy of `magento:docs/RECENGINE_API_CONTRACT.md` |
+| contract | `docs/RECENGINE_API_CONTRACT.md` v1.35.0, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
 | report contract | `/Users/erkkimarkus/Downloads/smaily/subscription/docs/contracts/installation-report-v1.md` v1.0.1 |
 
 A sentence about "the module today" describes 2.2.0 in `src/`. A sentence about "3.0.0" describes the
-product that this document proposes.
+product that this document specifies.
 
 ## Repositories
 
 - `smaily-prestashop-module` (this repository). All 3.0.0 code lands here.
 - `subscription` (Smaily subscription service). It must register the product id `connect_prestashop` and
   the platform `prestashop` before the module sends its first installation report (section 11).
-- The Campaign Intelligence engine (`re`). It must agree the product key prefix and the shop code
-  (section 8). It changes no code for 3.0.0 unless it rejects a proposal here.
+- The Campaign Intelligence engine (`intelligence`, named `re` in the contract). It must agree the
+  PrestaShop platform key namespace `ps-` and add this repository to the contract's list of
+  synchronized copies (section 8.2). The contract already settles the connection prefix and the shop
+  code. The engine changes no code for 3.0.0 unless it rejects a proposal here.
 
 ## 0. The module today: facts that the design rests on
 
@@ -44,7 +46,9 @@ product that this document proposes.
 | The contact push has no shop filter. It sends the customers of every shop with the config of the shop whose URL the crontab calls. The cart query uses `Shop::addSqlRestriction(SHARE_CUSTOMER)`. | `SubscriberCollection`, `AbandonedCartCollection` | The migration reads the default shop's values for the two cron features (section 3). |
 | Table `smaily_cart (id_smaily_cart, id_customer, id_cart, date_sent)`. A row means "reminded". | `Install/Installer.php` | Carried into the new cart tracker (section 3). |
 | `SMAILY_PASSWORD` is stored in plain text. | `AccountFormDataConfiguration` | Encrypted, the plain row deleted (section 2). |
-| 2.x saves its settings in the admin's current shop context, so a multishop store can hold `SMAILY_*` rows at global, shop-group and shop scope. | `Form/*FormDataConfiguration.php` | The mapper reads every scope (section 3). |
+| 2.x saves its settings in the admin's current shop context, so a multishop store can hold `SMAILY_*` rows at global, shop-group and shop scope. Observed on 9.2.0: a save in one shop's context writes a row for every key at that shop, also for values equal to the global ones; a later "All shops" save changes only the global rows, and the shop keeps its own older values. | `Form/*FormDataConfiguration.php`; `tests/fixtures/legacy/README.md` "Multistore" | The mapper reads every scope and resolves per shop (section 3.3). |
+| PrestaShop stores an empty value (`''`, `false`, `null`) as SQL `NULL`; an integer `0` stays `'0'`. So abandoned cart reads `'0'` after the 2.2.0 install and `NULL` after a merchant switches it off. | `tests/fixtures/legacy/README.md` "Keys" (observed on 9.2.0) | The mapper treats `NULL`, `''`, `'0'` and an absent row as off (section 3.2). |
+| 2.2.0 stores `SMAILY_SUBDOMAIN` exactly as typed. 1.6.x kept only `[a-zA-Z0-9]` and took the first label of a full URL. | `tests/fixtures/legacy/README.md` "Keys" | The mapper normalises the subdomain (section 3.2). |
 | The cron token check is `!==`. A stored empty token accepts a request with no token. The 1.6.x installer stored `''` as both tokens. | `CustomerSyncController::sync()`, 1.6.2 `install()` | An empty token never authorizes (section 3). |
 | Enabling opt-in sets `NW_VERIFICATION_EMAIL=0`, `NW_CONFIRMATION_EMAIL=0`, `NW_VOUCHER_CODE=null` in `ps_emailsubscription`. The previous values are not kept. | `CustomerSyncFormDataConfiguration` | Left as they are (section 3). |
 | Install copies `overrides/ps_emailsubscription.php` only when no override exists. Uninstall deletes that path always, also when another module owns the file. | `Installer::copyOverrides()`, `deleteOverrides()` | Removed only when the file is ours (section 3). |
@@ -192,7 +196,7 @@ default + website scopes (`magento:docs/ARCHITECTURE.md` "Multi-website").
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults. |
 | `SMAILY_CONNECT_TICK_TOKEN`, `_TICK_STATE`, `_FALLBACK_TICK` | global | Section 4. |
-| `SMAILY_CONNECT_CONSENT_*` | global or shop | Only if the owner picks option C in section 9. |
+| `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). |
 | `SMAILY_CONNECT_HEALTH`, `_REPORT_STATE` | global | Section 11. |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | as stored | **Kept with their legacy names.** They are the URL contract in merchants' crontabs. |
 
@@ -244,7 +248,7 @@ is the one place that encrypts and decrypts. (to verify in Story 1.2: the class 
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | **Kept and read.** An empty value is replaced by a new random token and a notice (section 3.4). |
 | Table `smaily_cart` | Rows copied into `smaily_connect_cart` as `mailed`. **[D]** The table stays untouched in 3.0.0 and is dropped in a later release, so a manual reinstall of 2.x does not resend reminders. |
 | `override/modules/ps_emailsubscription/ps_emailsubscription.php` | Deleted only when its content equals a 2.x copy of the module's file (hash list). Otherwise left, with a notice. |
-| `NW_VERIFICATION_EMAIL`, `NW_CONFIRMATION_EMAIL`, `NW_VOUCHER_CODE` | Not touched. 3.0.0 never writes them. Settings > Contacts shows a note when `ps_emailsubscription`'s own emails are on while the welcome automation is on. |
+| `NW_VERIFICATION_EMAIL`, `NW_CONFIRMATION_EMAIL`, `NW_VOUCHER_CODE` | Not touched. 3.0.0 never writes them. 2.x never kept the earlier values, so no code can restore them: on a store where 2.x opt-in was on, the migration leaves a notice that 2.x switched off `ps_emailsubscription`'s verification and confirmation emails and cleared its voucher, and where to set them again. Settings > Contacts shows a note when `ps_emailsubscription`'s own emails are on while the welcome automation is on. |
 | Hooks registered by 1.6.x (`footerBefore`, `leftColumn`, `rightColumn`, `backOfficeHeader`, `actionFrontControllerSetMedia`) or 2.x | The upgrade unregisters every hook that `Install\HookList` does not name, then registers the 3.0.0 list. |
 
 ---
@@ -271,8 +275,14 @@ is the one place that encrypts and decrypts. (to verify in Story 1.2: the class 
 |---|---|---|
 | Field lists | JSON map `{"first_name": true, …}` | PHP-serialized list `["first_name", …]`. Read with `unserialize($v, ['allowed_classes' => false])`; a value that does not decode is an empty list plus a notice. |
 | Contact sync switch | `SMAILY_ENABLE_CUSTOMER_SYNC` | `SMAILY_ENABLE_CRON` |
-| Booleans | `'1'`, `'0'`, `''`, absent | same |
+| Booleans | `'1'` on; `'0'`, `NULL`, `''`, absent off. A switched-off 2.x setting is `NULL`, not `'0'` (section 0). | `'1'` / `'0'` |
+| Subdomain | As typed. | Only `[a-zA-Z0-9]`. |
 | Previous code version | `2.0.0`–`2.2.0` | `1.x` |
+
+**[D]** The mapper normalises the subdomain for the account row: trimmed, lower case, the first label
+when the value is a URL or a `*.sendsmaily.net` host; hyphens are kept. It compares accounts by the
+normalised value (the engine compares `smaily_subdomain` trimmed and case-insensitively, contract §1).
+A value that 1.6.x stripped is kept as it is: the mapper cannot restore a removed character.
 
 ### 3.3 Inference rules
 
@@ -281,7 +291,10 @@ previous code resolved it in that shop's context: shop row, else shop-group row,
 It then derives what that code **actually sent** in that shop, and switches on only that. This
 answers the class of Magento's release-candidate defects, which came from inherited values switching
 features on at scopes that never sent them (`magento:docs/UPGRADING.md` "What migrates
-automatically").
+automatically"). The observed 2.2.0 behaviour confirms the need: after an "All shops" save, a shop with
+its own rows keeps its older values (`tests/fixtures/legacy/README.md` "Multistore"). (to verify in
+Story 1.2: whether PrestaShop's read of a shop row that holds `NULL` falls back to the global row; the
+mapper resolves `NULL` exactly as PrestaShop's `Configuration::get()` does)
 
 | 3.0.0 setting | On when (per shop) | Notes |
 |---|---|---|
@@ -291,7 +304,7 @@ automatically").
 | Contact fields | The legacy list, with `store` always on. | Unknown names are dropped. |
 | Welcome | `SMAILY_OPTIN_ENABLED` = `1` and an account exists. | Workflow = `SMAILY_OPTIN_AUTORESPONDER`; when empty, the generic opt-in trigger row (decision 5). |
 | First order | Off. | Did not exist. |
-| Abandoned cart | Previous code 2.x: `SMAILY_ENABLE_ABANDONED_CART` true, `SMAILY_CART_AUTORESPONDER` set, an account exists, **and** `SMAILY_CART_SYNCRONIZE_ADDITIONAL` is valid JSON. Previous code 1.x: the first three. | The JSON condition reproduces the `TypeError` that stopped 2.x on 1.6.x rows (section 0). Such a shop gets the automation off and a notice (decision 4). Delay = `SMAILY_ABANDONED_CART_TIME` minutes, at least 15. Read at the default shop, as contact sync. |
+| Abandoned cart | Previous code 2.x: `SMAILY_ENABLE_ABANDONED_CART` true, `SMAILY_CART_AUTORESPONDER` set, an account exists, **and** `SMAILY_CART_SYNCRONIZE_ADDITIONAL` is valid JSON. Previous code 1.x: the first three. | The JSON condition reproduces the `TypeError` that stopped 2.x on 1.6.x rows (section 0). Such a shop gets the automation off and a notice (decision 4). Delay = `SMAILY_ABANDONED_CART_TIME` minutes, at least 15. Read at the default shop, as contact sync. The reminder audience narrows to contacts with consent (decision 3, section 6.2), so fewer reminders go out than under 2.x; UPGRADING.md says so. |
 | Language mode | `single`. | 2.x had one account. |
 | Shop layout | Separate stores when no global account exists and at least two shops hold different own subdomains. Otherwise one store. | Magento `WebsiteOverrides::holdsSeparateAccounts()`. |
 | Setup state | `upgraded` when an account exists, else `new`. | Section 10. |
@@ -324,7 +337,7 @@ grouped by customer). This keeps "nobody gets a duplicate reminder because of th
 them, and `displayBackOfficeHeader` shows one line with a link on other admin pages until the
 merchant dismisses it. Notice texts: settings migrated; automations kept off and why; cron URL
 changed (empty token); override file left in place; multishop cron context assumed; the 1.6.x
-newsletter block is gone.
+newsletter block is gone; `ps_emailsubscription` settings that 2.x changed (2.4).
 
 ### 3.7 Failure behaviour
 
@@ -388,9 +401,9 @@ its own tick.
 | C. `ps_cronjobs` module (`actionCronJob`) | Some stores have it. | Its finest frequency is hourly (to verify); it still needs a crontab or a web cron. |
 | D. Hosted pinger (a Smaily service calls the tick URL) | No merchant setup. | Needs Smaily infrastructure and the store's tick token; not in any agreed scope. |
 
-### 4.3 Recommendation
+### 4.3 Design
 
-**[R]** (decision 1) A + B, with A as the primary tick:
+**[D]** (decision 1, owner 2026-11-20) A + B, with A as the primary tick:
 
 1. **One tick, many doors.** New URL `controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>`. The two
    legacy URLs with their own tokens run the same tick. Every door calls `Scheduler\Tick::run($source,
@@ -412,7 +425,7 @@ its own tick.
    servers. A claim older than 10 min returns to `pending` (the process died).
 5. **One poison row never owns the pass** (`woo:docs/LESSONS.md` §2.18): each row runs in its own
    `try`/`catch (\Throwable)` and fails alone.
-6. C is not built in 3.0.0. D is an open question for the owner (section 14).
+6. C and D are not built in 3.0.0. D stays a possible later addition (section 14).
 
 **Dashboard.** A "Background tasks" card shows the last tick time and its source (cron URL, visitor
 traffic, enqueue). States: green when a cron-URL tick ran within 5 min; amber when only fallback
@@ -435,10 +448,10 @@ stores", CON-279) with the PrestaShop shop in place of the Magento website:
 | Shop layout | Settings | Accounts | Engine connection |
 |---|---|---|---|
 | One store (one shop, or several shops as versions of one store) | Global values; a shop holds own values per section (Smaily account, Contacts, Automations) only where Settings saved them. | Global account row (`id_shop` 0) plus own rows. | One installation-wide connection. |
-| Separate stores | Every section at the shop's scope; no global values. | One row set per shop. | One connection per Smaily account; shops on the same account share it (the engine allows one engine store per Smaily account). |
+| Separate stores | Every section at the shop's scope; no global values. | One row set per shop. | One connection per shop (decision 7): each shop connects on its own with its own setup link. |
 
 Shop groups carry no settings of their own (section 2.1). A shop group matters only for customer
-sharing (5.3).
+sharing (5.3). The separate-stores layout is in the first release (owner, 2026-11-20).
 
 **[D]** The language axis follows Woo's multilingual modes (`woo:includes/Multilingual/Router.php`):
 `single`; `a` one Smaily account per language with a fallback account; `b` one account, one workflow
@@ -457,17 +470,26 @@ multishop install does not offer it.
 
 ### 5.3 Campaign Intelligence scope
 
-- The contract allows one engine store per Smaily account and lets one engine store serve several
-  "websites" (contract §1 `store_config`, §3 `websites`, v1.21.0). Magento: one store = one connection;
-  separate stores = one per Smaily account (`magento:docs/internal/ENGINE_CONNECTIONS_PLAN.md`).
-- **[R]** (decision 7) 3.0.0 builds both layouts from the first release: the connection table is keyed
-  by `id_shop` (0 = installation-wide), and every ingest row carries `id_connection`.
+- The contract has one engine store per Smaily account, lets one engine store serve several
+  "websites" (contract §1 `store_config`, §3 `websites`, v1.21.0), and since v1.33.0 lets several
+  connections join one engine store, each with its own connection prefix (contract §1 "Connection
+  prefix").
+- **[D]** (decision 7, owner 2026-11-20) Both layouts are in the first release. One store: one
+  installation-wide connection that serves every shop. Separate stores: one connection per shop; each
+  shop pastes its own setup link. The connection table is keyed by `id_shop` (0 = installation-wide),
+  and every ingest row carries `id_connection`. Two separate-store shops on one Smaily account hold two
+  connections to the same engine store.
 - `store_config.customer_account_scope`: `global` when every shop is in one shop group that shares
   customers (`shop_group.share_customer = 1`), else `website`.
-- PrestaShop product, order and customer ids are unique across all shops of one installation. Two
-  shops of one installation therefore never collide on keys in one engine store, which removes the
-  reason for connection prefixes inside one installation. The module still declares the
-  `connection_prefix` capability (section 8.2).
+- PrestaShop product, order and customer ids are unique across all shops of one installation, so two
+  connections of one installation never write the same key. The engine still scopes the nightly
+  manifest (§3c), the removals (§3b) and the history progress (§25) by the connection prefix. While the
+  engine assigns no prefixes (contract §1 "Status", 2026-11-17: every connection gets `""`), two
+  unprefixed connections in one engine store each send a manifest that claims the whole store catalog,
+  and each would remove the other's products. **[D]** The module therefore sends no nightly manifest
+  for a connection whose `tenant_id` another connection of the installation shares while either holds
+  the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. Lifting this needs
+  the engine team's answer (section 14).
 
 ### 5.4 What the upgrade infers
 
@@ -506,7 +528,7 @@ authority and `force_opt_in = false` on every automation trigger.
 | First import and daily refresh | `newsletter = 1` customers (+ active `emailsubscription` rows with guests on). | Every customer. | None. |
 | Reconcile from Smaily | Both directions: unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); re-subscribe sets `newsletter = 1`. | None. | None. |
 | `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Never. | `0` with the tick. |
-| Abandoned-cart reminder goes out when | Decision 3. | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
+| Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row (guests on), the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
 
 **[D]** "Status sent only on change": a `contact.sync` row carries `is_unsubscribed` only when the
 listener saw the consent value change. Automations and imports never send `is_unsubscribed = 0`.
@@ -578,6 +600,7 @@ siblings do.
 | §15 | Storefront recommendations. |
 | §16 | Uninstall and disconnect. |
 | §25 | History import progress. |
+| §6c | Stock alerts: out of 3.0.0 (section 8.8, Linear CON-371). |
 | §14, §17–§24 | Out of 3.0.0 (owner's list). |
 
 **[D]** Endpoint URLs come from the stored endpoints map, with the fallback path constants for keys a
@@ -586,16 +609,39 @@ connection lacks, as in both siblings. Retry and timeouts: Magento's `Engine\Cli
 
 ### 8.2 Ids and keys
 
+A key has two parts, and the contract gives each to a different owner (contract §1 "Connection
+prefix", §3 "Catalog identity"):
+
+- **The connection prefix is the engine's.** The engine assigns it per connection (`c<N>-`, or `""`)
+  and sends it as `config.connection.prefix` in the setup exchange and the ping. It is opaque: the
+  module stores it with the connection, never parses, shows or derives it, and puts it in front of every
+  key the contract names (§3 `sku` and `tags.product_id`, §3b `product_ids`, §3c `sku`, §5
+  `external_order_id`, §6 `sku`). Today the engine assigns `""` to every connection (§1 "Status",
+  2026-11-17).
+- **The platform key is the connector's.** The contract requires the platform's stable internal id,
+  namespaced by source (`shp-<variant_id>`, `woo-<id>`), never the merchant's SKU field. It names no
+  PrestaShop namespace, and its fail-loud enforcement checks each sender's declared namespace pattern
+  for connections without a prefix (PRO-1223, rolling out). `ps-` is therefore the module's proposal
+  and needs the engine team's agreement before Story 5.2 ships.
+
+**[D]** The module declares `capabilities: ["connection_prefix"]` from the first release and applies
+the prefix everywhere, so the engine's later refusal of connectors without the capability (`409
+plugin_update_required`) never reaches it. On a reconnect it sends `connection.previous_prefix`; a
+connection that lost its prefix reads it from the ping.
+
 | Id | 3.0.0 value |
 |---|---|
-| Catalog `sku` | **[O]** proposed `ps-<id_product>` for a product without combinations and `ps-<id_product>-<id_product_attribute>` for a combination, after the connection prefix. PrestaShop's `reference` is optional and not unique, so the Shopify/Woo rule applies: never the merchant's reference (send it as `tags.merchant_sku` only if an operator asks). Needs the engine team's agreement on `ps-` (siblings: `shp-`, `woo-`, `mag-`). |
-| `tags.product_id` | `<prefix><id_product>` |
-| `external_id` (catalog) | `<id_product>` or `<id_product>-<id_product_attribute>` |
+| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder in `Engine\Payload` makes the key for every path (contract "Same key from every path"). `ps-` **[O]** needs the engine team's agreement (section 14). |
+| `tags.product_id`, §3b `product_ids` | `<prefix><id_product>`: the bare parent id, as Shopify and Woo send it (contract §3 "Parent product id"). |
+| `external_id` (catalog) | `<id_product>` or `<id_product>-<id_product_attribute>`, no prefix. |
 | `external_order_id` | `<prefix><id_order>` |
-| `customer_external_id` | `<id_customer>` |
-| `website` / `websites` key | **[O]** proposed: the shop id as a string (`"1"`). PrestaShop shops have no code; the id is stable. Sent only by a connection that serves 2+ shops. Needs the engine team's agreement. |
-| History `import_id` | `ps-<YYYY-MM-DD>-<job id>` |
-| Connection prefix | `config.connection.prefix`, `""` today. Put in front of every key from the first release, so the engine's future refusal of connectors without the capability does not break the module. |
+| `customer_external_id` | `<id_customer>`, no prefix (the contract prefixes no customer id). |
+| `website` / `websites` key | **[D]** The shop id as a string (`"1"`). The contract settles this: the connector names its own stable website code, 1–64 characters, compared exactly as sent (contract "Base context", v1.21.0). PrestaShop shops have no code; the id is stable. Sent only by a connection that serves 2+ shops. |
+| History `import_id` | `ps-<YYYY-MM-DD>-<job id>` (the connector's own id, §25). |
+
+Why one row per combination: the contract's `sku` is the variant-level key, and a §6c stock-alert
+request names one variant (section 8.8). One row per product would need a key change, and a key change
+leaves stale rows that only a manual engine purge removes (contract §3 "Lifecycle").
 
 ### 8.3 Money and tax
 
@@ -656,26 +702,75 @@ consent, calls the `recommendations` controller once per page, and fills every c
 LiteSpeed Cache). Every per-visitor value reaches the page only through the after-load calls and the
 server-set cookies, so a cached page is correct for every visitor.
 
+### 8.8 Out of 3.0.0: stock alerts (§6c)
+
+Contract v1.35.0 §6c lets a shopper ask to be told when an out-of-stock product is back. It is **not
+in 3.0.0**: the engine side is not built (§6c answers `404`), and the work is tracked as Linear CON-371
+(the PrestaShop specifics are in the engine repository's `docs/DRAFT_contract_1.35.0_stock_alerts.md`
+§L). 3.0.0 builds no "Notify me" button, no relay route for it, no request table and no
+`ps_emailalerts` handling.
+
+**[D]** 3.0.0 must not block it. These parts of the design already carry what §6c needs, and a Story
+that changes one of them keeps it:
+
+- one catalog row per combination, each with its own `in_stock` (8.2), because a request names one
+  variant;
+- every stock change (`actionUpdateQuantity`, combination and product saves) re-sends the row through
+  the ingest queue, and the nightly manifest carries `in_stock` (section 7), because the engine sends
+  the alert on the restock that the catalog reports;
+- one key builder with the connection prefix (8.2), because a request carries the §3 `sku` exactly;
+- the ingest queue's `domain` column is free text, so a `stock_alerts` domain needs no schema change;
+- the storefront pattern of 8.4 and 8.7 (a server relay, the same page HTML for every visitor,
+  per-visitor state after load) and the `displayCustomerAccount` link, which a later "Stock alerts"
+  page joins;
+- privacy export and erasure (section 11.2) read the module's tables through one place that a later
+  request table can join.
+
 ---
 
 ## 9. Cookie consent for tracking and recommendations
 
 PrestaShop has no consent API: no equivalent of the WP Consent API or Magento's cookie restriction
 mode. Browse tracking and the recommendations call set or read non-essential cookies, so they need the
-visitor's prior consent under ePrivacy rules. Attribution capture from email links (URL parameters →
-cookies) runs as in the siblings (`woo:` PRO-1388); whether it needs consent is part of this decision.
+visitor's prior consent under ePrivacy rules.
 
-| Option | What it means legally | What it means in practice |
-|---|---|---|
-| A. Fail closed + `window.smailyConnect.consentOverride()` (Magento's rule without a platform signal) | The module never tracks without a signal that the store set. The store's consent banner owns the decision. Lowest risk for Smaily. | Tracking and recommendations stay off until the merchant or their developer adds one line of JavaScript that wires their banner. Most stores add nothing, so Campaign Intelligence learns only from orders. |
-| B. A + adapters for named consent modules | As A for each supported module. | Each adapter is vendor code that breaks when the vendor changes. PrestaShop's consent modules are many and small; no adapter covers most stores. Woo chose one standard signal, no per-vendor code (F3-50). |
-| C. A + a merchant-configured consent cookie rule (cookie name + the value that means "accepted", per shop) | As A: the visitor's own recorded choice decides. The merchant states which cookie records it. | Most PrestaShop consent modules store the choice in a first-party cookie. One generic rule covers them with no vendor code. A wrong rule fails closed. |
-| D. Merchant-confirmed "my banner covers Smaily; treat visitors as consenting" | The merchant takes the legal risk; the module tracks every visitor. A store with no banner tracks without consent. | Highest coverage. Contradicts the "explicit yes" rule set across the siblings (Erkki 2026-10-06, `woo:public/js/lib/marketing-consent.ts`). |
+### 9.1 Design
 
-**[R]** (decision 2) Option C. The rule order is: the override function when defined; else the
-configured cookie rule; else no consent. The Settings help text names the cookie of two common
-modules as examples. It keeps the siblings' "explicit yes" rule and gives a merchant without a
-developer a way to switch tracking on.
+**[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
+
+1. **The setting.** Settings > Intelligence carries a switch
+   "My store's cookie banner covers Smaily tracking" (`SMAILY_CONNECT_CONSENT_CONFIRMED`, global or
+   per shop under separate stores). It is **off** on every new install and every upgrade (2.x had no
+   tracking, so an upgrade widens nothing). While it is off, the module runs no browse tracking, makes
+   no recommendations call and sets no tracking cookie.
+2. **The merchant's responsibility.** When the merchant switches it on, the module treats every
+   visitor of that shop as having consented to Smaily tracking and recommendations. The help text says
+   plainly that the merchant carries this responsibility: the store's cookie banner must ask for this
+   tracking, and the merchant confirms that it does. The exact EN and ET wording is aligned with the
+   sibling connectors in Stage 3 (Stories 3.3 and 3.5).
+3. **The developer hook.** `window.smailyConnect.consentOverride()` stays, as in Magento
+   (`magento:view/frontend/web/js/consent.js`). Where a store defines it, its answer takes precedence
+   over the setting: `true` means consent, any other answer means none. A store's developer can so
+   wire the store's banner to the visitor's own choice, and switch tracking off for a visitor whom the
+   setting would cover.
+4. **The rule order** in `consent.js`: the override function when defined; else the setting; else no
+   consent.
+5. **Attribution capture** from email links (URL parameters → first-party cookies, section 8.5) is not
+   gated on this consent, as in Magento, Woo and Shopify: it records the click on the merchant's own
+   email (`magento:view/frontend/web/js/attribution.js`).
+6. A shopper's profiling opt-out (§10, section 11.2) applies whatever the setting says.
+
+No consent-cookie-name rule and no adapters for named consent modules are built.
+
+### 9.2 Considered and not taken
+
+- **Override only** (fail closed until a developer wires the banner): most stores would add nothing,
+  and Campaign Intelligence would learn only from orders.
+- **Adapters for named consent modules:** vendor code that breaks when the vendor changes; no adapter
+  covers most stores.
+- **A merchant-configured consent cookie rule** (cookie name + the value that means "accepted"): the
+  agent-side recommendation, which kept the siblings' "explicit yes" rule. The owner chose the
+  merchant-confirmed setting instead.
 
 ---
 
@@ -725,6 +820,25 @@ and "store view" to "language". ET strings come from `magento:i18n/et_EE.csv`, t
 XLIFF files; one translation sweep per stage (Stories 3.5 and 6.2) writes
 `translations/et-EE/*.xlf`, so no two workers edit one XLIFF file.
 
+### 10.5 Logos
+
+**[D]** The admin screens use the new Smaily Connect and Campaign Intelligence logos (Linear GMS-66,
+package `Smaily_Connect_and_CI_Logos_Motion_2026-11-05.zip`, approved by the owner on 2026-11-20; read
+its `Motion_handoff_EN.txt` first). The assets are not in this repository yet; Story 3.1 fetches them.
+
+- **Where.** The Connect lockup (S symbol + wordmark) where the module names itself, for example the
+  page header of the Dashboard and the Initial setup. The boxed Campaign Intelligence icon where the
+  module shows Intelligence, for example the Intelligence tab and step.
+- **Motion.** The entrance animation (Connect about 620 ms; Campaign Intelligence about 850 ms) plays
+  once, at the entry point only. Everywhere else the logo is static, and under `prefers-reduced-motion:
+  reduce` it is static everywhere. The animation is never tied to a connection, sync or sending
+  state: real state shows as text.
+- **Delivery.** The package's motion SVGs carry their own CSS; its `.css` files are an alternative, not
+  an addition. Inline copies on one page get prefixed SVG ids. The Campaign Intelligence textures are
+  embedded image data: where the back office's Content Security Policy refuses them, the module adapts
+  the delivery and never weakens the policy. A standalone logo has alternative text; a logo next to a
+  heading that names the product is hidden from assistive technology.
+
 ---
 
 ## 11. Installation report, privacy, retention, uninstall
@@ -763,7 +877,7 @@ the user guide carries the privacy-policy template of `woo:docs/DATA_MODEL_GDPR.
 
 ### 11.4 Uninstall
 
-**[R]** (decision 8) Uninstall and Reset remove all module data, as 2.x does and as PrestaShop
+**[D]** (decision 8, 2026-11-20) Uninstall and Reset remove all module data, as 2.x does and as PrestaShop
 merchants expect: first the `deactivated` report and §16 per connection (one 3 s attempt each; a
 failure does not stop the removal), then every `SMAILY_CONNECT_*` key, the two legacy token keys, every
 `smaily_connect_*` table and the legacy `smaily_cart` table. The override file is removed only under
@@ -777,10 +891,10 @@ the hooks all stop because the module is not loaded).
 | Layer | What | Where |
 |---|---|---|
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
-| Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). | `tests/Integration/<Area>/` |
+| Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
 | Mocks | Engine mock ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php`; a Smaily API mock of the same shape; `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` |
 | JavaScript | The IIFE first-statement check for every file in `views/js/front/`; logic of `consent.js` tested with Node's built-in test runner (no npm packages). | `tests/js/` |
-| Contract check | CI compares `docs/RECENGINE_API_CONTRACT.md` and `docs/contracts/installation-report-v1.md` with the Magento repository's copies (`gh api`, read token) and fails on any difference. | CI |
+| Contract check | CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and `docs/contracts/installation-report-v1.md` with the subscription repository's copy (`gh api`, read token), and fails on any difference. | CI |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. | CI |
 | Static | php-cs-fixer, PHPStan (existing config), PHP 8.0 lint. | CI |
 | Release | `composer package` as today; checks: version equal in main class and `composer.json`; no `tests/`, `docs/internal/` or dev files in the zip; the zip installs and upgrades on the matrix. | `bin/package.sh`, CI |
@@ -833,9 +947,12 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 - **Acceptance.**
   1. Every rule of section 3.3 has a unit case; every fixture maps to a plan that the test pins.
   2. A 1.6.x-rows store under 2.x code maps to welcome on, contact sync off, abandoned cart off, with a
-     notice for each.
+     notice for each (decision 4).
   3. A shop that inherits a global value but never sent the feature gets the feature off at its scope.
   4. An empty legacy token maps to a new-token instruction and a notice.
+  5. A `NULL` value maps as off, and a shop row that differs from the global row after an "All shops"
+     save keeps the shop's value (section 0).
+  6. A 2.x opt-in with no workflow maps to the generic opt-in trigger row (decision 5).
 
 ### Story 1.4 — Smaily client, transport, accounts and encryption
 
@@ -940,13 +1057,15 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 ### Story 3.1 — Admin shell
 
 - **Goal.** Menu, routes, base controller, JSON API base and notices that every screen uses.
-- **Owns.** `src/config/admin/services.yml`, `src/config/routes.yml`, `src/src/Admin/{BaseController.php,Api/AbstractJsonAction.php}`, `src/views/templates/admin/layout/`, `src/views/js/admin/common.js`, `src/views/css/admin.css`.
-- **Depends on.** 1.1.
+- **Owns.** `src/config/admin/services.yml`, `src/config/routes.yml`, `src/src/Admin/{BaseController.php,Api/AbstractJsonAction.php}`, `src/views/templates/admin/layout/`, `src/views/js/admin/common.js`, `src/views/css/admin.css`, `src/views/img/` (the logos).
+- **Depends on.** 1.1; the logo package of Linear GMS-66 (`Smaily_Connect_and_CI_Logos_Motion_2026-11-05.zip`), which this Story fetches into `src/views/img/` (section 10.5).
 - **Acceptance.**
   1. The four menu entries open on 8.0 and 9.2 for an admin with module rights, and are refused
      without them.
   2. A new install redirects every module page to the Initial setup; an upgraded install does not.
   3. Migration notices show on module pages and as one line elsewhere until dismissed.
+  4. The layout shows the logos by the rules of section 10.5; under `prefers-reduced-motion: reduce`
+     no logo moves.
 
 ### Story 3.2 — Initial setup and Dashboard
 
@@ -1030,14 +1149,16 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 ### Story 5.1 — Engine client and connections
 
 - **Goal.** Connect, check and disconnect Campaign Intelligence per connection.
-- **Owns.** `src/src/Engine/{Client,Connections,Connection,Setup,Disconnector,HealthCheck}.php`, `src/src/Config/EngineSettings.php`, `src/src/Runtime/Provider/EngineProvider.php`, `docs/RECENGINE_API_CONTRACT.md` (byte copy).
+- **Owns.** `src/src/Engine/{Client,Connections,Connection,Setup,Disconnector,HealthCheck}.php`, `src/src/Config/EngineSettings.php`, `src/src/Runtime/Provider/EngineProvider.php`, `docs/RECENGINE_API_CONTRACT.md` (byte copy; replaced only by a new copy from the engine repository).
 - **Depends on.** 1.4, 1.6, 2.1.
 - **Acceptance.**
   1. A setup link from the mock stores an encrypted key and the endpoints map; a link of another
      Smaily account is refused before anything is stored.
   2. Ping and health check record `connected` / `refused` per connection.
   3. Uninstall sends §16 once per connection with a 3 s limit.
-  4. The contract copy equals Magento's byte for byte.
+  4. The contract copy equals the engine repository's byte for byte.
+  5. The setup exchange declares `connection_prefix`, stores `config.connection.prefix`, and sends
+     `connection.previous_prefix` on a reconnect.
 
 ### Story 5.2 — Catalog, customers and orders ingest
 
@@ -1046,12 +1167,14 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 - **Depends on.** 5.1.
 - **Acceptance.**
   1. A product save, a stock change and a price change each produce one catalog row with gross
-     prices and the agreed key.
+     prices and the key of section 8.2.
   2. A deleted product produces a §3b removal; the nightly manifest lists only the connection's
      products.
   3. An order's amounts satisfy Σ line_total + shipping ≈ total_amount; a full refund sends
      `refunded`.
   4. Every key carries the connection prefix.
+  5. No nightly manifest is sent for a connection that shares its `tenant_id` with another
+     connection while either holds the prefix `""` (section 5.3).
 
 ### Story 5.3 — History import and the Intelligence tab
 
@@ -1062,6 +1185,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
   1. Orders go newest first: 18 months, then to 60 months; progress calls follow the §25 sender rules.
   2. "Run again" starts a new `import_id`.
   3. The Catalog, Customers and Orders cards show live progress.
+  4. The Intelligence tab carries the consent setting of section 9, off by default, with help text
+     that states the merchant's responsibility.
 
 ### Story 5.4 — Engine-run automations
 
@@ -1077,9 +1202,11 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 
 - **Goal.** Consent-gated browse tracking, click attribution and the recommendations block.
 - **Owns.** `src/src/Storefront/`, `src/controllers/front/{relay,land,recommendations}.php`, `src/views/js/front/`, `src/views/templates/front/recommendations.tpl`, `tests/js/`.
-- **Depends on.** 5.1; decision 2.
+- **Depends on.** 5.1; decision 2 (section 9).
 - **Acceptance.**
-  1. Without consent no tracking cookie is set and no event leaves the browser.
+  1. Without consent no tracking cookie is set and no event leaves the browser. Consent is the
+     store's `consentOverride()` answer where defined, else the merchant-confirmed setting; the
+     setting is off on install and upgrade.
   2. A landing with `smaily_rec`/`smaily_ctx`/`smaily_vt` sets the three cookies server-side; the
      next order stores them in `smaily_connect_order_attribution`.
   3. The relay rejects client-sent identity fields and forwards with the server-side key.
@@ -1117,7 +1244,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 - **Owns.** `docs/UPGRADING.md`, `USERGUIDE.md`, `CHANGELOG.md`, `README.md`, `src/translations/`.
 - **Depends on.** All Stage 5 Stories.
 - **Acceptance.**
-  1. UPGRADING.md lists every row of sections 2.4 and 3.3 in merchant words, and the cron line.
+  1. UPGRADING.md lists every row of sections 2.4 and 3.3 in merchant words, and the cron line. It
+     tells merchants that fewer abandoned-cart reminders go out than under 2.x (decision 3).
   2. Every admin and storefront string has ET.
   3. The privacy-policy template is in EN and ET.
 
@@ -1140,31 +1268,39 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 
 | # | Risk or question | Condition and cost | Who answers |
 |---|---|---|---|
-| 1 | Product key prefix `ps-` and per-combination rows | Without agreement the engine can refuse rows under a SKU-identity policy. Per-combination rows multiply catalog size for stores with many combinations. | Engine team |
-| 2 | Shop code for `website`/`websites` | Without agreement a multishop store cannot send per-shop links. | Engine team |
+| 1 | PrestaShop platform key namespace `ps-` (section 8.2) | The contract names no PrestaShop namespace; under the fail-loud enforcement (PRO-1223) an undeclared pattern sends rows to `errors[]`. Per-combination rows (decided) multiply catalog size for stores with many combinations. | Engine team |
+| 2 | PrestaShop in the contract's list of synchronized copies and in the §25 sender-rules heading | The contract lists four repositories and "one list for WooCommerce, Shopify and Magento"; this repository's copy is not on it, so a contract change can skip it. | Engine team |
 | 3 | Registry rows `connect_prestashop`, `prestashop`, and a shop field in the report | Until they exist the service rejects every report. | Owner → subscription team |
 | 4 | Multi-currency orders | A shop that sells in several currencies sends orders in each; the engine assumes one currency per store. | Engine team |
 | 5 | Which shop context ran the 2.x crons | The migration assumes the default shop; a store whose crontab named another shop's domain gets that shop's values wrong. | Pilot multishop store (spike in 6.3) |
 | 6 | Fallback tick on hosts without `fastcgi_finish_request` | No fallback; the store depends on the cron line. | Story 1.2 measures; owner accepts |
-| 7 | A hosted pinger (option D) | Removes the cron setup for every merchant; needs Smaily infrastructure. | Owner |
+| 7 | A hosted pinger (option D), after 3.0.0 | Removes the cron setup for every merchant; needs Smaily infrastructure. | Owner, later |
 | 8 | The cookie key changes when a store moves servers | Stored secrets do not decrypt; the merchant reconnects. | Accepted cost |
 | 9 | Hook coverage on 8.0 vs 9.x (grid toggle, v2 product page, guest newsletter field) | A missed hook loses an event silently. | Story 1.2 |
 | 10 | `FrameworkBundleAdminController` and the Marketing parent tab on 9.x | If either is gone, Story 3.1 changes its base class or parent tab. | Story 1.2 |
 | 11 | Reconcile re-subscribes in the store (`newsletter` 0 → 1) for contacts who re-subscribed in Smaily | 2.x pulled only unsubscribes. This follows Woo preset 2; the store mirrors Smaily, the Smaily audience does not grow. | Owner, if this is a widening in his reading |
-| 12 | Merchants who disabled `ps_emailsubscription` emails through 2.x | 3.0.0 does not restore `NW_*` values, and `NW_VOUCHER_CODE` is lost. | Accepted; UPGRADING.md says so |
+| 12 | Merchants who disabled `ps_emailsubscription` emails through 2.x | 3.0.0 cannot restore the `NW_*` values (2.x kept no copy), and `NW_VOUCHER_CODE` is lost. | Accepted; a migration notice and UPGRADING.md say so (2.4) |
 | 13 | 1.6.x stores lose the 1.6.x newsletter block | Own signup form is out of 3.0.0. | Accepted; notice + UPGRADING.md |
+| 14 | Prefix assignment while two connections share one engine store (section 5.3) | Until the engine assigns prefixes, two separate-store shops on one Smaily account send no nightly manifest, so lost delete and stock events heal only on the next change. | Engine team |
 
-## 15. Decisions for the owner
+## 15. Decisions
 
-Each decision below blocks only the Stories named.
+All eight design-level decisions were taken on 2026-11-20. "Owner" is Erkki; "orchestrator" means
+the orchestrator decided under the repository's upgrade-safety rule (CLAUDE.md rule 2).
 
-| # | Question | Options | Recommendation | Blocks |
-|---|---|---|---|---|
-| 1 | How background tasks run | A cron URL only; A + visitor-traffic fallback; + hosted pinger later | A + fallback (section 4.3) | 1.6 |
-| 2 | Cookie consent rule | A override only; B vendor adapters; C override + merchant-configured consent cookie; D merchant attests | C (section 9) | 5.5 |
-| 3 | Abandoned-cart audience after upgrade | Keep 2.x (every customer with a cart); sibling gate (subscribers mode: only `newsletter = 1`, a ticked box, or subscribed in Smaily) | Sibling gate | 4.3 |
-| 4 | 1.6.x settings that 2.x did not run | Switch on what the running code sent (contact sync and cart off + notice); honour the 1.6.x intent | What the running code sent | 1.3 |
-| 5 | 2.x opt-in with no workflow (generic opt-in trigger) | Keep it for upgraded stores; switch welcome off with a notice (Magento's choice) | Keep it | 1.3, 4.1 |
-| 6 | Product key per combination | `ps-<id>-<ipa>` rows per combination; one row per product | Per combination (Woo/Shopify parity), pending engine team | 5.2 |
-| 7 | Separate stores' engine connections in 3.0.0 | Build per-account connections now; one installation-wide connection only and refuse Intelligence on separate-store shops | Build now | 5.1 |
-| 8 | Uninstall | Remove all data (2.x, PrestaShop habit); keep settings | Remove all | 1.7 |
+| # | Question | Decided (2026-11-20) | By | Where | Stories |
+|---|---|---|---|---|---|
+| 1 | How background tasks run | **DECIDED:** the cron URL plus a fallback tick triggered by visitor traffic (option B). A hosted pinger is not in 3.0.0. | Owner | 4.3 | 1.6 |
+| 2 | Cookie consent for tracking and recommendations | **DECIDED:** the merchant-confirmed setting. Off by default; on once the merchant confirms in Settings that the store's cookie banner covers this tracking, and the merchant carries that responsibility. `window.smailyConnect.consentOverride()` stays and, where defined, takes precedence. No consent-cookie rule, no vendor adapters. The owner chose this over the proposed cookie rule. | Owner | 9 | 5.3, 5.5 |
+| 3 | Abandoned-cart audience after upgrade | **DECIDED:** the siblings' rule (option B): in subscribers-only mode only contacts with consent, with the Smaily status check before the send. UPGRADING.md tells merchants that fewer reminders go out than under 2.x. | Owner | 6.2, 3.3 | 4.3, 6.2 |
+| 4 | Settings left behind by 1.6.x that 2.x never ran | **DECIDED:** switch on only what the running code actually sent, with an admin notice for each thing left off (option A). | Orchestrator | 3.3 | 1.3 |
+| 5 | A 2.x opt-in with no workflow chosen | **DECIDED:** keeps firing the generic opt-in trigger for upgraded stores until the merchant picks a workflow (option A). | Orchestrator | 3.3 | 1.3, 4.1 |
+| 6 | Product keys | **DECIDED** on the connector side: one row per combination (option A). The key format follows contract 1.35.0: the engine's connection prefix, then the platform key `ps-…`; the namespace `ps-` still needs the engine team (section 14, row 1). | Owner | 8.2 | 5.2 |
+| 7 | Campaign Intelligence connections | **DECIDED:** one per separately set-up shop (option A); separate-store shops each connect on their own. | Owner | 5.1, 5.3 | 5.1 |
+| 8 | Uninstall | **DECIDED:** removes all module data, after the engine disconnect and the deactivation report (option A). | Orchestrator | 11.4 | 1.7 |
+
+Scope decisions of the same day (owner, 2026-11-20):
+
+- The multishop "separate stores" layout is **in** the first release (section 5).
+- The Linear Feature's gauge is the 14 first-release capabilities (CLAUDE.md, STATUS.md).
+- Stock alerts (contract §6c) are out of 3.0.0, tracked as Linear CON-371 (section 8.8).
