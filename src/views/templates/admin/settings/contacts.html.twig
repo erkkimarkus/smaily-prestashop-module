@@ -9,8 +9,10 @@
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set s = smaily_settings %}
 {% if s.contacts is null %}
-  <div class="smaily-card">
-    <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+  <div class="smaily-panel">
+    <div class="smaily-card">
+      <p>{{ 'These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.'|trans }}</p>
+    </div>
   </div>
 {% else %}
   {% if s.own is not null %}
