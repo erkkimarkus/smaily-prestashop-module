@@ -1,4 +1,5 @@
-# A throwaway shop that installs dist/smailyforprestashop.zip on start. validate.sh drives it.
+# A throwaway shop that installs dist/smailyforprestashop.zip on start. validate.sh drives it, and
+# runs the tests from the repository, which is mounted at /smaily.
 services:
   prestashop:
     image: ${PS_IMAGE:-prestashop/prestashop-flashlight:9.2.0-nginx}
@@ -11,6 +12,7 @@ services:
     volumes:
       - ../../dist:/ps-modules:ro
       - ./api-client-smoke.php:/tests/api-client-smoke.php:ro
+      - ../..:/smaily
     ports:
       - ${CI_PORT:-8000}:80
 

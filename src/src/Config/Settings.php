@@ -34,7 +34,8 @@ if (!defined('_PS_VERSION_')) {
  *
  * A value lives at the global scope or at one shop's scope, never at a shop group's. Every call
  * names the scope (shop id 0 = global) and never relies on the admin's shop context. A read of a
- * shop returns the shop's own value, else the global one.
+ * shop returns the shop's own value, else the global one. While multishop is off, PrestaShop keeps
+ * one value for the shop and the global scope.
  */
 abstract class Settings
 {

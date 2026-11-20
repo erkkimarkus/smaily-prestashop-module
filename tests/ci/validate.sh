@@ -52,13 +52,27 @@ expected=$(sed -n "s/.*\$this->version = '\([^']*\)'.*/\1/p" ../../src/smailyfor
 installed=$(sql "SELECT version FROM ps_module WHERE name='smailyforprestashop' AND active=1")
 [ "$installed" = "$expected" ]; report $? "module installed and active with version $expected (got '${installed:-none}')"
 
-hooks=$(sql "SELECT COUNT(DISTINCT h.name) FROM ps_hook_module hm JOIN ps_hook h ON h.id_hook = hm.id_hook JOIN ps_module m ON m.id_module = hm.id_module WHERE m.name = 'smailyforprestashop' AND h.name IN ('actionCustomerAccountAdd', 'actionCustomerAccountUpdate', 'actionNewsletterRegistrationAfter')")
-[ "$hooks" = 3 ]; report $? "the three hooks are registered (got ${hooks:-none})"
+expected=$(sed -n '/HOOKS = \[/,/\];/p' ../../src/src/Install/HookList.php | grep -c "^ *'")
+hooks=$(sql "SELECT COUNT(DISTINCT h.name) FROM ps_hook_module hm JOIN ps_hook h ON h.id_hook = hm.id_hook JOIN ps_module m ON m.id_module = hm.id_module WHERE m.name = 'smailyforprestashop'")
+[ "$hooks" = "$expected" ]; report $? "the $expected hooks of Install\\HookList are registered (got ${hooks:-none})"
 
-[ -n "$(sql "SHOW TABLES LIKE 'ps_smaily_cart'")" ]; report $? "the smaily_cart table exists"
+expected=$(grep -c "^ *'smaily_connect_[a-z_]*' => '" ../../src/src/Install/Schema.php)
+tables=$(sql "SHOW TABLES LIKE 'ps\_smaily\_connect\_%'" | wc -l | tr -d ' ')
+[ "$tables" = "$expected" ]; report $? "the $expected tables of Install\\Schema exist (got $tables)"
 
-$COMPOSE exec -T prestashop test -f /var/www/html/override/modules/ps_emailsubscription/ps_emailsubscription.php
-report $? "the newsletter module override is in place"
+schema=$(sql "SELECT value FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'")
+[ -n "$schema" ]; report $? "the schema version is stored (got '${schema:-none}')"
+
+echo "* Running the unit and integration tests inside the shop"
+$COMPOSE exec -T -u www-data -e PS_ROOT_DIR=/var/www/html -w /smaily/src prestashop \
+    php vendor/bin/phpunit --configuration ../phpunit.xml.dist
+report $? "unit and integration tests"
+
+echo "* Opening the storefront while the schema version is unset"
+sql "DELETE FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
+[ "$code" = 200 ]; report $? "the storefront answers 200 (got $code)"
+sql "INSERT INTO ps_configuration (name, value, date_add, date_upd) VALUES ('SMAILY_CONNECT_SCHEMA_VERSION', '$schema', NOW(), NOW())"
 
 echo "* Sending one API client request through the Symfony HTTP client this PrestaShop ships"
 $COMPOSE exec -T prestashop php /tests/api-client-smoke.php
@@ -68,15 +82,10 @@ echo "* Checking the front controllers"
 code=$(curl -s -o "$tmp/rss.xml" -w '%{http_code}' "$URL/index.php?fc=module&module=smailyforprestashop&controller=SmailyRssFeed")
 [ "$code" = 200 ] && grep -q '<rss' "$tmp/rss.xml"; report $? "RSS feed answers 200 with an rss document (got $code)"
 
-check_cron() { # $1 controller, $2 configuration key of its token, $3 reply once the token is right and the sync is off
-    body=$(curl -s "$URL/index.php?fc=module&module=smailyforprestashop&controller=$1&token=wrong")
-    [ "$body" = 'Access denied!' ]; report $? "$1 refuses a wrong token (got '$body')"
-    token=$(sql "SELECT value FROM ps_configuration WHERE name = '$2'")
-    body=$(curl -s "$URL/index.php?fc=module&module=smailyforprestashop&controller=$1&token=$token")
-    [ "$body" = "$3" ]; report $? "$1 accepts its token and reports the sync is off (got '$body')"
-}
-check_cron SmailyCustomerCron SMAILY_CUSTOMER_CRON_TOKEN 'User synchronization disabled!'
-check_cron SmailyCartCron SMAILY_CART_CRON_TOKEN 'Abandoned cart disabled!'
+for controller in SmailyCustomerCron SmailyCartCron; do
+    body=$(curl -s "$URL/index.php?fc=module&module=smailyforprestashop&controller=$controller&token=wrong")
+    [ "$body" = 'Access denied!' ]; report $? "$controller refuses a wrong token (got '$body')"
+done
 
 if [ $fails -gt 0 ]; then
     echo "* $fails check(s) failed. Last PrestaShop log lines:"

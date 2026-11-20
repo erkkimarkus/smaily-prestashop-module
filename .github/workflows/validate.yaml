@@ -75,5 +75,8 @@ jobs:
           php-version: '8.1'
       - name: Build the release zip
         run: composer --working-dir src package
-      - name: Install the zip on a fresh shop and check it
+      - name: Install the development dependencies, which the tests in the shop use
+        run: composer install --no-interaction --no-progress
+        working-directory: src
+      - name: Install the zip on a fresh shop, check it and run the tests in it
         run: tests/ci/validate.sh

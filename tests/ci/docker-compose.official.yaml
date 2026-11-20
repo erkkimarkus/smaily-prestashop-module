@@ -21,6 +21,7 @@ services:
     volumes:
       - ../../dist:/ps-modules:ro
       - ./api-client-smoke.php:/tests/api-client-smoke.php:ro
+      - ../..:/smaily
       - ./official-post-install:/tmp/post-install-scripts:ro
     # The image's start script removes the install folder after the installer ran, but the
     # PrestaShop 9.2 installer already removes it, so the script dies before the post-install
