@@ -59,6 +59,7 @@ final class Services
         Provider\PrivacyProvider::class,
         Provider\ReportProvider::class,
         Provider\MigrationProvider::class,
+        Provider\UpdateProvider::class,
     ];
 
     private static ?Services $instance = null;

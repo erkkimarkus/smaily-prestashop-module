@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Reconciler;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\SchedulerProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -16,6 +17,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use PrestaShop\Module\SmailyForPrestaShop\Update\LatestRelease;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
@@ -106,6 +108,13 @@ final class ContactJobsTest extends IntegrationTestCase
         $mock->acceptCredentials('api-user', 'not-a-real-password');
         $services = Services::fromProviders(Services::PROVIDERS);
         $services->set(Transport::class, static fn (): Transport => $mock->transport());
+        // The update check asks no real GitHub: its request finds no release.
+        $services->set(LatestRelease::class, fn (): LatestRelease => new LatestRelease(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
         self::assertTrue($services->get(AccountStore::class)->save(new Account(0, '', 'globalaccount', 'api-user', 'not-a-real-password')));
         $idShop = (int) \Configuration::get('PS_SHOP_DEFAULT');
         $this->addCustomer($idShop, 'shopper1@example.test', true, (int) \Configuration::get('PS_LANG_DEFAULT'));

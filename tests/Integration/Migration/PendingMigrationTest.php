@@ -5,6 +5,8 @@ namespace Tests\Integration\Migration;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
@@ -13,6 +15,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickReport;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TrafficTick;
+use PrestaShop\Module\SmailyForPrestaShop\Update\LatestRelease;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/LegacyStore.php';
@@ -115,11 +118,18 @@ final class PendingMigrationTest extends IntegrationTestCase
             $built = true;
             throw new \LogicException('The migration was started.');
         });
+        // The update check asks no real GitHub: its request finds no release.
+        $services->set(LatestRelease::class, fn (): LatestRelease => new LatestRelease(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
 
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'migration'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'migration', 'update_check'], $report->jobs());
         self::assertFalse($built);
     }
 
