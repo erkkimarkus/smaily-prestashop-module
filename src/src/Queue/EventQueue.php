@@ -39,8 +39,10 @@ if (!defined('_PS_VERSION_')) {
  * claim older than 10 minutes belongs to a flush that died, and goes back to `pending`. An outcome
  * is recorded only on a row that still carries the token it was claimed with.
  *
- * Every write names its rows by primary key, so concurrent flushes lock rows in one order and do not
- * deadlock each other.
+ * Every write names its rows by primary key and reaches them through it, so concurrent flushes lock
+ * only those rows, in one order, and do not deadlock each other. The claim and the stale-claim return
+ * force the primary key: when fewer rows are due than ids are named, MySQL and MariaDB otherwise walk
+ * the status index and lock its entries of rows that other flushes are closing.
  *
  * Times are UTC, read from the clock this queue is given.
  */
@@ -126,7 +128,7 @@ final class EventQueue
 
         $token = self::quote(bin2hex(random_bytes(16)));
         \Db::getInstance()->execute(sprintf(
-            'UPDATE %s SET `status` = %s, `claim_token` = %s, `updated_at` = %s WHERE `id` IN (%s) AND %s',
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `claim_token` = %s, `updated_at` = %s WHERE `id` IN (%s) AND %s',
             self::table(),
             self::quote(self::STATUS_PROCESSING),
             $token,
@@ -160,7 +162,7 @@ final class EventQueue
         }
 
         \Db::getInstance()->execute(sprintf(
-            'UPDATE %s SET `status` = %s, `claim_token` = NULL WHERE `id` IN (%s) AND %s',
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `claim_token` = NULL WHERE `id` IN (%s) AND %s',
             self::table(),
             self::quote(self::STATUS_PENDING),
             implode(', ', $ids),

@@ -7,8 +7,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use Tests\Integration\IntegrationTestCase;
 
 /**
- * Two flushes that start at once (the cron URL and a visitor's tick) run in two PHP processes with
- * two database connections, and claim from the same rows of the real event queue table.
+ * Flushes that start at once (the cron URL and visitors' ticks) run in separate PHP processes with
+ * their own database connections, and claim from the same rows of the real event queue table.
  *
  * Acceptance 3 of Story 1.5.
  */
@@ -16,7 +16,9 @@ final class ConcurrentFlushTest extends IntegrationTestCase
 {
     private const EVENT_TYPE = 'test.concurrent';
 
-    private const ROWS = 400;
+    private const ROWS = 600;
+
+    private const WORKERS = 4;
 
     private string $output = '';
 
@@ -36,7 +38,7 @@ final class ConcurrentFlushTest extends IntegrationTestCase
         parent::tearDown();
     }
 
-    public function testTwoConcurrentFlushesNeverSendOneRowTwice(): void
+    public function testConcurrentFlushesNeverSendOneRowTwice(): void
     {
         $queue = new EventQueue();
         $ids = [];
@@ -46,7 +48,7 @@ final class ConcurrentFlushTest extends IntegrationTestCase
 
         $start = sprintf('%.3f', microtime(true) + 3);
         $workers = [];
-        for ($i = 0; $i < 2; ++$i) {
+        for ($i = 0; $i < self::WORKERS; ++$i) {
             $workers[] = $this->startWorker($start);
         }
         $claimed = array_map([$this, 'finish'], $workers);
@@ -57,7 +59,7 @@ final class ConcurrentFlushTest extends IntegrationTestCase
         sort($sent);
         self::assertSame($ids, $sent, 'every row is sent');
         self::assertSame(self::ROWS, array_sum($claimed));
-        self::assertGreaterThan(0, min($claimed), sprintf('both flushes claimed rows (%s)', implode(' + ', $claimed)));
+        self::assertGreaterThan(0, min($claimed), sprintf('every flush claimed rows (%s)', implode(' + ', $claimed)));
         self::assertSame(
             (string) self::ROWS,
             (string) self::db()->getValue(sprintf(

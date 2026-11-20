@@ -51,6 +51,6 @@ $pending = sprintf(
 time_sleep_until((float) $start);
 $claimed = 0;
 do {
-    $claimed += $flusher->flush(5);
+    $claimed += $flusher->flush(3);
 } while ((int) Db::getInstance()->getValue($pending, false) > 0);
 echo $claimed;
