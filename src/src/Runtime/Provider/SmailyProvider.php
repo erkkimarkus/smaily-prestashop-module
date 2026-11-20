@@ -29,7 +29,11 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 
 /**
  * Registers the services and hook listeners of the Smaily API client, its HTTP transport, the accounts and their encryption.
@@ -38,5 +42,8 @@ final class SmailyProvider implements ProviderInterface
 {
     public function register(Services $services): void
     {
+        $services->set(Transport::class, fn (): Transport => new SymfonyTransport());
+        $services->set(Crypto::class, fn (): Crypto => new Crypto(_NEW_COOKIE_KEY_));
+        $services->set(AccountStore::class, fn (Services $services): AccountStore => new AccountStore($services->get(Crypto::class)));
     }
 }
