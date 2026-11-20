@@ -99,7 +99,7 @@ final class SchedulerProviderTest extends IntegrationTestCase
         $services = Services::fromProviders(Services::PROVIDERS);
 
         foreach (SchedulerProvider::TRAFFIC_HOOKS as $hook) {
-            self::assertCount(1, $services->listeners($hook), $hook);
+            self::assertCount(1, $services->listenersBeforeUpgrade($hook), $hook);
         }
     }
 
