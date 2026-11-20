@@ -1,15 +1,15 @@
 services:
   prestashop:
     container_name: prestashop
-    image: prestashop/prestashop-flashlight:9.2.0-nginx
+    image: ${PS_IMAGE:-prestashop/prestashop-flashlight:9.2.0-nginx}
     depends_on:
       mysql:
         condition: service_healthy
     environment:
-    - PS_DOMAIN=localhost:8080
+    - PS_DOMAIN=localhost:${PS_PORT:-8080}
     - DEBUG_MODE=true
     ports:
-    - 8080:80
+    - ${PS_PORT:-8080}:80
     volumes:
     - prestashop-data:/var/www/html
     - .vscode:/var/www/html/.vscode
@@ -51,13 +51,13 @@ services:
     - PMA_PASSWORD=prestashop
     - MYSQL_ROOT_PASSWORD=prestashop
     ports:
-    - 8888:80
+    - ${PMA_PORT:-8888}:80
 
   mailhog:
     image: mailhog/mailhog:latest
     container_name: mailhog
     ports:
-    - 8025:8025
+    - ${MAILHOG_PORT:-8025}:8025
 
 volumes:
   prestashop-data:
