@@ -83,9 +83,10 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 585 tests, 2333 assertions on 8.2.8 and 9.2.0 with Stories 1.8,
-2.2 and 2.4 and the new-version check, as the worker that ran them reported; 8.0.0 last ran at the
-stage 1 integration commit (278 tests, 1337 assertions). `PS_ROOT_DIR` makes the test bootstrap boot the
+Last verified results, all passing: 1160 tests, 5155 assertions on 8.2.8 and 9.2.0, each on a fresh
+shop, with the Settings tabs Connection, Contacts and RSS (Story 3.3) on `v3`; 8.0.0 last ran at the
+stage 1 integration commit (278 tests, 1337 assertions). On the host the same suite runs its unit
+tests and skips the integration tests (1160 tests, 1809 assertions, 560 skipped). `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
@@ -104,6 +105,14 @@ gaps:
   could reach a real outside service. Stub every other outside call in such a test.
 - Some test does not restore the cron tokens it found. After a full suite run, the dev shop refuses
   the cron or tick token it had before; read the new token from the `configuration` table.
+
+The suite expects a shop that nobody has set up by hand, and these conventions keep it so:
+
+- Run it on a fresh or reset shop (section 8). After a walk of the admin screens that added a second
+  shop, 27 migration tests failed on what the walk left.
+- The abandoned-cart tests expect a shop with no leftover carts; a reset shop is green.
+- A test that requests the storefront records a fresh tick first, as `RssFeedTest` does. Otherwise the
+  request runs the fallback tick, and with it the update check.
 
 One test drives the shop's own web server over HTTP (`AfterResponseSessionTest`: a login and a
 registration on a request that works after its response). It reaches the web server on port 80 of the
@@ -128,7 +137,12 @@ Disk: the 9.2.0 image 1.54 GB, the 8.2.8 image 1.12 GB, the 8.0.0 image 1.1 GB, 
 0.7 GB.
 
 Code changes in `src/` show at once, as the folder is mounted. After a change to services or routes,
-clear the cache: `docker compose exec -u www-data prestashop php bin/console cache:clear`.
+or after a shop or a language was added, remove the cache folders:
+
+    docker compose exec -u www-data prestashop sh -c 'rm -rf var/cache/dev var/cache/prod'
+
+`php bin/console cache:clear` once left the dev shop with a container that did not build, during
+the Settings work; removing the folders has not failed.
 
 ## 4a. Keep a walk away from the real Smaily: the egress guard (verified on 8.2.8 and 9.2.0)
 
@@ -216,12 +230,17 @@ Results on 2026-11-20:
   (the image CI uses for 9.2.0).
 - With stage 1 complete: the in-shop test counts of that time on flashlight 8.0.0, 8.2.8 and 9.2.0.
 - With Stories 1.8, 2.2 and 2.4 and the new-version check: 10 of 10 checks on flashlight 8.2.8 and
-  9.2.0, with the in-shop counts of section 4, as the worker that ran them reported.
+  9.2.0, as the worker that ran them reported.
+- With Settings (Story 3.3) on `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0, with the in-shop
+  counts of section 4.
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
-of that request finishes the migration and stores the version again. The script then restores the
-version only when no row holds it, so the shop keeps exactly one schema-version row.
+of that request runs the 3.0.0 migration on the fresh install and stores the version again. The script
+then restores the version only when no row holds it, so the shop keeps exactly one schema-version row.
+A shop kept with `KEEP=1` is therefore not an untouched fresh install: it holds
+`SMAILY_CONNECT_MIGRATION` (`from` 3.0.0, `status` `done`) and `SMAILY_CONNECT_SETUP_STATE = new`
+(observed on 9.2.0 by deleting the version and opening the storefront).
 
 The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
