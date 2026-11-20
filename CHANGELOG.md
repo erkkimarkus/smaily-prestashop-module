@@ -17,6 +17,7 @@
 - A multishop store runs its shops as one store or as separate stores, and changes that in Settings. In one store, a shop can use its own Smaily account or its own Contacts settings. A change from separate stores to one store gives every shop the settings of the selected shop and removes the other shops' own settings.
 - The abandoned-cart reminder always carries the name, description, SKU, price, base price and quantity of up to 10 products, and the customer's first and last name when the store knows them. The choice of fields is gone: a store that had fields unticked in 2.x sends them all after the upgrade.
 - The abandoned-cart delay is from 10 to 1435 minutes (2.x: at least 15), and 30 minutes on a new store. A cart older than 24 hours is never reminded. An upgraded store keeps its delay; a store whose 2.x delay was longer than 1435 minutes sends no reminder until a shorter delay is saved.
+- Adds the Log under Customers > Smaily Connect: one list of every contact sync, automation trigger and contact import, with its status, attempts and last error, filters and the count of events that failed in the last 24 hours. Details show what was sent and what Smaily answered; passwords and API keys are never stored or shown. A failed event can be sent again, and failed rows can be retried together.
 
 ### 2.2.0
 

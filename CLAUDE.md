@@ -183,6 +183,11 @@ ask (Linear discipline below).
   covers a multishop, multilanguage database.
 - **Admin cache.** Stale `var/cache` breaks module routes and service
   configuration (CONTRIBUTING.md, "Invalidating cache").
+- **Admin page addresses.** PrestaShop's back office reads the parameters
+  `error` and `conf` of every page address as its own message numbers. A
+  module page that carries `error=<text>` fails in debug mode ("Undefined
+  array key"). Name no parameter of a module page `error` or `conf`; the
+  Log's filter is `last_error` (ARCHITECTURE 10.8).
 - **Consent lives in PrestaShop.** Marketing consent is `customer.newsletter`
   and `emailsubscription`; the module keeps no consent store of its own.
   `customer.optin` is PrestaShop's "partner offers" box: never create or

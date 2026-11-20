@@ -77,6 +77,18 @@ Contact synchronization is set under **Settings -> Contacts**.
 
 ![Abandoned cart emails](assets/4_abandoned_cart.png)
 
+## Log
+
+**Customers -> Smaily Connect -> Log** lists everything the module sent to Smaily: contact syncs, automation triggers and contact imports, newest first. If something seems missing in Smaily, look here first.
+
+1. Each row shows its **Status**: Pending, Sending, Sent, Failed, Withdrawn (a cart reminder that was called back because the shopper ordered) or Skipped (nothing was sent; **Last Error** says why). A contact import shows Queued, Running, Done, Failed or Cancelled.
+2. Filter the list under the column headings by source, type, entity, status, last error and the days a row was created or updated, then click **Search**. In a store with several shops, the list shows the shops selected in the header.
+3. A failed row is retried on its own for up to 5 attempts. When rows failed in the last 24 hours, a banner above the list counts them, and **Show failed (24h)** lists the failed rows.
+4. **Details** shows the attempts, what happens next, the last error, the data that was sent and Smaily's answer. The contact's data is shown in full; passwords and API keys are never stored or shown.
+5. After you have fixed the cause of a failure, for example new API credentials, click **Send again** on the row, or tick the failed rows and click **Retry**. **Select all** retries every failed row that the filter lists. A row is left alone when sending it again would not be safe, for example when a later email of the same kind already reached the contact, and the answer says how many rows were skipped.
+
+Sent and skipped rows are kept for 30 days, failed rows for 90 days.
+
 ## RSS
 
 Smaily's module provides an RSS feed of the store's products. **Settings -> RSS** builds the feed URL:

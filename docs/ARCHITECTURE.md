@@ -378,7 +378,19 @@ Magento's unified Log does (`magento:Controller/Adminhtml/Log/*`).
   message is the client's own text (the status or the code); a handler's own reason; or, for a thrown
   error, its class, file, line and code. It never holds the error's message, a request body or the
   remote server's text. A sent row has no `last_error`.
-- No code writes `last_request` and `last_response` yet (Story 3.4, section 13).
+- `last_request` and `last_response` hold what the latest attempt sent for the row and what came
+  back, for the Log's Details (Story 3.4, section 10.8). `last_request` is the row's own part of the
+  request body as JSON: one contact of a batched contact sync, never the contacts posted with it.
+  `last_response` is `{"http_status": <code>, "body": <the answer's JSON>}`, without any `message` of
+  the answer, because Smaily's text can name a contact; an answer that is not JSON, or one longer
+  than the column, keeps its status only. An attempt that got no answer keeps the answer of an
+  earlier attempt. A row for which nothing was sent has neither. The contact's data is stored as it
+  was sent (section 15); a value under a key that looks like a secret is stored as `[redacted]`
+  (`Log\PayloadRedactor`). A handler tells the flusher what it sent through `Queue\ExchangeSource`,
+  and `EventQueue::recordExchange()` writes it under the row's claim. The same columns of the ingest
+  queue are written by Story 5.2.
+- A row that the Log's "Send again" queued carries the record `_resend` in its payload (section
+  10.8).
 
 **The cart tracker after an upgrade** (`smaily_connect_cart`, Story 1.7). The migration copies every
 `smaily_cart` row that names a cart (`id_cart` not `NULL`) with `INSERT IGNORE`: `status` =
@@ -1423,7 +1435,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). |
 | Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
-| Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. |
+| Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 
 ### 10.3 Visible differences that PrestaShop forces
 
@@ -1435,6 +1447,8 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | Settings > Contacts asks before a save that changes who is synced: the page names what the new mode, "include guests" or switching sync on sends from now on, and the merchant confirms. | Consent lives in PrestaShop (section 6.1), and a change of audience is the merchant's decision (wording approved by the owner, 2026-11-20). |
 | Page frame, toolbar and buttons are PrestaShop's. | Platform shell. |
 | The Log is a Twig table with filters, not a native grid. | A PrestaShop Grid component needs Symfony grid definitions that differ between 8 and 9; a plain table is one code path. |
+| The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and their number of contacts as the Entity. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
+| The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
 | The cron line and Background tasks card. | Section 4. |
 
@@ -1493,6 +1507,84 @@ PrestaShop (`docs/MARKETPLACE.md`), so the module brings its own. The backend is
 built:** the notice on the admin pages; it comes after the admin shell (Story 3.1). The module never
 downloads or installs a release: the merchant does that.
 
+### 10.8 The Log (as built in Story 3.4)
+
+The Log is the tab "Log" of the Smaily Connect page. It reads the event queue, the ingest queue and the
+job table (`Log\LogRows`; no table of its own, section 2.2) and follows Magento's Log
+(`magento:Controller/Adminhtml/Log/*`, `Model/Log/*`, `view/adminhtml/templates/log/*.phtml`).
+
+**The list.** The columns are Magento's, in its order: a checkbox, Source, Type, Entity, Status,
+Attempts, Last Error, Created, Updated, Actions. The rows are newest first by creation, 20 to a page.
+A filter sits under each heading that has one: Source, Type, Entity, Status, Last Error, and a day
+range for Created and for Updated, in the shop's time zone. The page's address carries the filters
+(`source`, `type`, `entity`, `status`, `last_error`, `created_from`, `created_to`, `updated_from`,
+`updated_to`, `page`), so the Dashboard links to `status=failed`. No parameter is named `error` or
+`conf`: PrestaShop's back office reads those two in every page address as its own (CLAUDE.md,
+"Platform traps"). The shops are those of PrestaShop's shop selector: one shop, the shops of a
+group, or all. An event row belongs to its shop, an ingest row to its connection's shop, an import
+job to its shop, and a job of shop 0 (every shop) shows in every selection.
+
+- **Source.** "Smaily" for an event row and for an import job without a connection; "Campaign
+  Intelligence" for an ingest row and for a job that names a connection. No ingest row exists before
+  stage 5, so the list shows "Smaily" only until then.
+- **Status.** The stored status under Magento's names: `pending` → Pending, `processing` → Sending,
+  `sent` → Sent, `failed` → Failed, `skipped` → Skipped. An abandoned-cart reminder that was closed
+  because the shopper ordered (`skipped` with the reason `ordered`) shows as Withdrawn
+  (`Log\LogStatus`). An import job shows Queued, Running, Done, Failed or Cancelled.
+- **Entity.** `Admin\Dashboard\EntityLabel`, the Dashboard's rule: the entity as stored, a keyed hash
+  cut to 12 characters. An import job shows its number of contacts.
+- **Last Error.** The stored reason without its class prefix. The four skip reasons that Magento words
+  (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`) show as
+  Magento's sentence, and the filter finds them by those words (`Log\FailureMessage`). Every other
+  reason code shows as stored.
+- **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
+  selected shops, and its button applies the filter `status=failed`, as Magento's does.
+
+**Details** open in a side panel (`Admin\Log\Details`, `Admin\Log\LogView`), as Magento's drawer:
+the row's id, type and status; Source, Entity, Attempts, Created, Updated; the attempts in order,
+as far as the row stores them (`Log\AttemptHistory`); one line that says what happens next; the last
+error with its failure class, or the reason of a skip; the payload as sent (`last_request`), or the
+queued payload while nothing was sent; the last answer (`last_response`); and "Copy payload". An
+import job shows its summary, its progress line and its last error.
+
+**[D]** (owner, 2026-11-20) Details show the request and the answer in full to the admin, the
+contact's data included, without secrets, as Magento does: the Log is an admin's debugging tool
+behind its own permission. `Log\PayloadRedactor` replaces every value under a key that looks like a
+secret (password, token, API key, authorization, signature, credential) with `[redacted]`, before
+the queue stores an exchange and again when Details show a payload (section 2.2).
+
+**"Send again" and "Retry"** are two actions, as in Magento:
+
+- **Send again** (one row, `Log\Resend`) queues a new `pending` row with the same event type, shop,
+  entity, language and payload. The failed row stays untouched as history. The new row's payload
+  records the decision under the reserved key `_resend`: `{"of": <failed row's id>, "by": <the
+  employee>, "at": <UTC time>}`. Every handler reads only the keys of its own payload, so the record
+  never reaches Smaily. The tracker row of an abandoned cart follows the new row, because only the
+  queue row that the tracker names sends the reminder.
+- **Retry** (the ticked rows, or every row that the filter selects; `Log\Retry`,
+  `EventQueue::retry()`) returns failed event rows to `pending` in place, with `attempts` 0. A second
+  retry finds the row pending and changes nothing. The answer names the rows queued and the rows
+  left alone.
+
+`Log\ResendGuard` decides both, and the list shows "Send again" only on a row that it clears. It
+refuses a row that did not fail; a withdrawn reminder; a row whose entity is `[erased]` (section
+11.2); a row that a later delivered row of the same event type, shop and contact superseded; and a
+row whose event already waits in the queue again as a later `pending` or `processing` row. The
+first four answer Magento's sentences. The last one has no sentence: "Send again" then queues
+nothing and answers as the first request did, so a second click has no effect. A contact sync
+repeats a state and is not superseded by a later sync, with one exception that Magento does not
+need: a `contact.sync` row here carries the consent that the store saw when the row was queued, so
+a row that would mark the contact subscribed (`consent_changed` and `subscribed`) is held back after
+a later delivered row with a consent change. A row that unsubscribes is never held back. A row
+without an entity is not compared with later rows.
+
+**Rights.** The page needs the right to read the Log's menu tab. Details need the same right; "Send
+again" and "Retry" need the right to change it. Each endpoint also needs the page's token
+(`Admin\Api\AbstractJsonAction`).
+
+**Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); the "Privacy
+request" form of section 11.2 (Story 5.6); sorting by another column than Created.
+
 ---
 
 ## 11. Installation report, privacy, retention, uninstall, new-version check
@@ -1519,7 +1611,7 @@ downloads or installs a release: the merchant does that.
 | Request | 3.0.0 |
 |---|---|
 | Export (psgdpr `actionExportGDPRData`) | Local rows for the address (event queue, cart tracker, attribution, privacy record) + engine §8 per connection, one 10 s attempt; a failed engine call names the failure, not the remote text (`woo:docs/LESSONS.md` §2.32). |
-| Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes local rows that hold the address or its keyed hash; marks tracker rows `erased`; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). |
+| Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes local rows that hold the address or its keyed hash; marks tracker rows `erased`; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). Since Story 3.4 a queue row also holds the contact's data in `last_request` and `last_response`, and the Log shows it in full (section 10.8): the erasure must clear the stored payloads and the entity of every queue row of the address that it keeps, as Shopify replaces them with "[erased]". The entity of such a row is `[erased]` (`Log\ResendGuard::ERASED_ENTITY`), which the Log refuses to send again. |
 | Profiling opt-out (§10) | My Account "Personalization" page, shown only with a connection; writes the local record first, then queues §10; the newest choice wins; a marketing unsubscribe also stops profiling (Magento parity audit R1–R3). |
 | Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address. |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
@@ -1960,13 +2052,21 @@ has one owner:
 - **Goal.** One list of everything sent, failed or skipped, with retry.
 - **Owns.** `src/src/Log/`, `src/src/Admin/Log/`, `src/views/templates/admin/log/`, `src/views/js/admin/log.js`.
   This includes the "retry failed rows" reset (`Log\Retry`), and the content of the queue columns
-  `last_request` and `last_response`: this Story decides what they hold, never personal data or a
-  secret, and adds the writes.
+  `last_request` and `last_response`: this Story decides what they hold, never a secret, and adds
+  the writes.
 - **Depends on.** 3.1, 1.5.
 - **Acceptance.**
   1. Rows of both queues and the jobs list together, filterable by status, type, shop and entity.
-  2. Details show the request as sent and the last response, without secrets or personal data.
+  2. Details show the request as sent and the last response in full to the admin, the contact's
+     data included, without secrets, as Magento does (owner, 2026-11-20; section 15). This replaces
+     "without secrets or personal data".
   3. Retry of a failed row returns it to `pending` once; mass retry works on a filtered set.
+- **Done.** As built: section 10.8, and the queue columns in section 2.2. The Story also wrote the
+  Estonian units of its texts (section 10.4 leaves them to the sweep otherwise).
+- **Left open.** "Send again" and "Retry" of ingest rows wait for the ingest queue (Story 5.2). A
+  reason code that Magento has no sentence for shows as stored. The address of an event row longer
+  than 64 characters is stored without an entity (section 2.2 names a keyed hash), so the resend
+  guard cannot compare such a row with later rows.
 
 ### Story 3.5 — Translation sweep (stage 3)
 
@@ -2114,6 +2214,9 @@ has one owner:
   2. A psgdpr erasure removes local rows by address and keyed hash and queues §9 durably.
   3. The opt-out page shows only with a connection; the newest choice wins.
   4. No log line or stored reason contains the remote error text.
+  5. An erasure leaves no queue row that the Log can show with the contact's data: the payload, the
+     stored request and answer and the entity of every kept row of the address are cleared, and the
+     entity reads `[erased]` (sections 10.8 and 11.2).
 
 **Stage 5 parallel groups.** 5.1 → {5.2, 5.5, 5.6} → {5.3, 5.4}.
 
@@ -2220,6 +2323,7 @@ Later decisions of 2026-11-20:
 | A contact's address on the admin screens | **DECIDED:** admin screens show a contact's address as the sibling connectors do; only a GDPR erasure removes it. The keyed hash that stands in for an address longer than the entity column shows as its first 12 characters and "…" (`magento:Model/Log/EntityLabel.php`). | Owner (Erkki) | 2.2, 11.2 | 3.2 |
 | Separate stores → one store | **DECIDED:** separate stores → one store removes the other shops' own settings, as Magento does: the selected shop's values become the shared ones, and every shop's own Smaily account rows, Contacts values, automation values and mapping rows are removed, whether or not they differ. The contacts confirmation is never copied or removed. | Owner (Erkki) | 5.1 | 3.3 |
 | Wording of the confirmations | **DECIDED:** the consent-mode and layout confirmations' wording is approved: the consent-mode confirmations as built, and the change to one store with Magento's text ("website" read as "shop"). | Owner (Erkki) | 10.3 | 3.3 |
+| What the Log's Details show | **DECIDED:** The Log's Details show the request and response in full to the admin, without secrets, as Magento does. The queue stores them that way (section 2.2); only passwords, API keys and tokens are never stored and never shown. | Owner (Erkki) | 2.2, 10.8 | 3.4 |
 | Discount codes in store automations | **DECIDED:** discount codes in store automations are in 3.0.0, as a Story of their own after the Automations tab and the Log page. "Edit design" stays out. | Owner (Erkki) | 13 | 4.4 |
 | Which fields the abandoned-cart reminder carries | **DECIDED:** the abandoned-cart reminder always carries every field, as the siblings do: every product field in all 10 slots, and the shopper's names when known. No field picker; the 2.x selection is not migrated. | Owner (Erkki) | 7 | 4.3 |
 | The bounds of the abandoned-cart delay | **DECIDED:** cart delay 10–1435 minutes, default 30, as Magento. An upgraded store keeps its delay; a 2.x delay above 1435 is an open question (section 14, row 22). | Owner (Erkki) | 2.1, 3.3 | 4.1, 4.3 |
