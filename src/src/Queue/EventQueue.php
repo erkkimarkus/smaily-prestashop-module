@@ -1,0 +1,259 @@
+<?php
+/**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ */
+declare(strict_types=1);
+
+namespace PrestaShop\Module\SmailyForPrestaShop\Queue;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
+/**
+ * The durable queue of marketing events to Smaily, in the table smaily_connect_event_queue.
+ *
+ * A flush claims due rows with a token of its own: one UPDATE moves them to `processing` under that
+ * token, and the flush then reads back only the rows that carry it. Two flushes that start at once
+ * therefore never hold the same row, without SKIP LOCKED (which needs MySQL 8 or MariaDB 10.6). A
+ * claim older than 10 minutes belongs to a flush that died, and goes back to `pending`. An outcome
+ * is recorded only on a row that still carries the token it was claimed with.
+ *
+ * Times are UTC, read from the clock this queue is given.
+ */
+final class EventQueue
+{
+    public const TABLE = 'smaily_connect_event_queue';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_PROCESSING = 'processing';
+
+    public const STATUS_SENT = 'sent';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const CLAIM_TIMEOUT_SECONDS = 600;
+
+    /**
+     * The width of the column last_error.
+     */
+    private const ERROR_LENGTH = 255;
+
+    /** @var callable(): int */
+    private $clock;
+
+    /**
+     * @param (callable(): int)|null $clock the current Unix time; time() when null
+     */
+    public function __construct(?callable $clock = null)
+    {
+        $this->clock = $clock ?? 'time';
+    }
+
+    /**
+     * Adds an event that the next flush sends.
+     *
+     * @param array<mixed> $payload stored as JSON
+     *
+     * @return int the row id
+     */
+    public function enqueue(string $eventType, int $idShop, array $payload, ?string $entityId = null, ?string $language = null): int
+    {
+        $now = $this->time(0);
+        $sql = sprintf(
+            'INSERT INTO %s (`id_shop`, `event_type`, `entity_id`, `language`, `payload`, `status`, `attempts`, `created_at`, `updated_at`)'
+            . ' VALUES (%d, %s, %s, %s, %s, %s, 0, %s, %s)',
+            self::table(),
+            $idShop,
+            self::quote($eventType),
+            self::quote($entityId),
+            self::quote($language),
+            self::quote(json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            self::quote(self::STATUS_PENDING),
+            $now,
+            $now
+        );
+        if (!\Db::getInstance()->execute($sql)) {
+            throw new \RuntimeException('The event queue refused a row.');
+        }
+
+        return (int) \Db::getInstance()->Insert_ID();
+    }
+
+    /**
+     * Claims up to $limit due rows, oldest first, for one flush.
+     *
+     * @return list<array<string, string|null>> the claimed rows as stored, status `processing`
+     */
+    public function claim(int $limit): array
+    {
+        $token = self::quote(bin2hex(random_bytes(16)));
+        $now = $this->time(0);
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET `status` = %s, `claim_token` = %s, `updated_at` = %s'
+            . ' WHERE `status` = %s AND (`next_retry_at` IS NULL OR `next_retry_at` <= %s)'
+            . ' ORDER BY `id` LIMIT %d',
+            self::table(),
+            self::quote(self::STATUS_PROCESSING),
+            $token,
+            $now,
+            self::quote(self::STATUS_PENDING),
+            $now,
+            $limit
+        ));
+
+        $rows = \Db::getInstance()->executeS(
+            sprintf('SELECT * FROM %s WHERE `claim_token` = %s ORDER BY `id`', self::table(), $token),
+            true,
+            false
+        );
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Returns the rows whose claim is older than CLAIM_TIMEOUT_SECONDS to `pending`.
+     *
+     * @return int the number of rows returned
+     */
+    public function requeueStale(): int
+    {
+        $db = \Db::getInstance();
+        $db->execute(sprintf(
+            'UPDATE %s SET `status` = %s, `claim_token` = NULL WHERE `status` = %s AND `updated_at` <= %s',
+            self::table(),
+            self::quote(self::STATUS_PENDING),
+            self::quote(self::STATUS_PROCESSING),
+            $this->time(-self::CLAIM_TIMEOUT_SECONDS)
+        ));
+
+        return (int) $db->Affected_Rows();
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows claimed rows
+     */
+    public function markSent(array $rows): void
+    {
+        $now = $this->time(0);
+        $this->close($rows, sprintf(
+            '`status` = %s, `next_retry_at` = NULL, `last_error` = NULL, `sent_at` = %s, `updated_at` = %s',
+            self::quote(self::STATUS_SENT),
+            $now,
+            $now
+        ));
+    }
+
+    /**
+     * Closes a claimed row without sending it.
+     *
+     * @param array<string, mixed> $row
+     */
+    public function markSkipped(array $row, string $reason): void
+    {
+        $this->close([$row], sprintf(
+            '`status` = %s, `next_retry_at` = NULL, `last_error` = %s, `updated_at` = %s',
+            self::quote(self::STATUS_SKIPPED),
+            self::quote(self::error($reason)),
+            $this->time(0)
+        ));
+    }
+
+    /**
+     * Records a failed attempt: the row waits for its next attempt, or is parked as `failed` when
+     * the failure is permanent or the attempts are spent (RetryPolicy).
+     *
+     * @param array<string, mixed> $row
+     */
+    public function markFailed(array $row, Failure $failure): void
+    {
+        $attempts = (int) $row['attempts'] + 1;
+        $parked = RetryPolicy::parks($attempts, $failure);
+        $this->close([$row], sprintf(
+            '`status` = %s, `attempts` = %d, `next_retry_at` = %s, `last_error` = %s, `updated_at` = %s',
+            self::quote($parked ? self::STATUS_FAILED : self::STATUS_PENDING),
+            $attempts,
+            $parked ? 'NULL' : $this->time(RetryPolicy::delay($attempts, $failure->retryAfter())),
+            self::quote(self::error($failure->reason())),
+            $this->time(0)
+        ));
+    }
+
+    /**
+     * Gives claimed rows back as they were: pending, with no attempt spent.
+     *
+     * @param list<array<string, mixed>> $rows
+     */
+    public function release(array $rows): void
+    {
+        $this->close($rows, sprintf('`status` = %s', self::quote(self::STATUS_PENDING)));
+    }
+
+    /**
+     * Sets $assignments on the rows that still carry the claim they were read with, and releases
+     * the claim.
+     *
+     * @param list<array<string, mixed>> $rows
+     */
+    private function close(array $rows, string $assignments): void
+    {
+        if ($rows === []) {
+            return;
+        }
+
+        $ids = array_map(static fn (array $row): int => (int) $row['id'], $rows);
+        $tokens = array_map(static fn (array $row): string => self::quote((string) $row['claim_token']), $rows);
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET %s, `claim_token` = NULL WHERE `id` IN (%s) AND `claim_token` IN (%s)',
+            self::table(),
+            $assignments,
+            implode(', ', $ids),
+            implode(', ', array_unique($tokens))
+        ));
+    }
+
+    /**
+     * The clock's time plus $offset seconds, as a quoted SQL DATETIME in UTC.
+     */
+    private function time(int $offset): string
+    {
+        return self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() + $offset));
+    }
+
+    private static function error(string $reason): string
+    {
+        return mb_substr($reason, 0, self::ERROR_LENGTH);
+    }
+
+    private static function table(): string
+    {
+        return '`' . _DB_PREFIX_ . self::TABLE . '`';
+    }
+
+    private static function quote(?string $value): string
+    {
+        return $value === null ? 'NULL' : '\'' . pSQL($value, true) . '\'';
+    }
+}
