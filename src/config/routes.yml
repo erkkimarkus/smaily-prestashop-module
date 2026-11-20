@@ -1,7 +1,47 @@
-smailyforprestashop_module_configuration:
-  path: /smailyforprestashop/configuration
-  methods: [GET, POST]
+# The menu's "Smaily Connect" and the four admin pages. Each route's _legacy_controller is its menu
+# tab (the main class's $tabs), which PrestaShop's permissions are granted on.
+smailyforprestashop_index:
+  path: /smailyforprestashop
+  methods: [GET]
   defaults:
-    _controller: PrestaShop\Module\SmailyForPrestaShop\Controller\ModuleConfigurationController::index
-    _legacy_controller: SmailyForPrestaShopConfiguration
-    _legacy_link: SmailyForPrestaShopConfiguration
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\EntryController::index
+    _legacy_controller: AdminSmailyConnect
+    _legacy_link: AdminSmailyConnect
+
+smailyforprestashop_dashboard:
+  path: /smailyforprestashop/dashboard
+  methods: [GET]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController::index
+    _legacy_controller: AdminSmailyConnectDashboard
+    _legacy_link: AdminSmailyConnectDashboard
+
+smailyforprestashop_setup:
+  path: /smailyforprestashop/setup
+  methods: [GET]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController::index
+    _legacy_controller: AdminSmailyConnectSetup
+    _legacy_link: AdminSmailyConnectSetup
+
+smailyforprestashop_settings:
+  path: /smailyforprestashop/settings
+  methods: [GET]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController::index
+    _legacy_controller: AdminSmailyConnectSettings
+    _legacy_link: AdminSmailyConnectSettings
+
+smailyforprestashop_log:
+  path: /smailyforprestashop/log
+  methods: [GET]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogController::index
+    _legacy_controller: AdminSmailyConnectLog
+    _legacy_link: AdminSmailyConnectLog
+
+# The JSON endpoints: one file per area in config/routes/, so that each area adds its endpoints
+# without editing this file. A route there names one of the five tabs above as its
+# _legacy_controller; any other name would make PrestaShop install a hidden tab for it.
+smailyforprestashop_api:
+  resource: 'routes/*.yml'

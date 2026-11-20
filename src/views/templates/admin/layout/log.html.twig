@@ -1,0 +1,13 @@
+{#
+ # The Log frame: one list of everything sent, failed or skipped. Its content (filters, table,
+ # details, retry) comes from log/list.html.twig, added by the Log Story; a missing template leaves
+ # the page empty.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% block smaily_page %}
+  <div class="smaily-log" data-smaily-slot="log/list">
+    {% block smaily_log_list %}{% include '@Modules/smailyforprestashop/views/templates/admin/log/list.html.twig' ignore missing %}{% endblock %}
+  </div>
+{% endblock %}

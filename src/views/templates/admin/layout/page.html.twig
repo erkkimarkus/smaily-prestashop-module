@@ -1,0 +1,76 @@
+{#
+ # The frame of the four Smaily Connect pages inside PrestaShop's back-office layout: the Smaily
+ # Connect logo, the pending-upgrade banner, the upgrade notices, then the page (block smaily_page).
+ # Everything the module draws sits in the root .smaily-ui, which scopes views/css/admin.css.
+ #
+ # `smaily` comes from Admin\BaseController::renderPage(). The logo enters once on the page the
+ # Configure button opens (smaily.entry) and is still everywhere else; the browser's reduced-motion
+ # setting picks the still file there too.
+ #}
+{% extends '@PrestaShop/Admin/layout.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% block stylesheets %}
+  {{ parent() }}
+  <link rel="stylesheet" href="{{ asset('../modules/smailyforprestashop/views/css/admin.css') }}?v={{ smaily.version }}">
+{% endblock %}
+
+{% block content %}
+  <div class="smaily-ui smaily-page smaily-page--{{ smaily.page }}"
+       data-smaily-token="{{ smaily.token }}"
+       data-smaily-api-finish-upgrade="{{ path('smailyforprestashop_api_finish_upgrade') }}"
+       data-smaily-api-dismiss-notice="{{ path('smailyforprestashop_api_dismiss_notice') }}"
+       data-smaily-api-dismiss-invitation="{{ path('smailyforprestashop_api_dismiss_invitation') }}"
+       data-label-error="{{ 'Something went wrong. Try again; if it keeps failing, see the PrestaShop logs.'|trans }}"
+       data-label-working="{{ 'Finishing the upgrade…'|trans }}"
+       data-label-upgrade-done="{{ 'The upgrade is finished.'|trans }}">
+    <div class="smaily-brand" aria-hidden="true">
+      {% if smaily.entry %}
+        <picture>
+          <source srcset="{{ asset('../modules/smailyforprestashop/views/img/smaily-connect-lockup.svg') }}" media="(prefers-reduced-motion: reduce)">
+          <img src="{{ asset('../modules/smailyforprestashop/views/img/smaily-connect-intro.svg') }}" width="172" height="28" alt="">
+        </picture>
+      {% else %}
+        <img src="{{ asset('../modules/smailyforprestashop/views/img/smaily-connect-lockup.svg') }}" width="172" height="28" alt="">
+      {% endif %}
+    </div>
+
+    {% if smaily.upgrade %}
+      <div class="smaily-banner smaily-banner--{{ smaily.upgrade.status == 'failed' ? 'danger' : 'warning' }}" role="alert" data-smaily-upgrade-banner>
+        <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+        <div class="smaily-banner__body">
+          <div class="smaily-banner__title">
+            {% if smaily.upgrade.status == 'failed' %}
+              {{ 'The upgrade to Smaily Connect 3.0.0 stopped before it finished'|trans }}
+            {% else %}
+              {{ 'The upgrade to Smaily Connect 3.0.0 is not finished'|trans }}
+            {% endif %}
+          </div>
+          <div class="smaily-banner__message">
+            {{ 'Smaily Connect stays paused and your previous settings stay in place until the upgrade finishes. It also finishes on its own with the next run of the cron URL.'|trans }}
+          </div>
+          <div class="smaily-banner__result" data-smaily-result role="status"></div>
+        </div>
+        <button type="button" class="btn smaily-btn-primary smaily-banner__action" data-smaily-action="finish-upgrade">{{ 'Finish upgrade'|trans }}</button>
+      </div>
+    {% endif %}
+
+    {% for notice in smaily.notices %}
+      <div class="alert alert-info smaily-notice" role="status" data-smaily-notice="{{ notice.id }}">
+        <button type="button" class="close" data-smaily-action="dismiss-notice" aria-label="{{ 'Dismiss'|trans }}">
+          <span aria-hidden="true"><i class="material-icons">close</i></span>
+        </button>
+        <div class="alert-text">
+          <p><strong>{{ 'Smaily Connect upgrade'|trans }}:</strong> {{ notice.text }}</p>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% block smaily_page %}{% endblock %}
+  </div>
+{% endblock %}
+
+{% block javascripts %}
+  {{ parent() }}
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/common.js') }}?v={{ smaily.version }}"></script>
+{% endblock %}

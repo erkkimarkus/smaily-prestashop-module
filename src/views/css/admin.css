@@ -1,0 +1,625 @@
+/*
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ */
+
+/*
+ * The Smaily Connect admin pages. Every rule is scoped to the module's root .smaily-ui, so the
+ * back office around it keeps its own look; PrestaShop's alerts, buttons and fonts are used as
+ * they are.
+ *
+ * Product palette: primary #5E3B72 with white text (the module's own primary buttons, the active
+ * step and tab, focus); brand text and links #4A2D5C; selected tint #EFE5FB with text #4A2D5C and
+ * border #E2D3F6; plum #2A1028 for dark brand surfaces and banner headings; Smaily magenta #E91E63
+ * as a small accent only, never a button or text. Status colours are PrestaShop's.
+ */
+.smaily-ui {
+  --smaily-primary: #5e3b72;
+  --smaily-primary-hover: #4a2d5c;
+  --smaily-on-primary: #fff;
+  --smaily-brand-text: #4a2d5c;
+  --smaily-tint: #efe5fb;
+  --smaily-tint-text: #4a2d5c;
+  --smaily-tint-border: #e2d3f6;
+  --smaily-plum: #2a1028;
+  --smaily-accent: #e91e63;
+  --smaily-text: #363a41;
+  --smaily-muted: #6c757d;
+  --smaily-border: #dbe6e9;
+  --smaily-surface: #fff;
+  --smaily-surface-2: #f8f9fb;
+  --smaily-success: #70b580;
+  --smaily-warning: #fab000;
+  --smaily-warning-tint: #fffbea;
+  --smaily-danger: #f54c3e;
+  --smaily-danger-tint: #fdeceb;
+
+  color: var(--smaily-text);
+}
+
+.smaily-ui a,
+.smaily-ui .btn-link {
+  color: var(--smaily-brand-text);
+}
+
+.smaily-ui a:hover,
+.smaily-ui .btn-link:hover {
+  color: var(--smaily-plum);
+}
+
+.smaily-ui a:focus-visible,
+.smaily-ui button:focus-visible,
+.smaily-ui .btn:focus-visible {
+  outline: 2px solid var(--smaily-primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.smaily-ui [hidden] {
+  display: none !important;
+}
+
+/* The module's own primary button. */
+.smaily-ui .smaily-btn-primary {
+  color: var(--smaily-on-primary);
+  background: var(--smaily-primary);
+  border: 1px solid var(--smaily-primary);
+}
+
+.smaily-ui .smaily-btn-primary:hover,
+.smaily-ui .smaily-btn-primary:focus {
+  color: var(--smaily-on-primary);
+  background: var(--smaily-primary-hover);
+  border-color: var(--smaily-primary-hover);
+  text-decoration: none;
+}
+
+.smaily-ui .smaily-btn-primary:disabled {
+  opacity: .65;
+}
+
+/* The Smaily Connect logo above each page. */
+.smaily-ui .smaily-brand {
+  margin: 0 0 16px;
+  line-height: 0;
+}
+
+.smaily-ui .smaily-brand img {
+  width: auto;
+  height: 28px;
+}
+
+.smaily-ui .smaily-ci-icon {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  vertical-align: -5px;
+  border-radius: 4px;
+}
+
+/* Cards and banners. */
+.smaily-ui .smaily-card {
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+  box-shadow: 0 0 4px 0 rgba(0, 0, 0, .06);
+  padding: 16px 20px;
+}
+
+.smaily-ui .smaily-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -16px -20px 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-card__head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  background: var(--smaily-warning-tint);
+  border: 1px solid var(--smaily-warning);
+  border-left-width: 5px;
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-banner--danger {
+  background: var(--smaily-danger-tint);
+  border-color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-banner__icon {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-banner__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.smaily-ui .smaily-banner__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--smaily-plum);
+}
+
+.smaily-ui .smaily-banner__message {
+  margin-top: 2px;
+}
+
+.smaily-ui .smaily-banner__action {
+  flex: 0 0 auto;
+}
+
+.smaily-ui .smaily-result {
+  font-size: 13px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-result.is-error {
+  font-weight: 600;
+  color: #c0392b;
+}
+
+.smaily-ui .smaily-banner__result:not(:empty) {
+  margin-top: 6px;
+}
+
+.smaily-ui .smaily-notice .alert-text p {
+  margin: 0;
+}
+
+/* The invitation to a store with no Smaily account. */
+.smaily-ui .smaily-invitation {
+  position: relative;
+  display: flex;
+  gap: 32px;
+  margin-bottom: 20px;
+  padding: 28px 32px;
+  background: linear-gradient(135deg, var(--smaily-surface) 0%, var(--smaily-tint) 100%);
+  border: 1px solid var(--smaily-tint-border);
+  border-radius: 10px;
+}
+
+.smaily-ui .smaily-invitation__main {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+
+.smaily-ui .smaily-invitation__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.smaily-ui .smaily-invitation__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--smaily-plum);
+}
+
+.smaily-ui .smaily-invitation__body {
+  margin: 0 0 18px;
+  font-size: 15px;
+}
+
+.smaily-ui .smaily-invitation__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.smaily-ui .smaily-invitation__link {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.smaily-ui .smaily-invitation__note {
+  margin: 0;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-invitation__panel {
+  flex: 1 1 45%;
+  min-width: 0;
+  padding: 16px;
+  background: rgba(255, 255, 255, .7);
+  border: 1px solid var(--smaily-tint-border);
+  border-radius: 8px;
+}
+
+.smaily-ui .smaily-invitation__panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 4px 10px;
+  font-weight: 600;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-invitation__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-invitation__row--faded {
+  opacity: .55;
+}
+
+.smaily-ui .smaily-invitation__icon {
+  display: inline-flex;
+  padding: 6px;
+  color: var(--smaily-accent);
+  background: #fde7ef;
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-invitation__icon--cart {
+  color: #b7791f;
+  background: #fdf3e1;
+}
+
+.smaily-ui .smaily-invitation__row-text {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-invitation__chip {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--smaily-muted);
+  background: var(--smaily-surface-2);
+  border-radius: 4px;
+}
+
+.smaily-ui .smaily-invitation__dismiss {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  padding: 0;
+  color: var(--smaily-brand-text);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+}
+
+/* Dashboard. */
+.smaily-ui .smaily-dashboard > .smaily-slot:not(:empty) {
+  margin-bottom: 16px;
+}
+
+.smaily-ui .smaily-connections,
+.smaily-ui .smaily-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.smaily-ui .smaily-connection__label {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-tile__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.smaily-ui .smaily-quick-links ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.smaily-ui .smaily-quick-links li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-quick-links li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.smaily-ui .smaily-quick-links a {
+  display: block;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-quick-links__desc {
+  display: block;
+  font-size: 13px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-quick-links__desc::first-letter {
+  text-transform: uppercase;
+}
+
+.smaily-ui .smaily-version {
+  margin: 20px 0 0;
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+@media (max-width: 1199px) {
+  .smaily-ui .smaily-connections,
+  .smaily-ui .smaily-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .smaily-ui .smaily-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .smaily-ui .smaily-invitation {
+    flex-direction: column;
+  }
+}
+
+/* Initial setup: the step rail beside the step. */
+.smaily-ui .smaily-setup {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-steps {
+  margin: 0;
+  padding: 14px 0;
+  list-style: none;
+  background: var(--smaily-surface);
+  border-right: 1px solid var(--smaily-border);
+  border-radius: 6px 0 0 6px;
+}
+
+.smaily-ui .smaily-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 18px;
+  border-left: 3px solid transparent;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-steps li.done {
+  cursor: pointer;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-steps li.active {
+  color: var(--smaily-text);
+  background: var(--smaily-tint);
+  border-left-color: var(--smaily-primary);
+}
+
+.smaily-ui .smaily-step-index {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--smaily-muted);
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-steps li.active .smaily-step-index {
+  color: var(--smaily-primary);
+  border: 2px solid var(--smaily-primary);
+}
+
+.smaily-ui .smaily-steps li.done .smaily-step-index {
+  color: var(--smaily-on-primary);
+  background: var(--smaily-primary);
+  border-color: var(--smaily-primary);
+}
+
+.smaily-ui .smaily-steps li.done .smaily-step-index::before {
+  content: "\2713";
+}
+
+.smaily-ui .smaily-steps li.done .smaily-step-num {
+  display: none;
+}
+
+.smaily-ui .smaily-step-text {
+  min-width: 0;
+}
+
+.smaily-ui .smaily-step-name {
+  display: block;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.smaily-ui .smaily-steps li:not(.active):not(.done) .smaily-step-name {
+  font-weight: 500;
+}
+
+.smaily-ui .smaily-step-sub {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-setup__pane {
+  min-width: 0;
+  padding: 26px 30px;
+}
+
+.smaily-ui .smaily-step-head {
+  max-width: 680px;
+  margin: 0 0 18px;
+}
+
+.smaily-ui .smaily-step-kicker {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-step-title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.smaily-ui .smaily-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-footer__end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.smaily-ui .smaily-back {
+  padding-left: 0;
+  font-weight: 600;
+}
+
+@media (max-width: 1023px) {
+  .smaily-ui .smaily-setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .smaily-ui .smaily-steps {
+    display: flex;
+    padding: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--smaily-border);
+    border-radius: 6px 6px 0 0;
+  }
+
+  .smaily-ui .smaily-steps li {
+    flex: 1 1 0;
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+  }
+
+  .smaily-ui .smaily-steps li.active {
+    border-bottom-color: var(--smaily-primary);
+  }
+
+  .smaily-ui .smaily-step-sub {
+    display: none;
+  }
+}
+
+/* Settings: the tabs. */
+.smaily-ui .smaily-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-tab {
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--smaily-muted);
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+}
+
+.smaily-ui .smaily-tab:hover {
+  color: var(--smaily-brand-text);
+}
+
+.smaily-ui .smaily-tab.active {
+  color: var(--smaily-brand-text);
+  border-bottom-color: var(--smaily-primary);
+}
+
+.smaily-ui .smaily-tab-title {
+  display: flex;
+  align-items: center;
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.smaily-ui .smaily-tab-desc {
+  margin: 0 0 18px;
+  color: var(--smaily-muted);
+}

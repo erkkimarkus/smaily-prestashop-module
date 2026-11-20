@@ -1,0 +1,88 @@
+{#
+ # The Dashboard frame, top to bottom as the sibling connectors draw it: the invitation to a store
+ # with no Smaily account, the status banner, the connection cards, the metric tiles, Recent
+ # activity beside Quick links, and the version line.
+ #
+ # Each block draws its content from one template in dashboard/ that the Dashboard Story adds; a
+ # missing template leaves the block empty. A page template that extends this one may also
+ # override a block. `smaily_invitation` (true while no Smaily account is connected) shows the
+ # invitation; its Dismiss hides it here for 90 days.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% set dashboard = '@Modules/smailyforprestashop/views/templates/admin/dashboard/' %}
+
+{% block smaily_page %}
+  <div class="smaily-dashboard">
+    {% block smaily_dashboard_invitation %}
+      {% if smaily_invitation|default(false) and not smaily.invitation_dismissed %}
+        {% include '@Modules/smailyforprestashop/views/templates/admin/layout/invitation.html.twig' with {dismissible: true} %}
+      {% endif %}
+    {% endblock %}
+
+    <div class="smaily-slot" data-smaily-slot="dashboard/verdict">
+      {% block smaily_dashboard_verdict %}{% include dashboard ~ 'verdict.html.twig' ignore missing %}{% endblock %}
+    </div>
+
+    <div class="smaily-connections">
+      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-smaily">
+        <div class="smaily-connection__label">{{ 'Smaily'|trans }}</div>
+        {% block smaily_dashboard_connection_smaily %}{% include dashboard ~ 'connection-smaily.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-intelligence">
+        <div class="smaily-connection__label">
+          {% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 18} %}{{ 'Campaign Intelligence'|trans }}
+        </div>
+        {% block smaily_dashboard_connection_intelligence %}{% include dashboard ~ 'connection-intelligence.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-tracking">
+        <div class="smaily-connection__label">{{ 'Browse tracking'|trans }}</div>
+        {% block smaily_dashboard_connection_tracking %}{% include dashboard ~ 'connection-tracking.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-background">
+        <div class="smaily-connection__label">{{ 'Background tasks'|trans }}</div>
+        {% block smaily_dashboard_connection_background %}{% include dashboard ~ 'connection-background.html.twig' ignore missing %}{% endblock %}
+      </div>
+    </div>
+
+    <div class="smaily-tiles">
+      <div class="smaily-card smaily-tile" data-smaily-slot="dashboard/tile-contact-syncs">
+        <span class="smaily-tile__label">{{ 'Contact syncs'|trans }}</span>
+        {% block smaily_dashboard_tile_contact_syncs %}{% include dashboard ~ 'tile-contact-syncs.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-tile" data-smaily-slot="dashboard/tile-catalog-items">
+        <span class="smaily-tile__label">{{ 'Catalog items'|trans }}</span>
+        {% block smaily_dashboard_tile_catalog_items %}{% include dashboard ~ 'tile-catalog-items.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-tile" data-smaily-slot="dashboard/tile-queued-today">
+        <span class="smaily-tile__label">{{ 'Queued today'|trans }}</span>
+        {% block smaily_dashboard_tile_queued_today %}{% include dashboard ~ 'tile-queued-today.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-tile" data-smaily-slot="dashboard/tile-failed">
+        <span class="smaily-tile__label">{{ 'Failed'|trans }}</span>
+        {% block smaily_dashboard_tile_failed %}{% include dashboard ~ 'tile-failed.html.twig' ignore missing %}{% endblock %}
+      </div>
+    </div>
+
+    <div class="smaily-columns">
+      <div class="smaily-card smaily-activity" data-smaily-slot="dashboard/activity">
+        <div class="smaily-card__head">
+          <h2>{{ 'Recent activity'|trans }}</h2>
+          <a href="{{ path('smailyforprestashop_log') }}">{{ 'View full log'|trans }}</a>
+        </div>
+        {% block smaily_dashboard_activity %}{% include dashboard ~ 'activity.html.twig' ignore missing %}{% endblock %}
+      </div>
+      <div class="smaily-card smaily-quick-links">
+        <div class="smaily-card__head"><h2>{{ 'Quick links'|trans }}</h2></div>
+        <ul>
+          <li><a href="{{ path('smailyforprestashop_settings') }}">{{ 'Settings'|trans }}</a><span class="smaily-quick-links__desc">{{ 'connection, contacts, automations, Intelligence and RSS in one tabbed page'|trans }}</span></li>
+          <li><a href="{{ path('smailyforprestashop_log') }}">{{ 'Log'|trans }}</a><span class="smaily-quick-links__desc">{{ 'every delivery with retry for failed rows'|trans }}</span></li>
+          <li><a href="{{ path('smailyforprestashop_setup') }}">{{ 'Initial setup'|trans }}</a><span class="smaily-quick-links__desc">{{ 're-run the guided setup at any time; your settings are kept'|trans }}</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="smaily-version">{{ 'Smaily Connect %version%'|trans({'%version%': smaily.version}) }}</p>
+  </div>
+{% endblock %}

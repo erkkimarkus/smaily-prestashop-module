@@ -1,0 +1,21 @@
+# The JSON endpoints of the admin shell (Admin\Api\AbstractJsonAction).
+smailyforprestashop_api_finish_upgrade:
+  path: /smailyforprestashop/api/finish-upgrade
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\FinishUpgrade::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_dismiss_notice:
+  path: /smailyforprestashop/api/dismiss-notice
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissNotice::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_dismiss_invitation:
+  path: /smailyforprestashop/api/dismiss-invitation
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation::execute
+    _legacy_controller: AdminSmailyConnectSettings

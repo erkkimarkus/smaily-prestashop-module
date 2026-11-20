@@ -1,0 +1,87 @@
+{#
+ # The Initial setup frame: the step rail on the left (Connect, Contacts, Automations,
+ # Intelligence, Overview, each with its line), and on the right the current step under "Step n of
+ # 5" and its title, then Back and Continue.
+ #
+ # Each step's content comes from one template in setup/ (connect, contacts, automations,
+ # intelligence, overview), added by the Story that owns the step; a missing template leaves the
+ # step empty. `smaily_setup_step` is the step the page opens on and `smaily_setup_reached` the
+ # furthest step reached (both 1 by default); common.js moves between the steps, and runs the saver
+ # that a step registers with window.smailyConnect.setup.onContinue(step, saver) first.
+ # `smaily_invitation` shows the invitation to a store with no Smaily account above step 1.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% set setup = '@Modules/smailyforprestashop/views/templates/admin/setup/' %}
+{% set start = smaily_setup_step|default(1) %}
+{% set reached = smaily_setup_reached|default(1) %}
+{% set steps = {
+  1: ['Connect'|trans, 'Set up Smaily account connections'|trans],
+  2: ['Contacts'|trans, 'Synchronization settings'|trans],
+  3: ['Automations'|trans, 'Setting up triggers for automations'|trans],
+  4: ['Intelligence'|trans, 'Create a connection with Campaign Intelligence (optional)'|trans],
+  5: ['Overview'|trans, 'Summary and last check'|trans],
+} %}
+
+{% block smaily_page %}
+  {% import _self as frame %}
+  <div class="smaily-setup" data-smaily-setup data-step="{{ start }}" data-reached="{{ reached }}"
+       data-label-continue="{{ 'Continue'|trans }}" data-label-finish="{{ 'Finish'|trans }}" data-label-saving="{{ 'Saving…'|trans }}" data-label-failed="{{ 'Saving failed.'|trans }}">
+    <ol class="smaily-steps" aria-label="{{ 'Initial setup'|trans }}">
+      {% for number, step in steps %}
+        <li data-step="{{ number }}" class="{{ number == start ? 'active' : (number <= reached ? 'done' : '') }}"{% if number == start %} aria-current="step"{% endif %}>
+          <span class="smaily-step-index" aria-hidden="true"><span class="smaily-step-num">{{ number }}</span></span>
+          <span class="smaily-step-text">
+            <span class="smaily-step-name">{{ step[0] }}</span>
+            <span class="smaily-step-sub">{{ step[1] }}</span>
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+
+    <div class="smaily-setup__pane">
+      <section class="smaily-step-panel" data-step="1" data-smaily-slot="setup/connect"{% if start != 1 %} hidden{% endif %}>
+        {% if smaily_invitation|default(false) %}
+          {% include '@Modules/smailyforprestashop/views/templates/admin/layout/invitation.html.twig' with {dismissible: false} %}
+        {% endif %}
+        {{ frame.head(1, 'Connect your Smaily account'|trans) }}
+        {% block smaily_setup_connect %}{% include setup ~ 'connect.html.twig' ignore missing %}{% endblock %}
+      </section>
+      <section class="smaily-step-panel" data-step="2" data-smaily-slot="setup/contacts"{% if start != 2 %} hidden{% endif %}>
+        {{ frame.head(2, 'Contact synchronization to Smaily'|trans) }}
+        {% block smaily_setup_contacts %}{% include setup ~ 'contacts.html.twig' ignore missing %}{% endblock %}
+      </section>
+      <section class="smaily-step-panel" data-step="3" data-smaily-slot="setup/automations"{% if start != 3 %} hidden{% endif %}>
+        {{ frame.head(3, 'Map store events to Smaily automations'|trans) }}
+        {% block smaily_setup_automations %}{% include setup ~ 'automations.html.twig' ignore missing %}{% endblock %}
+      </section>
+      <section class="smaily-step-panel" data-step="4" data-smaily-slot="setup/intelligence"{% if start != 4 %} hidden{% endif %}>
+        {{ frame.head(4, 'Campaign Intelligence (optional)'|trans, true) }}
+        {% block smaily_setup_intelligence %}{% include setup ~ 'intelligence.html.twig' ignore missing %}{% endblock %}
+      </section>
+      <section class="smaily-step-panel" data-step="5" data-smaily-slot="setup/overview"{% if start != 5 %} hidden{% endif %}>
+        {{ frame.head(5, 'You are all set!'|trans) }}
+        {% block smaily_setup_overview %}{% include setup ~ 'overview.html.twig' ignore missing %}{% endblock %}
+      </section>
+
+      <div class="smaily-footer"{% if start == 5 %} hidden{% endif %}>
+        <button type="button" class="btn btn-link smaily-back" data-smaily-action="setup-back"{% if start == 1 %} hidden{% endif %}>{{ 'Back'|trans }}</button>
+        <div class="smaily-footer__end">
+          <span class="smaily-result" data-smaily-result role="status"></span>
+          <button type="button" class="btn smaily-btn-primary" data-smaily-action="setup-next">{{ start == 4 ? 'Finish'|trans : 'Continue'|trans }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% macro head(number, title, intelligence = false) %}
+  <div class="smaily-step-head">
+    <div class="smaily-step-kicker">{{ 'Step %number% of %count%'|trans({'%number%': number, '%count%': 5}, 'Modules.Smailyforprestashop.Admin') }}</div>
+    <h2 class="smaily-step-title">
+      {%- if intelligence %}{% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 24} %}{% endif -%}
+      {{ title }}
+    </h2>
+  </div>
+{% endmacro %}

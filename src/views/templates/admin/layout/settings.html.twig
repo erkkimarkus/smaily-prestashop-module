@@ -1,0 +1,61 @@
+{#
+ # The Settings frame: the tabs Connection, Contacts, Automations, Intelligence and RSS, and one
+ # panel per tab with its title and line. The shop is the one of PrestaShop's shop selector in the
+ # header; this page has no shop picker of its own.
+ #
+ # Each tab's content comes from one template in settings/ (connection, contacts, automations,
+ # intelligence, rss), added by the Story that owns the tab; a missing template leaves the tab
+ # empty. The tab opens from ?tab=<id>, and common.js switches tabs without a reload.
+ #}
+{% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+
+{% set settings = '@Modules/smailyforprestashop/views/templates/admin/settings/' %}
+{% set tabs = {
+  connection: 'Connection'|trans,
+  contacts: 'Contacts'|trans,
+  automations: 'Automations'|trans,
+  intelligence: 'Intelligence'|trans,
+  rss: 'RSS'|trans,
+} %}
+{% set current = app.request.query.get('tab') in tabs|keys ? app.request.query.get('tab') : 'connection' %}
+
+{% block smaily_page %}
+  <div class="smaily-settings" data-smaily-tabs>
+    <div class="smaily-tabs" role="tablist">
+      {% for id, label in tabs %}
+        <button type="button" role="tab" class="smaily-tab{% if id == current %} active{% endif %}" id="smaily-tab-{{ id }}"
+                data-tab="{{ id }}" aria-controls="smaily-panel-{{ id }}" aria-selected="{{ id == current ? 'true' : 'false' }}">{{ label }}</button>
+      {% endfor %}
+    </div>
+
+    <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-connection" aria-labelledby="smaily-tab-connection" data-tab="connection" data-smaily-slot="settings/connection"{% if current != 'connection' %} hidden{% endif %}>
+      <h2 class="smaily-tab-title">{{ 'Connection'|trans }}</h2>
+      <p class="smaily-tab-desc">{{ 'Your Smaily API credentials for this store.'|trans }}</p>
+      {% block smaily_settings_connection %}{% include settings ~ 'connection.html.twig' ignore missing %}{% endblock %}
+    </section>
+    <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-contacts" aria-labelledby="smaily-tab-contacts" data-tab="contacts" data-smaily-slot="settings/contacts"{% if current != 'contacts' %} hidden{% endif %}>
+      <h2 class="smaily-tab-title">{{ 'Contacts'|trans }}</h2>
+      <p class="smaily-tab-desc">{{ 'Synchronization settings'|trans }}</p>
+      {% block smaily_settings_contacts %}{% include settings ~ 'contacts.html.twig' ignore missing %}{% endblock %}
+    </section>
+    <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-automations" aria-labelledby="smaily-tab-automations" data-tab="automations" data-smaily-slot="settings/automations"{% if current != 'automations' %} hidden{% endif %}>
+      <h2 class="smaily-tab-title">{{ 'Automations'|trans }}</h2>
+      <p class="smaily-tab-desc">{{ 'How store events and Campaign Intelligence triggers fire Smaily workflows.'|trans }}</p>
+      {% block smaily_settings_automations %}{% include settings ~ 'automations.html.twig' ignore missing %}{% endblock %}
+    </section>
+    <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-intelligence" aria-labelledby="smaily-tab-intelligence" data-tab="intelligence" data-smaily-slot="settings/intelligence"{% if current != 'intelligence' %} hidden{% endif %}>
+      <h2 class="smaily-tab-title">
+        {%- include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 24} -%}
+        {{ 'Campaign Intelligence'|trans }}
+      </h2>
+      <p class="smaily-tab-desc">{{ 'Your store’s connection to Campaign Intelligence, storefront browse tracking and historical imports.'|trans }}</p>
+      {% block smaily_settings_intelligence %}{% include settings ~ 'intelligence.html.twig' ignore missing %}{% endblock %}
+    </section>
+    <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-rss" aria-labelledby="smaily-tab-rss" data-tab="rss" data-smaily-slot="settings/rss"{% if current != 'rss' %} hidden{% endif %}>
+      <h2 class="smaily-tab-title">{{ 'Product RSS feed'|trans }}</h2>
+      <p class="smaily-tab-desc">{{ 'A product feed for the RSS block of the Smaily template editor. Optional query parameters filter by category and control the amount and order of products.'|trans }}</p>
+      {% block smaily_settings_rss %}{% include settings ~ 'rss.html.twig' ignore missing %}{% endblock %}
+    </section>
+  </div>
+{% endblock %}
