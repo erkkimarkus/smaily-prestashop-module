@@ -55,6 +55,51 @@ final class AutomationSettingsTest extends IntegrationTestCase
         self::assertSame(45, $settings->cartDelayMinutes($idShop));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public function legacyCartDelays(): array
+    {
+        return ['15 minutes' => ['15'], '60 minutes' => ['60'], '600 minutes' => ['600'], 'two days, above the maximum' => ['2880']];
+    }
+
+    /**
+     * @dataProvider legacyCartDelays
+     */
+    public function testAnUpgradedStoreKeepsItsCartDelay(string $legacy): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        self::db()->update('configuration', ['value' => $legacy], '`name` = \'SMAILY_ABANDONED_CART_TIME\'');
+        LegacyStore::reloadConfiguration();
+        self::db()->execute('UPDATE `' . _DB_PREFIX_ . 'module` SET `version` = \'2.2.0\' WHERE `name` = \'smailyforprestashop\'');
+
+        self::assertTrue(Services::fromProviders(Services::PROVIDERS)->get(Upgrade300::class)->runPending());
+
+        self::assertSame($legacy, LegacyStore::row(AutomationSettings::CART_DELAY_MINUTES, null, null));
+        self::assertSame((int) $legacy, (new AutomationSettings())->cartDelayMinutes((int) \Configuration::get('PS_SHOP_DEFAULT')));
+    }
+
+    public function testTheCartDelayIsSavedFromTenTo1435MinutesAndReadsThirtyWhenNoneIsStored(): void
+    {
+        $settings = new AutomationSettings();
+        $idShop = $this->defaultShopId();
+        self::assertSame(30, $settings->cartDelayMinutes($idShop));
+
+        self::assertTrue($settings->setCartDelayMinutes(10, 0));
+        self::assertSame(10, $settings->cartDelayMinutes($idShop));
+        self::assertTrue($settings->setCartDelayMinutes(1435, 0));
+        self::assertSame(1435, $settings->cartDelayMinutes($idShop));
+
+        foreach ([9, 1436] as $refused) {
+            try {
+                $settings->setCartDelayMinutes($refused, 0);
+                self::fail($refused . ' minutes were saved.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertSame(1435, $settings->cartDelayMinutes($idShop));
+            }
+        }
+    }
+
     public function testAShopsOwnValueLeavesTheGlobalOne(): void
     {
         $this->openMultistore();
@@ -68,7 +113,7 @@ final class AutomationSettingsTest extends IntegrationTestCase
         self::assertTrue($settings->enabled(Trigger::FIRST_ORDER, $this->defaultShopId()));
         self::assertFalse($settings->enabled(Trigger::FIRST_ORDER, $shop));
         self::assertSame(60, $settings->cartDelayMinutes($shop));
-        self::assertSame(15, $settings->cartDelayMinutes($this->defaultShopId()));
+        self::assertSame(30, $settings->cartDelayMinutes($this->defaultShopId()));
         self::assertSame('60', LegacyStore::row(AutomationSettings::CART_DELAY_MINUTES, (int) \Shop::getGroupFromShop($shop), $shop));
     }
 }

@@ -71,7 +71,7 @@ Contact synchronization is set under **Settings -> Contacts**.
 
 3. After creating an automation in Smaily you can find this automation under **Autoresponder**.
 
-4. You can **choose timing** when cart is considered abandoned, minimum time 15 minutes.
+4. You can **choose timing** when cart is considered abandoned, from 10 to 1435 minutes. A cart older than 24 hours is never reminded.
 
 5. Every reminder carries the customer's first and last name and the name, description, SKU, price, base price and quantity of up to 10 products in the cart, so the template can send personalized reminder emails.
 

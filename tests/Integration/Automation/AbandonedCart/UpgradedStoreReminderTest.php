@@ -5,6 +5,7 @@ namespace Tests\Integration\Automation\AbandonedCart;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartSweeper;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Tests\Integration\Migration\LegacyStore;
@@ -112,5 +113,23 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
             self::assertSame('', $address['product_' . $field . '_3'], $field . ' of an unused slot');
         }
         self::assertFalse($address['over_10_products']);
+    }
+
+    /**
+     * A 2.x delay of a day or more stays as the upgrade stored it. No cart older than 24 hours is
+     * reminded, so no cart is due under it: the sweep runs and reminds nobody.
+     */
+    public function testAMigratedDelayOfADayOrMoreRemindsNoCart(): void
+    {
+        \Configuration::updateGlobalValue(AutomationSettings::CART_DELAY_MINUTES, '2880');
+        LegacyStore::reloadConfiguration();
+        $young = $this->fixture->cart($this->idCustomer, 600);
+        $old = $this->fixture->cart($this->idCustomer, 2900);
+
+        self::assertSame(0, $this->sweep());
+        $this->flush();
+
+        self::assertSame([], $this->reminders());
+        self::assertSame([null, null], [$this->cartRow($young), $this->cartRow($old)]);
     }
 }

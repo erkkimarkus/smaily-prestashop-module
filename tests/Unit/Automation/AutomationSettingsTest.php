@@ -30,11 +30,49 @@ final class AutomationSettingsTest extends TestCase
         self::assertFalse($settings->enabled('order_confirmation', 1), 'an unknown trigger is off');
     }
 
-    public function testTheCartDelayIsAtLeastFifteenMinutesAndFifteenWhenNoneIsStored(): void
+    /**
+     * @return array<string, array{string|null, int}>
+     */
+    public function storedCartDelays(): array
     {
-        self::assertSame(45, (new FakeAutomationSettings([0 => [AutomationSettings::CART_DELAY_MINUTES => '45']]))->cartDelayMinutes(1));
-        self::assertSame(15, (new FakeAutomationSettings([0 => [AutomationSettings::CART_DELAY_MINUTES => '5']]))->cartDelayMinutes(1));
-        self::assertSame(15, (new FakeAutomationSettings([]))->cartDelayMinutes(1));
+        return [
+            'nothing stored reads the default' => [null, 30],
+            'an empty value reads the default' => ['', 30],
+            'the minimum' => ['10', 10],
+            'what 2.x installed' => ['15', 15],
+            'inside the bounds' => ['600', 600],
+            'the maximum' => ['1435', 1435],
+            'below the minimum reads the minimum' => ['5', 10],
+            'a migrated 2.x delay of two days stays as stored' => ['2880', 2880],
+        ];
+    }
+
+    /**
+     * @dataProvider storedCartDelays
+     */
+    public function testTheCartDelayIsTheStoredMinutesFromTheMinimumUpAndThirtyWhenNoneIsStored(?string $stored, int $delay): void
+    {
+        $values = $stored === null ? [] : [0 => [AutomationSettings::CART_DELAY_MINUTES => $stored]];
+
+        self::assertSame($delay, (new FakeAutomationSettings($values))->cartDelayMinutes(1));
+    }
+
+    /**
+     * @dataProvider refusedCartDelays
+     */
+    public function testACartDelayOutsideTenTo1435MinutesIsRefused(int $minutes): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new FakeAutomationSettings([]))->setCartDelayMinutes($minutes, 0);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public function refusedCartDelays(): array
+    {
+        return ['9 minutes' => [9], '1436 minutes' => [1436], 'none' => [0], 'a day' => [1440]];
     }
 
     public function testEachTriggerHasItsOwnMarkerFieldStampedInUtc(): void

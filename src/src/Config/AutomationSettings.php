@@ -52,8 +52,16 @@ class AutomationSettings extends Settings
     /** Minutes after the cart's last change before its reminder goes. */
     public const CART_DELAY_MINUTES = self::PREFIX . 'CART_DELAY_MINUTES';
 
-    /** The shortest cart delay, and the delay when none is stored (2.x installed 15). */
-    public const MIN_CART_DELAY_MINUTES = 15;
+    /**
+     * The shortest and the longest cart delay that can be saved, as in the Magento connector. A
+     * cart older than 24 hours is never reminded, so a longer delay would remind nobody.
+     */
+    public const MIN_CART_DELAY_MINUTES = 10;
+
+    public const MAX_CART_DELAY_MINUTES = 1435;
+
+    /** The cart delay of a store with none stored. */
+    public const DEFAULT_CART_DELAY_MINUTES = 30;
 
     private const SWITCHES = [
         Trigger::WELCOME => self::WELCOME_ENABLED,
@@ -79,15 +87,22 @@ class AutomationSettings extends Settings
         return $this->set(self::SWITCHES[$trigger], $enabled ? '1' : '0', $idShop);
     }
 
+    /**
+     * The shop's cart delay: the stored minutes, at least the minimum; the default where none is
+     * stored. A stored delay above the maximum is returned as it is: only the upgrade writes one,
+     * from a 2.x delay of a day or more, and no cart is then due (AbandonedCartSweeper).
+     */
     public function cartDelayMinutes(int $idShop): int
     {
-        return max(self::MIN_CART_DELAY_MINUTES, (int) $this->get(self::CART_DELAY_MINUTES, $idShop));
+        $stored = (int) $this->get(self::CART_DELAY_MINUTES, $idShop);
+
+        return $stored > 0 ? max(self::MIN_CART_DELAY_MINUTES, $stored) : self::DEFAULT_CART_DELAY_MINUTES;
     }
 
     public function setCartDelayMinutes(int $minutes, int $idShop): bool
     {
-        if ($minutes < self::MIN_CART_DELAY_MINUTES) {
-            throw new \InvalidArgumentException('The cart delay is at least 15 minutes.');
+        if ($minutes < self::MIN_CART_DELAY_MINUTES || $minutes > self::MAX_CART_DELAY_MINUTES) {
+            throw new \InvalidArgumentException('The cart delay is from 10 to 1435 minutes.');
         }
 
         return $this->set(self::CART_DELAY_MINUTES, (string) $minutes, $idShop);

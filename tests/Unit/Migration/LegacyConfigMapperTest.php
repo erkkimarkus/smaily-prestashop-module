@@ -504,7 +504,7 @@ final class LegacyConfigMapperTest extends TestCase
     /**
      * @dataProvider cartDelays
      */
-    public function testTheCartDelayIsTheLegacyMinutesAndAtLeast15(?string $stored, string $delay): void
+    public function testTheCartDelayIsTheLegacyMinutesFromTenUpAnd15WhenNoneIsStored(?string $stored, string $delay): void
     {
         $plan = $this->map(array_merge(
             self::without(self::CONFIGURED, 'SMAILY_ABANDONED_CART_TIME'),
@@ -519,7 +519,18 @@ final class LegacyConfigMapperTest extends TestCase
      */
     public static function cartDelays(): array
     {
-        return ['45' => ['45', '45'], '10' => ['10', '15'], 'NULL' => [null, '15'], '1.6.x install' => ['', '15']];
+        return [
+            '15' => ['15', '15'],
+            '45' => ['45', '45'],
+            '60' => ['60', '60'],
+            '600' => ['600', '600'],
+            '10, the minimum' => ['10', '10'],
+            '1435, the maximum' => ['1435', '1435'],
+            'below the minimum' => ['5', '10'],
+            'two days, which 2.x reminded after' => ['2880', '2880'],
+            'NULL' => [null, '15'],
+            '1.6.x install' => ['', '15'],
+        ];
     }
 
     /**

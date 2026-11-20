@@ -52,7 +52,11 @@ final class LegacyConfigMapper
 
     private const RSS_SORT_ORDER = ['asc', 'desc'];
 
-    private const MIN_CART_DELAY_MINUTES = 15;
+    /** The shortest cart delay of 3.0.0 (Config\AutomationSettings). */
+    private const MIN_CART_DELAY_MINUTES = 10;
+
+    /** The cart delay that 2.x installed, and showed for an empty value. */
+    private const LEGACY_CART_DELAY_MINUTES = 15;
 
     private LegacyState $state;
 
@@ -350,11 +354,13 @@ final class LegacyConfigMapper
         // The settings of a cron feature are the ones its cron read where the feature stays on.
         $contactsFrom = $contacts ? $default : $idShop;
         $cartFrom = $cart ? $default : $idShop;
+        // The 2.x delay stays as stored, also one of a day or more, which 3.0.0 does not accept
+        // from its own form: 2.x reminded such a cart, so the upgrade does not shorten the delay.
+        $delay = (int) $this->read('SMAILY_ABANDONED_CART_TIME', $cartFrom);
 
         $settings = [
-            'SMAILY_CONNECT_CART_DELAY_MINUTES' => (string) max(
-                self::MIN_CART_DELAY_MINUTES,
-                (int) $this->read('SMAILY_ABANDONED_CART_TIME', $cartFrom)
+            'SMAILY_CONNECT_CART_DELAY_MINUTES' => (string) (
+                $delay > 0 ? max(self::MIN_CART_DELAY_MINUTES, $delay) : self::LEGACY_CART_DELAY_MINUTES
             ),
             'SMAILY_CONNECT_CART_ENABLED' => $cart ? '1' : '0',
             'SMAILY_CONNECT_CHECKOUT_CHECKBOX' => '0',
