@@ -437,4 +437,6 @@ the CSRF token manager and others): it holds no `translator`.
 request (**read from code**, `classes/Context.php`, 8.0.0 and 8.2.8) and needs nothing from the
 controller. So the module's controllers take their translator from the context
 (`Admin\BaseController::translator()`), and `Admin\BaseController` and `Admin\Api\AbstractJsonAction`
-override `trans()` to use it. A browser proof of an admin Story includes 8.2.8.
+override `trans()` to use it. `tests/Integration/Admin/ControllerContainerTest.php` gives each
+controller a locator without `translator`, on whichever version the suite runs. A browser proof of an
+admin Story includes 8.2.8.
