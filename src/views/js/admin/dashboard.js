@@ -22,8 +22,10 @@
  */
 
 /*
- * The Dashboard's "Show the cron line": the Background tasks card asks the server for the cron line
- * (Admin\Dashboard\CronLine) and shows it in place of the button. Plain JavaScript;
+ * The Dashboard's cron line: the Background tasks card asks the server for the cron line
+ * (Admin\Dashboard\CronLine) and shows it in place of the button "Show the cron line". While the
+ * background tasks do not run from a cron URL (`data-smaily-cron-open`), the card asks at once, so
+ * the line shows without a click; a failed request brings the button back. Plain JavaScript;
  * window.smailyConnect.api() and ready() come from common.js.
  */
 (function () {
@@ -50,7 +52,11 @@
         result.textContent = error.message;
         result.classList.add('is-error');
         button.disabled = false;
+        button.hidden = false;
       });
     });
+    if (box.hasAttribute('data-smaily-cron-open')) {
+      button.click();
+    }
   });
 }());

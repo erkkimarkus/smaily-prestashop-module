@@ -432,7 +432,7 @@ writes.
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. The cart delay is saved from 10 to 1435 minutes and reads 30 where none is stored, as in Magento: a cart older than 24 hours is never reminded, so a longer delay would remind nobody. A stored value below 10 reads 10. The upgrade writes 1435 for a 2.x delay above it (section 3.3), so no code stores a longer delay. |
 | `SMAILY_CONNECT_WELCOME_DISCOUNT_ENABLED`, `_WELCOME_DISCOUNT_RULE`, `_WELCOME_DISCOUNT_DAYS`, and the same three for `_FIRST_ORDER_DISCOUNT_` and `_CART_DISCOUNT_` | global or shop | Each store automation's discount code (section 7): `1` = "Send a discount code" is on; the id of the cart rule that the codes are copies of; the days a code is valid, saved from 1 to 365 and read as 7 where none is stored. They belong to the Automations section: a shop's own automations hold them (`ShopOverrides`). |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults: the category id (`0` = all products), the number of products (1 to 250), the sort field and `desc` or `asc`. The migration writes each only when the legacy value is valid. `Config\RssSettings` reads them, and `Admin\Settings\RssPanel` writes them from Settings > RSS; a value that is not stored, or that the feed does not take, reads as the feed's own default (50 products, `date_upd`, `desc`). The feed reads only its URL's parameters, never these keys. |
-| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); on a fresh install the Dashboard's "Show the cron line" creates it (section 4.3). A request to a door never creates a token. |
+| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); on a fresh install the Dashboard's Background tasks card creates it when it asks for the cron line (section 4.3). A request to a door never creates a token. |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
@@ -928,7 +928,8 @@ Planned (the Story that builds each registers it):
    the upgrade therefore answers `OK: ran migration.`; the other jobs wait for the next tick.
    `TickSettings::newToken()` (32 hex characters) is the one generator of the door tokens.
    `TickSettings::token()` creates a missing token; only the upgrade's `tick_token` step and the
-   Dashboard's "Show the cron line" call it, for the tick URL.
+   cron line of the Dashboard's Background tasks card (`Admin\Dashboard\CronLine`) call it, for
+   the tick URL.
 2. **The tick.** `Tick::run()` takes the lock, writes the tick time and source to the tick state, and
    runs each due job in order. Each job gets its own budget, cut to what is left of the tick's; a job
    that cannot start before the tick's budget ends waits for the next tick. The tick records a job as
@@ -1055,11 +1056,20 @@ URL or from shop visits. Its state comes from the tick state alone (`Admin\Dashb
 green ("Running") when a cron URL ran a tick within 5 min; red ("Not running", "Background tasks are
 not running; add the cron line.") when no tick ran for 15 min or none ever ran; amber ("Visitors
 only", "Tasks run only when visitors come; add the cron line.") in between, when ticks run but only
-from shop visits or from a cron URL that is not called every minute. In every state, green included,
-an admin who may change the settings gets the button "Show the cron line", which asks
-`Admin\Dashboard\CronLine` for the store's one cron line,
-`* * * * * curl -fsS "<tick URL>" > /dev/null`; the page itself never carries the token, and the
-line is not shown before the button is pressed. The line's address carries no language prefix
+from shop visits or from a cron URL that is not called every minute.
+
+The cron line is `* * * * * curl -fsS "<tick URL>" > /dev/null`, and only an admin who may change
+the settings gets it (owner, 2026-11-21: as Magento shows its cron instruction). Magento's
+Dashboard has no such card, as Magento's own cron runs the module's tasks; its one cron
+instruction is a sentence on the Initial setup's Overview ("Tip: make sure the Magento cron runs
+every minute …"), always in view and never behind a button. So in the amber and the red state,
+where the merchant has to act, the card shows the line at once; in the green state it stays behind
+the button "Show the cron line", for a merchant who moves the store or replaces the two 2.x
+crontab lines. In both cases the card's script asks `Admin\Dashboard\CronLine` for the line, which
+needs that right, the page's token and the page's shop selection: the page itself never carries the
+tick URL's token. A store without a token (a fresh install) gets one on that request, so the first
+Dashboard that such an admin opens creates it; a request to a door never does. A request that
+fails shows its error and the button. The line's address carries no language prefix
 (`/module/smailyforprestashop/tick?token=…` with friendly URLs), so it is the same line for every
 employee of a store with several languages; the URL answers with a prefix and without one. An employee without that right is told to ask an
 administrator. The card lists only the tick URL: the two 2.x cron URLs keep working (section 3.4),
@@ -3163,7 +3173,6 @@ has one owner:
 | 35 | The first-import card after 90 days | The card reads the newest import job, and the janitor deletes a finished job after 90 days, so the card then offers "Start import" again (section 11.3). Keeping the newest import job of each shop would close it. | Owner |
 | 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
 | 37 | A workflow number of another Smaily account | Known limit, accepted for now (owner, 2026-11-21). After a save that puts another Smaily account in a stored one's place (another account in the same mode, or mode `a`'s fallback account), an automation keeps the workflow number that was picked from the first account until the merchant picks a new one (section 5.1). Magento behaves the same. | Cross-connector analysis (Linear CON-397) |
-| 38 | The cron line on the Background tasks card | The amber and the red state keep the cron line behind the same button, "Show the cron line", as the green state (section 4.3). | Owner |
 | 39 | Discount codes: three limits | A guest's code is tied to no account, so it can be passed on. Every email makes a new cart rule, where WooCommerce sends an unused code again. The remainder voucher of a guest's order from a merchant's own rule can still be picked as a template (section 7). | Owner |
 | 40 | The bounds of the checkout capture | One reminder per address in 24 hours, to at most 2000 addresses an hour for the installation, stays possible for whoever posts addresses to the capture URL (section 7). Magento's bound of five writes per cart needs a schema change. | Owner |
 | 41 | Price groups | Contract v1.36.0 adds `group_prices` and `price_group` (Linear CON-385). Not decided: whether 3.0.0 sends them. | Owner |
@@ -3174,7 +3183,8 @@ has one owner:
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
-more) and row 24 (mode `a` and the workflow of no language) on 2026-11-21; they moved to section 15.
+more), row 24 (mode `a` and the workflow of no language) and row 38 (the cron line on the Background
+tasks card) on 2026-11-21; they moved to section 15.
 
 ## 15. Decisions
 
@@ -3243,3 +3253,8 @@ Decisions of 2026-11-21:
   2026-11-21): after the language's own row, the default fallback row and the row of the fallback
   language it sends nothing, and the Log says why (`no_workflow`). The last step, the workflow of
   no language, is removed (section 5.2).
+- The Background tasks card shows the cron line as Magento shows its cron instruction, in view
+  (owner, 2026-11-21): at once in the amber and the red state, to an admin who may change the
+  settings; behind "Show the cron line" in the green state. The page never carries the token: the
+  card asks for the line (section 4.3). This replaces "in every state behind the button" of
+  2026-11-20.

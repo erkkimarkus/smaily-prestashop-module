@@ -22,9 +22,10 @@
  *#}
 {#
  # The Background tasks card (ARCHITECTURE 4.3): when the last tick ran and from where, and, while
- # the tasks do not run from a cron URL every minute, what to do. In every state an admin who may
- # change the settings gets "Show the cron line", which asks the server for the store's one cron
- # line (dashboard.js); another admin reads whom to ask.
+ # the tasks do not run from a cron URL every minute, what to do. An admin who may change the
+ # settings then sees the store's one cron line in the card, and in the running state gets it on
+ # "Show the cron line"; either way the page asks the server for it (dashboard.js) and never
+ # carries the token itself. Another admin reads whom to ask.
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if smaily_dashboard is defined %}
@@ -35,8 +36,8 @@
       <p class="smaily-connection__hint">{{ card.hint }}</p>
     {% endif %}
     {% if card.cron_button %}
-      <div data-smaily-cron-line="{{ path('smailyforprestashop_api_cron_line') }}">
-        <button type="button" class="btn btn-outline-secondary btn-sm" data-smaily-action="cron-line">{{ 'Show the cron line'|trans }}</button>
+      <div data-smaily-cron-line="{{ path('smailyforprestashop_api_cron_line') }}"{% if card.cron_open %} data-smaily-cron-open{% endif %}>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-smaily-action="cron-line"{% if card.cron_open %} hidden{% endif %}>{{ 'Show the cron line'|trans }}</button>
         <code class="smaily-cron" data-smaily-cron hidden></code>
         <div class="smaily-result" data-smaily-result role="status"></div>
       </div>

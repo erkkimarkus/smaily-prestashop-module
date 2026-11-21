@@ -185,8 +185,10 @@ ask (Linear discipline below).
   (ARCHITECTURE 1.6). A failed load of PrestaShop's own configuration
   throws through `Config\Settings` (facts file 6.12).
 - **The tick URL's token.** A tick over its URL needs a stored token; the
-  Dashboard's "Show the cron line" or the upgrade creates it, and a request
-  to the URL never does (ARCHITECTURE 4.3).
+  Dashboard's Background tasks card (it asks for the cron line: at once
+  while the tasks do not run, on "Show the cron line" while they do) or the
+  upgrade creates it, and a request to the URL never does
+  (ARCHITECTURE 4.3).
 - **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).

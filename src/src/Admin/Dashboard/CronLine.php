@@ -35,9 +35,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * "Show the cron line" on the Dashboard's Background tasks card: the store's one crontab line, with
- * the tick URL and its token. The Dashboard page never carries the token; the admin asks for the
- * line here, and a store whose tick URL has no token yet (a fresh install) gets one. Answers
+ * The cron line of the Dashboard's Background tasks card: the store's one crontab line, with the
+ * tick URL and its token. The Dashboard page never carries the token; the card asks for the line
+ * here, at once while the tasks do not run from a cron URL and on "Show the cron line" while they
+ * do, and a store whose tick URL has no token yet (a fresh install) gets one. Answers
  * `{"line": "<crontab line>"}`. Needs the right to change the settings, as the token opens the tick
  * URL.
  */

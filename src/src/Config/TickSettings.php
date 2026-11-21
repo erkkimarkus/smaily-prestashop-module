@@ -59,8 +59,8 @@ final class TickSettings extends Settings
 
     /**
      * The token stored under $key for shop $idShop. A token that no scope holds is created on this
-     * read, at the global scope: the upgrade and the Dashboard's "Show the cron line" call it for
-     * the tick URL, never a request to a door. A token stored empty stays empty: that door is
+     * read, at the global scope: the upgrade and the Dashboard's cron line
+     * (Admin\Dashboard\CronLine) call it for the tick URL, never a request to a door. A token stored empty stays empty: that door is
      * closed until a token is set.
      */
     public function token(string $key, int $idShop): string

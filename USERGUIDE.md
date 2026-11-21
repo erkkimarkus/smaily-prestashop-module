@@ -59,7 +59,7 @@ Smaily Connect sends contacts and automation emails in the background. The **Bac
 
 To set the cron line up:
 
-1. Click **Show the cron line** on the card. Only an administrator who may change the Smaily Connect settings sees the button.
+1. Copy the cron line from the card. While the state is **Visitors only** or **Not running**, the card shows the line; while it is **Running**, click **Show the cron line**. Only an administrator who may change the Smaily Connect settings sees the line and the button.
 2. Add the line to the crontab of your server, for example in the cron jobs of your hosting control panel. The line calls one address of your store every minute. A cron service that calls an address for you can call that address instead.
 
 One cron line runs every task. The two cron lines of version 2.x keep working; the one line replaces both.

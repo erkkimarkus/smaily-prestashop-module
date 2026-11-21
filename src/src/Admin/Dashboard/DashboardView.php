@@ -236,6 +236,8 @@ final class DashboardView
         return $card + [
             'hint' => $hint,
             'cron_button' => $facts['can_configure'],
+            // While the tasks need the cron line the card shows it at once; else on the button.
+            'cron_open' => $facts['can_configure'] && $hint !== null,
             'ask_admin' => $hint !== null && !$facts['can_configure']
                 ? $this->trans('Ask an administrator who may change the Smaily Connect settings to add the cron line.')
                 : null,

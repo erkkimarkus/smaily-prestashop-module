@@ -75,8 +75,8 @@ final class NoticeMessages
                 return $this->trans('The extra fields to sync with each contact could not be read and were not carried over. Choose them again under Settings > Contacts.');
             case MigrationPlan::NOTICE_CRON_TOKEN_REPLACED:
                 return ($params['key'] ?? '') === TickSettings::CART_CRON_TOKEN
-                    ? $this->trans('The abandoned cart cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line under Dashboard > Background tasks > Show the cron line: it runs every task and replaces both of your old crontab lines.')
-                    : $this->trans('The contact synchronization cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line under Dashboard > Background tasks > Show the cron line: it runs every task and replaces both of your old crontab lines.');
+                    ? $this->trans('The abandoned cart cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line of the Background tasks card on the Dashboard: it runs every task and replaces both of your old crontab lines.')
+                    : $this->trans('The contact synchronization cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line of the Background tasks card on the Dashboard: it runs every task and replaces both of your old crontab lines.');
             case MigrationPlan::NOTICE_CRON_SHOP_ASSUMED:
                 return $this->trans('The previous version ran its cron jobs for one shop only. They now run for %shop%; set up the other shops under Settings.', ['%shop%' => $this->shop($params)]);
             case MigrationPlan::NOTICE_NEWSLETTER_BLOCK_REMOVED:

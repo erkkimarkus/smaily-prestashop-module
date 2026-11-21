@@ -202,14 +202,16 @@ final class DashboardViewTest extends TestCase
     /**
      * @dataProvider backgroundCards
      */
-    public function testTheCronLineIsOfferedInEveryStateToAnAdminWhoMayConfigure(TickState $tick, bool $on): void
+    public function testTheCronLineShowsAtOnceWhileTheTasksNeedItAndOnTheButtonWhileTheyRun(TickState $tick, bool $on): void
     {
         $card = self::view(['tick' => $tick])['connections']['background'];
         self::assertTrue($card['cron_button']);
+        self::assertSame(!$on, $card['cron_open'], 'at once in the states that are not running');
         self::assertNull($card['ask_admin']);
 
         $readOnly = self::view(['tick' => $tick, 'can_configure' => false])['connections']['background'];
         self::assertFalse($readOnly['cron_button']);
+        self::assertFalse($readOnly['cron_open'], 'never to an employee who may not configure');
         self::assertSame(
             $on ? null : 'Ask an administrator who may change the Smaily Connect settings to add the cron line.',
             $readOnly['ask_admin'],

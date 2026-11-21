@@ -76,8 +76,9 @@ Verified result of a fresh 3.0.0 install: `Install action on module smailyforpre
 `ps_module` row at version 3.0.0, 32 hooks, the 9 `ps_smaily_connect_*` tables and the configuration key
 `SMAILY_CONNECT_SCHEMA_VERSION`. A fresh install creates no `smaily_cart` table, no other `SMAILY_*`
 key and no override file. The first page request afterwards runs the fallback tick and writes
-`SMAILY_CONNECT_TICK_STATE`. No door has a token yet: the Dashboard's "Show the cron line" creates
-the tick URL's token, and a request to a cron or tick URL creates none.
+`SMAILY_CONNECT_TICK_STATE`. No door has a token yet: the Dashboard's Background tasks card creates
+the tick URL's token when it asks for the cron line (at once while the tasks do not run, for an
+admin who may change the settings), and a request to a cron or tick URL creates none.
 
 Run the unit and integration tests inside the shop, from the module's own folder:
 
