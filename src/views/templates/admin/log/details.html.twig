@@ -61,6 +61,9 @@
     {% if details.resent != '' %}
       <p class="smaily-log-details__note">{{ details.resent }}</p>
     {% endif %}
+    {% if details.discount_notice != '' %}
+      <p class="smaily-log-details__note" data-smaily-discount-notice>{{ details.discount_notice }}</p>
+    {% endif %}
 
     <h3>{{ 'Attempt history'|trans }}</h3>
     <ol class="smaily-log-timeline">

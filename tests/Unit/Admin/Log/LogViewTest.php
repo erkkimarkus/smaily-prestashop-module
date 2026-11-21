@@ -183,6 +183,20 @@ final class LogViewTest extends TestCase
         self::assertSame('', $this->view()->details(self::storedRow([]), null)['resent']);
     }
 
+    public function testARowWhoseEmailWentWithoutItsDiscountCodeSaysSo(): void
+    {
+        $details = $this->view()->details(self::storedRow([
+            'type' => 'automation.welcome',
+            'payload' => '{"email":"shopper1@example.test","fields":{},"discount_notice":{"reason":"rule_unavailable","rule":12}}',
+        ]), ResendGuard::REASON_NOT_FAILED);
+
+        self::assertSame(
+            'Without a discount code: cart price rule 12 gave no code for this shop (it was deleted, is past its end date, or is not for this shop). The email goes without one.',
+            $details['discount_notice']
+        );
+        self::assertSame('', $this->view()->details(self::storedRow([]), null)['discount_notice']);
+    }
+
     private function view(): LogView
     {
         return new LogView(static fn (string $id, array $parameters = []): string => strtr($id, $parameters));

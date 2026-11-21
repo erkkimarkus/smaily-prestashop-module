@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\EntityLabel;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Log\AttemptHistory;
 use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
@@ -47,7 +48,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\RetryPolicy;
  * an EN string. Stored times are UTC and show in the shop's time zone.
  *
  * Details show the request and the answer in full to the admin, without secrets
- * (Log\PayloadRedactor), as Magento does.
+ * (Log\PayloadRedactor), as Magento does. A row whose email went without its discount code says so
+ * in a sentence (Discount\AutomationDiscount::NOTICE_KEY in the row's payload).
  */
 final class LogView
 {
@@ -128,6 +130,7 @@ final class LogView
             : '';
         $payload = json_decode((string) $row['payload'], true);
         $record = is_array($payload) ? Resend::recordOf($payload) : null;
+        $notice = is_array($payload) ? ($payload[AutomationDiscount::NOTICE_KEY] ?? null) : null;
         $request = PayloadRedactor::forDisplay($row['last_request']);
         $attempted = $attempts > 0 || !in_array($status, [LogStatus::PENDING, LogStatus::SENDING], true);
         $history = [];
@@ -150,6 +153,10 @@ final class LogView
                 '%employee%' => $record['by'],
                 '%date%' => date('Y-m-d H:i:s', $record['at']),
             ]),
+            'discount_notice' => !is_array($notice) ? '' : $this->trans(
+                'Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, or is not for this shop). The email goes without one.',
+                ['%rule%' => (int) ($notice['rule'] ?? 0)]
+            ),
             'history' => $history,
             'history_is_partial' => in_array(true, array_column($history, 'partial'), true),
             'outcome' => [
