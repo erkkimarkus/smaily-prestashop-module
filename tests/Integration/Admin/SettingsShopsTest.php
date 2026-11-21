@@ -13,6 +13,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -20,12 +21,14 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\MultistoreShop;
 
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/../MultistoreShop.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * Settings on a multishop store: a shop's switch "Use its own … on this shop", and the change of
@@ -164,6 +167,77 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertFalse($own['own_account_started'], 'the same account keeps the shared automations');
         self::assertSame('demo', $this->accounts->find($this->shopB, '')->subdomain());
         self::assertSame(42, $this->whatShopsRead()[$this->shopB]['welcome'][1], 'the shop keeps the shared workflows');
+    }
+
+    /**
+     * A shop on its own Smaily account saves its Connection tab, as its own or back to the shared
+     * setup. A read of the shop's own account that fails (facts file 6.11) is not "the shop has
+     * none": read so, the save copied the shared account over the shop's own. The save throws,
+     * which the endpoint answers as an error, and the shop's own account stays.
+     */
+    public function testASaveThatCouldNotReadTheShopsOwnAccountWritesNothing(): void
+    {
+        $this->oneStoreConfigured();
+        $this->accounts->save(new Account($this->shopB, '', 'other', self::USERNAME, self::PASSWORD));
+        $before = [$this->accountRows(), $this->contactRows($this->shopB), $this->automationRows($this->shopB)];
+        $saver = $this->saver();
+        $context = $this->context($this->shopB);
+        $failing = sprintf('/FROM `[^`]+smaily_connect_account` WHERE `id_shop` = %d /', $this->shopB);
+
+        foreach ([true, false] as $own) {
+            try {
+                FailingQueries::during($failing, static function () use ($saver, $context, $own): void {
+                    $saver->saveConnection($context, ['subdomain' => 'other', 'username' => self::USERNAME, 'password' => '', 'language_mode' => 'single'], $own);
+                });
+                self::fail('The save went on without the shop\'s own account.');
+            } catch (SqlException $error) {
+                self::assertSame($before, [$this->accountRows(), $this->contactRows($this->shopB), $this->automationRows($this->shopB)]);
+                self::assertSame('other', $this->accounts->find($this->shopB, '')->subdomain());
+            }
+        }
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public function ownReads(): array
+    {
+        return [
+            'the shop\'s own settings' => ['/^SELECT `name`, `value` FROM `[^`]+configuration` .*`id_shop` = %d$/'],
+            'the shop\'s own account' => ['/FROM `[^`]+smaily_connect_account` WHERE `id_shop` = %d /'],
+        ];
+    }
+
+    /**
+     * One store becomes separate stores: every shop gets the shared values it does not hold. A
+     * read of what a shop holds that fails is not "nothing": read so, the shared consent mode and
+     * the shared account replaced the shop's own. The change stops, the store stays one store,
+     * and every shop reads what it read before.
+     *
+     * @dataProvider ownReads
+     */
+    public function testALayoutChangeThatCouldNotReadAShopsOwnValuesKeepsThem(string $failing): void
+    {
+        $this->oneStoreConfigured();
+        $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
+        \Configuration::updateValue(ContactsSettings::MODE, 'checkout_optin', false, null, $this->shopC);
+        $before = $this->whatShopsRead();
+        $change = $this->layoutChange();
+
+        try {
+            FailingQueries::during(sprintf($failing, $this->shopC), static function () use ($change): void {
+                $change->toSeparateStores();
+            });
+            self::fail('The change went on without the shop\'s own values.');
+        } catch (SqlException $error) {
+            self::assertSame($before, $this->whatShopsRead());
+            self::assertFalse((new StoreLayout())->separateStores());
+            self::assertSame('other', $this->accounts->find($this->shopC, '')->subdomain());
+        }
+
+        $change->toSeparateStores();
+        self::assertSame($before, $this->whatShopsRead());
+        self::assertTrue((new StoreLayout())->separateStores());
     }
 
     public function testAShopOnAnotherAccountLosesItsOwnAutomationsBothWays(): void

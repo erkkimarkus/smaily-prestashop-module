@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
@@ -237,7 +238,7 @@ final class ShopOverrides extends Settings
                 \Configuration::deleteFromGivenContext($key, null, null);
             }
         }
-        \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
+        Sql::delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
         $this->removeMappings(0);
         $this->reload();
     }
@@ -257,7 +258,7 @@ final class ShopOverrides extends Settings
         foreach ($this->storedValues($keys, $idShop) + $this->storedValues($keys, null) as $key => $value) {
             $this->set($key, $value);
         }
-        \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
+        Sql::delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
         $this->copyAccountRow($idShop, 0, '');
         $this->copyMappings($idShop, 0, true);
     }
@@ -273,14 +274,14 @@ final class ShopOverrides extends Settings
      */
     private function storedValues(array $keys, ?int $idShop): array
     {
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT `name`, `value` FROM `%sconfiguration` WHERE `name` IN (\'%s\') AND `value` IS NOT NULL AND %s',
             _DB_PREFIX_,
             implode('\', \'', array_map('pSQL', $keys)),
             $idShop !== null && $idShop > 0 ? sprintf('`id_shop` = %d', $idShop) : '`id_shop_group` IS NULL AND `id_shop` IS NULL'
-        ), true, false);
+        ));
 
-        return array_column(is_array($rows) ? $rows : [], 'value', 'name');
+        return array_column($rows, 'value', 'name');
     }
 
     /**
@@ -292,7 +293,7 @@ final class ShopOverrides extends Settings
             $this->removeShopValue($key, $idShop);
         }
         if ($section === self::CONNECTION) {
-            \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $idShop);
+            Sql::delete(self::ACCOUNT_TABLE, '`id_shop` = ' . $idShop);
         } elseif ($section === self::AUTOMATIONS) {
             $this->removeMappings($idShop);
         }
@@ -312,13 +313,11 @@ final class ShopOverrides extends Settings
      */
     private function accountLanguages(int $idShop): array
     {
-        $rows = \Db::getInstance()->executeS(
-            'SELECT `language` FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '` WHERE `id_shop` = ' . $idShop,
-            true,
-            false
+        $rows = Sql::rows(
+            'SELECT `language` FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '` WHERE `id_shop` = ' . $idShop
         );
 
-        return array_map(static fn (array $row): string => (string) $row['language'], is_array($rows) ? $rows : []);
+        return array_map(static fn (array $row): string => (string) $row['language'], $rows);
     }
 
     /**
@@ -329,13 +328,15 @@ final class ShopOverrides extends Settings
     {
         $table = '`' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '`';
 
-        return \Db::getInstance()->execute(
+        Sql::write(
             'INSERT INTO ' . $table . ' (`id_shop`, `language`, `subdomain`, `username`, `password_enc`, `date_add`, `date_upd`)'
             . ' SELECT ' . $to . ', `language`, `subdomain`, `username`, `password_enc`, NOW(), NOW() FROM ' . $table
             . ' WHERE `id_shop` = ' . $from . ' AND `language` = \'' . pSQL($language) . '\''
             . ' ON DUPLICATE KEY UPDATE `subdomain` = VALUES(`subdomain`), `username` = VALUES(`username`),'
             . ' `password_enc` = VALUES(`password_enc`), `date_upd` = VALUES(`date_upd`)'
         );
+
+        return true;
     }
 
     /**

@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * The admin menu that the main class's $tabs declares: "Smaily Connect" under Customers with its
  * four pages.
@@ -79,14 +81,12 @@ final class Menu
      */
     public static function name(array $tabs, int $idLang, callable $translate): void
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT t.`id_tab`, t.`class_name`, tl.`name` FROM `' . _DB_PREFIX_ . 'tab` t'
             . ' JOIN `' . _DB_PREFIX_ . 'tab_lang` tl ON tl.`id_tab` = t.`id_tab` AND tl.`id_lang` = ' . $idLang
-            . ' WHERE t.`module` = \'' . pSQL(self::MODULE) . '\'',
-            true,
-            false
+            . ' WHERE t.`module` = \'' . pSQL(self::MODULE) . '\''
         );
-        $stored = array_column(is_array($rows) ? $rows : [], null, 'class_name');
+        $stored = array_column($rows, null, 'class_name');
         $changed = false;
         foreach ($tabs as $definition) {
             $row = $stored[(string) $definition['class_name']] ?? null;
@@ -95,7 +95,7 @@ final class Menu
             }
             $name = $translate((string) $definition['wording'], (string) $definition['wording_domain']);
             if ($name !== '' && $name !== $row['name']) {
-                \Db::getInstance()->update('tab_lang', ['name' => pSQL($name)], '`id_tab` = ' . (int) $row['id_tab'] . ' AND `id_lang` = ' . $idLang);
+                Sql::update('tab_lang', ['name' => pSQL($name)], '`id_tab` = ' . (int) $row['id_tab'] . ' AND `id_lang` = ' . $idLang);
                 $changed = true;
             }
         }
@@ -126,12 +126,10 @@ final class Menu
         }
         $slug = 'ROLE_MOD_TAB_' . strtoupper($className);
         foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $action) {
-            if (!\Db::getInstance()->execute(
+            Sql::write(
                 'UPDATE `' . _DB_PREFIX_ . 'authorization_role` SET `slug` = \'' . pSQL($slug . '_' . $action) . '\''
                 . ' WHERE `slug` = \'' . pSQL($slug . strtoupper(self::COPY) . '_' . $action) . '\''
-            )) {
-                return false;
-            }
+            );
         }
         \Tab::resetStaticCache();
 
@@ -167,9 +165,8 @@ final class Menu
 
     private static function id(string $className): int
     {
-        return (int) \Db::getInstance()->getValue(
-            'SELECT `id_tab` FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'' . pSQL($className) . '\'',
-            false
+        return (int) Sql::value(
+            'SELECT `id_tab` FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'' . pSQL($className) . '\''
         );
     }
 }

@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -61,7 +62,7 @@ final class DashboardQueries
     public function contactSyncs(int $now): array
     {
         $since = gmdate('Y-m-d H:i:s', $now - 30 * self::DAY);
-        $row = \Db::getInstance()->getRow(sprintf(
+        $row = Sql::row(sprintf(
             'SELECT SUM(t.`status` = %s AND t.`event_type` = %s AND t.`sent_at` >= %s) AS `delivered`,'
             . ' COUNT(*) AS `scanned`, MIN(t.`created_at`) AS `oldest`'
             . ' FROM (SELECT `status`, `event_type`, `sent_at`, `created_at` FROM %s ORDER BY `id` DESC LIMIT %d) t',
@@ -70,7 +71,7 @@ final class DashboardQueries
             self::quote($since),
             self::table(EventQueue::TABLE),
             self::SYNC_SCAN_ROWS
-        ), false);
+        ));
 
         return [
             'count' => (int) ($row['delivered'] ?? 0),
@@ -83,12 +84,12 @@ final class DashboardQueries
      */
     public function queuedToday(int $now): int
     {
-        return (int) \Db::getInstance()->getValue(sprintf(
+        return Sql::count(sprintf(
             'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `created_at` >= %s',
             self::table(EventQueue::TABLE),
             self::quote(EventQueue::STATUS_PENDING),
             self::quote(gmdate('Y-m-d 00:00:00', $now))
-        ), false);
+        ));
     }
 
     /**
@@ -96,12 +97,12 @@ final class DashboardQueries
      */
     public function failedSince(int $since): int
     {
-        return (int) \Db::getInstance()->getValue(sprintf(
+        return Sql::count(sprintf(
             'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `updated_at` >= %s',
             self::table(EventQueue::TABLE),
             self::quote(EventQueue::STATUS_FAILED),
             self::time($since)
-        ), false);
+        ));
     }
 
     /**
@@ -137,9 +138,7 @@ final class DashboardQueries
      */
     private static function rows(string $sql): array
     {
-        $rows = \Db::getInstance()->executeS($sql, true, false);
-
-        return is_array($rows) ? array_values($rows) : [];
+        return Sql::rows($sql);
     }
 
     private static function time(int $time): string
