@@ -78,6 +78,7 @@ final class SetupController extends BaseController
                 'language_modes' => $scope->languageModes(),
                 'account_per_language_elsewhere' => $scope->multilingual() && !$scope->offersAccountPerLanguage(),
                 'contacts' => $contacts,
+                'automations' => $panels->automations()->values($scope),
                 'all_shops' => $scope->multishop() && !$scope->separateStores() ? $scope->shopNames() : [],
                 'import' => $progress,
                 'overview' => $connection === null || $contacts === null ? null : [

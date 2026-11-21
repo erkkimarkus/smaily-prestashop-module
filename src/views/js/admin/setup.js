@@ -23,14 +23,15 @@
 
 /*
  * The Initial setup's steps (views/templates/admin/setup/ and the panels of panel/), on the shell
- * of common.js and the panels of panels.js: the store-layout question, the Connection and Contacts
- * steps, Finish, and the Overview's connection state. Plain JavaScript, no build.
+ * of common.js and the panels of panels.js: the store-layout question, the Connection, Contacts
+ * and Automations steps, Finish, and the Overview's connection state. Plain JavaScript, no build.
  *
  * Continue saves a step through Admin\Api\Setup\SaveStep (window.smailyConnect.setup.onContinue);
  * a refused save marks each field at fault with its message and keeps the step. Back keeps what
- * was typed: the steps stay on the page. The Automations and Intelligence steps belong to later
- * work; Continue passes through them, and Finish on step 4 runs window.smailyConnect.setup.finish(),
- * which a later saver of step 4 calls after its own save.
+ * was typed: the steps stay on the page. The Automations step is drawn for the saved language
+ * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
+ * step belongs to later work; Continue passes through it, and Finish on step 4 runs
+ * window.smailyConnect.setup.finish(), which a later saver of step 4 calls after its own save.
  */
 (function () {
   'use strict';
@@ -87,15 +88,33 @@
       throw new Error(panels.showErrors(scope, error.fields) ? label('saving-failed') : error.message);
     }
 
+    /* Opens the page again on a step, which the server draws from what is saved now. */
+    function reopen(step) {
+      var url = new URL(root.getAttribute('data-setup-url'), window.location.href);
+      new URL(window.location.href).searchParams.forEach(function (paramValue, key) {
+        url.searchParams.set(key, paramValue);
+      });
+      url.searchParams.set('step', String(step));
+      window.location.href = url.toString();
+      return new Promise(function () {});
+    }
+
+
     function saveConnect() {
       var step = stepPanel(1);
       panels.clearErrors(step);
       var data = panels.panel('connection') ? panels.connectionData() : {};
       return post('save', {step: 'connect', data: data}).then(function (answer) {
+        var automations = panels.panel('automations');
+        if (automations && automations.getAttribute('data-mode') !== data.language_mode) {
+          return reopen(2);
+        }
         panels.showStatus(!!answer.connected);
         container.querySelectorAll('[data-smaily-field$="password"]').forEach(function (input) {
           input.value = '';
         });
+        // The workflow lists are those of the account saved now.
+        panels.loadWorkflows(null);
       }).catch(function (error) {
         failed(step, error);
       });
@@ -112,24 +131,27 @@
       });
     }
 
-    /*
-     * Finish: the setup is done; the page opens again on the Overview, which the server draws from
-     * what is saved now.
-     */
+    function saveAutomations() {
+      var step = stepPanel(3);
+      panels.clearErrors(step);
+      if (!panels.panel('automations')) {
+        return Promise.resolve();
+      }
+      return post('save', {step: 'automations', data: panels.automationsData()}).then(panels.automationsSaved).catch(function (error) {
+        failed(step, error);
+      });
+    }
+
+    /* Finish: the setup is done; the page opens again on the Overview. */
     smailyConnect.setup.finish = function () {
       return post('save', {step: 'finish'}).then(function () {
-        var url = new URL(root.getAttribute('data-setup-url'), window.location.href);
-        new URL(window.location.href).searchParams.forEach(function (paramValue, key) {
-          url.searchParams.set(key, paramValue);
-        });
-        url.searchParams.set('step', '5');
-        window.location.href = url.toString();
-        return new Promise(function () {});
+        return reopen(5);
       });
     };
 
     smailyConnect.setup.onContinue(1, saveConnect);
     smailyConnect.setup.onContinue(2, saveContacts);
+    smailyConnect.setup.onContinue(3, saveAutomations);
     smailyConnect.setup.onContinue(4, smailyConnect.setup.finish);
 
     /* The Overview asks Smaily about each stored account when it shows. */
@@ -168,6 +190,9 @@
       var action = target.getAttribute('data-smaily-action');
       if (action === 'save-shape') {
         saveShape(target);
+      } else if (action === 'refresh-workflows') {
+        // A list that cannot be loaded says why beside the step's buttons, as in Magento.
+        panels.loadWorkflows(container.querySelector('.smaily-footer [data-smaily-result]'));
       } else if (action === 'setup-goto') {
         event.preventDefault();
         var item = container.querySelector('.smaily-steps li[data-step="' + target.getAttribute('data-step') + '"]');
@@ -180,5 +205,6 @@
     if (!stepPanel(5).hidden) {
       checkAccounts();
     }
+    panels.loadWorkflows(null);
   });
 }());
