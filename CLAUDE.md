@@ -60,7 +60,7 @@ are written as finished-product public documentation. Internal process talk
 4. **Shared contracts are byte-identical copies, never edited here.**
    `docs/RECENGINE_API_CONTRACT.md` v1.36.0 (source of truth: the engine
    repo `../intelligence/docs/`; refresh by copying and checking with `cmp`)
-   and installation-report-v1 v1.0.1 (`../subscription/docs/contracts/`).
+   and installation-report-v1 v1.2.0 (`../subscription/docs/contracts/`).
    Cross-connector rules:
    - subscription status is sent only when it changes;
    - automations and imports never re-subscribe anyone;
@@ -177,6 +177,13 @@ ask (Linear discipline below).
   into its cookie when the request ends, after the shutdown functions.
   Send a response early only through `TrafficTick::finishFunction()`,
   which writes the cookie first (facts file 6.8).
+- **A failed query on 9.2.0.** With debug mode off, PrestaShop 9.2.0
+  answers `false` to a failed database query instead of throwing (facts
+  file 6.11). A read that treats `false` as "no row" must check for an
+  array, or ask with `COUNT(*)`.
+- **The tick URL's token.** A tick over its URL needs a stored token; the
+  Dashboard's "Show the cron line" or the upgrade creates it, and a request
+  to the URL never does (ARCHITECTURE 4.3).
 - **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).
