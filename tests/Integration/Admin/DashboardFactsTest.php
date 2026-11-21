@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Admin;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\BackgroundTasks;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardFacts;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardQueries;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
@@ -143,6 +144,31 @@ final class DashboardFactsTest extends IntegrationTestCase
         self::assertNull($facts['failed_24h']);
         self::assertSame([], $facts['activity']);
         self::assertNull($facts['account']);
+    }
+
+    public function testTheCronLinesAddressDoesNotDependOnTheEmployeesLanguage(): void
+    {
+        $context = \Context::getContext();
+        $language = $context->language;
+        $url = BackgroundTasks::tickUrl('abc');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        try {
+            $other = clone $language;
+            $other->id = (int) $language->id + 1000;
+            $other->iso_code = 'zz';
+            $context->language = $other;
+
+            self::assertSame($url, BackgroundTasks::tickUrl('abc'));
+        } finally {
+            $context->language = $language;
+        }
+        self::assertStringStartsWith($context->link->getBaseLink(null, true), $url);
+        self::assertStringContainsString('token=abc', $url);
+        self::assertDoesNotMatchRegularExpression('#/[a-z]{2}/module/#', $url, 'no language prefix');
+        self::assertTrue(
+            $path === $context->shop->getBaseURI() . 'module/smailyforprestashop/tick' || str_contains($url, 'controller=tick'),
+            'the dispatcher\'s module route, friendly or not'
+        );
     }
 
     public function testARenderCostsAFewQueries(): void

@@ -963,7 +963,9 @@ from shop visits or from a cron URL that is not called every minute. In every st
 an admin who may change the settings gets the button "Show the cron line", which asks
 `Admin\Dashboard\CronLine` for the store's one cron line,
 `* * * * * curl -fsS "<tick URL>" > /dev/null`; the page itself never carries the token, and the
-line is not shown before the button is pressed. An employee without that right is told to ask an
+line is not shown before the button is pressed. The line's address carries no language prefix
+(`/module/smailyforprestashop/tick?token=…` with friendly URLs), so it is the same line for every
+employee of a store with several languages; the URL answers with a prefix and without one. An employee without that right is told to ask an
 administrator. The card lists only the tick URL: the two 2.x cron URLs keep working (section 3.4),
 and the one line replaces both in a crontab. The Initial setup's Overview step shows one line,
 "Background tasks last ran", with the time.

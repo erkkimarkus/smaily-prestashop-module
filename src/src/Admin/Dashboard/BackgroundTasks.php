@@ -82,11 +82,20 @@ final class BackgroundTasks
     }
 
     /**
-     * The tick URL with its token (ARCHITECTURE 4.3).
+     * The tick URL with its token (ARCHITECTURE 4.3), without a language: the shop's base address
+     * and the dispatcher's module route, which Link::getModuleLink() joins with the language
+     * prefix of whoever asks between them. With several languages its line would read `/en/…`
+     * for one employee and `/et/…` for another; the URL answers without the prefix. With
+     * friendly URLs off the route carries `id_lang`, so the default language is asked for.
      */
     public static function tickUrl(string $token): string
     {
-        return \Context::getContext()->link->getModuleLink('smailyforprestashop', 'tick', ['token' => $token], true);
+        return \Context::getContext()->link->getBaseLink(null, true) . \Dispatcher::getInstance()->createUrl(
+            'module',
+            (int) \Configuration::get('PS_LANG_DEFAULT'),
+            ['module' => 'smailyforprestashop', 'controller' => 'tick', 'token' => $token],
+            (bool) \Configuration::get('PS_REWRITING_SETTINGS')
+        );
     }
 
     /**
