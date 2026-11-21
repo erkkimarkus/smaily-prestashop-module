@@ -1491,6 +1491,16 @@ the unsubscriber list in pages of 1000.
   cursors stores none, so no other account's cursor is dropped.
 - An account whose call fails is logged with the shop, the language and the failure reason, never a
   contact; the other accounts go on.
+- **Known limit: an opt-in of another shop on the same account** (established 2026-11-21, section
+  14 row 29). An `optin` of the log is applied to every customer row with that address in the
+  shops that take part, whoever caused it. When another shop on the same Smaily account runs in
+  "All customers" and creates the contact, Smaily logs an opt-in, and the "Subscribers only" shop
+  marks its customer with that address subscribed. The siblings do the same
+  (`magento:Cron/ContactReconcile.php`, `apply()`: it sets a subscriber row of the website to
+  subscribed for an `optin`, and touches no address without such a row;
+  `woo:includes/Smaily/ContactReconciler.php`, `apply()`: it sets `user_newsletter` to 1 for the
+  user with that address). Not changed here: it belongs to the cross-connector analysis (Linear
+  CON-397).
 - **Known limit.** Smaily pages the unsubscriber list by page number. When the list shrinks between
   two ticks of one first run, one address can be skipped; that contact then stays as the store has
   it. 2.x had the same exposure.
@@ -3200,7 +3210,7 @@ has one owner:
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
-| 29 | Two shops on one Smaily account with different consent modes | Not known: whether the reconcile of the "Subscribers only" shop can mark a customer subscribed because the "All customers" shop created the contact in Smaily (section 6.5). It depends on how Smaily's action log records a contact that the API creates, which no run against the live service has shown. | Owner, with a live Smaily account |
+| 29 | Two shops on one Smaily account with different consent modes | Established on 2026-11-21, not changed. Smaily records a contact that the API creates as an opt-in (owner). So when a shop in "All customers" creates a contact, the reconcile of a "Subscribers only" shop on the same account reads that opt-in and sets `newsletter = 1` for a customer of its own shop with the same address, also one who never subscribed there (section 6.5). The first reconcile run of an account marks nobody subscribed; the later runs do. Neither sibling prevents it: Magento's and WooCommerce's reconcile apply every opt-in of the account's log to the address and never ask which website or site caused it. Magento reaches fewer people, because it changes only an address that has a newsletter-subscriber row in the consent website. | The cross-connector analysis (Linear CON-397) |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
 | 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
 | 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
@@ -3312,3 +3322,9 @@ Decisions of 2026-11-21:
 - The welcome email may repeat on subscribe → unsubscribe → subscribe, as in Magento and
   WooCommerce (owner, 2026-11-21). No once-per-contact record is built; Story 4.2's acceptance
   says so now (section 13).
+- Two shops on one Smaily account with different consent modes: established and left as it is
+  (owner, 2026-11-21). The reconcile of the "Subscribers only" shop can mark a customer subscribed
+  after the "All customers" shop created the contact, because Smaily records a contact created
+  through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
+  the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
+  29).
