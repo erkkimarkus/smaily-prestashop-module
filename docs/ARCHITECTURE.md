@@ -155,8 +155,11 @@ The 2.x admin configuration page is gone (Story 3.3): its controller, its forms,
 and its script. The RSS feed is still the 2.x code (`Controller/RssFeedController`,
 `Model/RssFeedProductsCollection`), behind `controllers/front/SmailyRssFeed.php`; no folder
 `src/src/Rss/` exists, and the feed's output is pinned by `tests/Integration/Rss/RssFeedTest.php`.
-The 2.x sync code (`Controller/CustomerSyncController`, `Controller/AbandonedCartController`, the
-other classes of `Model/`) is in the tree but unwired (section 13, Story 1.8).
+The 2.x sync code is gone from the tree: `Controller/CustomerSyncController`,
+`Controller/AbandonedCartController` and the subscriber and cart classes of `Model/`. Nothing
+reached them: the two cron URLs go through `Scheduler\Door`. The payload that 2.2.0's cart code
+built is kept as a recorded fixture (`tests/fixtures/legacy/payloads/`), which `LegacyPayloadTest`
+compares the reminder with.
 
 Later Stories add these areas:
 
@@ -2375,14 +2378,18 @@ has one owner:
      `uninstall()`); register it once as a service.
 - **Closed by Story 3.3.** The legacy RSS tab of the 2.x admin page passed `null` into the typed
   `RssFeedController::buildRssUrl()` on a fresh 3.0.0 install; that page is gone.
-- **Legacy classes still in the tree, and when each goes.** Unwired: `Controller/CustomerSyncController`
-  and the subscriber classes of `Model/` (`Subscriber`, `SubscriberCollection`), which stage 2
-  replaced; `Controller/AbandonedCartController` and the cart classes of `Model/` (`AbandonedCart`,
-  `AbandonedCartCollection`, `AbandonedCartProduct`, `SentCart`), which Story 4.3 replaced. Neither
-  group is deleted yet (a clean-up item). Still wired: the RSS classes `Controller/RssFeedController`
-  and `Model/RssFeedProductsCollection`, behind `controllers/front/SmailyRssFeed.php`; they stay
-  until a Story ports the feed. The 2.x admin page (its controller, its forms, its templates and
-  its script) went with Story 3.3.
+- **Legacy classes: what is gone and what stays.** Removed, because nothing reached them:
+  `Controller/CustomerSyncController` and the subscriber classes of `Model/` (`Subscriber`,
+  `SubscriberCollection`), which stage 2 replaced; `Controller/AbandonedCartController` and the cart
+  classes of `Model/` (`AbandonedCart`, `AbandonedCartCollection`, `AbandonedCartProduct`,
+  `SentCart`), which Story 4.3 replaced. The cart classes had stayed only for `LegacyPayloadTest`,
+  which now compares the reminder with 2.2.0's payloads as recorded from the 2.2.0 tag
+  (`tests/fixtures/legacy/README.md`, "The abandoned-cart payloads of 2.2.0"). Still wired: the RSS
+  classes `Controller/RssFeedController` and `Model/RssFeedProductsCollection`, behind
+  `controllers/front/SmailyRssFeed.php`; they stay until a Story ports the feed. The 2.x admin page
+  (its controller, its forms, its templates and its script) went with Story 3.3. An upgrade by zip
+  deletes no file, so a store that had 2.2.0 keeps 2.2.0's copies of the removed files on disk,
+  unreachable there too (`docs/MARKETPLACE.md`, rule 33).
 
 ### Story 2.1 — Scope: shop layout, languages, account resolution
 

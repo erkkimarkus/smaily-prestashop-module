@@ -5,22 +5,23 @@ namespace Tests\Integration\Automation\AbandonedCart;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartAddress;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartPayloadBuilder;
-use PrestaShop\Module\SmailyForPrestaShop\Controller\AbandonedCartController;
-use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCart;
-use PrestaShop\Module\SmailyForPrestaShop\Model\AbandonedCartCollection;
-use PrestaShop\PrestaShop\Core\ConfigurationInterface;
-use Tests\Integration\Migration\LegacyStore;
 
 require_once __DIR__ . '/AbandonedCartTestCase.php';
 
 /**
  * Acceptance 1: the reminder of a cart equals, field by field, the payload that 2.2.0's own code
- * (AbandonedCartController::generatePayload() over AbandonedCartCollection, still in the tree)
- * builds for the same cart with every box of its field picker ticked, in the same language and
- * currency. The store holds no field selection: every field is always sent.
+ * (AbandonedCartController::generatePayload() over AbandonedCartCollection) builds for the same
+ * cart with every box of its field picker ticked, in the same language and currency. The store
+ * holds no field selection: every field is always sent.
+ *
+ * 3.0.0 does not ship that code. Its payloads for the carts of this test were recorded once from
+ * the 2.2.0 tag, in tests/fixtures/legacy/payloads/2.2.0-all-ticked.json; the README of
+ * tests/fixtures/legacy/ says how to record them again.
  */
 final class LegacyPayloadTest extends AbandonedCartTestCase
 {
+    private const RECORDED = __DIR__ . '/../../../fixtures/legacy/payloads/2.2.0-all-ticked.json';
+
     /**
      * @return array<string, array{int}>
      */
@@ -34,7 +35,7 @@ final class LegacyPayloadTest extends AbandonedCartTestCase
      */
     public function testTheReminderEqualsThe2xPayloadWithEveryBoxTicked(int $products): void
     {
-        $idCart = $this->fixture->cart($this->fixture->customer(self::ADDRESS), 20, $products);
+        $this->fixture->cart($this->fixture->customer(self::ADDRESS), 20, $products);
 
         self::assertSame(1, $this->sweep());
         $this->flush();
@@ -42,7 +43,7 @@ final class LegacyPayloadTest extends AbandonedCartTestCase
         self::assertArrayHasKey('abandoned_cart_automation_at', $sent);
         unset($sent['abandoned_cart_automation_at']);
 
-        $legacy = $this->legacyPayload($idCart);
+        $legacy = self::legacyPayload($products);
         self::assertCount(3 + 2 + 60 + 1, $legacy);
         self::assertSame($legacy, $sent);
         self::assertSame(['Testfirst', 'Testlast'], [$sent['first_name'], $sent['last_name']]);
@@ -61,65 +62,21 @@ final class LegacyPayloadTest extends AbandonedCartTestCase
         $address = (new CartAddress())->read($idCart);
         self::assertNotNull($address);
 
-        self::assertSame($this->legacyPayload($idCart), (new CartPayloadBuilder())->build(new \Cart($idCart), $address));
+        self::assertSame(self::legacyPayload(4), (new CartPayloadBuilder())->build(new \Cart($idCart), $address));
     }
 
     /**
-     * The payload of 2.2.0's code path for the cart: the cart as AbandonedCartCollection reads it,
-     * and generatePayload() with every field of the 2.x list ticked, while the context holds the
-     * cart, its language and its currency (2.x took them from the cron request).
+     * The payload that 2.2.0 built, with every field of its list ticked, for the fixture's cart of
+     * $products demo products of the customer self::ADDRESS, in the shop's default language and
+     * currency.
      *
      * @return array<string, mixed>
      */
-    private function legacyPayload(int $idCart): array
+    private static function legacyPayload(int $products): array
     {
-        LegacyStore::createSentCarts(0);
-        $selection = array_fill_keys(['first_name', 'last_name', 'name', 'description', 'sku', 'price', 'base_price', 'quantity'], true);
-        $configuration = new class(['SMAILY_CART_SYNCRONIZE_ADDITIONAL' => json_encode($selection)]) implements ConfigurationInterface {
-            /** @var array<string, string> */
-            private array $values;
+        $recorded = json_decode((string) file_get_contents(self::RECORDED), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayHasKey((string) $products, $recorded, 'a recorded payload for a cart of this size');
 
-            /**
-             * @param array<string, string> $values
-             */
-            public function __construct(array $values)
-            {
-                $this->values = $values;
-            }
-
-            public function get($key)
-            {
-                return $this->values[$key] ?? null;
-            }
-
-            public function set($key, $value)
-            {
-                $this->values[$key] = $value;
-
-                return $this;
-            }
-        };
-
-        $cart = new \Cart($idCart);
-        $context = \Context::getContext();
-        $saved = [$context->cart, $context->language, $context->currency, $context->currentLocale];
-        try {
-            $context->cart = $cart;
-            $context->language = new \Language((int) $cart->id_lang);
-            $context->currency = new \Currency((int) $cart->id_currency);
-            $context->currentLocale = null;
-            $context->currentLocale = \Tools::getContextLocale($context);
-            $legacyCarts = array_values(array_filter(
-                (new AbandonedCartCollection())->carts,
-                static fn (AbandonedCart $legacy): bool => $legacy->cartID === $idCart
-            ));
-            self::assertCount(1, $legacyCarts, '2.x finds the cart');
-            $generate = new \ReflectionMethod(AbandonedCartController::class, 'generatePayload');
-            $generate->setAccessible(true);
-
-            return $generate->invoke(new AbandonedCartController($configuration), $legacyCarts[0]);
-        } finally {
-            [$context->cart, $context->language, $context->currency, $context->currentLocale] = $saved;
-        }
+        return $recorded[(string) $products];
     }
 }

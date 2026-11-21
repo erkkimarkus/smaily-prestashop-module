@@ -141,7 +141,8 @@ and no operating-system file.
 The counts of this section were taken before the Automations tab was added. That change brought 2
 PHP files and 3 Twig templates, so git now tracks 324 module files for the zip (253 PHP, 40 Twig);
 each of the five new files carries the licence notice, and both PHP files the `_PS_VERSION_` check.
-The other counts were not taken again.
+The other counts were not taken again. Since then the 8 classes of the 2.x contact sync and cart
+reminder left the tree (rule 33 below), which takes 8 PHP files out of every count above.
 
 ### 6.1 Technical rules that the module meets
 
@@ -190,7 +191,7 @@ The other counts were not taken again.
 | 29 | Front controllers behind a token | The 2 cron URLs and the tick URL compare a stored token with `hash_equals()` and refuse an empty one; the capture URL compares the token of the visitor's own cart (an HMAC of the cart's id) the same way. The RSS feed URL takes no token: merchants embedded it in their Smaily templates, and Smaily fetches it. | Is the public, read-only feed acceptable to the Marketplace, given that a token would break the feeds that 2.x stores use? |
 | 30 | `header_csp.txt` | The pages of the module load nothing from another host. The server calls `<subdomain>.sendsmaily.net` and `api.github.com`. The page does not say whether server-side calls belong in the file. | Does the reviewer expect a `header_csp.txt` with these two hosts? |
 | 32 | No external links | 296 files carry `http://www.gnu.org/licenses/` in the licence notice. 10 other files name an outside address: the Smaily API and the GitHub API, XML namespaces in the RSS feed and the 3 SVG logos, the example subdomain in 3 files, and the "Create a Smaily account" link. `composer.lock` holds 487 package addresses. The links of `USERGUIDE.pdf` are not counted. | Which of these does the Marketplace accept, and does the licence notice lose its link? |
-| 33 | Deleting files that an update drops | 2.2.0 shipped 27 files that 3.0.0 does not ship (the 2.x settings forms, `lib/`, the old templates and script). The upgrade deletes none of them; it deletes only the 2.x override in the core's folder. | May the 3.0.0 upgrade get a step that deletes these 27 files from the module folder? |
+| 33 | Deleting files that an update drops | 2.2.0 shipped 35 files that 3.0.0 does not ship (the 2.x settings forms, `lib/`, the old templates and script, and the 8 classes of the 2.x contact sync and cart reminder, which no URL of 3.0.0 reaches). The upgrade deletes none of them; it deletes only the 2.x override in the core's folder. | May the 3.0.0 upgrade get a step that deletes these 35 files from the module folder? |
 | 34 | Light hooks | Not measured in this pass. `docs/ARCHITECTURE.md` section 3.7 holds the measured page cost of the fallback tick. | Is a measurement of each hook's page cost wanted before a listing? |
 | 35 | Supported licence | GPL-3.0: `LICENCE.txt` at the repository root, `"license"` in `src/composer.json`, and every notice. GPL-3.0 is not among the listed licences. The zip holds no licence file. | Does the Marketplace accept GPL-3.0, or does the listing need another licence? |
 | 36 | `docs/readme_en.pdf` | The zip holds `docs/USERGUIDE.pdf`, the 2.x guide; no `readme_en.pdf`. | Does the 3.0.0 guide ship as `docs/readme_en.pdf`, with the old file deleted by the upgrade (rule 33)? |

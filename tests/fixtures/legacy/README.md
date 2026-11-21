@@ -10,11 +10,40 @@ leave in a shop. The 3.0.0 upgrade test loads one of them into a shop and then r
 | `1.6.2-configured.sql` | 1.6.2 | **Derived from code.** Written from `git show 1.6.2:src/...`. Loaded on 8.2.8 and 9.2.0 since (see "Loaded into a database"). |
 | `2.2.0-multistore-shared.sql` | 2.2.0 | **Derived** from the observed write pattern (section "Multistore"). Multistore on, a minimal shop 2 in shop group 1 (no shared customers), and only the global rows of `2.2.0-configured.sql`: both shops share one setup. |
 | `2.2.0-multistore-own-rows.sql` | 2.2.0 | **Derived** as above. The same global rows, plus a row for every key at shop 2 as a save in shop 2's context writes them: another account (`other-store`, `other-api-user`, `not-a-real-password-either`), opt-in workflow 103, abandoned cart workflow 104, other field lists. |
+| `payloads/2.2.0-all-ticked.json` | 2.2.0 | **Observed.** The 2.2.0 tag's own cart payload code ran in a PrestaShop 8.2.8 and a 9.2.0 shop (section "The abandoned-cart payloads of 2.2.0"). |
 | `override-2.x.ps_emailsubscription.php.txt` | 2.0.0–2.2.0 | Byte copy of `src/overrides/ps_emailsubscription.php`, identical at every 2.x tag (SHA-256 `5fb063e2…`). The `.txt` name keeps code-style tools from rewriting it. |
 
 All values are invented: subdomain `example-store`, user `api-user`, password `not-a-real-password`,
 tokens `abc123def456` / `fed654cba321`, autoresponder ids 101 (opt-in) and 102 (abandoned cart).
 No file holds real personal data. Customer 2 and carts 1-3 belong to the PrestaShop demo data.
+
+## The abandoned-cart payloads of 2.2.0
+
+`payloads/2.2.0-all-ticked.json` holds what 2.2.0's own code
+(`AbandonedCartController::generatePayload()` over `AbandonedCartCollection`) builds for a cart with
+every box of its field picker ticked: one payload for each cart size that
+`tests/Integration/Automation/AbandonedCart/LegacyPayloadTest.php` builds (1, 2, 4, 10 and 11 demo
+products of the invented customer `shopper1@example.test`, in the shop's default language and
+currency). The test compares the 3.0.0 reminder with it, field by field. 3.0.0 does not ship that
+2.2.0 code, so `payloads/record.php` runs it from the 2.2.0 tag. **Observed:** recorded on
+2026-11-21 in a flashlight 8.2.8 shop (PHP 8.0) and a 9.2.0 shop with their demo catalog; the two
+outputs were byte-identical.
+
+To record it again (after the demo catalog or the test's carts change), from the repository root,
+with a dev shop running (`docs/DEV_ENVIRONMENT.md`, section 4):
+
+    mkdir -p build/legacy-2.2.0
+    git archive --output=build/legacy-2.2.0.tar 2.2.0 \
+      src/src/Controller/AbandonedCartController.php src/src/Model/AbandonedCart.php \
+      src/src/Model/AbandonedCartCollection.php src/src/Model/AbandonedCartProduct.php
+    tar -xf build/legacy-2.2.0.tar -C build/legacy-2.2.0 --strip-components 2
+    docker compose exec -T -u www-data prestashop \
+      php /smaily/tests/fixtures/legacy/payloads/record.php /smaily/build/legacy-2.2.0 \
+      > tests/fixtures/legacy/payloads/2.2.0-all-ticked.json
+
+`build/` is ignored by git, and the shop reads it through the read-only mount `/smaily`. The script
+makes its customers and carts and removes them; it creates 2.2.0's table `smaily_cart` only where the
+shop has none, and drops the table it created.
 
 ## Loading a fixture
 
