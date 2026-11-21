@@ -239,7 +239,7 @@ Forbidden constructs are counted with `grep` over the PHP files that the zip hol
 `grep -nE '(^|[^a-zA-Z_>:])(serialize|unserialize|eval)\('`.
 
 The tests in a shop, the debug-mode requests and the uninstall follow `docs/DEV_ENVIRONMENT.md`
-(sections 4, 4a and 6). Last results, on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0: the suite of 1513 tests
+(sections 4, 4a and 6). Last results, on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0: the suite of 1669 tests
 passes in both shops, and `tests/ci/validate.sh` passes its 10 checks with the zip on both.
 
 ## 7. What a listing needs outside the code
