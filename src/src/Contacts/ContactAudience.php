@@ -66,6 +66,12 @@ final class ContactAudience
     /**
      * Whether a store event about a contact goes to Smaily.
      *
+     * A newsletter-block subscriber without an account goes by the mode alone, whatever "include
+     * guests" says (owner, 2026-11-21): the Magento connector syncs a newsletter-form signup in
+     * its consent and legitimate-interest modes whatever its guest setting, and not in its
+     * checkout-only mode. Subscribers only sends the subscribe and the unsubscribe; all customers
+     * the subscribe; checkout opt-in only nothing. The welcome email follows this answer.
+     *
      * @param string $source SOURCE_CUSTOMER or SOURCE_NEWSLETTER_BLOCK
      * @param bool $subscribed the contact's consent in the store after the event
      * @param bool $consentChanged whether the store saw the event change that consent
@@ -75,12 +81,15 @@ final class ContactAudience
     public function syncs(string $source, bool $subscribed, bool $consentChanged, bool $checkout, bool $guest = false): bool
     {
         if ($source === self::SOURCE_NEWSLETTER_BLOCK) {
-            if (!$this->mode->includesNewsletterGuests()) {
-                return false;
+            switch ($this->mode->mode()) {
+                case ContactSyncMode::CHECKOUT_OPTIN:
+                    return false;
+                case ContactSyncMode::ALL_CUSTOMERS:
+                    // No status is sent in this mode, so an unsubscribe would only upsert the address.
+                    return $subscribed;
+                default:
+                    return $subscribed || $consentChanged;
             }
-
-            // In all customers no status is sent, so an unsubscribe would only upsert the address.
-            return $this->mode->mode() === ContactSyncMode::SUBSCRIBERS ? $subscribed || $consentChanged : $subscribed;
         }
 
         switch ($this->mode->mode()) {
@@ -134,15 +143,17 @@ final class ContactAudience
      */
     private function sendsGuest(bool $guest): bool
     {
-        return !$guest || $this->mode->includesNewsletterGuests();
+        return !$guest || $this->mode->includesGuests();
     }
 
     /**
-     * Whether the first import and the daily refresh send the active `emailsubscription` rows.
+     * Whether the first import and the daily refresh send the active `emailsubscription` rows: in
+     * every mode but checkout opt-in only, whatever "include guests" says, as the live sync
+     * (syncs()) and as the Magento connector's import, which sends every newsletter subscriber.
      */
     public function importsNewsletterGuests(): bool
     {
-        return $this->mode->includesNewsletterGuests();
+        return $this->mode->mode() !== ContactSyncMode::CHECKOUT_OPTIN;
     }
 
     /**

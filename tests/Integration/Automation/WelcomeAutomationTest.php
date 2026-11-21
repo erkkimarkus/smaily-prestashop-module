@@ -291,6 +291,38 @@ final class WelcomeAutomationTest extends IntegrationTestCase
     }
 
     /**
+     * @return iterable<string, array{string, bool, int}>
+     */
+    public function blockCases(): iterable
+    {
+        yield 'subscribers only, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, 1];
+        yield 'all customers, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, 1];
+        yield 'checkout opt-in only, include guests off' => [ContactSyncMode::CHECKOUT_OPTIN, false, 0];
+        yield 'checkout opt-in only, include guests on' => [ContactSyncMode::CHECKOUT_OPTIN, true, 0];
+    }
+
+    /**
+     * A newsletter-block subscriber without an account is welcomed where the mode syncs one,
+     * whatever "include guests" says (owner, 2026-11-21, as Magento welcomes a newsletter-form
+     * signup whatever its guest setting).
+     *
+     * @dataProvider blockCases
+     */
+    public function testABlockSubscribersWelcomeDoesNotDependOnIncludeGuests(string $mode, bool $includeGuests, int $welcomes): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
+        \Configuration::updateGlobalValue(ContactsSettings::GUESTS, $includeGuests ? '1' : '0');
+        LegacyStore::reloadConfiguration();
+
+        $this->addNewsletterRow($this->shop, 'welcome2@example.test', true, $this->idLang);
+        $this->fire('actionNewsletterRegistrationAfter', ['email' => 'welcome2@example.test', 'action' => '0', 'module' => 'ps_emailsubscription']);
+        $this->endRequest();
+
+        self::assertCount($welcomes, $this->welcomeRows());
+        self::assertCount($welcomes, $this->autoresponderRequests());
+    }
+
+    /**
      * Proof 4: a store upgraded from 2.2.0 welcomes a storefront registration through the workflow
      * and the account that 2.x used.
      */

@@ -111,7 +111,7 @@ Contact synchronization is set under **Settings -> Contacts**.
    - **Subscribers only (consent)**: only customers who opted into the newsletter are synced. Unsubscribes in Smaily are mirrored back to PrestaShop.
    - **All customers (legitimate interest)**: every registered customer is synced.
    - **Checkout opt-in only**: nobody is synced automatically, only shoppers who tick the newsletter checkbox at checkout.
-3. **Include guests** also syncs newsletter subscribers without an account and customers who checked out as guests.
+3. **Include guests** also syncs customers who checked out as guests. A newsletter subscriber without an account, who signed up in the newsletter block, is synced whatever this setting says, except in **Checkout opt-in only**.
 4. Under **Extra fields to sync with each contact**, pick the fields that personalize your newsletters: first name, last name, date of birth, website. Empty values are never sent.
 5. Click **Save Contacts**. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.
 6. Under **Initial contact import**, **Start import** sends the contacts that your Contacts settings sync to Smaily once, in the background. New and changed contacts are synced on their own afterwards.

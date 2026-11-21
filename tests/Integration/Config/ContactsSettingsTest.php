@@ -45,7 +45,7 @@ final class ContactsSettingsTest extends IntegrationTestCase
         $idShop = (int) \Configuration::get('PS_SHOP_DEFAULT');
         self::assertTrue($settings->syncActive($idShop));
         self::assertSame(ContactSyncMode::SUBSCRIBERS, $settings->mode($idShop)->mode());
-        self::assertTrue($settings->mode($idShop)->includesNewsletterGuests());
+        self::assertTrue($settings->mode($idShop)->includesGuests());
         self::assertSame(['first_name', 'last_name', 'birthday', 'website'], $settings->fields($idShop));
     }
 
@@ -56,7 +56,7 @@ final class ContactsSettingsTest extends IntegrationTestCase
 
         self::assertFalse($settings->syncActive($idShop));
         self::assertSame(ContactSyncMode::SUBSCRIBERS, $settings->mode($idShop)->mode());
-        self::assertFalse($settings->mode($idShop)->includesNewsletterGuests());
+        self::assertFalse($settings->mode($idShop)->includesGuests());
         self::assertSame([], $settings->fields($idShop));
     }
 

@@ -49,7 +49,7 @@ class ContactsSettings extends Settings
     /** A ContactSyncMode mode. */
     public const MODE = self::PREFIX . 'CONTACTS_MODE';
 
-    /** `1` the newsletter-block subscribers without an account are contacts. */
+    /** `1` "include guests" is on: the guest-checkout customers are contacts. */
     public const GUESTS = self::PREFIX . 'CONTACTS_GUESTS';
 
     /** The selected fields, comma-separated Smaily names; `store` among them is always sent anyway. */
@@ -121,7 +121,7 @@ class ContactsSettings extends Settings
     public function setMode(ContactSyncMode $mode, int $idShop): bool
     {
         return $this->set(self::MODE, $mode->mode(), $idShop)
-            && $this->set(self::GUESTS, $mode->includesNewsletterGuests() ? '1' : '0', $idShop);
+            && $this->set(self::GUESTS, $mode->includesGuests() ? '1' : '0', $idShop);
     }
 
     /**

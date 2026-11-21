@@ -1232,11 +1232,6 @@
         <target>Kõik toimib normaalselt</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="87a8f5987c3b81061d0e2b7e036b2572">
-        <source>Also sync newsletter subscribers who signed up in the newsletter block without an account, and customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way.</source>
-        <target>Sünkrooni ka uudiskirja tellijad, kes liitusid uudiskirja plokis ilma kontota, ja kliendid, kes ostsid külalisena. Režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“ sünkroonitakse külaline, kes märgib kassas uudiskirja märkeruudu, igal juhul.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="70f540bee332df27ad46708ff676e766">
         <source>Ask an administrator who may change the Smaily Connect settings to add the cron line.</source>
         <target>Palu cron-rida lisada administraatoril, kellel on õigus Smaily Connecti seadeid muuta.</target>
@@ -1595,11 +1590,6 @@
       <trans-unit id="59ea91438b82d8dd0be1d65f4dda10aa">
         <source>Include guests</source>
         <target>Kaasa külalised</target>
-        <note>Line: </note>
-      </trans-unit>
-      <trans-unit id="e5a390674e124e6c626065291b5a8c60">
-        <source>Include guests: from now on newsletter subscribers without an account and guest-checkout customers are synced too, and the daily refresh sends the existing ones.</source>
-        <target>Kaasa külalised: edaspidi sünkroonitakse ka kontota uudiskirja tellijad ja külalisena ostnud kliendid ning igapäevane värskendus saadab ka olemasolevad.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="2ecd671d4fc202ac82ad83e25a292507">
@@ -2545,6 +2535,16 @@
       <trans-unit id="3e49289cfd6ddac0456cabb7bb5ddf66">
         <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, starts after the code would end, has no uses left, is limited to one customer, or is not for this shop). The email goes without one.</source>
         <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas, see hakkab kehtima alles pärast koodi kehtivuse lõppu, selle kasutuskorrad on otsas, see on piiratud ühe kliendiga või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="516a3e2e5caef99ac49fc9c0cbdb2d9e">
+        <source>Also sync customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in Checkout opt-in only.</source>
+        <target>Sünkrooni ka kliendid, kes ostsid külalisena. Režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“ sünkroonitakse külaline, kes märgib kassas uudiskirja märkeruudu, igal juhul. Uudiskirja tellija, kes liitus uudiskirja plokis ilma kontota, sünkroonitakse sellest seadest olenemata, välja arvatud režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="31c32a6773f78f6233cf365beb789a6d">
+        <source>Include guests: from now on guest-checkout customers are synced too, and the daily refresh sends the existing ones.</source>
+        <target>Kaasa külalised: edaspidi sünkroonitakse ka külalisena ostnud kliendid ning igapäevane värskendus saadab ka olemasolevad.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

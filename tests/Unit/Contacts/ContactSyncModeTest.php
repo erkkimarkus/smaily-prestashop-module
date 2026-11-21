@@ -25,11 +25,11 @@ final class ContactSyncModeTest extends TestCase
         }
     }
 
-    public function testNewsletterBlockGuestsFollowTheSwitchExceptInCheckoutOptIn(): void
+    public function testIncludeGuestsFollowsTheSwitchExceptInCheckoutOptIn(): void
     {
-        self::assertTrue((new ContactSyncMode(ContactSyncMode::SUBSCRIBERS, true))->includesNewsletterGuests());
-        self::assertFalse((new ContactSyncMode(ContactSyncMode::SUBSCRIBERS, false))->includesNewsletterGuests());
-        self::assertTrue((new ContactSyncMode(ContactSyncMode::ALL_CUSTOMERS, true))->includesNewsletterGuests());
-        self::assertFalse((new ContactSyncMode(ContactSyncMode::CHECKOUT_OPTIN, true))->includesNewsletterGuests());
+        self::assertTrue((new ContactSyncMode(ContactSyncMode::SUBSCRIBERS, true))->includesGuests());
+        self::assertFalse((new ContactSyncMode(ContactSyncMode::SUBSCRIBERS, false))->includesGuests());
+        self::assertTrue((new ContactSyncMode(ContactSyncMode::ALL_CUSTOMERS, true))->includesGuests());
+        self::assertFalse((new ContactSyncMode(ContactSyncMode::CHECKOUT_OPTIN, true))->includesGuests());
     }
 }

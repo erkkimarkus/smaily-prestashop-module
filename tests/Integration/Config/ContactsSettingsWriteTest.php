@@ -69,7 +69,7 @@ final class ContactsSettingsWriteTest extends IntegrationTestCase
 
         self::assertTrue($settings->isStored($idShop));
         self::assertSame(ContactSyncMode::ALL_CUSTOMERS, $settings->mode($idShop)->mode());
-        self::assertTrue($settings->mode($idShop)->includesNewsletterGuests());
+        self::assertTrue($settings->mode($idShop)->includesGuests());
         self::assertSame(['first_name', 'website'], $settings->fields($idShop));
         self::assertSame('store,first_name,website', \Configuration::getGlobalValue(ContactsSettings::FIELDS));
         self::assertTrue($settings->checkoutCheckbox($idShop));
@@ -80,7 +80,7 @@ final class ContactsSettingsWriteTest extends IntegrationTestCase
 
         $settings->setMode(new ContactSyncMode(ContactSyncMode::SUBSCRIBERS, false), 0);
         $settings->setFields([], 0);
-        self::assertFalse($settings->mode($idShop)->includesNewsletterGuests());
+        self::assertFalse($settings->mode($idShop)->includesGuests());
         self::assertSame([], $settings->fields($idShop));
     }
 

@@ -92,7 +92,7 @@
 
     <div class="smaily-inline-toggle">
       <label><input type="checkbox" data-smaily-field="guests"{{ contacts.guests ? ' checked' : '' }}> {{ 'Include guests'|trans }}</label>
-      <p class="smaily-note">{{ 'Also sync newsletter subscribers who signed up in the newsletter block without an account, and customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way.'|trans }}</p>
+      <p class="smaily-note">{{ 'Also sync customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in Checkout opt-in only.'|trans }}</p>
     </div>
 
     <div class="smaily-inline-toggle">

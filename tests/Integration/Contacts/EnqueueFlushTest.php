@@ -190,6 +190,49 @@ final class EnqueueFlushTest extends IntegrationTestCase
     }
 
     /**
+     * @return iterable<string, array{string, bool, string, int|null}>
+     */
+    public function blockCases(): iterable
+    {
+        yield 'subscribers only, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, EventQueue::STATUS_SENT, 0];
+        yield 'subscribers only, include guests on' => [ContactSyncMode::SUBSCRIBERS, true, EventQueue::STATUS_SENT, 0];
+        yield 'all customers, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, EventQueue::STATUS_SENT, null];
+        yield 'all customers, include guests on' => [ContactSyncMode::ALL_CUSTOMERS, true, EventQueue::STATUS_SENT, null];
+        yield 'checkout opt-in only, include guests off' => [ContactSyncMode::CHECKOUT_OPTIN, false, EventQueue::STATUS_SKIPPED, null];
+        yield 'checkout opt-in only, include guests on' => [ContactSyncMode::CHECKOUT_OPTIN, true, EventQueue::STATUS_SKIPPED, null];
+    }
+
+    /**
+     * A newsletter-block subscribe of an address without an account, end to end: it goes by the
+     * shop's mode alone, whatever "include guests" says (owner, 2026-11-21, as Magento syncs a
+     * newsletter-form signup whatever its guest setting).
+     *
+     * @dataProvider blockCases
+     */
+    public function testANewsletterBlockSubscriberIsSentByTheModeWhateverIncludeGuestsSays(string $mode, bool $includeGuests, string $status, ?int $isUnsubscribed): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
+        \Configuration::updateGlobalValue(ContactsSettings::GUESTS, $includeGuests ? '1' : '0');
+        $shutdown = [];
+        $services = $this->services(true, $shutdown);
+        $this->addNewsletterRow($this->shop, 'block1@example.test', true, $this->idLang);
+
+        (new Dispatcher(static fn (): bool => true, static fn (): Services => $services, static function (): void {
+        }))->run('actionNewsletterRegistrationAfter', ['email' => 'block1@example.test', 'action' => '0', 'module' => 'ps_emailsubscription']);
+        ($shutdown[0])();
+
+        self::assertSame([$status], $this->statuses());
+        $row = self::db()->getRow('SELECT `payload`, `last_error` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`', false);
+        self::assertSame('newsletter_block', json_decode((string) $row['payload'], true)['source']);
+        self::assertSame($status === EventQueue::STATUS_SKIPPED ? ContactSyncHandler::SKIPPED_NOT_IN_AUDIENCE : null, $row['last_error']);
+        $requests = $this->mock->requests();
+        self::assertCount($status === EventQueue::STATUS_SENT ? 1 : 0, $requests);
+        if ($status === EventQueue::STATUS_SENT) {
+            self::assertSame(['block1@example.test', $isUnsubscribed], [$requests[0]['body'][0]['email'], $requests[0]['body'][0]['is_unsubscribed'] ?? null]);
+        }
+    }
+
+    /**
      * The runtime's services with the Smaily mock and a capture whose shutdown function and
      * finish function this test holds.
      *

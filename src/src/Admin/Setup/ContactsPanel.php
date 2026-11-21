@@ -83,7 +83,7 @@ final class ContactsPanel
             'stored' => $stored,
             'active' => $this->settings->syncActive($shop),
             'mode' => $mode->mode(),
-            'guests' => $stored && $mode->includesNewsletterGuests(),
+            'guests' => $stored && $mode->includesGuests(),
             'fields' => $stored ? $this->settings->fields($shop) : SubscriberPayloadBuilder::FIELDS,
             'checkout_checkbox' => $this->settings->checkoutCheckbox($shop) ?? true,
             'newsletter_module' => (bool) ($this->newsletterModuleActive)(),

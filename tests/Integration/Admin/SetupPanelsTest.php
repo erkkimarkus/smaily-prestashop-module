@@ -243,7 +243,7 @@ final class SetupPanelsTest extends IntegrationTestCase
         $settings = new ContactsSettings();
         self::assertTrue($settings->syncActive($idShop));
         self::assertSame(ContactSyncMode::ALL_CUSTOMERS, $settings->mode($idShop)->mode());
-        self::assertTrue($settings->mode($idShop)->includesNewsletterGuests());
+        self::assertTrue($settings->mode($idShop)->includesGuests());
         self::assertSame(['first_name'], $settings->fields($idShop));
         self::assertFalse($settings->checkoutCheckbox($idShop));
 

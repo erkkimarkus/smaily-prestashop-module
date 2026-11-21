@@ -1249,14 +1249,15 @@ authority and `force_opt_in = false` on every automation trigger.
 
 "Guest-checkout customer" below is a `customer` row with `is_guest = 1`. "Newsletter-block
 subscriber" is an `emailsubscription` row, a subscriber without an account. "Include guests"
-(`SMAILY_CONNECT_CONTACTS_GUESTS`) covers both; upgraded stores have it on.
+(`SMAILY_CONNECT_CONTACTS_GUESTS`) covers the guest-checkout customers only (owner, 2026-11-21,
+below); upgraded stores have it on.
 
 | | Subscribers only (default; upgrades) | All customers | Checkout opt-in only |
 |---|---|---|---|
 | Live sync of a registered customer | At opt-in; at opt-out with `is_unsubscribed = 1`. | Every store event (register, profile change, order), whatever the consent. | Only a checkout in which the box was ticked. |
 | Live sync of a guest-checkout customer | As a registered customer, and only when "include guests" is on (decision of 2026-11-20, WooCommerce's rule). | As a registered customer, and only when "include guests" is on (decision of 2026-11-20). | As a registered customer: a ticked box is sent whatever "include guests" says. |
-| Newsletter-block subscribers | When "include guests" is on: a subscribe, and an unsubscribe with `is_unsubscribed = 1`. | When "include guests" is on: a subscribe only. | Never. |
-| First import and daily refresh | Registered customers with `newsletter = 1`; guest-checkout customers with `newsletter = 1` and active `emailsubscription` rows when "include guests" is on. | Every registered customer; guest-checkout customers and active `emailsubscription` rows when "include guests" is on. | None. |
+| Newsletter-block subscribers | Whatever "include guests" says: a subscribe, and an unsubscribe with `is_unsubscribed = 1`. | Whatever "include guests" says: a subscribe only. | Never. |
+| First import and daily refresh | Registered customers with `newsletter = 1`; active `emailsubscription` rows; guest-checkout customers with `newsletter = 1` when "include guests" is on. | Every registered customer; active `emailsubscription` rows; guest-checkout customers when "include guests" is on. | None. |
 | Reconcile from Smaily | Both directions, with the first-run rule below: an unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); a re-subscribe sets `newsletter = 1`. | None. | None. |
 | `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Never. | `0` with the tick. |
 | Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row, the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
@@ -1298,6 +1299,37 @@ when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a t
 "include guests". The capture sets the payload's `guest` field for a guest-checkout customer
 (`Contacts\Capture\CustomerCapture`, section 6.4), so the live sync and the imports apply the same
 gates.
+
+**[D]** (owner, Erkki, 2026-11-21) A newsletter-block subscriber without an account is synced and
+welcomed whatever "include guests" says, as in Magento. "Include guests" keeps its meaning for
+guest-checkout customers only; the paragraph above stays as it is. Per mode, for a block
+subscriber without an account, with "include guests" on or off:
+
+| Mode | Live sync | Welcome email (section 7) | First import and daily refresh |
+|---|---|---|---|
+| Subscribers only | The subscribe with `is_unsubscribed = 0`, the unsubscribe with `is_unsubscribed = 1`. | Yes, on a storefront subscribe. | The active rows. |
+| All customers | The subscribe, without a status; the unsubscribe is not sent. | Yes, on a storefront subscribe. | The active rows. |
+| Checkout opt-in only | Nothing. | No. | Nothing. |
+
+Before this decision the first two rows held only with "include guests" on; a fresh install has
+it off, an upgraded store on, so an upgraded store sends what it sent before.
+
+Magento, which this follows: its subscriber observer syncs a subscription in its consent and
+legitimate-interest modes and asks no guest setting, and fires the welcome for a storefront
+subscription that it syncs; in its checkout-only mode a newsletter-form signup syncs nothing and
+starts no welcome (`magento:Observer/SubscriberSaveAfter.php`, `execute()` and
+`syncsSubscription()`). Its guest setting is "Include guest order emails" and gates guest orders
+only (`magento:Model/ContactSync/Mode.php`, `includeGuests()`; `magento:Observer/OrderPlaced.php`).
+Its import sends every subscribed or unsubscribed newsletter subscriber of the website, with or
+without an account (`magento:Model/Backfill/ContactAudience.php`, `subscribers()`).
+
+Where Magento's modes do not map, PrestaShop keeps its rule of before the decision (section 14
+has no open row for these; they belong to the cross-connector analysis, Linear CON-397): Magento
+sends an unsubscribe in every mode and a status with a subscribe in its legitimate-interest mode;
+PrestaShop's all customers sends no status and no block unsubscribe, and its checkout opt-in only
+sends nothing of the block. Magento's checkout-only mode also syncs the confirmation of a pending
+double opt-in, because it cannot tell it from the checkout box; PrestaShop can (the row's source
+is `newsletter_block`) and does not.
 
 **[D]** "Status sent only on change": a `contact.sync` row carries `is_unsubscribed` only when the
 listener saw the consent value change. Automations and imports never send `is_unsubscribed = 0`.
@@ -1540,7 +1572,9 @@ with `force_opt_in = false`.
 
 - **Welcome** (`Welcome\WelcomeTrigger`). It listens to the contact events of the capture (section
   6.3) and queues one row for an event that gained the consent in a storefront request, where the
-  welcome is on in the contact's shop and the shop's consent mode sends the contact. A consent that
+  welcome is on in the contact's shop and the shop's consent mode sends the contact. A
+  newsletter-block subscriber without an account is such a contact in subscribers only and in all
+  customers, whatever "include guests" says (owner, 2026-11-21; section 6.2). A consent that
   the back office, the reconcile, an import or the upgrade writes starts no welcome. Each storefront
   subscribe starts it, a re-subscribe too: there is no once-per-contact record. The contact sync
   itself need not be on.
@@ -3152,7 +3186,6 @@ has one owner:
 | 18 | The guest gates of the live sync | Answered by Story 2.3: the capture sets the payload's `guest` field, so the live sync applies the decision of 2026-11-20 as the imports do (section 6.2). | Story 2.3 (done) |
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
-| 25 | A newsletter-block subscriber without an account | Such a subscriber is synced, and gets the welcome email, only while "Include guests" is on (sections 6.2 and 7). A fresh install has it off; an upgraded store has it on. Magento syncs and welcomes a newsletter-form subscription whatever its guest setting says. | Owner |
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
 | 29 | Two shops on one Smaily account with different consent modes | Not known: whether the reconcile of the "Subscribers only" shop can mark a customer subscribed because the "All customers" shop created the contact in Smaily (section 6.5). It depends on how Smaily's action log records a contact that the API creates, which no run against the live service has shown. | Owner, with a live Smaily account |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
@@ -3176,7 +3209,8 @@ and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x c
 more), row 24 (mode `a` and the workflow of no language) and row 38 (the cron line on the Background
 tasks card) on 2026-11-21; they moved to section 15. So did rows 23 (a late unsubscribe after a newer
 subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription check covers one
-shop), answered together on 2026-11-21.
+shop), answered together on 2026-11-21, and row 25 (a newsletter-block subscriber without an
+account).
 
 ## 15. Decisions
 
@@ -3256,3 +3290,7 @@ Decisions of 2026-11-21:
   keeps Magento's refusals only (not failed, withdrawn, erased, superseded): a failed contact sync
   may go again, and a row whose event waits in the queue again is not refused (sections 6.4 and
   10.8).
+- A newsletter-block subscriber without an account is synced and welcomed whatever "include
+  guests" says, as in Magento (owner, 2026-11-21): in subscribers only and in all customers, by
+  the live sync, the welcome email, the first import and the daily refresh; never in checkout
+  opt-in only. "Include guests" gates guest-checkout customers only (section 6.2).

@@ -683,7 +683,7 @@ final class SettingsShopsTest extends IntegrationTestCase
             $read[$shop] = [
                 'account' => $account === null ? null : [$account->subdomain(), $account->username(), $account->password() === self::PASSWORD],
                 'sync' => $contacts->syncActive($shop),
-                'mode' => [$mode->mode(), $mode->includesNewsletterGuests()],
+                'mode' => [$mode->mode(), $mode->includesGuests()],
                 'fields' => $contacts->fields($shop),
                 'welcome' => [$automations->enabled('welcome', $shop), $match === null ? null : $match->workflowId()],
             ];

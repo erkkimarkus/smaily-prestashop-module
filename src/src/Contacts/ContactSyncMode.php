@@ -36,10 +36,11 @@ if (!defined('_PS_VERSION_')) {
  *  - all customers: every customer, and Smaily keeps the subscription status;
  *  - checkout opt-in only: a checkout with the newsletter box ticked, and nothing else.
  *
- * "Include guests" adds the newsletter-block subscribers without an account (`emailsubscription`)
- * and the guest-checkout customers (`is_guest = 1`); in subscribers only a guest-checkout customer
- * goes only with the newsletter box ticked. It has no effect in checkout opt-in only. An unknown stored mode reads as subscribers only, so a
- * bad value never widens the audience.
+ * "Include guests" adds the guest-checkout customers (`is_guest = 1`); in subscribers only a
+ * guest-checkout customer goes only with the newsletter box ticked. It has no effect in checkout
+ * opt-in only. A newsletter-block subscriber without an account (`emailsubscription`) does not
+ * depend on it (owner, 2026-11-21, as Magento): ContactAudience sends one by the mode alone. An
+ * unknown stored mode reads as subscribers only, so a bad value never widens the audience.
  */
 final class ContactSyncMode
 {
@@ -67,9 +68,10 @@ final class ContactSyncMode
     }
 
     /**
-     * Whether newsletter-block subscribers without an account are contacts.
+     * Whether "include guests" is on: guest-checkout customers are contacts in subscribers only and
+     * in all customers. Checkout opt-in only never asks, and reads as off.
      */
-    public function includesNewsletterGuests(): bool
+    public function includesGuests(): bool
     {
         return $this->includeGuests && $this->mode !== self::CHECKOUT_OPTIN;
     }

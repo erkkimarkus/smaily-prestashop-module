@@ -59,7 +59,8 @@ final class ContactAudienceTest extends TestCase
     }
 
     /**
-     * Row "Newsletter-block guests": a newsletter-block subscriber without an account.
+     * Row "Newsletter-block subscribers": a newsletter-block subscriber without an account goes by
+     * the mode alone, whatever "include guests" says (owner, 2026-11-21, as Magento).
      *
      * @return array<string, array{string, bool, bool, bool, bool}>
      */
@@ -69,10 +70,12 @@ final class ContactAudienceTest extends TestCase
         return [
             'subscribers, guests on: subscribe' => [self::SUBSCRIBERS, true, true, true, true],
             'subscribers, guests on: unsubscribe' => [self::SUBSCRIBERS, true, false, true, true],
-            'subscribers, guests off: subscribe' => [self::SUBSCRIBERS, false, true, true, false],
+            'subscribers, guests off: subscribe' => [self::SUBSCRIBERS, false, true, true, true],
+            'subscribers, guests off: unsubscribe' => [self::SUBSCRIBERS, false, false, true, true],
             'all customers, guests on: subscribe' => [self::ALL, true, true, true, true],
             'all customers, guests on: unsubscribe' => [self::ALL, true, false, true, false],
-            'all customers, guests off: subscribe' => [self::ALL, false, true, true, false],
+            'all customers, guests off: subscribe' => [self::ALL, false, true, true, true],
+            'all customers, guests off: unsubscribe' => [self::ALL, false, false, true, false],
             'checkout opt-in, guests on: subscribe' => [self::CHECKOUT, true, true, true, false],
             'checkout opt-in, guests off: subscribe' => [self::CHECKOUT, false, true, true, false],
         ];
@@ -98,10 +101,11 @@ final class ContactAudienceTest extends TestCase
         // mode, include guests, imports a subscribed customer, imports a customer without consent, imports newsletter-block guests
         return [
             'subscribers, guests on' => [self::SUBSCRIBERS, true, true, false, true],
-            'subscribers, guests off' => [self::SUBSCRIBERS, false, true, false, false],
+            'subscribers, guests off' => [self::SUBSCRIBERS, false, true, false, true],
             'all customers, guests on' => [self::ALL, true, true, true, true],
-            'all customers, guests off' => [self::ALL, false, true, true, false],
+            'all customers, guests off' => [self::ALL, false, true, true, true],
             'checkout opt-in, guests on' => [self::CHECKOUT, true, false, false, false],
+            'checkout opt-in, guests off' => [self::CHECKOUT, false, false, false, false],
         ];
     }
 
