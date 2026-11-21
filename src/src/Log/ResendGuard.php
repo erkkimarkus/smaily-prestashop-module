@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\StaleSubscription;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -137,17 +138,15 @@ final class ResendGuard
             return [];
         }
         $quote = static fn ($value): string => '\'' . pSQL((string) $value, true) . '\'';
-        $later = \Db::getInstance()->executeS(
+        $later = Sql::rows(
             'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `payload` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`'
             . ' WHERE `entity_id` IN (' . implode(', ', array_unique(array_map($quote, array_column($rows, 'entity_id')))) . ')'
             . ' AND `event_type` IN (' . implode(', ', array_unique(array_map($quote, array_column($rows, 'event_type')))) . ')'
-            . ' AND `status` IN (' . implode(', ', array_map($quote, [EventQueue::STATUS_SENT, EventQueue::STATUS_PENDING, EventQueue::STATUS_PROCESSING])) . ')',
-            true,
-            false
+            . ' AND `status` IN (' . implode(', ', array_map($quote, [EventQueue::STATUS_SENT, EventQueue::STATUS_PENDING, EventQueue::STATUS_PROCESSING])) . ')'
         );
 
         $refused = [];
-        foreach (is_array($later) ? $later : [] as $other) {
+        foreach ($later as $other) {
             foreach ($rows as $id => $row) {
                 if ((int) $other['id'] <= $id
                     || (int) $other['id_shop'] !== (int) $row['id_shop']

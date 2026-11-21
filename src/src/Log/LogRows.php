@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -105,13 +106,11 @@ final class LogRows
         }
         // A derived table, so that the statement has one form on every MySQL and MariaDB version.
         $union = count($selects) === 1 ? $selects[0] : '(' . implode(') UNION ALL (', $selects) . ')';
-        $rows = \Db::getInstance()->executeS(
-            'SELECT * FROM (' . $union . ') AS `log` ORDER BY `created_at` DESC, `kind`, `id` DESC LIMIT ' . $offset . ', ' . $limit,
-            true,
-            false
+        $rows = Sql::rows(
+            'SELECT * FROM (' . $union . ') AS `log` ORDER BY `created_at` DESC, `kind`, `id` DESC LIMIT ' . $offset . ', ' . $limit
         );
 
-        return is_array($rows) ? array_values($rows) : [];
+        return $rows;
     }
 
     public function count(LogFilter $filter): int
@@ -124,7 +123,7 @@ final class LogRows
             }
         }
 
-        return $counts === [] ? 0 : (int) \Db::getInstance()->getValue('SELECT ' . implode(' + ', $counts), false);
+        return $counts === [] ? 0 : Sql::count('SELECT ' . implode(' + ', $counts));
     }
 
     /**
@@ -143,7 +142,7 @@ final class LogRows
             );
         }
 
-        return (int) \Db::getInstance()->getValue('SELECT ' . implode(' + ', $counts), false);
+        return Sql::count('SELECT ' . implode(' + ', $counts));
     }
 
     /**
@@ -160,11 +159,10 @@ final class LogRows
         }
         $kind = $matches[1];
         $scope = $this->scope($kind);
-        $row = \Db::getInstance()->getRow(
-            'SELECT * FROM ' . self::table(self::tableOf($kind)) . ' WHERE `id` = ' . $matches[2] . ($scope === null ? '' : ' AND ' . $scope),
-            false
+        $row = Sql::row(
+            'SELECT * FROM ' . self::table(self::tableOf($kind)) . ' WHERE `id` = ' . $matches[2] . ($scope === null ? '' : ' AND ' . $scope)
         );
-        if (!is_array($row)) {
+        if ($row === null) {
             return null;
         }
         if ($kind === self::JOB) {
@@ -194,16 +192,14 @@ final class LogRows
         if ($condition === null || $ids === []) {
             return [];
         }
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `id` FROM ' . self::table(EventQueue::TABLE) . ' WHERE ' . $condition
             . ' AND `status` = \'' . EventQueue::STATUS_FAILED . '\' AND `id` > ' . $after
             . ($ids === null ? '' : ' AND `id` IN (' . implode(', ', array_map('intval', $ids)) . ')')
-            . ' ORDER BY `id` LIMIT ' . $limit,
-            true,
-            false
+            . ' ORDER BY `id` LIMIT ' . $limit
         );
 
-        return is_array($rows) ? array_map(static fn (array $row): int => (int) $row['id'], $rows) : [];
+        return array_map(static fn (array $row): int => (int) $row['id'], $rows);
     }
 
     /**
@@ -218,14 +214,12 @@ final class LogRows
         if ($ids === []) {
             return [];
         }
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error`, `payload` FROM ' . self::table(EventQueue::TABLE)
-            . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')',
-            true,
-            false
+            . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')'
         );
 
-        return is_array($rows) ? array_column($rows, null, 'id') : [];
+        return array_column($rows, null, 'id');
     }
 
     /**

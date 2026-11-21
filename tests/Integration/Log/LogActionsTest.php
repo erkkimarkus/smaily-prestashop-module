@@ -9,6 +9,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogFilter;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
@@ -18,9 +19,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Log\Retry;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use Tests\Integration\Automation\AbandonedCart\AbandonedCartTestCase;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Migration\LegacyStore;
 
 require_once __DIR__ . '/../Automation/AbandonedCart/AbandonedCartTestCase.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The Log's writes in the shop, against the Smaily mock: the queue keeps what each attempt sent and
@@ -193,6 +196,49 @@ final class LogActionsTest extends AbandonedCartTestCase
         self::assertSame(2, $this->flush());
         self::assertSame(['sent', 'sent'], [self::stored($sync)['status'], self::stored($welcome)['status']], 'the next flush delivers the retried rows');
         self::assertSame('shopper1@example.test', $this->posts('/api/contact.php')[0]['body'][0]['email']);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public function guardReads(): array
+    {
+        return [
+            'the rows the guard reads' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error`, `payload` FROM/'],
+            'the later rows of the contacts' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `payload` FROM/'],
+            'the later consent changes' => ['/^SELECT `id`, `id_shop`, `entity_id`, `payload` FROM/'],
+        ];
+    }
+
+    /**
+     * "Retry" returns only the rows that the guard lets through. A read of the guard that fails
+     * (facts file 6.11) refuses nothing by itself: read as "no row stands in the way", every failed
+     * row went back to the queue, the superseded, erased and stale ones too. The retry stops, no
+     * row changes, and "Send again" of one such row is not answered as allowed.
+     *
+     * @dataProvider guardReads
+     */
+    public function testARetryWhoseGuardCouldNotBeReadReturnsNoRowToTheQueue(string $failing): void
+    {
+        $failed = ['status' => 'failed', 'attempts' => 5, 'next_retry_at' => null, 'last_error' => 'Smaily API request failed with HTTP 500'];
+        $superseded = $this->welcome('shopper3@example.test', $failed);
+        $this->welcome('shopper3@example.test', ['status' => 'sent']);
+        $erased = $this->sync('shopper4@example.test', ['entity_id' => ResendGuard::ERASED_ENTITY] + $failed);
+        $stale = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
+        $this->sync('shopper5@example.test', ['status' => 'sent', 'payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":false,"consent_changed":true}']);
+        $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
+        $retry = new Retry($rows, new ResendGuard(), $this->queue());
+
+        try {
+            FailingQueries::during($failing, static function () use ($retry): void {
+                $retry->retry(new LogFilter(), null);
+            });
+            self::fail('The retry went on without its guard.');
+        } catch (SqlException $error) {
+            self::assertSame(['failed', 'failed', 'failed'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($stale)['status']]);
+        }
+
+        self::assertSame([0, 3], $retry->retry(new LogFilter(), null), 'with its reads the guard refuses the three');
     }
 
     /**
