@@ -127,6 +127,11 @@ Page traffic in the dev shop runs the fallback tick, and with it the daily updat
 real GitHub (`api.github.com`, no store data). Two tests pin the tick's full job list
 (`SchedulerProviderTest`, `PendingMigrationTest`): a change that registers a scheduler job edits both.
 
+A shop with two or more active languages answers 302 at `/` (to `/en/`), and a redirect runs no
+fallback tick (verified on 8.2.8). A walk or a script that opens the storefront to run the tick
+follows the redirect: `curl -L`. The module's own front controllers (the cron and tick URLs, the RSS
+feed) answer without a redirect.
+
 `composer test` does not work inside the dev shop. It runs `phpunit --configuration
 ../phpunit.xml.dist`, and the folder above the module in the shop is `modules/`, which holds no
 `phpunit.xml.dist` (verified: `Could not read "../phpunit.xml.dist"`). It also does not set
@@ -249,7 +254,8 @@ Results on 2026-11-20:
   shop on each. Section 4 holds the newer counts of the dev shop.
 - The official image did not run with any code after the event queue.
 
-The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
+The storefront check (step 6) deletes the schema version and opens the storefront, following a
+redirect: a shop with two languages answers 302 at `/`, and a redirect runs no tick. The fallback tick
 of that request finds nothing to migrate on the fresh install and stores the version again; it writes
 nothing else (ARCHITECTURE section 3.7). The script then restores the version only when no row holds
 it, so the shop keeps exactly one schema-version row.

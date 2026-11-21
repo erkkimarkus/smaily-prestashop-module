@@ -77,7 +77,9 @@ $COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-repo && m
 
 echo "* Opening the storefront while the schema version is unset"
 sql "DELETE FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'"
-code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
+# A shop with two or more languages answers 302 at "/", and a redirect runs no fallback tick: the
+# request follows it to the page.
+code=$(curl -s -L -o /dev/null -w '%{http_code}' "$URL/")
 [ "$code" = 200 ]; report $? "the storefront answers 200 (got $code)"
 # The fallback tick of that request can finish the migration and store the version itself, after
 # the response (10 seconds at most): wait for it, then put the version back only where it is still
