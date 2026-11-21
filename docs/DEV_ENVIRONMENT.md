@@ -84,10 +84,11 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1336 tests, 6498 assertions on 8.2.8 and 9.2.0, each on a fresh
-shop behind the egress guard (2026-11-21, with the discount codes of the store automations); 8.0.0
-last ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite
-runs its unit tests and skips the integration tests (1336 tests, 2037 assertions, 670 skipped).
+Last verified results, all passing: 1355 tests, 6591 assertions on 8.2.8 and 9.2.0, each on a fresh
+shop behind the egress guard (2026-11-21, with the hardening of the checkout capture and the cron
+URLs); 8.0.0 last ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the
+same suite runs its unit tests and skips the integration tests (1355 tests, 2037 assertions, 689
+skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
