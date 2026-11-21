@@ -55,6 +55,7 @@ final class Services
         Provider\ContactReconcileProvider::class,
         Provider\AutomationProvider::class,
         Provider\EngineProvider::class,
+        Provider\EngineIngestProvider::class,
         Provider\StorefrontProvider::class,
         Provider\PrivacyProvider::class,
         Provider\ReportProvider::class,
