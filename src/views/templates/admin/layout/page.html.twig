@@ -41,6 +41,7 @@
 {% block content %}
   <div class="smaily-ui smaily-page smaily-page--{{ smaily.page }}"
        data-smaily-token="{{ smaily.token }}"
+       data-smaily-scope="{{ smaily.scope }}"
        data-smaily-api-finish-upgrade="{{ path('smailyforprestashop_api_finish_upgrade') }}"
        data-smaily-api-dismiss-notice="{{ path('smailyforprestashop_api_dismiss_notice') }}"
        data-smaily-api-dismiss-invitation="{{ path('smailyforprestashop_api_dismiss_invitation') }}"

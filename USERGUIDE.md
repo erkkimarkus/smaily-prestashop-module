@@ -84,6 +84,8 @@ A multishop store first answers **How are your shops run?**
 - **One store in several versions**: the shops are country or language versions of one business, on one Smaily account. You set the store up once. To give one shop its own Smaily account, its own Contacts settings or its own automations, pick the shop in the shop selector at the top of the page and tick **Use its own Smaily account on this shop**, **Use its own Contacts settings on this shop** or **Use its own automations on this shop**. A shop on another Smaily account than the one saved for all shops always uses its own automations: pick its workflows under **Settings -> Automations**.
 - **Separate stores**: each shop is a business of its own, with its own Smaily account, contacts and automations. Pick a shop in the shop selector at the top of the page and set each shop up on its own.
 
+The shop selector applies to every open back-office tab. When the selected shop changes after a Smaily Connect page was opened, for example in another browser tab, the page saves nothing and asks you to reload it, so that a setting never lands on another shop than the one the page shows.
+
 **Change** next to the answer in **Settings** switches between the two. From one store to separate stores, each shop keeps the settings it uses now, as its own. From separate stores to one store, all shops then use the settings of the shop you have selected, and the other shops' own settings are removed; the page asks you to confirm first.
 
 ## Adding newsletter subscription form to your store

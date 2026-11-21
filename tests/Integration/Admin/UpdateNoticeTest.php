@@ -103,6 +103,7 @@ final class UpdateNoticeTest extends IntegrationTestCase
         };
         $request = new Request();
         $request->headers->set('X-Smaily-Token', 'wrong');
+        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
 
         $response = $endpoint->execute($request);
 

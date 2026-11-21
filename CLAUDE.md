@@ -196,6 +196,11 @@ ask (Linear discipline below).
   write a value per shop in a loop over the shops (facts file 6.9).
 - **Admin cache.** Stale `var/cache` breaks module routes and service
   configuration (CONTRIBUTING.md, "Invalidating cache").
+- **The selected shop is one cookie.** Another tab, or a late answer of
+  another back-office page, changes it under an open page. Every JSON
+  endpoint therefore compares the header `X-Smaily-Scope` with the selection
+  it runs in and refuses a difference (ARCHITECTURE 10.1); a test that
+  executes an endpoint sets that header (`AbstractJsonAction::pageScope()`).
 - **Admin page addresses.** PrestaShop's back office reads the parameters
   `error` and `conf` of every page address as its own message numbers. A
   module page that carries `error=<text>` fails in debug mode ("Undefined

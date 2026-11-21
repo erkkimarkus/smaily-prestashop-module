@@ -1167,6 +1167,11 @@
         <target>Vahele jäetud: pood jõudis piirmäärani, milleks on 2000 kassas sisestatud aadressi ühe tunni jooksul. Pärast seda kassas sisestatud aadressi ei salvestatud ja sellele ostukorvi meeldetuletust ei saadeta.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="5ffb6ccacebab83c9313daf976cb0a49">
+        <source>The shop selected at the top of the page has changed since this page was opened. Reload the page and try again.</source>
+        <target>Lehe ülaosas valitud pood on pärast selle lehe avamist muutunud. Laadi leht uuesti ja proovi siis uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

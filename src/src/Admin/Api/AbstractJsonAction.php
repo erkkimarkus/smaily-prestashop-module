@@ -40,9 +40,16 @@ use Symfony\Component\HttpFoundation\Request;
  * The base of the admin pages' JSON endpoints. A route of config/routes/ names `execute` as its
  * controller method and one of the four page tabs as its `_legacy_controller`.
  *
- * Before handle() runs, the request must carry the employee's right PERMISSION on that tab, and the
- * page's CSRF token in the header X-Smaily-Token (common.js sends it). PrestaShop's own `_token` of
- * the admin URL is checked by PrestaShop before the controller runs.
+ * Before handle() runs, the request must carry the employee's right PERMISSION on that tab, the
+ * page's CSRF token in the header X-Smaily-Token, and in X-Smaily-Scope the shop selection that the
+ * page was drawn for (common.js sends both). PrestaShop's own `_token` of the admin URL is checked
+ * by PrestaShop before the controller runs.
+ *
+ * PrestaShop keeps the selected shop in the employee's one cookie, so another browser tab, or a
+ * late answer of another page, changes it under a page that is open. A request whose page was
+ * drawn for another selection than the one the request runs in is refused: it would read or save
+ * another shop's values than the page shows. The header is only compared; the shop that a request
+ * reads and writes is always the one of the request itself (shopId()).
  *
  * Every answer is one envelope: `{"ok": true, "data": {...}}`, or `{"ok": false, "error": {"code":
  * "...", "message": "..."}}` with an HTTP status of 4xx or 5xx. An error's message never carries an
@@ -65,6 +72,9 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
         }
         if (!$this->isCsrfTokenValid(BaseController::API_TOKEN_ID, (string) $request->headers->get('X-Smaily-Token'))) {
             return $this->error('invalid_token', $this->trans('The page has expired. Reload it and try again.', BaseController::DOMAIN), 403);
+        }
+        if ((string) $request->headers->get('X-Smaily-Scope') !== self::pageScope()) {
+            return $this->error('scope_changed', $this->trans('The shop selected at the top of the page has changed since this page was opened. Reload the page and try again.', BaseController::DOMAIN), 409);
         }
 
         try {
@@ -119,6 +129,25 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
         }
 
         return (int) \Shop::getContextShopID();
+    }
+
+    /**
+     * The selection of PrestaShop's shop selector, as a page carries it and its requests name it
+     * again: `all`, a shop group or a shop. A store without multishop is always `all`.
+     */
+    public static function pageScope(): string
+    {
+        if (!\Shop::isFeatureActive()) {
+            return 'all';
+        }
+        switch (\Shop::getContext()) {
+            case \Shop::CONTEXT_SHOP:
+                return 'shop-' . (int) \Shop::getContextShopID();
+            case \Shop::CONTEXT_GROUP:
+                return 'group-' . (int) \Shop::getContextShopGroupID();
+            default:
+                return 'all';
+        }
     }
 
     private static function noStore(JsonResponse $response): JsonResponse

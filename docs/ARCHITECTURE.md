@@ -1833,6 +1833,17 @@ Each page needs the right to read its menu tab: an employee without it gets the 
 403). Each of the four page controllers asks `BaseController::opens()` first, and reads nothing
 that only the opened page shows for a page that does not open.
 
+**[D]** Every JSON endpoint is refused when the shop selection changed under its page
+(`Admin\Api\AbstractJsonAction`). PrestaShop keeps the selected shop in the employee's one cookie, so
+a second browser tab, or a late answer of another back-office page, changes it while a page of the
+module is open; a save meant for one shop then ran for "All shops" and replaced the setup all shops
+share. Each page carries the selection it was drawn for (`all`, a shop group or a shop;
+`AbstractJsonAction::pageScope()`), `common.js` sends it with every request in the header
+`X-Smaily-Scope`, and a request whose header differs from the selection it runs in answers 409
+`scope_changed`: "The shop selected at the top of the page has changed since this page was opened.
+Reload the page and try again." The header is only compared. The shop that a request reads and
+writes is still the one of the request itself, so a forged header changes nothing but the refusal.
+
 **[D]** The base controller stays `FrameworkBundleAdminController` (section 1.5). On 9.x,
 `Context::getContext()->controller` inside a Symfony admin page is a `LegacyControllerContext` proxy,
 so the module never detects the back office by the controller's class (facts file 1.9). On 8.2.8 a
@@ -2006,8 +2017,8 @@ and the two manual actions follow one rule. A row that unsubscribes is never hel
 without an entity is not compared with later rows; a contact's row always has one (section 2.2).
 
 **Rights.** The page needs the right to read the Log's menu tab. Details need the same right; "Send
-again" and "Retry" need the right to change it. Each endpoint also needs the page's token
-(`Admin\Api\AbstractJsonAction`).
+again" and "Retry" need the right to change it. Each endpoint also needs the page's token and the
+shop selection the page was drawn for (`Admin\Api\AbstractJsonAction`, section 10.1).
 
 **Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); the "Privacy
 request" form of section 11.2 (Story 5.6); sorting by another column than Created.

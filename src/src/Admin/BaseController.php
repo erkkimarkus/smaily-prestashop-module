@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
@@ -141,6 +142,8 @@ abstract class BaseController extends FrameworkBundleAdminController
                 'notices' => $upgrade === null ? $this->notices() : [],
                 'update' => self::updateNotice(),
                 'token' => $this->get('security.csrf.token_manager')->getToken(self::API_TOKEN_ID)->getValue(),
+                // The shop selection the page is drawn for; its requests name it again.
+                'scope' => AbstractJsonAction::pageScope(),
                 'invitation_dismissed' => (new AdminSettings())->isInvitationDismissed(time()),
             ],
         ]);

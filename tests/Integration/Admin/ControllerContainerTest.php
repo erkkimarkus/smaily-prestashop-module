@@ -32,7 +32,10 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\IntegrationTestCase;
+use Tests\Integration\MultistoreShop;
 use Twig\Environment;
+
+require_once __DIR__ . '/../MultistoreShop.php';
 
 /**
  * On PrestaShop 8.2.8 the container of an admin controller is a service locator that holds what
@@ -47,6 +50,8 @@ use Twig\Environment;
  */
 final class ControllerContainerTest extends IntegrationTestCase
 {
+    use MultistoreShop;
+
     private const SETUP_ROUTE = ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_save'];
 
     /** An Automations save that is refused before anything is written or asked of Smaily. */
@@ -112,6 +117,7 @@ final class ControllerContainerTest extends IntegrationTestCase
         self::assertSame($title, $this->rendered['layoutTitle']);
         self::assertSame($page, $this->rendered['smaily']['page']);
         self::assertSame('page-token', $this->rendered['smaily']['token']);
+        self::assertSame(AbstractJsonAction::pageScope(), $this->rendered['smaily']['scope']);
         self::assertCount(1, $this->rendered['smaily']['notices']);
         self::assertStringStartsWith('Your settings from the previous version', $this->rendered['smaily']['notices'][0]['text']);
     }
@@ -384,6 +390,100 @@ final class ControllerContainerTest extends IntegrationTestCase
         );
     }
 
+    /**
+     * The endpoints of the Settings page, the Initial setup and the Log, each with a request that
+     * would write, call Smaily or read a shop's values: [action, body].
+     *
+     * @return array<string, array{class-string<AbstractJsonAction>, array<string, mixed>}>
+     */
+    public function scopedEndpoints(): array
+    {
+        $account = ['subdomain' => 'demo', 'username' => 'api-user', 'password' => 'not-a-real-password', 'language_mode' => 'single'];
+        $contacts = ['mode' => 'all_customers', 'fields' => ['first_name'], 'guests' => true, 'enabled' => true];
+        $automations = ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '']], 'cart_delay' => '30'];
+
+        return [
+            'Save Connection' => [SaveTab::class, ['tab' => 'connection', 'own' => true, 'data' => $account]],
+            'Save Contacts' => [SaveTab::class, ['tab' => 'contacts', 'own' => true, 'data' => $contacts]],
+            'Save Automations' => [SaveTab::class, ['tab' => 'automations', 'own' => true, 'data' => $automations]],
+            'Save RSS' => [SaveTab::class, ['tab' => 'rss', 'data' => ['limit' => '7']]],
+            'Test connection' => [TestConnection::class, $account],
+            'the layout change' => [ChangeLayout::class, ['shape' => 'separate']],
+            'Start import' => [ContactImportAction::class, ['action' => 'start']],
+            'the import progress' => [ContactImportProgress::class, []],
+            'the workflow lists' => [Workflows::class, ['account' => 'default', 'own' => true]],
+            'the discount pickers' => [DiscountRules::class, ['own' => true]],
+            'the setup layout step' => [SaveStep::class, ['step' => 'shape', 'data' => ['shape' => 'one']]],
+            'the setup Connect step' => [SaveStep::class, ['step' => 'connect', 'data' => $account]],
+            'the setup Contacts step' => [SaveStep::class, ['step' => 'contacts', 'data' => $contacts]],
+            'the setup Automations step' => [SaveStep::class, ['step' => 'automations', 'data' => $automations]],
+            'the setup Finish' => [SaveStep::class, ['step' => 'finish']],
+            'the Log retry of every row' => [MassRetry::class, ['all' => true, 'filter' => []]],
+        ];
+    }
+
+    /**
+     * The back office keeps the selected shop in one cookie: another tab changes it under an open
+     * page. A request then runs for another selection than its page shows, in either direction.
+     *
+     * @dataProvider scopedEndpoints
+     *
+     * @param class-string<AbstractJsonAction> $action
+     * @param array<string, mixed> $body
+     */
+    public function testARequestOfAPageDrawnForAnotherShopSelectionIsRefusedAndWritesNothing(string $action, array $body): void
+    {
+        $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'x']);
+        $route = ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_settings_save'];
+        $message = 'The shop selected at the top of the page has changed since this page was opened. Reload the page and try again.';
+        $this->openMultistore();
+        try {
+            $shop = $this->addShop($this->addShopGroup(false));
+            $before = $this->stored();
+
+            // The page was drawn for the shop; the selection is "All shops" now.
+            \Shop::setContext(\Shop::CONTEXT_ALL);
+            self::assertSame('all', AbstractJsonAction::pageScope());
+            self::assertError(409, 'scope_changed', $message, $this->execute(new $action(), $this->locator(), $body, $route, 'shop-' . $shop));
+            // The page was drawn for "All shops"; the selection is the shop now.
+            \Shop::setContext(\Shop::CONTEXT_SHOP, $shop);
+            self::assertSame('shop-' . $shop, AbstractJsonAction::pageScope());
+            self::assertError(409, 'scope_changed', $message, $this->execute(new $action(), $this->locator(), $body, $route, 'all'));
+            // A page of another shop, of the shop's group, and a request that names no selection.
+            self::assertError(409, 'scope_changed', $message, $this->execute(new $action(), $this->locator(), $body, $route, 'shop-' . $this->defaultShopId()));
+            self::assertError(409, 'scope_changed', $message, $this->execute(new $action(), $this->locator(), $body, $route, 'group-' . (int) \Shop::getContextShopGroupID()));
+            self::assertError(409, 'scope_changed', $message, $this->execute(new $action(), $this->locator(), $body, $route, ''));
+
+            self::assertSame($before, $this->stored(), 'a refused request changes nothing');
+        } finally {
+            $this->closeMultistore();
+        }
+    }
+
+    public function testThePageScopeNamesTheSelectedShopGroupOrAllShops(): void
+    {
+        self::assertSame('all', AbstractJsonAction::pageScope(), 'a store without multishop has one selection');
+        $this->openMultistore();
+        try {
+            $group = $this->addShopGroup(false);
+            $shop = $this->addShop($group);
+
+            \Shop::setContext(\Shop::CONTEXT_SHOP, $shop);
+            self::assertSame(['shop-' . $shop, $shop], [AbstractJsonAction::pageScope(), AbstractJsonAction::shopId()]);
+            \Shop::setContext(\Shop::CONTEXT_GROUP, $group);
+            self::assertSame(['group-' . $group, 0], [AbstractJsonAction::pageScope(), AbstractJsonAction::shopId()]);
+            \Shop::setContext(\Shop::CONTEXT_ALL);
+            self::assertSame(['all', 0], [AbstractJsonAction::pageScope(), AbstractJsonAction::shopId()]);
+
+            // The matching selection passes the check: the request reaches its own validation.
+            \Shop::setContext(\Shop::CONTEXT_SHOP, $shop);
+            $response = $this->execute(new SaveTab(), $this->locator(), ['tab' => 'no-such-tab'], ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_settings_save'], 'shop-' . $shop);
+            self::assertError(400, 'unknown_tab', 'Saving failed.', $response);
+        } finally {
+            $this->closeMultistore();
+        }
+    }
+
     public function testAnEndpointThatThrowsAnswersInWords(): void
     {
         $failing = new class extends AbstractJsonAction {
@@ -427,12 +527,14 @@ final class ControllerContainerTest extends IntegrationTestCase
     /**
      * @param array<string, mixed> $body
      * @param array<string, string> $route
+     * @param string|null $scope the shop selection the page was drawn for; null: the current one
      */
-    private function execute(AbstractJsonAction $action, ServiceLocator $locator, array $body, array $route = self::SETUP_ROUTE): JsonResponse
+    private function execute(AbstractJsonAction $action, ServiceLocator $locator, array $body, array $route = self::SETUP_ROUTE, ?string $scope = null): JsonResponse
     {
         $action->setContainer($locator);
         $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
         $request->headers->set('X-Smaily-Token', 'page-token');
+        $request->headers->set('X-Smaily-Scope', $scope ?? AbstractJsonAction::pageScope());
 
         return $action->execute($request);
     }
@@ -457,6 +559,26 @@ final class ControllerContainerTest extends IntegrationTestCase
         ]);
 
         return (int) self::db()->Insert_ID();
+    }
+
+    /**
+     * Everything a request of the module's pages can change: its configuration rows, accounts,
+     * workflow rows, jobs and queue rows.
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function stored(): array
+    {
+        $stored = ['configuration' => (array) self::db()->executeS(
+            'SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` LIKE \'SMAILY\\_%\' ORDER BY `id_configuration`',
+            true,
+            false
+        )];
+        foreach (['smaily_connect_account', 'smaily_connect_automation_mapping', 'smaily_connect_job', EventQueue::TABLE] as $table) {
+            $stored[$table] = (array) self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . $table . '`', true, false);
+        }
+
+        return $stored;
     }
 
     private static function assertError(int $status, string $code, string $message, JsonResponse $response): void

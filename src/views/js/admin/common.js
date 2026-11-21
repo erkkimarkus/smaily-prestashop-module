@@ -27,7 +27,7 @@
  * invitation, the Settings tabs and the Initial setup steps. Plain JavaScript, no build.
  *
  * window.smailyConnect.api(url, body) posts JSON to an endpoint of Admin\Api with the page's token
- * and resolves to the answer's `data`; it rejects with an Error whose message is the answer's
+ * and the shop selection it was drawn for, and resolves to the answer's `data`; it rejects with an Error whose message is the answer's
  * error message and whose `code` is its error code.
  *
  * window.smailyConnect.setup.onContinue(step, saver) registers the saver of a setup step: Continue
@@ -103,7 +103,9 @@
         headers: {
           'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-          'X-Smaily-Token': root.getAttribute('data-smaily-token')
+          'X-Smaily-Token': root.getAttribute('data-smaily-token'),
+          // The shop selection the page was drawn for: the endpoint refuses another one.
+          'X-Smaily-Scope': root.getAttribute('data-smaily-scope')
         },
         body: JSON.stringify(body || {})
       }).then(function (response) {
