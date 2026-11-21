@@ -120,6 +120,12 @@ $answer = static function (int $status, array $payload): bool {
 };
 $now = gmdate('Y-m-d\TH:i:s\Z');
 
+// The ingest routes (§3, §3b, §3c, §4, §5, §7) answer in ingest.php, which lists them and their
+// switches.
+if ((require __DIR__ . '/ingest.php') === true) {
+    return true;
+}
+
 if ($route === null) {
     return $answer(404, ['error' => 'not_found', 'message' => 'No such route.', 'timestamp' => $now]);
 }
