@@ -95,6 +95,11 @@ A test that starts a PHP subprocess (the concurrency workers under `tests/Integr
 subprocess's output. The subprocess prints with `fwrite(STDOUT, …)`, not `echo`: the shop's bootstrap
 can buffer what `echo` prints, and the test then waits for a line that never comes.
 
+The GitHub mock runs PHP's built-in server with four workers, under `setsid`, and its teardown signals
+the server's whole process group. On PHP 8.0 a signal to the server alone left the four workers
+running after every suite run (20 processes and 187 MB after 5 runs in the 8.2.8 shop). A shop that
+ran the suite before this holds such processes until its container restarts.
+
 The integration tests call no real outside service: the Smaily calls go to the Smaily mock
 (`tests/Integration/Fixtures/SmailyMockServer.php`), and the GitHub release call goes to the GitHub
 mock (`GithubMockServer.php`). A test that runs the whole tick stubs the update check. Two known

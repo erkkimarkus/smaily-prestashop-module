@@ -14,6 +14,9 @@ final class GithubMockServer
     /** @var resource */
     private $process;
 
+    /** Whether the server leads a process group of its own, which stop() signals as a whole. */
+    private bool $ownGroup;
+
     private string $baseUrl;
 
     private string $stateFile;
@@ -21,9 +24,10 @@ final class GithubMockServer
     /**
      * @param resource $process
      */
-    private function __construct($process, string $baseUrl, string $stateFile)
+    private function __construct($process, bool $ownGroup, string $baseUrl, string $stateFile)
     {
         $this->process = $process;
+        $this->ownGroup = $ownGroup;
         $this->baseUrl = $baseUrl;
         $this->stateFile = $stateFile;
     }
@@ -39,8 +43,13 @@ final class GithubMockServer
             fclose($socket);
 
             $stateFile = (string) tempnam(sys_get_temp_dir(), 'github-mock-');
+            // The server forks its workers, and on PHP 8.0 a signal to the server alone leaves them
+            // running. `setsid` makes the server the leader of a process group of its own, so that
+            // stop() signals the server and its workers together.
+            $ownGroup = function_exists('posix_kill') && self::hasSetsid();
+            $command = ['php', '-S', '127.0.0.1:' . $port, __DIR__ . '/mock-github/router.php'];
             $process = proc_open(
-                ['php', '-S', '127.0.0.1:' . $port, __DIR__ . '/mock-github/router.php'],
+                $ownGroup ? array_merge(['setsid'], $command) : $command,
                 [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
                 $pipes,
                 null,
@@ -50,7 +59,7 @@ final class GithubMockServer
             if (!is_resource($process)) {
                 throw new \RuntimeException('The GitHub mock did not start.');
             }
-            self::$running = new self($process, 'http://127.0.0.1:' . $port, $stateFile);
+            self::$running = new self($process, $ownGroup, 'http://127.0.0.1:' . $port, $stateFile);
             register_shutdown_function([self::class, 'stop']);
             self::$running->waitUntilReachable($port);
         }
@@ -62,7 +71,13 @@ final class GithubMockServer
     public static function stop(): void
     {
         if (self::$running !== null) {
-            proc_terminate(self::$running->process);
+            $pid = (int) (proc_get_status(self::$running->process)['pid'] ?? 0);
+            if (self::$running->ownGroup && $pid > 1) {
+                // SIGTERM (15) to the process group, which a negative id names.
+                posix_kill(-$pid, 15);
+            } else {
+                proc_terminate(self::$running->process);
+            }
             @unlink(self::$running->stateFile);
             self::$running = null;
         }
@@ -105,6 +120,13 @@ final class GithubMockServer
     private function writeState(array $state): void
     {
         file_put_contents($this->stateFile, json_encode($state));
+    }
+
+    private static function hasSetsid(): bool
+    {
+        exec('command -v setsid 2>/dev/null', $output, $status);
+
+        return $status === 0;
     }
 
     private function waitUntilReachable(int $port): void
