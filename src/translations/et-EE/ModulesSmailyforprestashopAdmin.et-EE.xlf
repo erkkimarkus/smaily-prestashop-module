@@ -1102,6 +1102,61 @@
         <target>Automaatikad</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="80ba84114f170b46e828db550b8ad02e">
+        <source>Send a discount code</source>
+        <target>Saada sooduskood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="34b3a17eb4e2f0a852ccfc19bd4608d1">
+        <source>Cart price rule</source>
+        <target>Ostukorvi hinnareegel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cbe670826492cd73ae9f537530b4a9ef">
+        <source>Valid for (days)</source>
+        <target>Kehtib (päeva)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f779ab1e15b98816dc3b9149f36af81e">
+        <source>Pick a rule</source>
+        <target>Vali reegel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b4e92a61896a88f6d7b986eb7a9e490e">
+        <source>The discount's percentage or amount, its conditions and its dates come from the cart price rule you pick. The module only makes each shopper's own single-use code from it.</source>
+        <target>Soodustuse protsent või summa, selle tingimused ja kuupäevad tulevad valitud ostukorvi hinnareeglist. Moodul loob sellest ainult iga ostja enda ühekordse koodi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="34bdf2e0c80a4ba8f7b6fcac6c218452">
+        <source>A code works until the end of the day that many days after the email, and never after the rule's own end date.</source>
+        <target>Kood kehtib kuni selle päeva lõpuni, mis on e-kirjast nii mitu päeva hiljem, ja mitte kunagi pärast reegli enda lõppkuupäeva.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c3352544d0d5393a55f8158f4fc1ec9f">
+        <source>Keep the rule itself disabled, or give it a code that you do not share, so that shoppers cannot use it directly. The codes made from it work either way.</source>
+        <target>Hoia reegel ise välja lülitatuna või anna sellele kood, mida sa ei jaga, et ostjad ei saaks seda otse kasutada. Sellest loodud koodid toimivad mõlemal juhul.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="597dba5778d8a0ef2a0e6af0d49d5932">
+        <source>No cart price rule can be picked yet. Add one in Catalog &gt; Discounts with the discount you want, then press Refresh workflows: the rule appears in the list.</source>
+        <target>Ühtegi ostukorvi hinnareeglit ei saa veel valida. Lisa soovitud soodustusega reegel menüüs Kataloog &gt; Allahindlused ja vajuta siis „Värskenda töövooge“: reegel ilmub loendisse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a26239a18bd88a1d51a341e2679b32c1">
+        <source>Send a discount code is on, but no cart price rule is picked. Pick a rule, or switch the discount code off.</source>
+        <target>„Saada sooduskood“ on sees, kuid ostukorvi hinnareeglit pole valitud. Vali reegel või lülita sooduskood välja.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fd2219cd8be5f2322ed978dd3dfb65e8">
+        <source>A discount code must be valid for a whole number of days from %min% to %max%.</source>
+        <target>Sooduskoodi kehtivus peab olema täisarv päevi vahemikus %min% kuni %max%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="96f5e632659c6a7fcfd7296827cca1b0">
+        <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, or is not for this shop). The email goes without one.</source>
+        <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>
