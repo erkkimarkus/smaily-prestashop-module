@@ -133,6 +133,8 @@ final class LogView
         $notice = is_array($payload) ? ($payload[AutomationDiscount::NOTICE_KEY] ?? null) : null;
         $request = PayloadRedactor::forDisplay($row['last_request']);
         $attempted = $attempts > 0 || !in_array($status, [LogStatus::PENDING, LogStatus::SENDING], true);
+        // A privacy erasure cleared what the row held of its contact (ARCHITECTURE 11.2).
+        $erased = $row['entity'] === ResendGuard::ERASED_ENTITY;
         $history = [];
         foreach (AttemptHistory::entries($status, $attempts, (string) $row['created_at'], (string) $row['updated_at'], $row['next_retry_at']) as $entry) {
             $history[] = [
@@ -167,12 +169,14 @@ final class LogView
             'error_title' => $this->trans($status === LogStatus::SKIPPED ? 'Reason' : 'Last error'),
             'error_is_reason' => $status === LogStatus::SKIPPED,
             'failure_class' => $status === LogStatus::SKIPPED ? '' : FailureMessage::failureClass($row['last_error']),
-            'payload_title' => $this->trans($request !== '' ? 'Payload (as sent)' : ($attempted ? 'Payload (queued, nothing was sent for this row)' : 'Payload (queued, not sent yet)')),
+            'payload_title' => $this->trans($erased ? 'Payload (erased on a privacy request)' : ($request !== '' ? 'Payload (as sent)' : ($attempted ? 'Payload (queued, nothing was sent for this row)' : 'Payload (queued, not sent yet)'))),
             'payload' => $request !== '' ? $request : PayloadRedactor::forDisplay($row['payload']),
             'response' => PayloadRedactor::forDisplay($row['last_response']),
-            'no_response' => $this->trans(!$attempted
-                ? 'No response recorded — this row has not been attempted yet.'
-                : ($request !== '' ? 'No response received — the server did not answer. The last error says why.' : 'No response — nothing was sent for this row.')),
+            'no_response' => $this->trans($erased
+                ? 'No response is kept — it was erased on a privacy request.'
+                : (!$attempted
+                    ? 'No response recorded — this row has not been attempted yet.'
+                    : ($request !== '' ? 'No response received — the server did not answer. The last error says why.' : 'No response — nothing was sent for this row.'))),
             'response_is_error' => $status === LogStatus::FAILED || ($attempts > 0 && in_array($status, [LogStatus::PENDING, LogStatus::SENDING], true)),
             'resend' => $refusal === null && $row['kind'] === LogRows::SMAILY,
         ];

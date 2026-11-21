@@ -198,6 +198,22 @@ final class LogViewTest extends TestCase
         self::assertSame('', $this->view()->details(self::storedRow([]), null)['discount_notice']);
     }
 
+    public function testTheDetailsOfAnErasedRowSayThatItsDataWasErased(): void
+    {
+        $erased = ['entity' => ResendGuard::ERASED_ENTITY, 'payload' => '[]', 'last_request' => null, 'last_response' => null];
+
+        $sent = $this->view()->details(self::storedRow(['status' => 'sent'] + $erased), ResendGuard::REASON_ERASED);
+        self::assertSame(['[erased]', 'Payload (erased on a privacy request)', '[]', ''], [$sent['entity'], $sent['payload_title'], $sent['payload'], $sent['response']]);
+        self::assertSame('No response is kept — it was erased on a privacy request.', $sent['no_response']);
+        self::assertSame('Delivered — no retries needed.', $sent['outcome']['text'], 'the row still says what happened to it');
+        self::assertFalse($sent['resend']);
+
+        $failed = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '5', 'last_error' => 'Smaily API request failed with HTTP 500'] + $erased), ResendGuard::REASON_ERASED);
+        self::assertSame('This contact\'s data was erased; the event cannot be re-sent.', $failed['outcome']['text']);
+        self::assertSame('Payload (erased on a privacy request)', $failed['payload_title']);
+        self::assertFalse($failed['resend']);
+    }
+
     private function view(): LogView
     {
         return new LogView(static fn (string $id, array $parameters = []): string => strtr($id, $parameters));
