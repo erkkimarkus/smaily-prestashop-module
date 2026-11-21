@@ -34,8 +34,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Install\Installer;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Widget;
+use PrestaShop\PrestaShop\Core\Module\WidgetInterface;
 
-class SmailyForPrestaShop extends Module
+class SmailyForPrestaShop extends Module implements WidgetInterface
 {
     /**
      * The admin menu: "Smaily Connect" under Customers, with its four pages. PrestaShop installs
@@ -304,5 +306,18 @@ class SmailyForPrestaShop extends Module
     public function hookRegisterGDPRConsent(array $params)
     {
         return Dispatcher::dispatch('registerGDPRConsent', $params);
+    }
+
+    // The widget: the place of the recommendations block, on any display hook that the merchant
+    // puts the module on, or in a template through {widget name='smailyforprestashop'}.
+
+    public function renderWidget($hookName, array $configuration)
+    {
+        return Widget::render($hookName);
+    }
+
+    public function getWidgetVariables($hookName, array $configuration)
+    {
+        return Widget::variables();
     }
 }
