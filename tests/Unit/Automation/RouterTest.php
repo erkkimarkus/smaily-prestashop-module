@@ -168,6 +168,86 @@ final class RouterTest extends TestCase
     }
 
     /**
+     * ARCHITECTURE 5.2, "the shop's own mapping rows first, then the `id_shop = 0` rows", at each
+     * step of a per-language mode: the step decides before the scope does.
+     */
+    public function testInModeBAShopsOwnRowWinsOnlyAtTheSameStep(): void
+    {
+        $layout = [0 => [StoreLayout::LANGUAGE_MODE => StoreLayout::MODE_WORKFLOW_PER_LANGUAGE]];
+        $accounts = [0 => ['' => 'shared']];
+        $shared = [
+            [0, Trigger::WELCOME, 'et', 'default', 102],
+            [0, Trigger::WELCOME, 'en', 'default', 103, false, true],
+            [0, Trigger::WELCOME, '', 'default', 101],
+        ];
+
+        $router = $this->router(array_merge($shared, [[2, Trigger::WELCOME, 'et', 'default', 302]]), $accounts, $layout);
+        self::assertSame(302, $router->resolve(Trigger::WELCOME, 2, 'et')->workflowId(), 'its own row of the language before the shared one');
+        self::assertSame(102, $router->resolve(Trigger::WELCOME, 1, 'et')->workflowId());
+
+        $router = $this->router(array_merge($shared, [[2, Trigger::WELCOME, 'lv', 'default', 304, false, true]]), $accounts, $layout);
+        self::assertSame(102, $router->resolve(Trigger::WELCOME, 2, 'et')->workflowId(), 'the shared row of the language before its own default fallback');
+        self::assertSame(304, $router->resolve(Trigger::WELCOME, 2, 'fi')->workflowId(), 'its own default fallback before the shared one');
+
+        $router = $this->router(array_merge($shared, [[2, Trigger::WELCOME, '', 'default', 301]]), $accounts, $layout);
+        self::assertSame(103, $router->resolve(Trigger::WELCOME, 2, 'fi')->workflowId(), 'the shared default fallback before its own row of no language');
+    }
+
+    /**
+     * ARCHITECTURE 5.2, mode `a`: the row of the contact's language, else the default-fallback row,
+     * else the row of the shop's fallback language; with none of them, a skip.
+     */
+    public function testInModeATheDefaultFallbackRowComesBeforeTheFallbackLanguagesRow(): void
+    {
+        $layout = [0 => [StoreLayout::LANGUAGE_MODE => StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, StoreLayout::FALLBACK_LANGUAGE => 'en']];
+        $accounts = [0 => ['' => 'sharedEn', 'en' => 'sharedEn', 'et' => 'sharedEt']];
+        $rows = [[0, Trigger::WELCOME, 'en', 'en', 103], [0, Trigger::WELCOME, 'et', 'et', 102, false, true]];
+
+        $match = $this->router($rows, $accounts, $layout)->resolve(Trigger::WELCOME, 1, 'fi');
+        self::assertSame([102, 'et', 'sharedEt'], [$match->workflowId(), $match->accountKey(), $match->account()->subdomain()], 'the default fallback, through its own account');
+
+        $rows[1][6] = false;
+        $match = $this->router($rows, $accounts, $layout)->resolve(Trigger::WELCOME, 1, 'fi');
+        self::assertSame([103, 'en'], [$match->workflowId(), $match->accountKey()], 'the row of the fallback language');
+
+        $router = $this->router([[0, Trigger::WELCOME, 'et', 'et', 102]], $accounts, $layout);
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 1, 'fi'), 'no row of the language, no default fallback, none of the fallback language');
+    }
+
+    /**
+     * ARCHITECTURE 5.2, "a shop on another account than the global one reads only its own rows",
+     * in a per-language mode and for an account that differs in its API user alone.
+     */
+    public function testAShopOnAnotherAccountReadsNoSharedRowOfAnyStep(): void
+    {
+        $layout = [0 => [StoreLayout::LANGUAGE_MODE => StoreLayout::MODE_WORKFLOW_PER_LANGUAGE]];
+        $accounts = [0 => ['' => 'shared'], 2 => ['' => 'other']];
+        $shared = [
+            [0, Trigger::WELCOME, 'et', 'default', 102],
+            [0, Trigger::WELCOME, 'en', 'default', 103, false, true],
+            [0, Trigger::WELCOME, '', 'default', 101],
+        ];
+
+        $router = $this->router($shared, $accounts, $layout);
+        foreach (['et', 'fi', ''] as $language) {
+            self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 2, $language));
+        }
+        self::assertSame([[1, 0], [2], [0]], [$router->rowShops(1), $router->rowShops(2), $router->rowShops(0)]);
+
+        $match = $this->router(array_merge($shared, [[2, Trigger::WELCOME, '', 'default', 301]]), $accounts, $layout)->resolve(Trigger::WELCOME, 2, 'et');
+        self::assertSame([301, 'other'], [$match->workflowId(), $match->account()->subdomain()]);
+
+        $sameSubdomain = new Router(
+            new FakeAutomationSettings([0 => [AutomationSettings::WELCOME_ENABLED => '1']]),
+            new FakeStoreLayout([]),
+            new FakeMappingRepository([[0, Trigger::WELCOME, '', 'default', 101]]),
+            static fn (int $idShop, string $language): ?Account => $language !== '' ? null : new Account($idShop, '', 'shared', $idShop === 2 ? 'second-api-user' : 'api-user', 'not-a-real-password')
+        );
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $sameSubdomain->route(Trigger::WELCOME, 2, ''), 'another API user of the same subdomain is another account');
+        self::assertSame(101, $sameSubdomain->resolve(Trigger::WELCOME, 1, '')->workflowId());
+    }
+
+    /**
      * Magento CON-184: a workflow id belongs to the account it was picked from, so a mode never reads
      * the rows of another mode's accounts.
      */
