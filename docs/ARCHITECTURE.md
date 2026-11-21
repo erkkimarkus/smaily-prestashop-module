@@ -29,7 +29,7 @@ Short names for sibling sources:
 | `magento:` | `/Users/erkkimarkus/Downloads/smaily/connect-magento/` (Smaily Connect for Magento, 3.0.0, the closest analog: a PHP module rewritten in place with a legacy upgrade) |
 | `woo:` | `/Users/erkkimarkus/Downloads/smaily/connect-woo/` (Smaily Connect for WooCommerce, the reference for platform-neutral parts) |
 | contract | `docs/RECENGINE_API_CONTRACT.md` v1.36.0, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
-| report contract | `/Users/erkkimarkus/Downloads/smaily/subscription/docs/contracts/installation-report-v1.md` v1.0.1 |
+| report contract | `/Users/erkkimarkus/Downloads/smaily/subscription/docs/contracts/installation-report-v1.md` v1.2.0 (no copy in this repository yet) |
 
 A sentence about "the module today" describes 2.2.0 (git tag `2.2.0`); the sources that section 0
 names are that tag's files. A sentence about "3.0.0" describes the product that this document
@@ -2282,15 +2282,15 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 
 | Report field | 3.0.0 source |
 |---|---|
-| `product` | `connect_prestashop` (**[O]**: not in the registry; the subscription team adds it) |
+| `product` | `connect_prestashop` (in the contract's registry since v1.1.0) |
 | `product_version` | module version |
-| `platforms` | `[{name: "prestashop", version: _PS_VERSION_}]` (**[O]**: registry row) |
+| `platforms` | `[{name: "prestashop", version: _PS_VERSION_}]` |
 | `php_version` | `PHP_VERSION` |
 | `installation_url` | The default shop's main URL (`Tools::getShopDomainSsl(true)` + base URI) |
 | `smaily_subdomain` (top) | The global account's subdomain when a connection names it, else the first marketing connection's |
 | `connections[]` | One `marketing` connection per (shop, account) with a working account; per language account in mode `a` with `language` |
 | `connections[].store_url` | The shop's main URL |
-| `connections[].website` | **[O]** The field is "Magento only". For a multishop store the subscription team must name a PrestaShop field (proposed: the same value as the engine's shop code, section 8.2). Until then the module sends one connection per (account, language) and no shop field, with `store_url` of the first shop that uses it. |
+| `connections[].website` | **[D]** The shop id as a string (`"1"`), the same value that the module sends Campaign Intelligence as the website code (section 8.2). The contract requires it for PrestaShop since v1.1.0. |
 | `features` | `subscriber_sync` = contact sync on; an automation id when switched on **and** the Router resolves a workflow on this account; `campaign_intelligence`, `browse_tracking` while the shop's connection is connected |
 | `smaily`, `intelligence` | `Report\ConnectionHealth`, Magento's rules |
 | Snapshots and events | `setup_saved` 5 min after a save; `daily`; `disconnected`; `deactivated` first in uninstall. One report per tick at most. |
@@ -2368,7 +2368,8 @@ Discounts, where their names start with "Smaily Connect".
 
 **[D]** (owner, 2026-11-20, Linear CON-380: "GitHub now") The module learns the latest version from
 its official GitHub repository. A notice that Smaily writes and delivers with the answer to the
-installation report can come later; the subscription team was asked (Linear SUB-28).
+installation report can come later: the report contract lets the answer carry `latest_version` and
+`notice` since v1.2.0 (Linear SUB-30). This design does not read them yet.
 
 As built (`src/src/Update/`, `Config\UpdateSettings`, `UpdateProvider`):
 
@@ -2420,7 +2421,7 @@ once a day and sends no store data."
 | JavaScript | Planned with Story 5.5: the IIFE first-statement check for every file in `views/js/front/`, and the logic of `consent.js` tested with Node's built-in test runner (no npm packages), in a folder `tests/js/`. No JavaScript test exists today; `views/js/front/` holds one file, `checkout-capture.js`. | — |
 | Contract check | Planned: CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and the installation-report contract with the subscription repository's copy (`gh api`, read token), and fails on any difference. Today `validate.yaml` has no such step, the engine contract copy is compared by hand with `cmp`, and no copy of the report contract is in this repository (Story 6.1 adds it). | — |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 1293 tests, 6245 assertions on PrestaShop 8.2.8 and on 9.2.0, each on a fresh shop, with the Automations tab on `v3` (2026-11-21). On the host: 1293 tests, 2012 assertions, 636 skipped. `tests/ci/validate.sh` last ran one commit set earlier, with the Log, the upgrade hardening and the Marketplace structural rules on `v3`: 10 of 10 checks on both flashlight images, with 1266 tests and 6101 assertions in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
+| Last verified counts | The in-shop suite: 1415 tests on PrestaShop 8.2.8 (7251 assertions) and on 9.2.0 (7257 assertions), each on a fresh shop, with the discount codes on `v3` (2026-11-21). On the host: 1415 tests, 2121 assertions, 740 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` (`bin/package.sh`) builds the zip from the files that git tracks under `src/`, minus `src/.zipignore`, with the production `vendor/`; `tests/ci/validate.sh` installs it. `tests/Unit/Install/ConfigXmlTest.php` holds `src/config.xml` equal to the main class. Planned with Story 6.3: a check that the version is equal in the main class and `composer.json`, and an upgrade of the zip on the matrix. | `bin/package.sh`, CI |
@@ -2985,7 +2986,7 @@ has one owner:
 
 - **Goal.** Smaily's subscription service knows where 3.0.0 runs and how it is.
 - **Owns.** `src/src/Report/`, `docs/contracts/installation-report-v1.md` (byte copy), `src/src/Runtime/Provider/ReportProvider.php`.
-- **Depends on.** 5.1, 4.1; the registry rows (section 14).
+- **Depends on.** 5.1, 4.1. The registry rows exist since contract v1.1.0 (section 14, row 3).
 - **Acceptance.**
   1. A setup save sends `setup_saved` 5 min later; `daily` follows 24 h after the last attempt.
   2. Uninstall sends `deactivated` before §16.
@@ -3024,7 +3025,7 @@ has one owner:
 |---|---|---|---|
 | 1 | PrestaShop platform key namespace `ps-` (section 8.2) | The contract names no PrestaShop namespace; under the fail-loud enforcement (PRO-1223) an undeclared pattern sends rows to `errors[]`. Per-combination rows (decided) multiply catalog size for stores with many combinations. | Engine team |
 | 2 | PrestaShop in the §25 sender-rules heading | Answered in part by the contract re-sync of 2026-11-20: the list of synchronized copies names this repository. The §25 heading still reads "one list for WooCommerce, Shopify and Magento". | Engine team |
-| 3 | Registry rows `connect_prestashop`, `prestashop`, and a shop field in the report | Until they exist the service rejects every report. | Owner → subscription team |
+| 3 | Registry rows `connect_prestashop`, `prestashop`, and a shop field in the report | Answered by the report contract v1.1.0 (2026-11-20, Linear SUB-28): the registry holds `connect_prestashop` with the platform `prestashop`, and `connections[].website` holds the shop id (section 11.1). v1.2.0 lets the answer carry `latest_version` and `notice`. Story 6.1 adds the copy of the contract. | Subscription team (answered) |
 | 4 | Multi-currency orders | A shop that sells in several currencies sends orders in each; the engine assumes one currency per store. | Engine team |
 | 5 | Which shop context ran the 2.x crons | The migration assumes the default shop; a store whose crontab named another shop's domain gets that shop's values wrong. | Pilot multishop store (spike in 6.3) |
 | 6 | Fallback tick on hosts without `fastcgi_finish_request` | No fallback; the store depends on the cron line. php-fpm has the function (facts file 3.2); LiteSpeed is not verified. | Owner accepts |
@@ -3043,6 +3044,25 @@ has one owner:
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
 | 23 | A late unsubscribe after a newer subscription | A contact sync that unsubscribes is sent whenever its retry comes due, also after a later subscription of the same contact was delivered (section 6.4). The contact then ends unsubscribed in Smaily although the store's latest choice is subscribed, and in "Subscribers only" the reconcile takes that back to the store. The siblings send it the same way. Skipping such a row as stale would leave more contacts subscribed than today, so it is not done without a decision. | Owner |
 | 24 | Mode `a` and the workflow of no language | In mode `a` the Router's last step is the row of no language under the account `default` (section 5.2). Magento's mode A never starts that workflow, and the Automations panel hides it in mode `a` (section 10.9), so a workflow that was picked before the store took an account per language can still start for a contact whose language has no row, through the fallback account. Removing the step sends fewer automations, which is a change of who receives one. | Owner |
+| 25 | A newsletter-block subscriber without an account | Such a subscriber is synced, and gets the welcome email, only while "Include guests" is on (sections 6.2 and 7). A fresh install has it off; an upgraded store has it on. Magento syncs and welcomes a newsletter-form subscription whatever its guest setting says. | Owner |
+| 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
+| 27 | Two Log rules beyond Magento | The Log refuses a "Send again" or "Retry" that would mark a contact subscribed after a later consent change of that contact, and it adds no second entry for an event that already waits in the queue (`Log\ResendGuard`, section 10.8). Magento's Log has neither rule. | Owner confirms |
+| 28 | The stale-subscription check covers one shop | `Contacts\StaleSubscription` matches rows by shop and entity (section 6.4). Two shops on one Smaily account are one contact there, so a subscription that waits in one shop is still sent after the other shop delivered that contact's unsubscribe. Matching by Smaily account would close it. | Owner |
+| 29 | Two shops on one Smaily account with different consent modes | Not known: whether the reconcile of the "Subscribers only" shop can mark a customer subscribed because the "All customers" shop created the contact in Smaily (section 6.5). It depends on how Smaily's action log records a contact that the API creates, which no run against the live service has shown. | Owner, with a live Smaily account |
+| 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
+| 31 | The welcome email repeats | Every storefront subscribe starts the welcome, a re-subscribe too: no once-per-contact record exists (section 7). Magento and WooCommerce do the same; Shopify sends it once per contact. | Owner |
+| 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
+| 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
+| 34 | Two hooks without a listener | `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and unused (section 7). Removing them before the release changes `Install\HookList` and the main class. | Owner |
+| 35 | The first-import card after 90 days | The card reads the newest import job, and the janitor deletes a finished job after 90 days, so the card then offers "Start import" again (section 11.3). Keeping the newest import job of each shop would close it. | Owner |
+| 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
+| 37 | Replacing a Smaily account in the same language mode | The save removes the workflows of the replaced account and says so afterwards (section 5.1). Magento keeps the old workflow numbers. | Owner |
+| 38 | The cron line on the Background tasks card | The amber and the red state keep the cron line behind the same button, "Show the cron line", as the green state (section 4.3). | Owner |
+| 39 | Discount codes: three limits | A guest's code is tied to no account, so it can be passed on. Every email makes a new cart rule, where WooCommerce sends an unused code again. The remainder voucher of a guest's order from a merchant's own rule can still be picked as a template (section 7). | Owner |
+| 40 | The bounds of the checkout capture | One reminder per address in 24 hours, to at most 2000 addresses an hour for the installation, stays possible for whoever posts addresses to the capture URL (section 7). Magento's bound of five writes per cart needs a schema change. | Owner |
+| 41 | Price groups | Contract v1.36.0 adds `group_prices` and `price_group` (Linear CON-385). Not decided: whether 3.0.0 sends them. | Owner |
+| 42 | The product feed | Not decided: whether the RSS feed that 3.0.0 keeps from 2.x is the product feed of the first release, or a second feed is built. | Owner |
+| 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. | Owner |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -3078,7 +3098,7 @@ Later decisions of 2026-11-20:
 | What the first reconcile of a Smaily account applies | **DECIDED:** "an upgrade never marks anyone subscribed again". The first run takes its unsubscribes from Smaily's current unsubscriber list (`contact.php`, `list=2`, as 2.x did), applies nothing from the action log, reads the log only to set the cursor at its end (the log's end first, then the list), and marks nobody subscribed. From the next run on, the reconcile is two-way. Reason: 2.x never sent newsletter-block unsubscribes to Smaily. The list-based form is the orchestrator's technical refinement of the owner's rule; it also never unsubscribes a contact whom Smaily holds as subscribed now. | Owner (Erkki); orchestrator | 6.2, 6.5 | 2.4 |
 | Guest-checkout customers in all customers | **DECIDED:** sent only when "include guests" is on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
 | Guest-checkout customers in subscribers only | **DECIDED:** a guest-checkout customer who ticked the box is sent only when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a ticked box whatever that setting says (already WooCommerce's rule). Upgraded stores have "include guests" on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
-| How the merchant learns of a new version | **DECIDED:** "GitHub now": the module asks the official GitHub repository for the latest release once a day and shows a notice in the admin. A notice that Smaily writes and delivers with the installation-report answer can be added later (asked of the subscription team, Linear SUB-28). | Owner (Erkki) | 10.7, 11.5 | CON-380 |
+| How the merchant learns of a new version | **DECIDED:** "GitHub now": the module asks the official GitHub repository for the latest release once a day and shows a notice in the admin. A notice that Smaily writes and delivers with the installation-report answer can be added later (the report contract carries it since v1.2.0, Linear SUB-30). | Owner (Erkki) | 10.7, 11.5 | CON-380 |
 | PrestaShop Marketplace rules | **DECIDED:** the code follows the PrestaShop Marketplace technical rules from the start (Linear CON-379). The listing itself is a separate business step (`docs/MARKETPLACE.md`). | Owner (Erkki) | 14 (row 21) | CON-379 |
 | A shop whose own Smaily account differs from the default shop's | **DECIDED** under the rule "never widen the audience": contact sync and abandoned cart stay off at that shop after the upgrade, with a notice (`other_account`). The owner may overturn it. | Orchestrator | 3.3 | 1.3 |
 | Where consent lives | **DECIDED:** marketing consent lives in PrestaShop's own places (`customer.newsletter`, `emailsubscription`); the module keeps no consent store of its own. `customer.optin` is PrestaShop's "partner offers" checkbox; the module neither creates nor reads it. | Owner | 6.1 | 2.2, 2.3 |
