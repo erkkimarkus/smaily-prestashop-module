@@ -173,10 +173,12 @@ src/
   src/
     Engine/                   Payload/, IngestQueue, History/, Automations/
     Storefront/               Relay, Attribution, Recommendations, PageContext
-    Privacy/                  Export, Erasure, ProfilingConsent
+    Privacy/                  PrivacyRequest, LocalData, ExportRows, GdprHooks, ProfilingRecord,
+                              ProfilingConsent and its handler, CustomerDeleteHandler, AccountLink
     Report/                   ReportBuilder, ReportSender, InstallationReport, ConnectionHealth
   views/templates/admin/      the Intelligence templates of the setup and Settings
-  views/templates/front/      recommendations, personalization (Smarty, as PrestaShop front)
+  views/templates/front/      recommendations, personalization and its account link (Smarty, as
+                              PrestaShop front; nothing lies in 2.x's views/templates/hook/)
   views/js/front/             consent, attribution, tracker, recommendations
   translations/               the storefront domain Modules.Smailyforprestashop.Shop
 ```
@@ -463,15 +465,15 @@ Column rules of `Install\Schema`:
 
 | Table | Purpose | Columns (level of detail for review) | Indexes |
 |---|---|---|---|
-| `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.welcome`, `automation.first_order`, `automation.abandoned_cart`; stage 5 adds `engine.identity_merge` and `engine.profiling_consent` | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
+| `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.welcome`, `automation.first_order`, `automation.abandoned_cart`; stage 5 adds `engine.identity_merge`, `engine.profiling_consent` and `engine.customer_delete` (section 11.2) | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
 | `smaily_connect_ingest_queue` | Engine ingest: `catalog`, `catalog_remove`, `customers`, `orders` | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (a catalog row is a marker; the payload is built at flush, see `woo:docs/LESSONS.md` §2.24), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
 | `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
 | `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5; NULL with `optin_trigger=0` at a shop = "no workflow here", which hides the shared row of the same key from that shop, sections 5.2 and 10.9), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
-| `smaily_connect_cart` | Abandoned-cart tracker and reminder state (section 7) | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`, `mailed`, `skipped` are the values that `Automation\AbandonedCart\CartTracker` writes), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
+| `smaily_connect_cart` | Abandoned-cart tracker and reminder state (section 7) | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`, `mailed`, `skipped` and `erased` are the values that `Automation\AbandonedCart\CartTracker` writes; `erased` by a privacy erasure, section 11.2), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
 | `smaily_connect_connection` | Campaign Intelligence connections (section 8.9) | `id` PK (a row keeps it when a new setup link replaces its connection), `id_shop` INT (0 = installation-wide), `smaily_subdomain` VARCHAR(63), `tenant_id` CHAR(36), `api_key_enc` TEXT NOT NULL, `settings` MEDIUMTEXT NOT NULL JSON: `tenant_name`, `engine_base_url`, `engine_version`, `endpoints` (the map), `config` (as the engine sent it, with `history` and `connection.prefix`), `issued_at`, `refused_at`, `health` (`status`, `error`, `http_status`, `checked_at`); the browse switch comes with Story 5.3. `date_add`, `date_upd` | UNIQUE (`id_shop`) |
 | `smaily_connect_order_attribution` | Email-click attribution per order | `id_order` INT PK, `rec_id` CHAR(36) NULL, `context` VARCHAR(64) NULL, `visitor_token` VARCHAR(64) NULL, `created_at` | — |
-| `smaily_connect_privacy` | Durable profiling opt-out record (contract §10; `magento:` parity audit R1) | `address_key` CHAR(64) PK (keyed hash of the trimmed lower-case address), `opted_out` TINYINT, `changed_at`, `source` VARCHAR(16) | — |
+| `smaily_connect_privacy` | Durable profiling opt-out record (contract §10; `magento:` parity audit R1) | `address_key` CHAR(64) PK (keyed hash of the trimmed lower-case address), `opted_out` TINYINT, `changed_at` (UTC), `source` VARCHAR(16) (`account`, `unsubscribe`, `subscribe`; section 11.2) | — |
 
 **Rationale for an account table instead of language-scoped configuration.** PrestaShop's
 language-scoped configuration keys by `id_lang`, which differs between installations; an account is
@@ -1960,8 +1962,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   customer account, and the codes that the automation rows of the event queue still hold for an
   address, each with its creation and end time and whether an order used it; and the removal of
   the unused ones, also of one that sits in the shopper's cart. A remainder voucher is not among
-  them and keeps its value. Story 5.6 wires them into the export and the erasure; nothing calls
-  them yet.
+  them and keeps its value. The export and the erasure of a privacy request call them
+  (`Privacy\LocalData`, section 11.2).
 - **The Discounts list** shows the issued rules under their "Smaily Connect – …" name (owner's
   decision): it is not filtered.
 - **Not built.** One working code per shopper and automation, sent again while it is unused
@@ -2523,8 +2525,27 @@ sentence of its own), and a row whose event already waited in the queue again as
 again" and "Retry" need the right to change it. Each endpoint also needs the page's token and the
 shop selection the page was drawn for (`Admin\Api\AbstractJsonAction`, section 10.1).
 
-**Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); the "Privacy
-request" form of section 11.2 (Story 5.6); sorting by another column than Created.
+**The "Privacy request" form** (Story 5.6; `Admin\Log\PrivacyExport`, `PrivacyErase`). Under the
+list, for an employee who may change the Log, while PrestaShop's GDPR module is not enabled in the
+shop of the request (`Module::isEnabled('psgdpr')`: installed and enabled; in "All shops" the
+default shop): where that module runs, its own screens run the same two requests with the
+customer's other data. The form takes one email address. **Export** saves a JSON file with what
+the module's tables and each connection hold of that address (section 11.2) and of nobody else;
+the file's name holds a time, not the address. **Erase** asks first ("Erase the data of this
+address?") and then answers what was erased. Both endpoints need the right to change the Log,
+the page's token and the shop selection, take the address in the request body, never in a page
+address, refuse an invalid address, and answer 404 where the GDPR module is enabled. Both cover
+every shop of the installation: a shopper is an address. The erasure leaves PrestaShop's
+customer and orders and the Smaily contact; the form's text says so.
+
+**An erased row** (section 11.2) shows `[erased]` as its Entity and offers no "Send again"; the
+mass "Retry" skips it. Its Details name the erasure where the payload and the answer were
+("Payload (erased on a privacy request)"). A deletion that waits for Campaign Intelligence
+(`engine.customer_delete`) shows `[erased]` too, and its payload shows `[redacted]` in place of
+the encrypted address.
+
+**Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); sorting by
+another column than Created.
 
 ### 10.9 The Automations panel (as built in Story 4.1)
 
@@ -2632,12 +2653,108 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 
 | Request | 3.0.0 |
 |---|---|
-| Export (psgdpr `actionExportGDPRData`) | Local rows for the address (event queue, cart tracker, attribution, privacy record) + engine §8 per connection, one 10 s attempt; a failed engine call names the failure, not the remote text (`woo:docs/LESSONS.md` §2.32). |
-| Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes local rows that hold the address or its keyed hash; marks tracker rows `erased`; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). Since Story 3.4 a queue row also holds the contact's data in `last_request` and `last_response`, and the Log shows it in full (section 10.8): the erasure must clear the stored payloads and the entity of every queue row of the address that it keeps, as Shopify replaces them with "[erased]". The entity of such a row is `[erased]` (`Log\ResendGuard::ERASED_ENTITY`), which the Log refuses to send again. |
+| Export (psgdpr `actionExportGDPRData`) | The module's own rows of the shopper (event queue, cart tracker, attribution, discount codes, the personalization record) and the engine's §8 answer per connection: one attempt of 10 s each, no retry. An engine that does not answer leaves one plain line, "Not available"; nothing of its answer is kept, shown or logged (`woo:docs/LESSONS.md` §2.32). |
+| Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes the queue rows that can still be sent; clears the payload, the stored request and answer and the entity of every queue row that is kept, whose entity reads `[erased]` (`Log\ResendGuard::ERASED_ENTITY`), which the Log refuses to send again; marks tracker rows `erased`; removes the unused discount codes; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). |
 | Profiling opt-out (§10) | My Account "Personalization" page, shown only with a connection; writes the local record first, then queues §10; the newest choice wins; a marketing unsubscribe also stops profiling (Magento parity audit R1–R3). |
-| Discount codes (section 7) | Story 5.6 adds them to both requests with `Discount\IssuedCodes`: the export lists the codes of the customer account (`ofCustomer()`) and the codes that the address's automation rows of the event queue still hold (`ofAddress()`, read before the erasure clears those rows); the erasure removes the unused ones (`removeUnused()`). A used code stays with its order. The operations exist and are tested (Story 4.4); nothing calls them yet. |
-| Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address. |
+| Discount codes (section 7) | Both requests cover them through `Discount\IssuedCodes`: the codes of the customer accounts (`ofCustomer()`) and the codes that the address's automation rows of the event queue still hold (`ofAddress()`, read before the erasure clears those rows); the erasure removes the unused ones (`removeUnused()`). A used code and a remainder voucher stay. |
+| Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address (section 10.8). |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
+
+**As built (Story 5.6, `Privacy\`).** A shopper is an address, in every shop and at every
+connection of the installation: the address itself (compared without regard to letter case; an
+address that differs by an accent is another shopper's), its keyed hash
+(`Queue\ContactEntity::key()`, section 2.2) and the customer accounts that carry the address,
+with the account that the request names. `Privacy\PrivacyRequest` runs both requests;
+`Privacy\LocalData` is the one place that reads and erases the module's own tables.
+
+| The module's data | Export | Erasure |
+|---|---|---|
+| Event-queue rows whose entity is the address or its keyed hash | Type, status and creation time; never the message | A `pending` or `processing` row is deleted. A closed row (`sent`, `failed`, `skipped`) stays as the store's record that something was sent: its `payload` becomes `[]`, `last_request` and `last_response` `NULL`, `entity_id` `[erased]`. `last_error` (never a contact's data, section 2.2) and `updated_at` stay, so the row leaves with the queue's retention as before (`EventQueue::erase()`). |
+| Cart tracker rows of the address or of its customer accounts | Cart, status, last change, reminder time | Status `erased`, without address, customer and queue row, whatever the status was. A cart of the accounts that has no order and no row, and that the sweep could still pick up (changed in the last 24 hours), gets such a row too, so that no reminder is queued to the address that was just erased, as Magento marks its tracker rows (`CartTracker::erase()`). The janitor deletes an `erased` row with the closed rows (section 11.3). |
+| Order attribution of the accounts' orders | The row | `visitor_token` becomes `NULL`: it ties the order to a browser. The recommendation id, its context and the time stay with the order, as in Magento. |
+| Discount codes | Code, creation time, last valid time, used or not | An unused code is removed, also one that sits in a cart. A used code stays with its order. |
+| The personalization record (`smaily_connect_privacy`) | The choice, its UTC time and its source | **Stays.** It holds the keyed hash and no address, and it keeps an opt-out in force: without it a shopper who opted out would be profiled again once the address returns with a new order. |
+
+The erasure reads or writes nothing else: not PrestaShop's customer, orders or carts, not the 2.x
+table `smaily_cart`, not a cart rule that is not one of the module's own unused codes (a
+template, a used code, a remainder voucher), not a Smaily contact.
+
+**Campaign Intelligence.** The export calls §8 once per stored connection
+(`Engine\Connections::all()`); HTTP 404 reads as "No data". The erasure never calls the engine in
+the request: it queues one `engine.customer_delete` row per connection
+(`Privacy\CustomerDeleteHandler`), which takes the queue's retry ladder (section 4.3), so the
+deletion survives an engine that is down. That row needs the address, which the erasure left
+nowhere else. It holds it encrypted (`Smaily\Crypto`) under the payload key `address_secret`,
+whose value the Log never shows (`Log\PayloadRedactor`), with the entity `[erased]`, and loses it
+as soon as the row is closed: sent, skipped, or parked as failed. A parked row cannot be sent
+again; a new erasure of the address queues the call anew. HTTP 404 (the engine does not know the
+shopper, or has deleted the shopper) is done. Any other refusal (a 3xx or 4xx) parks the row at
+once; no answer, a 429 and a 5xx retry. A stored reason is the module's own sentence with the
+HTTP status and the engine's error code (`Privacy\EngineFailure`), never the engine's message.
+A row whose connection is gone is skipped (`no_connection`).
+
+**PrestaShop's GDPR module** (`psgdpr` 1.4.3, shipped installed and enabled in the 8.2.8 and
+9.2.0 images). It hands the hooks the customer as an array (`id`, `email`) or an address alone
+(`email`); a request for a phone number names nobody the module knows. The export answers a JSON
+list of flat rows, as psgdpr prints them in its screen, its PDF and its CSV file; the first
+column says what the row is, and a connection's answer is one row whose content is the engine's
+answer as JSON. The words are in the administration's catalogue. psgdpr ignores the answer of
+the deletion hook, so a failure there is a line in the shop's log. After the hook psgdpr deletes
+the customer account itself, and with it **every cart rule tied to that account**
+(`DELETE FROM cart_rule WHERE id_customer = …` in `Psgdpr::deleteDataFromPrestashop()`): a used
+code and a remainder voucher that the module's erasure left are gone after psgdpr's own step.
+`registerGDPRConsent` has no listener: the hook lists a module on psgdpr's consent screen, and
+the module has no form of its own that needs a consent box.
+
+**The personalization opt-out** (`Privacy\ProfilingConsent`, `ProfilingRecord`). The model is
+opt-out, as in the sibling connectors: a shopper without a record is profiled.
+
+- **The record** is one row per address under its keyed hash: `opted_out`, the UTC time
+  `changed_at` and `source` (`account`: the shopper's own choice on the page; `unsubscribe`: the
+  shopper left marketing; `subscribe`: the shopper joined again, which lifted it). A write
+  replaces the row, so the later write stays.
+- **The page** is the front controller `personalization`, reached from the link "Personalization"
+  of the customer's account (hook `displayCustomerAccount`, `Privacy\AccountLink`), in the
+  theme's own account layout (`customer/page.tpl`) with Magento's wording. Both exist only in a
+  shop that a connection serves (`Connections::forShop()`); elsewhere the hook prints nothing and
+  the address redirects to the store's "page not found". A visitor who is not signed in goes to
+  the sign-in page. A save needs the customer's own front token. The markup follows the theme:
+  the classic theme's tile and form classes, or the account menu and Bootstrap 5 classes where
+  the theme has `components/account-menu.tpl` (PrestaShop 9's Hummingbird). The templates lie in
+  `views/templates/front/`: the upgrade deletes 2.x's `views/templates/hook/` (section 3.7).
+- **A choice** is written to the record first and then queued, one `engine.profiling_consent`
+  row per connection, under the keyed hash as entity; only the payload names the shopper. A row
+  of the installation-wide connection belongs to the shop the choice was made in.
+- **The newest choice wins.** The handler (`Privacy\ProfilingConsentHandler`) sends a row only
+  while it still says what the record says. A row of a choice that the shopper replaced since
+  closes as skipped (`preference_replaced`, Magento's sentence) without a call, so a retried older
+  choice never undoes a newer one at the engine.
+- **Leaving marketing stops profiling**, and joining again lifts that, unless the shopper opted
+  out on the page: that choice stays (Magento's `optOutOnUnsubscribe()` and
+  `optInOnResubscribe()`). It acts on the capture's contact events with a consent change
+  (section 6.3) and on the rows that the reconcile changes (section 6.5,
+  `Reconciler::onConsentChange()`), in a shop that a connection serves.
+- `ProfilingConsent::isAllowed()` answers the store's record; the Stories that send a shopper's
+  data to the engine ask it.
+
+**Differences from Magento.** (1) Magento also writes the choice to the Smaily contact
+(`smaily_rec_profiling`, `smaily_rec_profiling_ts`) and reads it back; this module keeps the
+choice in the store and at the engine only. (2) Magento calls §9 in its command and tells the
+merchant to run it again after a failure; here the call is queued. (3) Magento keeps a profiling
+choice waiting while the engine refuses the account; here a refusal parks the row, and the Log
+shows it. (4) Magento sends a choice to its primary connection; here it goes to every
+connection, as the export and the erasure do. (5) Magento sends a stored opt-out again when the
+engine confirms a customer or an order of the shopper (`OptOutReplay`); the ingest Story has the
+confirmed items and is where that belongs.
+
+**Not covered yet.** The ingest queue (Story 5.2): once it holds customer and order rows, the
+erasure clears those of the shopper the same way.
+
+Demonstrated on 8.2.8 (classic theme) and 9.2.0 (Hummingbird) against the engine mock, behind
+the egress guard: a customer's own export from psgdpr's page with two connections and with a
+failing engine, an erasure through psgdpr with the engine down and the deletion delivered by the
+next tick, the Log's form in a store without psgdpr, and the opt-out page with two quick choices,
+an unsubscribe and a new subscription.
 
 ### 11.3 Retention
 
@@ -2660,14 +2777,15 @@ or its deadline passes; a used code and every cart rule that the merchant made s
 that builds the ingest queue (5.2) adds its table to the sweep.
 
 **The cart tracker** (owner, 2026-11-21; section 15). The janitor deletes the closed rows of
-`smaily_connect_cart` (`mailed`, `skipped`) 30 days after the cart's last change, in batches of
+`smaily_connect_cart` (`mailed`, `skipped`, `erased`) 30 days after the cart's last change, in batches of
 1000 by primary key (`CartTracker::deleteClosed()`), until none is left or its deadline passes.
 The rule is Magento's (`magento:Cron/QueueJanitor.php` lines 26 and 67 to 71: the 30 days of sent
 rows; `magento:Model/AbandonedCart/StateManager.php` lines 39 to 45 and 428 to 458,
 `pruneTerminal()`: the statuses `mailed`, `completed`, `expired`, `erased`, `skipped`, older than
 the cutoff by `updated_at`, 1000 ids a chunk, deleted by primary key):
 
-- **Which rows.** Magento's closed statuses; this tracker has two of them, `mailed` and `skipped`.
+- **Which rows.** Magento's closed statuses; this tracker has three of them, `mailed`, `skipped`
+  and `erased` (section 11.2).
   An `open` row stays whatever its age, as Magento's `open` rows do: it holds a recorded address
   that `CartTracker::purge()` removes after 24 hours, or it is the state of a reminder that waits
   or that failed and was parked.
@@ -2677,8 +2795,8 @@ the cutoff by `updated_at`, 1000 ids a chunk, deleted by primary key):
   A row that the upgrade carried over from 2.x holds the time of the 2.x reminder there
   (section 3.5) and follows the same rule.
 - **What is kept.** Magento keeps the marker of an erased address (`erased`) while its cart is
-  active (the same lines, PRO-4008). This tracker has no such marker yet: the Story that builds
-  the erasure (5.6) keeps its marker the same way if it adds one. A cart whose customer was
+  active (the same lines, PRO-4008). The erasure marks its rows `erased` (section 11.2), and
+  such a row goes by the same 30 days. A cart whose customer was
   deleted needs none: the sweep and the send read the customer each time (section 7).
 - **Not mirrored.** Magento also deletes the rows whose cart is gone, whatever their status and
   age (`pruneOrphans()`, lines 460 to 479). PrestaShop deletes no cart by itself, and such a row
@@ -2818,11 +2936,12 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 4.1 Automation routing, mapping and the Automations tab | Done (section 10.9) | `automations:`, `automation:`, `admin:`, `tests:`, `docs:` |
 | 4.2 Welcome and first order | Done (section 7); the Automations tab of Story 4.1 switches them on and picks their workflows. | `automation:`, `tests:` |
 | 4.3 Abandoned cart | Done (section 7): the sweep, the send, the checkout capture, the delay's bounds and the upgrade's cap. Switched on in the Automations tab, as 4.2. | `automation:`, `abandoned-cart:`, `tests:` |
-| 4.4 Discount codes in store automations | Done (section 7, "Discount codes as built"); the privacy export and erasure of the codes wait for Story 5.6 | `automation:`, `queue:`, `admin:`, `translations:`, `docs:` |
+| 4.4 Discount codes in store automations | Done (section 7, "Discount codes as built"); the privacy export and erasure cover the codes since Story 5.6 (section 11.2) | `automation:`, `queue:`, `admin:`, `translations:`, `docs:` |
 | New-version notice on the admin pages (CON-380) | Done (section 10.7) | `admin:` |
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
 | 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. It sends no product or order key, so the platform namespace `ps-` (section 8.2) is in no code yet. | `engine:`, `tests:`, `tooling:`, `docs:` |
+| 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows wait for Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
 | Stage 5 from Story 5.2 on, and stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
@@ -2868,7 +2987,7 @@ has one owner:
 | `AutomationProvider` | 4.1 | Leaves a registration point that 4.2 and 4.3 fill from their own files: `register()` calls the `register(Services)` method of one class per automation, which 4.1 creates empty in `src/src/Automation/Welcome/`, `FirstOrder/` and `AbandonedCart/`, and which 4.2 and 4.3 then own. As built: `AutomationProvider::AUTOMATIONS` lists `WelcomeAutomation`, `FirstOrderAutomation` and `AbandonedCartAutomation`. |
 | `EngineProvider` | 5.1 | |
 | `StorefrontProvider` | 5.5 | |
-| `PrivacyProvider` | 5.6 | |
+| `PrivacyProvider` | 5.6 | `PrivacyRequest`, `LocalData`, `GdprHooks`, `ProfilingRecord`, `ProfilingConsent`, `AccountLink`, the handlers of `engine.profiling_consent` and `engine.customer_delete`, the listeners of the two GDPR hooks and of `displayCustomerAccount`, and the profiling consent as a listener of the capture's contact events. `ContactReconcileProvider` hands it the rows that the reconcile changes. |
 | `ReportProvider` | 6.1 | |
 | `UpdateProvider` | CON-380 | `UpdateSettings`, `UpdateNotice`, `LatestRelease` and the job `update_check`. After `MigrationProvider` in `Services::PROVIDERS`. |
 | `AdminProvider` | 3.1 | The line about the upgrade on the other back-office pages (`Admin\BackOfficeNotice`, section 3.6). Last in `Services::PROVIDERS`. |
@@ -3251,9 +3370,9 @@ has one owner:
   a code used in a storefront order, refused the second time, after its last day and for another
   customer, the same code on a retry and on "Send again", an email without a code and the Log's
   sentence, and the settings of a second shop.
-- **Left open.** The privacy export and erasure call `Discount\IssuedCodes` only once Story 5.6
-  wires them (section 11.2). Each event makes a new code; WooCommerce sends an unused working
-  code again instead.
+- **Left open.** Each event makes a new code; WooCommerce sends an unused working code again
+  instead. The privacy export and erasure call `Discount\IssuedCodes` since Story 5.6 (section
+  11.2).
 
 **Stage 4 parallel groups.** 4.1 → {4.2, 4.3} → 4.4.
 
@@ -3333,7 +3452,7 @@ has one owner:
 ### Story 5.6 — Privacy
 
 - **Goal.** Export, erasure and profiling opt-out across store, queues and engine.
-- **Owns.** `src/src/Privacy/`, `src/controllers/front/personalization.php`, `src/views/templates/front/personalization.tpl`, `src/src/Runtime/Provider/PrivacyProvider.php`.
+- **Owns.** `src/src/Privacy/`, `src/controllers/front/personalization.php`, `src/views/templates/front/personalization.tpl` and `personalization-link.tpl`, `src/src/Runtime/Provider/PrivacyProvider.php`, `src/src/Admin/Log/PrivacyExport.php` and `PrivacyErase.php`, `tests/Integration/Privacy/`.
 - **Depends on.** 5.1.
 - **Acceptance.**
   1. A psgdpr export returns local rows and the engine's §8 answer per connection.
@@ -3343,6 +3462,10 @@ has one owner:
   5. An erasure leaves no queue row that the Log can show with the contact's data: the payload, the
      stored request and answer and the entity of every kept row of the address are cleared, and the
      entity reads `[erased]` (sections 10.8 and 11.2).
+- **As built.** Section 11.2; the Log's form and an erased row in section 10.8; the tracker's
+  `erased` rows in section 11.3. It also adds `EventQueue::erase()`, `CartTracker::erase()`, the
+  three privacy calls of `Engine\Client`, the reconciler's listener (`Reconciler::onConsentChange()`)
+  and the engine mock's routes of §8, §9 and §10 (`docs/DEV_ENVIRONMENT.md` 4a).
 
 **Stage 5 parallel groups.** 5.1 → {5.2, 5.5, 5.6} → {5.3, 5.4}.
 
@@ -3400,7 +3523,7 @@ has one owner:
 | 12 | Merchants who disabled `ps_emailsubscription` emails through 2.x | 3.0.0 cannot restore the `NW_*` values (2.x kept no copy), and `NW_VOUCHER_CODE` is lost. | Accepted; a migration notice says so (2.4), and the upgrade guide of Story 6.2 will |
 | 13 | 1.6.x stores lose the 1.6.x newsletter block | Own signup form is out of 3.0.0. | Accepted; a notice says so, and the upgrade guide of Story 6.2 will |
 | 14 | Prefix assignment while two connections share one engine store (section 5.3) | Until the engine assigns prefixes, two separate-store shops on one Smaily account send no nightly manifest, so lost delete and stock events heal only on the next change. | Engine team |
-| 15 | Platform facts not verified yet (facts file part 5) | 1. PrestaShop 8.0.x at runtime: verified for the in-shop test suite and for the upgrade walks (genuine 2.2.0 and 1.6.2 stores by upload and console, the FTP walk, the injected failure, the uninstall; section 3.7). The hook probes of the facts file did not run on 8.0.0. 2. MySQL: every run used MariaDB, so the queue's `FORCE INDEX` claim, `GET_LOCK` and the upgrade are untested on MySQL. 3. The official image `prestashop/prestashop:9.2.0-8.1`, which the CI lane uses, passed `validate.sh` with the skeleton and the event queue, not with any later code. 4. LiteSpeed (`litespeed_finish_request()`). 5. The 1.6.x hidden-tab removal: the 1.6.2 walks loaded the tab from the fixture, because 1.6.2 itself does not install in debug mode; no real 1.6.2 install ran it. 6. The hooks not exercised: `actionOrderEdited`, `actionObjectProductAddAfter` on the v2 page, `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter`, `displayCustomerAccount`, the psgdpr hooks. 7. The back office in Estonian was viewed since: `Language::checkAndAddLanguage('et')` adds the language without a language pack, and the module's pages then show the Estonian targets that the XLIFF holds (facts file 6.7). What stays open is the Estonian target of every 3.0.0 string (Story 3.5). 8. Whether an upgraded store keeps the row of the 2.x tab `SmailyForPrestaShopConfiguration` (section 2.4). | The Story that relies on each item verifies it; the matrix (section 12) covers 8.0 |
+| 15 | Platform facts not verified yet (facts file part 5) | 1. PrestaShop 8.0.x at runtime: verified for the in-shop test suite and for the upgrade walks (genuine 2.2.0 and 1.6.2 stores by upload and console, the FTP walk, the injected failure, the uninstall; section 3.7). The hook probes of the facts file did not run on 8.0.0. 2. MySQL: every run used MariaDB, so the queue's `FORCE INDEX` claim, `GET_LOCK` and the upgrade are untested on MySQL. 3. The official image `prestashop/prestashop:9.2.0-8.1`, which the CI lane uses, passed `validate.sh` with the skeleton and the event queue, not with any later code. 4. LiteSpeed (`litespeed_finish_request()`). 5. The 1.6.x hidden-tab removal: the 1.6.2 walks loaded the tab from the fixture, because 1.6.2 itself does not install in debug mode; no real 1.6.2 install ran it. 6. The hooks not exercised: `actionOrderEdited`, `actionObjectProductAddAfter` on the v2 page, `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter` (`displayCustomerAccount` and the two psgdpr hooks ran in a browser and through psgdpr 1.4.3 on 8.2.8 and 9.2.0, section 11.2). 7. The back office in Estonian was viewed since: `Language::checkAndAddLanguage('et')` adds the language without a language pack, and the module's pages then show the Estonian targets that the XLIFF holds (facts file 6.7). What stays open is the Estonian target of every 3.0.0 string (Story 3.5). 8. Whether an upgraded store keeps the row of the 2.x tab `SmailyForPrestaShopConfiguration` (section 2.4). | The Story that relies on each item verifies it; the matrix (section 12) covers 8.0 |
 | 16 | CI on `v3` | The fork's GitHub Actions are not enabled, so `validate.yaml` has never run; the local runs are the only evidence. | Owner (enable once in the fork's Actions tab) |
 | 17 | A 2.x store after the upgrade | Answered by Stories 2.3 and 4.3: its crontab runs the tick, which covers the work of both 2.x crons (section 3.4). What a merchant must know (fewer reminders than under 2.x, the 24-hour window, the one cron line) waits for the upgrade guide. | Story 6.2 writes the upgrade guide |
 | 18 | The guest gates of the live sync | Answered by Story 2.3: the capture sets the payload's `guest` field, so the live sync applies the decision of 2026-11-20 as the imports do (section 6.2). | Story 2.3 (done) |

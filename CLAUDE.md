@@ -204,7 +204,8 @@ ask (Linear discipline below).
   from the module's folder (ARCHITECTURE 3.7). The dev shop mounts `src/` as that folder, and the
   suite runs the real upgrade there: no listed path may exist in `src/` (a unit test checks it),
   so never list a path that 3.0.0 ships. A test that builds `Upgrade300` itself gives it a folder
-  under the system's temporary folder.
+  under the system's temporary folder. 2.x's `views/templates/hook/` is such a folder: the
+  storefront templates of 3.0.0 lie in `views/templates/front/`.
 - **Marketplace structure.** Every new PHP, Twig, JS and CSS file needs the
   licence notice and every new directory an `index.php`:
   `composer --working-dir src autoindex`, then `header-stamp` (it stamps PHP
@@ -255,6 +256,13 @@ ask (Linear discipline below).
   Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
   (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
   10.6).
+- **Admin endpoints are services.** PrestaShop 9 answers HTTP 500 for a route whose controller
+  is not listed in `config/admin/services/`; PrestaShop 8 serves it. Add the route and the
+  service in one commit (a unit test compares the two), and clear `var/cache` in a dev shop.
+- **Privacy** (ARCHITECTURE 11.2). A shopper is an address: the address, its keyed hash
+  (`Queue\ContactEntity::key()`) and its customer accounts. Every table that holds a person's
+  data joins `Privacy\LocalData` for the export and the erasure. No log line, stored reason or
+  screen holds an engine's text: the HTTP status and the error code only.
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
   (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the

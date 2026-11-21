@@ -234,7 +234,12 @@ show here).
 The engine mock's state is `/tmp/smaily-mock/engine-state.json` in the container: the connections
 by the API key it issued (never copy a key into a report), the used setup tokens, every request it
 received, and its switches, which `mock-engine/router.php` lists (`smaily_subdomain`, `tenant_id`,
-`next_prefix`, `prefix_answer`, `require_capability`, `tenant_inactive`, `fail`, `delay`). Any token
+`next_prefix`, `prefix_answer`, `require_capability`, `tenant_inactive`, `fail`, `delay`). It
+also answers the three privacy routes (contract §8, §9 and §10): it knows every address but one
+that `unknown_customers` lists or that a deletion put into `deleted_customers` (both answer
+HTTP 404, one list for every engine store), keeps each address's choice under `opt_outs`, and
+takes `fail` and `delay` under the names `customer_export`, `customer_delete` and
+`customer_opt_out`. Any token
 that the mock has not seen works once as a setup link
 (`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
 No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls

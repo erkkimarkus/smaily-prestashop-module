@@ -159,6 +159,38 @@ After an upgrade from version 2.x, a store whose opt-in automation had no workfl
 
 Sent and skipped rows are kept for 30 days, failed rows for 90 days. Contact imports stay in the list.
 
+## Privacy requests
+
+A customer can ask for a copy of their personal data, or to have it erased. Smaily Connect answers both for the data that the module itself keeps, and for the customer's data in Campaign Intelligence.
+
+**With PrestaShop's Official GDPR compliance module** (`psgdpr`) the module needs no setup: the export and the deletion of that module include Smaily Connect. A customer who downloads their data on the store's **GDPR - Personal data** page gets the module's part in the same file, and "Remove data" in the GDPR module's Personal data management erases it.
+
+**Without that module**, the **Log** page has the form **Privacy request** under the list, for an employee who may change the Log:
+
+1. Type the customer's **Email address**.
+2. **Export** saves a file with what the module holds about that address, and nothing of anybody else.
+3. **Erase** asks for confirmation and then erases it. It cannot be undone.
+
+The form handles the module's data only. The customer account, the orders and the Smaily contact stay as they are: delete or anonymize the account in PrestaShop, and the contact in Smaily. A customer whose account stays in the store is synced again with their next change.
+
+**What an export lists:** the rows of the Log that were queued for the address (type, status and time, never the message), its abandoned-cart reminders, the email click that led to an order, the discount codes that the module issued to the customer with whether each was used, the personalization preference, and what each Campaign Intelligence connection holds. When Campaign Intelligence does not answer, the export says "Not available" for that connection; run the export again later.
+
+**What an erasure does:**
+
+- Messages that are still waiting to be sent are deleted.
+- Rows of the Log that were already sent, skipped or failed stay as a record, without the contact: their Entity reads `[erased]`, the data that was sent and Smaily's answer are removed, and such a row cannot be sent again.
+- The address is taken off the customer's cart reminders, and a cart that was about to be reminded gets no reminder.
+- The discount codes that the module issued to the customer and that no order used are removed. A used code stays with its order, and so does the remaining credit of a code that was spent in part. PrestaShop's GDPR module itself deletes every voucher of a customer account that it deletes.
+- Campaign Intelligence is asked to delete the customer. The request waits in the Log as `engine.customer_delete` and is retried until Campaign Intelligence answers.
+- The customer's choice about personalization is kept, without the address, so that an opt-out still holds if the same address orders again.
+- Smaily contacts are not deleted. Delete the contact in your Smaily account.
+
+## Personalization
+
+In a store that is connected to Campaign Intelligence, a signed-in customer finds **Personalization** in their account. The page **Personalized Recommendations** has one checkbox, **Allow personalized recommendations**, and the button **Save Preference**. A customer who unticks the box is left out of personalized recommendations; the newsletters then show generic content. The customer can tick it again at any time, and the last choice is the one that counts.
+
+A customer who unsubscribes from the newsletter is also left out of personalization, and is included again after subscribing again, unless they had unticked the box themselves. The page is in English and Estonian. A store without a Campaign Intelligence connection has no such link and no such page.
+
 ## RSS
 
 Smaily's module provides an RSS feed of the store's products. **Settings -> RSS** builds the feed URL:
