@@ -897,6 +897,211 @@
         <target>Hüljatud ostukorvi meeldetuletused: sinu ooteaeg oli pikem kui üks päev. Meeldetuletust ei saadeta kunagi ostukorvile, mis on vanem kui 24 tundi, seega on ooteaeg nüüd 1435 minutit. Saad seda muuta: Seaded &gt; Automaatikad.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="ae5ae1df85e640cacd7cbcb688d32823">
+        <source>How store events fire Smaily workflows.</source>
+        <target>Kuidas poe sündmused Smaily töövooge käivitavad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f3da194ba91ed8f8e811a51b832be8aa">
+        <source>Use its own automations on this shop</source>
+        <target>Kasuta selles poes oma automaatikaid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ab1996455de5d3393d76244d3489034f">
+        <source>A shop with another Smaily account than the one saved for all shops keeps its own automations: their workflows come from its own account.</source>
+        <target>Pood, millel on muu Smaily konto kui kõigi poodide jaoks salvestatu, jääb oma automaatikate juurde: nende töövood tulevad tema enda kontolt.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d83fca8111f8f0d4f1651d6ec2ba6cb9">
+        <source>Pick this shop's workflows</source>
+        <target>Vali selle poe töövood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b7dbe088f852d90784ceec7ac08f99c">
+        <source>This shop uses another Smaily account than the one saved for all shops, so it starts only workflows picked from its own account. No automation starts on it until you pick its workflows below and save.</source>
+        <target>See pood kasutab muud Smaily kontot kui kõigi poodide jaoks salvestatu, seega käivitab see ainult oma kontolt valitud töövooge. Ükski automaatika ei käivitu selles enne, kui valid allpool selle töövood ja salvestad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1299d0a75658fa57ed2e649569a14105">
+        <source>Save Automations</source>
+        <target>Salvesta automaatikad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4db917f6266cf1faff94cf1322831de2">
+        <source>Map store events to Smaily automations</source>
+        <target>Seo poe sündmused Smaily automaatikatega</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bc3ba270d911139346520f75d5cc40cc">
+        <source>Each event triggers the Smaily automation workflow you pick. The lists below come live from your Smaily account — create the workflows there first if they are missing, then press Refresh.</source>
+        <target>Iga sündmus käivitab sinu valitud Smaily automaatika töövoo. Allolevad loendid tulevad otse sinu Smaily kontolt — kui töövood puuduvad, loo need esmalt Smailys ja vajuta siis „Värskenda töövooge“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd3dca5ecc2ba710ffc6faad27133112">
+        <source>Refresh workflows</source>
+        <target>Värskenda töövooge</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="83218ac34c1834c26781fe4bde918ee4">
+        <source>Welcome</source>
+        <target>Tervitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="64500d3e065dad68345d63e37a182bb8">
+        <source>First order</source>
+        <target>Esimene tellimus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="121401ccf0e3e23bcefe6a454f0f0601">
+        <source>Abandoned cart</source>
+        <target>Hüljatud ostukorv</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7882257dd1a742ab583e1e1921b556f7">
+        <source>Fires when a shopper subscribes to the newsletter in your store.</source>
+        <target>Käivitub, kui ostja liitub poes uudiskirjaga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="309b07033162326bfa777b21399ea77d">
+        <source>Fires on a customer's first purchase.</source>
+        <target>Käivitub kliendi esimesel ostul.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8501c2634f9ca5130c29b1fd9e91942f">
+        <source>Fires when a cart is left behind.</source>
+        <target>Käivitub, kui ostukorv jäetakse maha.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4d3d769b812b6faa6b76e1a8abaece2d">
+        <source>Active</source>
+        <target>Aktiivne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d15305d7a4e34e02489c74a5ef542f36">
+        <source>Off</source>
+        <target>Väljas</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="00d23a76e43b46dae9ec7aa9dcbebb32">
+        <source>Enabled</source>
+        <target>Lubatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5fbb67225569290fd56dc7bc2a9a6839">
+        <source>Smaily Workflow</source>
+        <target>Smaily töövoog</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cc103fe4b1faa70f1dda82917b5d83fd">
+        <source>Wait (minutes)</source>
+        <target>Ooteaeg (minutites)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d9a1075a046e8d64ba7389df9c22caa1">
+        <source>-- Not Selected --</source>
+        <target>-- Valimata --</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="48908992bd047e22be6d3d0636e88526">
+        <source>Workflow #%id% (not in your Smaily list — kept)</source>
+        <target>Töövoog #%id% (pole sinu Smaily loendis — säilitatud)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2edf15a780369291f02dbed09af3c883">
+        <source>Smaily's opt-in trigger (from 2.x)</source>
+        <target>Smaily liitumise päästik (versioonist 2.x)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d63a174f0f0957f360f2590cc28987b7">
+        <source>How long a cart must be inactive before it counts as abandoned. From 10 to 1435 minutes. Carts older than 24 hours are never mailed.</source>
+        <target>Kui kaua peab ostukorv olema puutumata, enne kui see loetakse hüljatuks. 10 kuni 1435 minutit. Üle 24 tunni vanustele ostukorvidele kirju ei saadeta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="81aa1f9e73154166a580178d99f6734d">
+        <source>If another tool also sends abandoned-cart emails (for example another PrestaShop module such as Customer follow-up), switch those emails off there, so a shopper does not get two reminders for one cart.</source>
+        <target>Kui hüljatud ostukorvi kirju saadab ka mõni muu tööriist (näiteks mõni teine PrestaShopi moodul, nagu Customer follow-up), lülita need kirjad seal välja, et ostja ei saaks ühe ostukorvi kohta kahte meeldetuletust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8fe67d3e35c65dc64383fbb22f89dcb4">
+        <source>The automation receives the cart contents (up to 10 products).</source>
+        <target>Automaatika saab kaasa ostukorvi sisu (kuni 10 toodet).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7790b9a07c29897f373b5f8b8ca670c8">
+        <source>Want a different workflow per language? Pick a per-language mode on the Connection panel.</source>
+        <target>Soovid igale keelele eri töövoogu? Vali ühenduse paneelil keelepõhine režiim.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fecb07c699e11e9a64508c63e171ddf8">
+        <source>Per-language workflows</source>
+        <target>Keelepõhised töövood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="245db05e62b36b5aac629a1873305403">
+        <source>Each language row lists the workflows of that language's own Smaily account (Connection panel) and fires through it.</source>
+        <target>Iga keelerida näitab selle keele oma Smaily konto (ühenduse paneel) töövooge ja käivitub selle konto kaudu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c86634d1e37adf8fbed2bc84f7f4e2a5">
+        <source>The default fallback handles contacts whose language has no workflow. Leave it on "None" to use the workflow of the default fallback account's language (Connection panel). With neither, these contacts get no automation.</source>
+        <target>Vaikimisi varuvalik käsitleb kontakte, kelle keelel pole töövoogu. Jäta valikuks „Puudub“, et kasutada vaikimisi varukonto keele töövoogu (ühenduse paneel). Kui kumbagi pole, ei saa need kontaktid automaatikat.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b8d080f2bd075a5f5249c8a157a45942">
+        <source>All languages share one Smaily account; each language fires its own workflow from the list.</source>
+        <target>Kõik keeled jagavad üht Smaily kontot; iga keel käivitab nimekirjast oma töövoo.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b3015660e38255b19f9fb4a2815d4dd1">
+        <source>The default fallback handles contacts whose language is not mapped. Leave it on "None" to fall back to the default workflow above.</source>
+        <target>Vaikimisi varuvalik käsitleb kontakte, kelle keel pole vastendatud. Jäta valikuks „Puudub“, et kasutada ülalolevat vaikimisi töövoogu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4994a8ffeba4ac3140beb89e8d41f174">
+        <source>Language</source>
+        <target>Keel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="24f47cdbe9ddba774a7cc53e51d9032e">
+        <source>Workflow</source>
+        <target>Töövoog</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9f1eaae40153160f696069cbb8263545">
+        <source>Default fallback</source>
+        <target>Vaikimisi varuvalik</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c6431aad3ef4200c4582869d950d368c">
+        <source>None (use the default fallback account's language)</source>
+        <target>Puudub (kasuta vaikimisi varukonto keelt)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="19323c90391cb8d2a752635ce810242e">
+        <source>None (use the default workflow above)</source>
+        <target>Puudub (kasuta ülalolevat vaikimisi töövoogu)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="efed7d296fb57aa0147811dda1aaca35">
+        <source>The abandoned-cart wait must be from %min% to %max% minutes. A longer wait would send no reminder.</source>
+        <target>Hüljatud ostukorvi ooteaeg peab olema %min% kuni %max% minutit. Pikema ooteajaga meeldetuletust ei saadeta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7838584832c06562b21a73e78e651499">
+        <source>This workflow is not in the list of your Smaily account. Press Refresh workflows and pick a workflow from the list.</source>
+        <target>Seda töövoogu pole sinu Smaily konto loendis. Vajuta „Värskenda töövooge“ ja vali töövoog loendist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e6ada7cf87922248237571cc005b1ee1">
+        <source>Could not load the workflow list: %error%</source>
+        <target>Töövoogude loendi laadimine ebaõnnestus: %error%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="193002765aa706a35e7baaffd06b4947">
+        <source>Automations</source>
+        <target>Automaatikad</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>
