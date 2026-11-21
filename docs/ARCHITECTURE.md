@@ -353,7 +353,7 @@ writes.
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. The cart delay is saved from 10 to 1435 minutes and reads 30 where none is stored, as in Magento: a cart older than 24 hours is never reminded, so a longer delay would remind nobody. A stored value below 10 reads 10. The upgrade writes 1435 for a 2.x delay above it (section 3.3), so no code stores a longer delay. |
 | `SMAILY_CONNECT_WELCOME_DISCOUNT_ENABLED`, `_WELCOME_DISCOUNT_RULE`, `_WELCOME_DISCOUNT_DAYS`, and the same three for `_FIRST_ORDER_DISCOUNT_` and `_CART_DISCOUNT_` | global or shop | Each store automation's discount code (section 7): `1` = "Send a discount code" is on; the id of the cart rule that the codes are copies of; the days a code is valid, saved from 1 to 365 and read as 7 where none is stored. They belong to the Automations section: a shop's own automations hold them (`ShopOverrides`). |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults: the category id (`0` = all products), the number of products (1 to 250), the sort field and `desc` or `asc`. The migration writes each only when the legacy value is valid. `Config\RssSettings` reads them, and `Admin\Settings\RssPanel` writes them from Settings > RSS; a value that is not stored, or that the feed does not take, reads as the feed's own default (50 products, `date_upd`, `desc`). The feed reads only its URL's parameters, never these keys. |
-| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); a fresh install creates it on its first read (section 4.3). |
+| `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); on a fresh install the Dashboard's "Show the cron line" creates it (section 4.3). A request to a door never creates a token. |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
@@ -590,8 +590,10 @@ parameters:
 | `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code (`Controller\RssFeedController`, `Model\RssFeedProductsCollection`), still wired. Story 3.3 kept it as it is and pinned its output and its parameters with `tests/Integration/Rss/RssFeedTest.php`. New parameters are additive only. |
 | Friendly URL forms of the three | Unchanged: the controller names stay. |
 
-**[D]** A request whose token is empty or wrong, or a door whose stored token is empty, is refused with
-HTTP 403 and the 2.x answer `Access denied!`. The comparison is `hash_equals()`. The upgrade gives an
+**[D]** A request whose token is empty or wrong, or a door that has no stored token or an empty one,
+is refused with HTTP 403 and the 2.x answer `Access denied!`. The comparison is `hash_equals()`. A
+door only compares: a refused request writes nothing (`TickSettings::storedToken()`), so the two
+cron URLs of a fresh install, which never had a token, stay closed. The upgrade gives an
 empty legacy token a new random value and adds a notice. This closes the 2.x hole in section 0. It
 changes the URL of the stores that it affects; those stores had an unauthenticated cron URL. The
 notice names the one cron line of the Dashboard's Background tasks card (section 4.3) and says that
@@ -796,7 +798,8 @@ Planned (the Story that builds each registers it):
    `min(50, max_execution_time − 5)` seconds (50 s when there is no limit, at least 1 s). The three
    front controllers share `Scheduler\DoorFrontController`; each names only its door. Each door
    answers `text/plain` with one of these lines:
-   - HTTP 403 `Access denied!` (the 2.x answer) for an empty or wrong token, or an empty stored token;
+   - HTTP 403 `Access denied!` (the 2.x answer) for an empty or wrong token, or a door with no
+     stored token or an empty one; the door reads the stored token and never creates one;
    - `OK: ran <job>, <job>.` or `OK: no job was due.`;
    - `Busy: another tick is running.`;
    - `Waiting: the upgrade of the module has not finished.` while the schema is still not current
@@ -805,6 +808,8 @@ Planned (the Story that builds each registers it):
    The tick reads the schema state again after its jobs ran. A tick whose `migration` job completes
    the upgrade therefore answers `OK: ran migration.`; the other jobs wait for the next tick.
    `TickSettings::newToken()` (32 hex characters) is the one generator of the door tokens.
+   `TickSettings::token()` creates a missing token; only the upgrade's `tick_token` step and the
+   Dashboard's "Show the cron line" call it, for the tick URL.
 2. **The tick.** `Tick::run()` takes the lock, writes the tick time and source to the tick state, and
    runs each due job in order. Each job gets its own budget, cut to what is left of the tick's; a job
    that cannot start before the tick's budget ends waits for the next tick. The tick records a job as

@@ -48,9 +48,20 @@ final class TickSettings extends Settings
     public const TICK_STATE = self::PREFIX . 'TICK_STATE';
 
     /**
+     * The token stored under $key for shop $idShop as this request loaded it; '' when no scope
+     * holds one, or it is stored empty. It reads only: a door compares with it (Scheduler\Door), and
+     * a door without a stored token stays closed.
+     */
+    public function storedToken(string $key, int $idShop): string
+    {
+        return self::read($key, $idShop) ?? '';
+    }
+
+    /**
      * The token stored under $key for shop $idShop. A token that no scope holds is created on this
-     * first read, at the global scope, so that a fresh install has one for each door. A token stored
-     * empty stays empty: that door is closed until a token is set.
+     * read, at the global scope: the upgrade and the Dashboard's "Show the cron line" call it for
+     * the tick URL, never a request to a door. A token stored empty stays empty: that door is
+     * closed until a token is set.
      */
     public function token(string $key, int $idShop): string
     {

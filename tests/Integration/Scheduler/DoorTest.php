@@ -86,6 +86,23 @@ final class DoorTest extends IntegrationTestCase
         self::assertNull((new TickSettings())->storedState()->lastTickAt(), 'no tick ran');
     }
 
+    public function testADoorWithoutAStoredTokenIsRefusedAndWritesNothing(): void
+    {
+        $count = static fn (): int => (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration`', false);
+        $rows = $count();
+
+        foreach ([Door::TICK, Door::CUSTOMER_CRON, Door::CART_CRON] as $door) {
+            foreach (['', 'anything', str_repeat('0', 32)] as $token) {
+                self::assertSame([403, 'Access denied!'], $this->door()->open($door, $token, 1, 30), $door);
+            }
+        }
+
+        self::assertSame($rows, $count(), 'no configuration row was added');
+        foreach (self::KEYS as $key) {
+            self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($key) . '\'', false), $key);
+        }
+    }
+
     public function testSaysWhenNoJobWasDue(): void
     {
         $token = (new TickSettings())->token(TickSettings::TICK_TOKEN, 1);

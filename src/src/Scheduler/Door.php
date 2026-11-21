@@ -33,9 +33,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 
 /**
  * The URLs that run the tick: the tick URL and the two cron URLs of 2.x, each behind its own token.
- * A door whose stored token is empty, or a request whose token is empty or wrong, is refused with
- * the answer of 2.x, "Access denied!". Every answer is a short plain-text status that names no
- * person and no secret.
+ * A door that has no stored token or an empty one, or a request whose token is empty or wrong, is
+ * refused with the answer of 2.x, "Access denied!". A door only compares: a request never creates a
+ * token, and a refused request writes nothing. Every answer is a short plain-text status that names
+ * no person and no secret.
  */
 final class Door
 {
@@ -83,7 +84,7 @@ final class Door
         if (!isset(self::TOKEN_KEYS[$door])) {
             throw new \InvalidArgumentException(sprintf('No door is named "%s".', $door));
         }
-        $stored = $this->settings->token(self::TOKEN_KEYS[$door], $idShop);
+        $stored = $this->settings->storedToken(self::TOKEN_KEYS[$door], $idShop);
         if ($stored === '' || $token === '' || !hash_equals($stored, $token)) {
             return [403, 'Access denied!'];
         }
