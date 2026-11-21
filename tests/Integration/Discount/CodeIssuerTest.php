@@ -108,6 +108,30 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertSame(date('Y-m-d 15:00:00', strtotime('+2 days', $now)), (new \CartRule((int) \CartRule::getIdByCode($second['code'])))->date_to);
     }
 
+    public function testACodeWhoseRowIsStoredButNotFinishedLeavesNoRuleBehind(): void
+    {
+        $template = $this->template();
+        // The id of the next cart rule already holds a name: PrestaShop stores the copy's main row
+        // and then fails on its names.
+        $probe = $this->rule($this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME)['code']);
+        $next = (int) $probe->id + 1;
+        $probe->delete();
+        self::db()->insert('cart_rule_lang', ['id_cart_rule' => $next, 'id_lang' => (int) \Configuration::get('PS_LANG_DEFAULT'), 'name' => 'A leftover name']);
+
+        try {
+            $this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME);
+            self::fail('The issuer reported a code that PrestaShop did not finish.');
+        } catch (\Throwable $error) {
+            self::assertNotInstanceOf(\PHPUnit\Framework\AssertionFailedError::class, $error);
+        } finally {
+            self::db()->delete('cart_rule_lang', '`id_cart_rule` = ' . $next);
+        }
+
+        self::assertSame([], self::issuedIds(), 'no half-made rule stays');
+        self::assertFalse(self::db()->getValue('SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` = ' . $next));
+        self::assertNotNull($this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME), 'the next attempt makes its code');
+    }
+
     public function testPrestaShopTakesTheCodeOnceForItsCustomerUntilItsLastDay(): void
     {
         $template = $this->template();

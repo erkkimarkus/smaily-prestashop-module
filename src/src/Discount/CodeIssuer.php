@@ -90,7 +90,7 @@ final class CodeIssuer
      *
      * @return array{code: string, expires_at: string}|null
      *
-     * @throws \RuntimeException when PrestaShop does not store the copy
+     * @throws \Throwable when PrestaShop does not store the copy; no rule is left behind
      */
     public function issue(int $idRule, int $days, int $idShop, int $idCustomer, string $trigger): ?array
     {
@@ -123,10 +123,24 @@ final class CodeIssuer
         $rule->active = true;
         $rule->date_from = date('Y-m-d H:i:s', $now);
         $rule->date_to = date('Y-m-d H:i:s', $end);
-        if (!$rule->add()) {
-            throw new \RuntimeException('PrestaShop did not store the discount code.');
+        try {
+            if (!$rule->add()) {
+                throw new \RuntimeException('PrestaShop did not store the discount code.');
+            }
+            \CartRule::copyConditions($idRule, (int) $rule->id);
+        } catch (\Throwable $error) {
+            // PrestaShop stores the main row first: its names, or another module's hook on a new
+            // cart rule, can still fail. No half-made rule stays, so a retry starts anew.
+            if ((int) $rule->id > 0) {
+                try {
+                    $rule->delete();
+                } catch (\Throwable $ignored) {
+                    \Db::getInstance()->delete('cart_rule', '`id_cart_rule` = ' . (int) $rule->id);
+                    \Db::getInstance()->delete('cart_rule_lang', '`id_cart_rule` = ' . (int) $rule->id);
+                }
+            }
+            throw $error;
         }
-        \CartRule::copyConditions($idRule, (int) $rule->id);
 
         // An end at 00:00:00 (a template's) leaves the day before as the last valid day.
         return ['code' => (string) $rule->code, 'expires_at' => date('Y-m-d', $end - 1)];
