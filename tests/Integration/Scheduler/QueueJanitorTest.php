@@ -5,6 +5,7 @@ namespace Tests\Integration\Scheduler;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
@@ -146,7 +147,7 @@ final class QueueJanitorTest extends IntegrationTestCase
 
     private function janitor(int $batch = QueueJanitor::BATCH_SIZE): QueueJanitor
     {
-        return new QueueJanitor($this->queue, new JobStore(), $batch);
+        return new QueueJanitor($this->queue, new JobStore(), new IssuedCodes(), $batch);
     }
 
     private function deadline(bool $passed): Deadline

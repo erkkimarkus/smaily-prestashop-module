@@ -40,6 +40,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowResolverInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -79,6 +80,7 @@ final class AutomationProvider implements ProviderInterface
         ));
         $services->set(WorkflowList::class, fn (Services $services): WorkflowList => new WorkflowList($services->get(Transport::class)));
         $services->set(TemplateRules::class, fn (): TemplateRules => new TemplateRules());
+        $services->set(IssuedCodes::class, fn (): IssuedCodes => new IssuedCodes());
         $services->set(AutomationDiscount::class, fn (Services $services): AutomationDiscount => new AutomationDiscount(
             $services->get(AutomationSettings::class),
             new CodeIssuer($services->get(TemplateRules::class)),
