@@ -873,6 +873,24 @@ on the old schema).
   stayed on, shop 2 got no row, the Dashboard opened, and a cart that was due got its reminder
   through the migrated account and workflow, against the Smaily mock.
 
+- On 8.2.8 and 9.2.0 (2026-11-21), each from a genuine 2.2.0 store (`2.2.0-configured.sql`) with
+  the 3.0.0 zip unpacked over its folder, through the console, behind the egress guard:
+  - The module's folder held 35 of the listed files before the upgrade and none after it; the 4
+    folders of 2.2.0 that 3.0.0 does not have were gone; the folder then held the 336 files of the
+    zip and `vendor/.htaccess`, which PrestaShop writes. The migration ended `done`, with 30 hooks.
+  - An upgrade stopped before the `accounts` step (the failure seam of `Upgrade300`), an account
+    saved for all shops through `Admin\Settings\TabSaver` against the Smaily mock, and `lib/` made
+    read-only: the console upgrade completed the migration, the saved account was the only
+    account, with its own password, the plain-text password of 2.x was gone, and one notice named
+    the 4 files of `lib/` that stayed.
+  - One request to the tick URL ran the janitor: of the tracker rows that the walk added, the
+    `mailed` row of 40 days and the `skipped` row of 31 days were gone, the `mailed` row of 10
+    days and the `open` row of 400 days stayed, as did the 3 rows that the upgrade carried over
+    (18 to 20 days old) and the 3 rows of `smaily_cart`; an import job of 400 days stayed, and a
+    sent queue row of 40 days was gone.
+  - A console install and uninstall with debug mode on, in dev shops: 30 hooks after the install,
+    none after the uninstall.
+
 **Limits:**
 
 - An FTP copy over 2.2.0 on a store without a cron line stays inert until the admin clicks Upgrade:
@@ -2653,7 +2671,7 @@ once a day and sends no store data."
 | JavaScript | Planned with Story 5.5: the IIFE first-statement check for every file in `views/js/front/`, and the logic of `consent.js` tested with Node's built-in test runner (no npm packages), in a folder `tests/js/`. No JavaScript test exists today; `views/js/front/` holds one file, `checkout-capture.js`. | — |
 | Contract check | Planned: CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and the installation-report contract with the subscription repository's copy (`gh api`, read token), and fails on any difference. Today `validate.yaml` has no such step, the engine contract copy is compared by hand with `cmp`, and no copy of the report contract is in this repository (Story 6.1 adds it). | — |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 1482 tests on PrestaShop 8.2.8 (7772 assertions) and on 9.2.0 (7778 assertions, with debug mode on and with it off), each on a fresh shop, with the database gateway (2026-11-21). On the host: 1482 tests, 2158 assertions, 786 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
+| Last verified counts | The in-shop suite: 1513 tests on PrestaShop 8.2.8 (8146 assertions) and on 9.2.0 (8151 assertions, with debug mode on and with it off), each on a fresh shop, with the upgrade's file deletion and the tracker's retention (2026-11-21). On the host: 1513 tests, 2358 assertions, 807 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` (`bin/package.sh`) builds the zip from the files that git tracks under `src/`, minus `src/.zipignore`, with the production `vendor/`; `tests/ci/validate.sh` installs it. `tests/Unit/Install/ConfigXmlTest.php` holds `src/config.xml` equal to the main class. Planned with Story 6.3: a check that the version is equal in the main class and `composer.json`, and an upgrade of the zip on the matrix. | `bin/package.sh`, CI |

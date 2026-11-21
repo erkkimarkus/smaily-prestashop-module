@@ -200,6 +200,11 @@ ask (Linear discipline below).
   2026-11-21). Where the siblings behave one way, PrestaShop behaves the
   same way; an improvement only one connector would have goes into the
   cross-connector analysis (Linear CON-397) and all change together.
+- **Files of earlier releases.** The upgrade deletes the fixed list `Migration\LegacyFiles::FILES`
+  from the module's folder (ARCHITECTURE 3.7). The dev shop mounts `src/` as that folder, and the
+  suite runs the real upgrade there: no listed path may exist in `src/` (a unit test checks it),
+  so never list a path that 3.0.0 ships. A test that builds `Upgrade300` itself gives it a folder
+  under the system's temporary folder.
 - **Marketplace structure.** Every new PHP, Twig, JS and CSS file needs the
   licence notice and every new directory an `index.php`:
   `composer --working-dir src autoindex`, then `header-stamp` (it stamps PHP

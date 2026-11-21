@@ -85,12 +85,13 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1482 tests on 8.2.8 (7772 assertions) and on 9.2.0 (7778
+Last verified results, all passing: 1513 tests on 8.2.8 (8146 assertions) and on 9.2.0 (8151
 assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the database gateway; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP
-8.5.12; on 9.2.0 once with debug mode on and once with it off, with the same counts); 8.0.0 last
+the egress guard (2026-11-21, with the upgrade's file deletion and the tracker's retention; 8.2.8
+runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12; on 9.2.0 once with debug mode on and once with it off,
+with the same counts); 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (1482 tests, 2158 assertions, 786 skipped).
+and skips the integration tests (1513 tests, 2358 assertions, 807 skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
@@ -232,7 +233,7 @@ a call went to; a workflow of the state with a `subdomain` is listed only to tha
 console's `prestashop:module upgrade` asks PrestaShop's Distribution API first and fails behind the
 guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the pending migration. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
 write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for
-a single-contact read, and `"automation_posts_fail"` for every automation email (`POST autoresponder.php`), so an automation row fails and waits for its retry. The guard is not installed in the shop of `tests/ci/validate.sh`.
+a single-contact read, and `"automation_posts_fail"` for every automation email (`POST autoresponder.php`), so an automation row fails and waits for its retry. The guard is not installed in the shop of `tests/ci/validate.sh`; a walk in that shop (`KEEP=1`) installs it with `DC="docker compose -f tests/ci/docker-compose.yaml"` and the script's `COMPOSE_PROJECT_NAME` and `CI_PORT` (verified on 8.2.8 and 9.2.0).
 
 In a shop with debug mode on (the dev stack), `prestashop:module upgrade` stops behind the guard with
 `Unable to retrieve informations from Distribution API`: a native module asks
@@ -309,6 +310,9 @@ Results on 2026-11-20:
   shop on each (7251 assertions on 8.2.8, 7257 on 9.2.0).
 - On 2026-11-21, with the database gateway: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the
   packaged zip, and 1482 tests in the shop on each (7772 assertions on 8.2.8, 7778 on 9.2.0).
+- On 2026-11-21, with the upgrade's file deletion and the tracker's retention: 10 of 10 checks on
+  flashlight 8.2.8 and 9.2.0 with the packaged zip, and 1513 tests in the shop on each (8146
+  assertions on 8.2.8, 8151 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
@@ -374,7 +378,11 @@ commands below follow those walks; they were not run again for this document.
    - A scripted upload: log in to the admin, then post the zip to
      `/admin-dev/index.php/improve/modules/import` with the session.
    - The console: replace the module folder with the 3.0.0 files (section 7) and run
-     `prestashop:module upgrade smailyforprestashop`.
+     `prestashop:module upgrade smailyforprestashop`. To leave the files of the legacy release
+     on disk, as an upload does, unpack the zip over the folder instead of replacing it
+     (`unzip -o -qq /ps-modules/smailyforprestashop.zip -d modules`, then `chown` and remove
+     `var/cache/prod` and `var/cache/dev`): the walks of 2026-11-21 ran this way (ARCHITECTURE
+     section 3.7).
    - An FTP copy: replace the files only. Nothing runs until a cron URL request or a page request
      runs the tick (ARCHITECTURE section 3.7).
 6. **Check** `SMAILY_CONNECT_MIGRATION` (`status` `done`), `SMAILY_CONNECT_SCHEMA_VERSION`, the
