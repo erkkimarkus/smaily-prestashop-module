@@ -38,6 +38,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\NoVisitorToken;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\OrderCapture;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\VisitorToken;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
@@ -47,6 +48,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CatalogPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CustomerPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\OrderPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -64,7 +66,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
  * only.
  *
  * The storefront supplies the visitor token of the identity merge by registering its own
- * Engine\Capture\VisitorToken after this provider; until then there is none.
+ * Engine\Capture\VisitorToken after this provider (Storefront\VisitorToken); without the
+ * storefront's provider there is none. The storefront's browse events get their product key here
+ * (StorefrontProvider::PRODUCT_KEY), from the builder of every other key.
  */
 final class EngineIngestProvider implements ProviderInterface
 {
@@ -194,6 +198,12 @@ final class EngineIngestProvider implements ProviderInterface
                 $orders()->orderChanged($params);
             });
         }
+
+        // A browse event names its product by the key of the product's catalog row (contract "Same
+        // key from every path"): the storefront asks, and knows no key itself.
+        $services->listen(StorefrontProvider::PRODUCT_KEY, static fn (array $params): ?string => ($params['connection'] ?? null) instanceof Connection
+            ? Keys::sku($params['connection']->prefix(), (int) ($params['id_product'] ?? 0), (int) ($params['id_product_attribute'] ?? 0))
+            : null);
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::FLUSH_JOB, 60, 25, static function (Deadline $deadline) use ($services): void {
             $services->get(IngestFlusher::class)->flush($deadline);

@@ -4,9 +4,8 @@ declare(strict_types=1);
 namespace Tests\Integration\Storefront;
 
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
-use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
-use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\StorefrontProvider;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Relay;
 
@@ -47,7 +46,7 @@ final class BrowseRelayTest extends StorefrontTestCase
         self::assertSame('Bearer ' . array_key_first($this->engine->connections()), $requests[0]['authorization']);
         self::assertSame(['events'], array_keys($requests[0]['body']));
         foreach ($requests[0]['body']['events'] as $event) {
-            self::assertSame([], array_diff(array_keys($event), ['event_id', 'session_id', 'event_type', 'event_ts', 'search_query']));
+            self::assertSame([], array_diff(array_keys($event), ['event_id', 'session_id', 'event_type', 'event_ts', 'search_query', 'sku']));
             self::assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/', $event['event_ts']);
             self::assertSame(self::SESSION, $event['session_id']);
         }
@@ -106,21 +105,26 @@ final class BrowseRelayTest extends StorefrontTestCase
         self::assertSame([null, self::STORE_TOKEN, self::STORE_TOKEN, null], $sent);
     }
 
-    public function testWithoutAProductKeyAnEventCarriesNoSkuAndAListenerGivesOne(): void
+    public function testAnEventNamesItsProductByTheKeyOfTheCatalogRow(): void
     {
-        $this->connect();
+        $this->engine->set('next_prefix', 'c7-');
+        $connection = $this->connect();
+        self::assertSame('c7-', $connection->prefix());
 
-        $this->relay([self::event('product_view', '1', ['product_id' => '1', 'product_attribute_id' => '2'])]);
-        self::assertArrayNotHasKey('sku', $this->engine->requestsTo(self::BROWSE)[0]['body']['events'][0]);
+        $this->relay([
+            self::event('product_view', '1', ['product_id' => '1', 'product_attribute_id' => '2']),
+            self::event('product_view', '2', ['product_id' => '6']),
+            self::event('search', '3'),
+        ]);
 
-        $this->services->listen(StorefrontProvider::PRODUCT_KEY, static function (array $params): string {
-            self::assertInstanceOf(Connection::class, $params['connection']);
-
-            return $params['connection']->prefix() . 'test-key-' . $params['id_product'] . '-' . $params['id_product_attribute'];
-        });
-        $this->relay([self::event('product_view', '2', ['product_id' => '1', 'product_attribute_id' => '2'])]);
-
-        self::assertSame('test-key-1-2', $this->engine->requestsTo(self::BROWSE)[1]['body']['events'][0]['sku']);
+        $events = $this->engine->requestsTo(self::BROWSE)[0]['body']['events'];
+        self::assertSame(
+            [Keys::sku('c7-', 1, 2), Keys::sku('c7-', 6)],
+            [$events[0]['sku'], $events[1]['sku']],
+            'the key that the catalog row of the combination, and of a product without one, carries'
+        );
+        self::assertSame(['c7-ps-1-2', 'c7-ps-6'], [$events[0]['sku'], $events[1]['sku']]);
+        self::assertArrayNotHasKey('sku', $events[2], 'an event without a product has no key');
     }
 
     public function testAShopWithoutAConnectionOrWithARefusedOneRelaysNothing(): void

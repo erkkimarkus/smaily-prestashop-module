@@ -2309,8 +2309,11 @@ then stores `web` (section 14).
 **The product key seam.** The browser names a product by the store's own ids, never by a key. The
 relay asks the listeners of `StorefrontProvider::PRODUCT_KEY` for the engine's `sku` of that
 product on the connection (`connection`, `id_product`, `id_product_attribute`); without a listener
-the event goes without `sku`, which §6 allows. No listener exists yet: the key builder with the
-platform namespace is Story 5.2's (section 8.2), and nothing here spells `ps-`.
+the event goes without `sku`, which §6 allows. The listener is Story 5.2's key builder
+(`Engine\Payload\Keys::sku()`, registered by `EngineIngestProvider`; sections 8.2 and 8.11), so a
+browse event names its product by the key of the product's catalog row, and nothing here spells
+the platform namespace. The product page gives the combination that it shows, the default one
+when the address names none (`PageScripts`), as the catalog has one row per combination.
 
 **The landing** (`Storefront\Landing`). 405 unless a POST; 404 without a stored connection; 429
 beyond 30 requests per address and minute; 400 when nothing posted has its shape; 500 when a cookie
@@ -2407,7 +2410,8 @@ request has no cookies (section 14).
 
 Story 5.2 sends what changes in the store to Campaign Intelligence: products (contract §3), removed
 products (§3b), the nightly product list (§3c), customers (§4), orders (§5) and the identity merge
-(§7). The history import and the catalog import are Story 5.3; browse events are Story 5.5.
+(§7). The history import and the catalog import are Story 5.3; browse events are the
+storefront's (section 8.10), and take their product key from here.
 
 **Gates.** Nothing is noted and nothing is sent for a shop without a stored connection
 (`Connections::forShop()`), and a listener reads nothing of the product, customer or order then. A
@@ -2467,7 +2471,7 @@ value.
 `country` and `phone` of a customer come from the customer's first active address, as the siblings
 send the billing address's. No street, city, postcode, company, birthday or note leaves the shop.
 The three attribution fields of an order are read from `smaily_connect_order_attribution`, which
-Story 5.5 fills; until then no order carries them. `event_id` is a UUID derived from the
+the storefront fills at the order (section 8.10). `event_id` is a UUID derived from the
 connection, the row and the item, so a retry repeats it (contract "Idempotency").
 
 Contract fields that the module does not send: `raw_attributes`, `on_sale_until`,
@@ -2523,10 +2527,11 @@ personalization (section 11.2) gets neither: the row is skipped (`engine_opted_o
 Magento connector. A sign-in with neither consent nor a token queues nothing.
 
 **The visitor-token seam.** `Engine\Capture\VisitorToken` is the one seam to the storefront:
-`token(int $idShop, bool $marketingConsent): ?string`. The default, `NoVisitorToken`, answers
-nothing, so until Story 5.5 no merge is sent; a consenting sign-in still sends the customer. Story
-5.5 registers its own under the interface's name in `StorefrontProvider`, which runs after
-`EngineIngestProvider`. Nothing in Story 5.2 creates or reads a cookie.
+`token(int $idShop, bool $marketingConsent): ?string`. The storefront answers it
+(`Storefront\VisitorToken`, section 8.10), registered under the interface's name by
+`StorefrontProvider`, which runs after `EngineIngestProvider`. The default of this area,
+`NoVisitorToken`, answers nothing: without a token no merge is sent, and a consenting sign-in
+still sends the customer. Nothing in the ingest creates or reads a cookie.
 
 **The nightly list** (`Engine\Ingest\CatalogManifest`, the job `catalog_manifest`). Once a night,
 from 03:30 of the shop's day, each connection sends the `sku` and `in_stock` of every row of its
@@ -2549,8 +2554,7 @@ row carries no consent (section 11.2).
 
 **Not built here.** The catalog and history imports, the pause of the nightly list while an import
 runs, the Dashboard's sentence about a suppressed list, and what a layout change does with the
-rows of a connection (Story 5.3); the visitor token, the attribution rows and browse events (Story
-5.5). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
+rows of a connection (Story 5.3). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
 the next nightly list leaves it out.
 
 ---
@@ -3767,8 +3771,7 @@ has one owner:
 - **Done.** As built: section 8.11, with the keys of section 8.2 and the money of section 8.3;
   `src/src/Runtime/Provider/EngineIngestProvider.php`; the Log's ingest rows (section 10.8), the
   retention sweep (section 11.3) and the privacy coverage of the ingest rows (section 11.2).
-- **Left open.** The imports (Story 5.3) and the visitor token (Story 5.5). `ps-` waits for the
-  engine team (section 14, row 1).
+- **Left open.** The imports (Story 5.3). `ps-` waits for the engine team (section 14, row 1).
 
 ### Story 5.3 — History import and the Intelligence tab
 
