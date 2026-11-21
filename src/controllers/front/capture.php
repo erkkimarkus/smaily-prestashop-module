@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CaptureEndpoint;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The checkout capture URL: the checkout's capture script posts the address a guest typed here
@@ -42,10 +43,11 @@ class SmailyforprestashopCaptureModuleFrontController extends ModuleFrontControl
 
     public function initContent()
     {
+        $request = Request::createFromGlobals();
         Services::instance()->get(CaptureEndpoint::class)->handle(
             $this->context,
-            (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
-            $_POST
+            (string) $request->server->get('REQUEST_METHOD', ''),
+            $request->request->all()
         );
 
         header('Content-Type: application/json; charset=utf-8');
