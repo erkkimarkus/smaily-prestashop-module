@@ -63,6 +63,43 @@ class AutomationSettings extends Settings
     /** The cart delay of a store with none stored. */
     public const DEFAULT_CART_DELAY_MINUTES = 30;
 
+    /**
+     * Each automation's discount code (as the Magento and WooCommerce connectors): `_ENABLED` is
+     * `1` while "Send a discount code" is on, `_RULE` the id of the cart rule that each code is a
+     * copy of, `_DAYS` the days a code is valid.
+     */
+    public const WELCOME_DISCOUNT_ENABLED = self::PREFIX . 'WELCOME_DISCOUNT_ENABLED';
+
+    public const WELCOME_DISCOUNT_RULE = self::PREFIX . 'WELCOME_DISCOUNT_RULE';
+
+    public const WELCOME_DISCOUNT_DAYS = self::PREFIX . 'WELCOME_DISCOUNT_DAYS';
+
+    public const FIRST_ORDER_DISCOUNT_ENABLED = self::PREFIX . 'FIRST_ORDER_DISCOUNT_ENABLED';
+
+    public const FIRST_ORDER_DISCOUNT_RULE = self::PREFIX . 'FIRST_ORDER_DISCOUNT_RULE';
+
+    public const FIRST_ORDER_DISCOUNT_DAYS = self::PREFIX . 'FIRST_ORDER_DISCOUNT_DAYS';
+
+    public const CART_DISCOUNT_ENABLED = self::PREFIX . 'CART_DISCOUNT_ENABLED';
+
+    public const CART_DISCOUNT_RULE = self::PREFIX . 'CART_DISCOUNT_RULE';
+
+    public const CART_DISCOUNT_DAYS = self::PREFIX . 'CART_DISCOUNT_DAYS';
+
+    /** The keys of each automation's discount code. */
+    public const DISCOUNT_KEYS = [
+        Trigger::WELCOME => ['enabled' => self::WELCOME_DISCOUNT_ENABLED, 'rule' => self::WELCOME_DISCOUNT_RULE, 'days' => self::WELCOME_DISCOUNT_DAYS],
+        Trigger::FIRST_ORDER => ['enabled' => self::FIRST_ORDER_DISCOUNT_ENABLED, 'rule' => self::FIRST_ORDER_DISCOUNT_RULE, 'days' => self::FIRST_ORDER_DISCOUNT_DAYS],
+        Trigger::ABANDONED_CART => ['enabled' => self::CART_DISCOUNT_ENABLED, 'rule' => self::CART_DISCOUNT_RULE, 'days' => self::CART_DISCOUNT_DAYS],
+    ];
+
+    /** The fewest and the most days a discount code can be valid, and the days of a store with none stored. */
+    public const MIN_DISCOUNT_DAYS = 1;
+
+    public const MAX_DISCOUNT_DAYS = 365;
+
+    public const DEFAULT_DISCOUNT_DAYS = 7;
+
     private const SWITCHES = [
         Trigger::WELCOME => self::WELCOME_ENABLED,
         Trigger::FIRST_ORDER => self::FIRST_ORDER_ENABLED,
@@ -106,5 +143,47 @@ class AutomationSettings extends Settings
         }
 
         return $this->set(self::CART_DELAY_MINUTES, (string) $minutes, $idShop);
+    }
+
+    /**
+     * Whether the automation's "Send a discount code" is on in the shop. Nothing stored, and an
+     * unknown trigger, is off.
+     */
+    public function discountEnabled(string $trigger, int $idShop): bool
+    {
+        return isset(self::DISCOUNT_KEYS[$trigger]) && $this->get(self::DISCOUNT_KEYS[$trigger]['enabled'], $idShop) === '1';
+    }
+
+    /**
+     * The cart rule that the automation's discount codes are copies of in the shop; 0 for none.
+     */
+    public function discountRule(string $trigger, int $idShop): int
+    {
+        return isset(self::DISCOUNT_KEYS[$trigger]) ? max(0, (int) $this->get(self::DISCOUNT_KEYS[$trigger]['rule'], $idShop)) : 0;
+    }
+
+    /**
+     * The days the automation's discount code is valid in the shop: the stored days within the
+     * bounds; the default where none is stored.
+     */
+    public function discountDays(string $trigger, int $idShop): int
+    {
+        $stored = isset(self::DISCOUNT_KEYS[$trigger]) ? (int) $this->get(self::DISCOUNT_KEYS[$trigger]['days'], $idShop) : 0;
+
+        return $stored > 0 ? min(self::MAX_DISCOUNT_DAYS, $stored) : self::DEFAULT_DISCOUNT_DAYS;
+    }
+
+    public function setDiscount(string $trigger, bool $enabled, int $idRule, int $days, int $idShop): void
+    {
+        if (!isset(self::DISCOUNT_KEYS[$trigger])) {
+            throw new \InvalidArgumentException('Unknown automation trigger.');
+        }
+        if ($days < self::MIN_DISCOUNT_DAYS || $days > self::MAX_DISCOUNT_DAYS) {
+            throw new \InvalidArgumentException('A discount code is valid for 1 to 365 days.');
+        }
+        $keys = self::DISCOUNT_KEYS[$trigger];
+        $this->set($keys['enabled'], $enabled ? '1' : '0', $idShop);
+        $this->set($keys['rule'], (string) max(0, $idRule), $idShop);
+        $this->set($keys['days'], (string) $days, $idShop);
     }
 }

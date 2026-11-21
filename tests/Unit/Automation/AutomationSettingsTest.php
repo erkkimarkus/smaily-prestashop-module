@@ -75,6 +75,64 @@ final class AutomationSettingsTest extends TestCase
         return ['9 minutes' => [9], '1436 minutes' => [1436], 'none' => [0], 'a day' => [1440]];
     }
 
+    public function testEachAutomationsDiscountCodeReadsItsOwnSwitchRuleAndDays(): void
+    {
+        $settings = new FakeAutomationSettings([
+            0 => [
+                AutomationSettings::WELCOME_DISCOUNT_ENABLED => '1',
+                AutomationSettings::WELCOME_DISCOUNT_RULE => '12',
+                AutomationSettings::WELCOME_DISCOUNT_DAYS => '14',
+                AutomationSettings::CART_DISCOUNT_ENABLED => '0',
+                AutomationSettings::CART_DISCOUNT_DAYS => '900',
+            ],
+            2 => [AutomationSettings::WELCOME_DISCOUNT_ENABLED => '0', AutomationSettings::FIRST_ORDER_DISCOUNT_RULE => '7'],
+        ]);
+
+        self::assertTrue($settings->discountEnabled(Trigger::WELCOME, 1));
+        self::assertSame(12, $settings->discountRule(Trigger::WELCOME, 1));
+        self::assertSame(14, $settings->discountDays(Trigger::WELCOME, 1));
+        self::assertFalse($settings->discountEnabled(Trigger::FIRST_ORDER, 1), 'nothing stored is off');
+        self::assertSame(0, $settings->discountRule(Trigger::FIRST_ORDER, 1), 'no rule is 0');
+        self::assertSame(7, $settings->discountDays(Trigger::FIRST_ORDER, 1), 'no days read the default');
+        self::assertFalse($settings->discountEnabled(Trigger::ABANDONED_CART, 1));
+        self::assertSame(365, $settings->discountDays(Trigger::ABANDONED_CART, 1), 'more days than the maximum read the maximum');
+        self::assertFalse($settings->discountEnabled(Trigger::WELCOME, 2), 'a shop\'s own value wins');
+        self::assertSame(12, $settings->discountRule(Trigger::WELCOME, 2), 'a shop without its own value reads the shared one');
+        self::assertSame(7, $settings->discountRule(Trigger::FIRST_ORDER, 2));
+        self::assertFalse($settings->discountEnabled('order_confirmation', 1), 'an unknown trigger has none');
+        self::assertSame(0, $settings->discountRule('order_confirmation', 1));
+    }
+
+    /**
+     * @dataProvider refusedDiscountDays
+     */
+    public function testDiscountDaysOutsideOneTo365AreRefused(int $days): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        (new FakeAutomationSettings([]))->setDiscount(Trigger::WELCOME, true, 12, $days, 0);
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public function refusedDiscountDays(): array
+    {
+        return ['none' => [0], '366 days' => [366], 'negative' => [-1]];
+    }
+
+    public function testEachTriggerHasItsOwnDiscountCodeFieldsAsTheSiblingConnectors(): void
+    {
+        self::assertSame(
+            [
+                Trigger::WELCOME => ['welcome_coupon_code', 'welcome_coupon_expires_at'],
+                Trigger::FIRST_ORDER => ['first_order_coupon_code', 'first_order_coupon_expires_at'],
+                Trigger::ABANDONED_CART => ['abandoned_cart_coupon_code', 'abandoned_cart_coupon_expires_at'],
+            ],
+            Trigger::COUPON_FIELDS
+        );
+    }
+
     public function testEachTriggerHasItsOwnMarkerFieldStampedInUtc(): void
     {
         self::assertSame(

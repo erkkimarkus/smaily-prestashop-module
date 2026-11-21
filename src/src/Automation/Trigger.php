@@ -54,6 +54,17 @@ final class Trigger
     ];
 
     /**
+     * The Smaily contact fields of each automation's discount code: the code, and its last valid
+     * day (`Y-m-d`, in the shop's time). The names are the ones the Magento, WooCommerce and
+     * Shopify connectors write; merchants put them into their email templates.
+     */
+    public const COUPON_FIELDS = [
+        self::WELCOME => ['welcome_coupon_code', 'welcome_coupon_expires_at'],
+        self::FIRST_ORDER => ['first_order_coupon_code', 'first_order_coupon_expires_at'],
+        self::ABANDONED_CART => ['abandoned_cart_coupon_code', 'abandoned_cart_coupon_expires_at'],
+    ];
+
+    /**
      * The trigger's marker field stamped now, in UTC `Y-m-d H:i:s`, to add to the payload fields
      * when the trigger fires (the siblings stamp it when the event is queued, so a retry sends the
      * moment of the store event); [] for a trigger without a marker.
