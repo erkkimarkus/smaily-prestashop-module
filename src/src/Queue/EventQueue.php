@@ -404,6 +404,67 @@ final class EventQueue
     }
 
     /**
+     * The rows stored under one of the entities, oldest first: what the queue holds of a contact,
+     * for a privacy request. The database compares an entity without regard to case and accents;
+     * the caller keeps the rows whose entity is its own.
+     *
+     * @param list<string> $entities
+     *
+     * @return list<array<string, string|null>> with `id`, `id_shop`, `event_type`, `entity_id`,
+     *                                          `status`, `created_at` and `payload`
+     */
+    public function ofEntities(array $entities): array
+    {
+        if ($entities === []) {
+            return [];
+        }
+
+        return Sql::rows(sprintf(
+            'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `created_at`, `payload` FROM %s WHERE `entity_id` IN (%s) ORDER BY `id`',
+            self::table(),
+            implode(', ', array_map([self::class, 'quote'], $entities))
+        ));
+    }
+
+    /**
+     * Erases a contact from the rows $ids. A row that can still be sent (`pending`, or
+     * `processing` under a flush) is deleted: nothing more goes out for the contact. A closed row
+     * stays, as the store's record that something was sent, and loses what names the contact: its
+     * payload, the request and the answer of its attempts, and its entity, which becomes $entity.
+     * `updated_at` stays, so the row leaves with the queue's retention as before.
+     *
+     * @param list<int> $ids
+     * @param string $entity the entity of an erased row (Log\ResendGuard::ERASED_ENTITY)
+     *
+     * @return array{removed: int, cleared: int}
+     */
+    public function erase(array $ids, string $entity): array
+    {
+        if ($ids === []) {
+            return ['removed' => 0, 'cleared' => 0];
+        }
+        $in = implode(', ', array_map('intval', $ids));
+        Sql::write(sprintf(
+            'DELETE FROM %s WHERE `id` IN (%s) AND `status` IN (%s, %s)',
+            self::table(),
+            $in,
+            self::quote(self::STATUS_PENDING),
+            self::quote(self::STATUS_PROCESSING)
+        ));
+        $removed = Sql::affectedRows();
+        // Every row that is left, also one that a flush closed since it was read.
+        Sql::write(sprintf(
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `payload` = \'[]\', `last_request` = NULL, `last_response` = NULL, `entity_id` = %s, `updated_at` = `updated_at`'
+            . ' WHERE `id` IN (%s)',
+            self::table(),
+            self::quote($entity),
+            $in
+        ));
+
+        return ['removed' => $removed, 'cleared' => count($ids) - $removed];
+    }
+
+    /**
      * Sets $assignments on the rows that still carry the claim they were read with, and releases
      * the claim.
      *

@@ -41,7 +41,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  *  - `mailed`: Smaily took the reminder at `mailed_at` (also every reminder that 2.x sent, which
  *    the upgrade carried over with `email` NULL).
  *  - `skipped`: no reminder goes for the cart; `skip_reason` says why.
- * A cart that has a `mailed` or `skipped` row is not reminded. Such a row is deleted
+ *  - `erased`: the cart's shopper was erased on a privacy request (erase()). The row names no
+ *    address and no customer; it stays as the sign that the cart gets no reminder.
+ * A cart that has a `mailed`, `skipped` or `erased` row is not reminded. Such a row is deleted
  * RETENTION_SECONDS after the cart's last change (deleteClosed()); a cart that its shopper changes
  * after that has no row, and is reminded again.
  *
@@ -57,6 +59,8 @@ class CartTracker
     public const MAILED = 'mailed';
 
     public const SKIPPED = 'skipped';
+
+    public const ERASED = 'erased';
 
     /** One reminder per address in this time, and no reminder for a cart older than it. */
     public const WINDOW_SECONDS = 86400;
@@ -351,8 +355,8 @@ class CartTracker
     }
 
     /**
-     * Deletes up to $limit closed rows (`mailed`, `skipped`) whose cart last changed more than
-     * RETENTION_SECONDS ago, by primary key: the retention of Magento's janitor for its closed
+     * Deletes up to $limit closed rows (`mailed`, `skipped`, `erased`) whose cart last changed more
+     * than RETENTION_SECONDS ago, by primary key: the retention of Magento's janitor for its closed
      * rows. An `open` row stays whatever its age: it is the state of a reminder that waits, or
      * that failed and was parked.
      *
@@ -361,9 +365,10 @@ class CartTracker
     public function deleteClosed(int $limit): int
     {
         $condition = sprintf(
-            '`status` IN (\'%s\', \'%s\') AND `last_activity_at` < %s',
+            '`status` IN (\'%s\', \'%s\', \'%s\') AND `last_activity_at` < %s',
             self::MAILED,
             self::SKIPPED,
+            self::ERASED,
             $this->time(-self::RETENTION_SECONDS)
         );
         $ids = $this->ids($condition . ' LIMIT ' . $limit);
@@ -373,6 +378,71 @@ class CartTracker
         Sql::write(sprintf('DELETE FROM %s WHERE `id_cart` IN (%s) AND %s', self::table(), implode(', ', $ids), $condition));
 
         return Sql::affectedRows();
+    }
+
+    /**
+     * The rows of a shopper, for a privacy request: the rows that hold the address (compared
+     * without regard to letter case) and the rows of the customer accounts.
+     *
+     * @param list<int> $customerIds the customer accounts of the address
+     *
+     * @return list<array<string, string|null>> with `id_cart`, `id_shop`, `status`,
+     *                                          `last_activity_at`, `mailed_at` and `checkout_optin`
+     */
+    public function ofShopper(string $email, array $customerIds): array
+    {
+        $address = mb_strtolower(trim($email));
+        $rows = Sql::rows(sprintf(
+            'SELECT `id_cart`, `id_shop`, `id_customer`, `email`, `status`, `last_activity_at`, `mailed_at`, `checkout_optin` FROM %s WHERE `email` = %s%s ORDER BY `id_cart`',
+            self::table(),
+            self::quote($address),
+            $customerIds === [] ? '' : ' OR `id_customer` IN (' . implode(', ', array_map('intval', $customerIds)) . ')'
+        ));
+
+        // The database compares an address without regard to accents: such a row is another shopper's.
+        return array_values(array_filter($rows, static fn (array $row): bool => in_array((int) $row['id_customer'], $customerIds, true)
+            || mb_strtolower(trim((string) $row['email'])) === $address));
+    }
+
+    /**
+     * Erases a shopper from the tracker. Every row of the shopper (ofShopper()) loses its address,
+     * its customer and its queue row and becomes `erased`, whatever its status: it stays as the
+     * sign that the cart gets no reminder. A cart of one of the customer accounts that has no
+     * order and no row, and that the sweep could still pick up (its last change is within
+     * WINDOW_SECONDS), gets such a row too: without it the next sweep would queue a reminder to
+     * the address that was just erased. As the Magento connector marks its tracker rows `erased`.
+     *
+     * @param list<int> $customerIds the customer accounts of the address
+     *
+     * @return int the number of rows marked, the new ones included
+     */
+    public function erase(string $email, array $customerIds): int
+    {
+        $ids = array_map(static fn (array $row): int => (int) $row['id_cart'], $this->ofShopper($email, $customerIds));
+        if ($ids !== []) {
+            Sql::write(sprintf(
+                'UPDATE %s SET `status` = \'%s\', `email` = NULL, `id_customer` = NULL, `event_id` = NULL, `skip_reason` = NULL WHERE `id_cart` IN (%s)',
+                self::table(),
+                self::ERASED,
+                implode(', ', $ids)
+            ));
+        }
+        if ($customerIds === []) {
+            return count($ids);
+        }
+        Sql::write(sprintf(
+            'INSERT IGNORE INTO %1$s (`id_cart`, `id_shop`, `id_lang`, `status`, `last_activity_at`, `checkout_optin`)'
+            . ' SELECT c.`id_cart`, c.`id_shop`, c.`id_lang`, \'%2$s\', c.`date_upd`, 0 FROM `%3$scart` c'
+            . ' WHERE c.`id_customer` IN (%4$s) AND c.`date_upd` >= %5$s'
+            . ' AND NOT EXISTS (SELECT 1 FROM `%3$sorders` o WHERE o.`id_cart` = c.`id_cart`)',
+            self::table(),
+            self::ERASED,
+            _DB_PREFIX_,
+            implode(', ', array_map('intval', $customerIds)),
+            $this->time(-self::WINDOW_SECONDS - self::CLOCK_SHIFT_SECONDS)
+        ));
+
+        return count($ids) + Sql::affectedRows();
     }
 
     /**
