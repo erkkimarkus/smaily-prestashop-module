@@ -176,6 +176,16 @@ ask (Linear discipline below).
 - **Queue SQL** names its rows by primary key (`FORCE INDEX (PRIMARY)` on
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).
+- **A contact's queue rows.** A contact's queue row takes its entity from
+  `Queue\ContactEntity::of()`; the stale check (`Contacts\StaleSubscription`)
+  and the resend guard (`Log\ResendGuard`) match rows by shop and entity
+  (ARCHITECTURE 2.2, 6.4).
+- **Marketplace structure.** Every new PHP, Twig, JS and CSS file needs the
+  licence notice and every new directory an `index.php`:
+  `composer --working-dir src autoindex`, then `header-stamp` (it stamps PHP
+  and Twig; JS and CSS by hand). `src/config.xml` is shipped and pinned to
+  the main class by a unit test. No code reads a superglobal directly
+  (`docs/MARKETPLACE.md`).
 - **Multishop × multilanguage scopes** are where upgrade inheritance bugs
   come from. `Configuration` values can be set per shop group, per shop and
   per language; the legacy module mostly wrote global values. Magento had
@@ -282,6 +292,12 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
   calls the real GitHub. Every Story that registers a scheduler job edits
   the two tests that pin the tick's job list (`SchedulerProviderTest`,
   `PendingMigrationTest`).
+- Walks and suites run behind `tests/egress-guard`, installed before the
+  first request to the module (an admin page or a tick), and the suite needs
+  a reset shop (`docs/DEV_ENVIRONMENT.md` 4 and 4a).
+- Observed on 2026-11-21, cause under investigation (replace this line with
+  the finding): the 8.2.8 lane (PHP 8.0.30) has segfaulted in PHP's garbage
+  collector during the in-shop suite.
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.
