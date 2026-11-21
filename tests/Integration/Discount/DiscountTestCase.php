@@ -49,8 +49,8 @@ abstract class DiscountTestCase extends AbandonedCartTestCase
     }
 
     /**
-     * A cart rule as a merchant makes it: 10 % off, disabled, without a code, valid for a month,
-     * named in every language; $columns replace what the rule holds.
+     * A cart rule as a merchant makes it: 10 % off, disabled, without a code, valid since 90 days
+     * and for a month more, named in every language; $columns replace what the rule holds.
      *
      * @param array<string, mixed> $columns
      */
@@ -61,7 +61,7 @@ abstract class DiscountTestCase extends AbandonedCartTestCase
             $rule->name[$idLang] = 'Ten percent ' . \Language::getIsoById($idLang);
         }
         $rule->description = 'The merchant\'s own note';
-        $rule->date_from = date('Y-m-d H:i:s', time() - 3600);
+        $rule->date_from = date('Y-m-d H:i:s', time() - 90 * 86400);
         $rule->date_to = date('Y-m-d H:i:s', time() + 30 * 86400);
         $rule->reduction_percent = 10;
         $rule->quantity = 100;

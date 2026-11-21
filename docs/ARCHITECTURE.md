@@ -1589,8 +1589,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   "Valid for (days)" (section 2.1), saved by the Automations panel (section 10.9).
 - **Which cart rule can be the template** (`Discount\TemplateRules`). A cart rule that the merchant
   made: not one that this module issued, not limited to one customer (`id_customer`), not past its
-  end date (the shop's time), and usable in the shop (no shop restriction, or the shop among its
-  shops). An enabled and a disabled rule alike. A rule limited to one customer is never a
+  end date (the shop's time), with uses left (below), and usable in the shop (no shop restriction,
+  or the shop among its shops). An enabled and a disabled rule alike. A rule limited to one customer is never a
   template, because a code is a copy for another shopper, and because the vouchers that PrestaShop
   makes itself are a customer's own: the voucher of a refund
   (`Adapter\Order\Refund\VoucherGenerator`), the discount and the free shipping that an employee
@@ -1623,7 +1623,17 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   no check, where Magento needed a plugin for the end date. The start date is one day before the
   code is made: PrestaShop 8 lists a customer's vouchers by the clock of the database server
   (`NOW()` in `CartRule::getCustomerCartRules()`), which can be hours behind the shop's, and nobody
-  holds the code before the email goes.
+  holds the code before the email goes. A code never starts before its template: where the
+  template's start date is later than that, the code's start is the template's.
+- **What the template's own fields mean for its codes.**
+  - *Start date.* A rule can be picked before it starts. A code mailed before then is refused at
+    the cart until the template's start ("This voucher is not valid yet") and works from then to
+    its own last valid day. A template that starts only after the code would end gives no code.
+  - *End date.* No code is valid after it, and a template past it gives no code.
+  - *Total quantity.* A template whose quantity is 0 gives no code, and the picker does not list
+    it. The codes do not spend the template's quantity: each code is a rule of its own with one
+    use. PrestaShop 9 stores no quantity for a rule without a limit, which counts as uses left.
+  - *Status.* Not read: the codes of a disabled template work, and each code is enabled.
 - **Whose code it is** (owner, as WooCommerce ties its code to the address). The code of an address
   that has a customer account in the shop (not a guest-checkout row, not deleted; an account of
   the shop, or of its shop group where the group shares customers) carries that account's
@@ -1643,8 +1653,9 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   `first_order_coupon_code` and `first_order_coupon_expires_at`, `abandoned_cart_coupon_code` and
   `abandoned_cart_coupon_expires_at` (`Automation\Trigger::COUPON_FIELDS`). No amount is sent.
   With the switch off the payload is what it was before.
-- **No code.** A template that is deleted, limited to one customer, past its end date or not usable
-  in the row's shop does not hold the email back: it goes without a code, and the row's payload keeps
+- **No code.** A template that is deleted, limited to one customer, past its end date, without
+  uses left, not usable in the row's shop, or that starts only after the code would end does not
+  hold the email back: it goes without a code, and the row's payload keeps
   `"discount_notice": {"reason": "rule_unavailable", "rule": <id>}`, which the Log's Details show
   as a sentence (section 10.8). A row stored that way makes no code on a retry either; the next
   event does, once the template is fixed. An error while the code is made (PrestaShop refuses the
@@ -2065,8 +2076,9 @@ import job shows its summary, its progress line and its last error.
 
 A row whose email went without its discount code (section 7) says so in one sentence above the
 attempts: "Without a discount code: cart price rule N gave no code for this shop (it was deleted,
-is past its end date, is limited to one customer, or is not for this shop). The email goes without
-one." The row itself reads as sent; the list shows nothing more.
+is past its end date, starts after the code would end, has no uses left, is limited to one
+customer, or is not for this shop). The email goes without one." The row itself reads as sent; the
+list shows nothing more.
 
 **[D]** (owner, 2026-11-20) Details show the request and the answer in full to the admin, the
 contact's data included, without secrets, as Magento does: the Log is an admin's debugging tool

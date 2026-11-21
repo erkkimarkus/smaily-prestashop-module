@@ -38,7 +38,12 @@ if (!defined('_PS_VERSION_')) {
  *    remainder of a voucher that was spent in part, a discount or free shipping that an employee
  *    gives an order);
  *  - not past its end date, in the shop's time;
+ *  - with uses left: its total quantity is not 0 (PrestaShop 9 stores none for a rule without a
+ *    limit). The codes do not spend it: each code has one use of its own;
  *  - usable in the shop: without a shop restriction, or with the shop among its shops.
+ *
+ * A template's start date does not decide here: a rule that starts later can be picked in advance,
+ * and its codes start with it (CodeIssuer).
  *
  * A template may be disabled, and should be unless it has a code of its own: PrestaShop applies an
  * enabled cart rule without a code to every cart by itself, and anyone who knows the code of an
@@ -76,6 +81,7 @@ final class TemplateRules
             'SELECT cr.`id_cart_rule`, cr.`code`, crl.`name` FROM `%1$scart_rule` cr'
             . ' LEFT JOIN `%1$scart_rule_lang` crl ON crl.`id_cart_rule` = cr.`id_cart_rule` AND crl.`id_lang` = %2$d'
             . ' WHERE %3$s AND cr.`id_customer` = 0 AND (cr.`date_to` IS NULL OR cr.`date_to` = \'0000-00-00 00:00:00\' OR cr.`date_to` >= \'%4$s\')'
+            . ' AND (cr.`quantity` IS NULL OR cr.`quantity` > 0)'
             . ' AND (cr.`shop_restriction` = 0 OR (SELECT COUNT(*) FROM `%1$scart_rule_shop` crs'
             . ' WHERE crs.`id_cart_rule` = cr.`id_cart_rule` AND crs.`id_shop` IN (%5$s)) = %6$d)'
             . ' ORDER BY crl.`name`, cr.`id_cart_rule` LIMIT %7$d',
@@ -100,7 +106,7 @@ final class TemplateRules
     /**
      * The rule, with its names in every language, when a code can be a copy of it for the shop
      * now; null when it is gone, was issued by this module, is limited to one customer, is past
-     * its end date or is not usable in the shop.
+     * its end date, has no uses left or is not usable in the shop.
      */
     public function usable(int $idRule, int $idShop): ?\CartRule
     {
@@ -110,6 +116,9 @@ final class TemplateRules
         }
         $end = self::end($rule);
         if ($end !== null && $end < ($this->clock)()) {
+            return null;
+        }
+        if ($rule->quantity !== null && (int) $rule->quantity <= 0) {
             return null;
         }
         if ((int) $rule->shop_restriction === 1 && !\Db::getInstance()->getValue(sprintf(
@@ -125,15 +134,27 @@ final class TemplateRules
     }
 
     /**
+     * The Unix time of the rule's start date, read in the shop's time; null for a rule without one.
+     */
+    public static function start(\CartRule $rule): ?int
+    {
+        return self::time((string) $rule->date_from);
+    }
+
+    /**
      * The Unix time of the rule's end date, read in the shop's time; null for a rule without one.
      */
     public static function end(\CartRule $rule): ?int
     {
-        $end = (string) $rule->date_to;
-        if ($end === '' || strpos($end, '0000-00-00') === 0) {
+        return self::time((string) $rule->date_to);
+    }
+
+    private static function time(string $date): ?int
+    {
+        if ($date === '' || strpos($date, '0000-00-00') === 0) {
             return null;
         }
-        $time = strtotime($end);
+        $time = strtotime($date);
 
         return $time === false ? null : $time;
     }

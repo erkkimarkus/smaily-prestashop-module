@@ -133,6 +133,46 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertSame(date('Y-m-d 15:00:00', strtotime('+2 days', $now)), (new \CartRule((int) \CartRule::getIdByCode($second['code'])))->date_to);
     }
 
+    public function testACodeNeverStartsBeforeItsTemplate(): void
+    {
+        $now = strtotime(date('Y-m-d 10:30:00'));
+        $start = date('Y-m-d 08:00:00', strtotime('+5 days', $now));
+        $later = $this->template(['date_from' => $start]);
+        $recent = $this->template(['date_from' => date('Y-m-d H:i:s', $now - 7200)]);
+        $tooLate = $this->template(['date_from' => date('Y-m-d 00:00:00', strtotime('+8 days', $now))]);
+        $idCart = $this->fixture->cart($this->fixture->customer('shopper1@example.test'), 1);
+
+        $code = $this->issuer($now)->issue($later, 7, $this->idShop, 0, Trigger::WELCOME);
+
+        $rule = $this->rule($code['code']);
+        self::assertSame([$start, date('Y-m-d 23:59:59', strtotime('+7 days', $now))], [$rule->date_from, $rule->date_to], 'the code starts with its template');
+        self::assertSame('This voucher is not valid yet', $this->refusal($rule, $idCart), 'PrestaShop refuses it before the template\'s start');
+        // The start date has come.
+        $rule->date_from = date('Y-m-d H:i:s', time() - 1);
+        self::assertTrue($rule->update());
+        self::assertNull($this->refusal($this->rule($code['code']), $idCart), 'and takes it from then on');
+
+        self::assertSame(
+            date('Y-m-d H:i:s', $now - 7200),
+            $this->rule($this->issuer($now)->issue($recent, 7, $this->idShop, 0, Trigger::WELCOME)['code'])->date_from,
+            'a template that started less than a day ago: the code is no older than it'
+        );
+        self::assertNotNull((new TemplateRules(static fn (): int => $now))->usable($tooLate, $this->idShop), 'a rule that starts later can be picked in advance');
+        self::assertNull($this->issuer($now)->issue($tooLate, 7, $this->idShop, 0, Trigger::WELCOME), 'a template that starts after the code would end gives no code');
+        self::assertNotNull($this->issuer($now)->issue($tooLate, 9, $this->idShop, 0, Trigger::WELCOME));
+    }
+
+    public function testATemplateWithoutUsesLeftGivesNoCode(): void
+    {
+        $exhausted = $this->template(['quantity' => 0]);
+        $templates = new TemplateRules();
+
+        self::assertNotContains($exhausted, array_column($templates->listFor([$this->idShop], (int) \Configuration::get('PS_LANG_DEFAULT')), 'id'));
+        self::assertNull($templates->usable($exhausted, $this->idShop));
+        self::assertNull($this->issuer()->issue($exhausted, 7, $this->idShop, 0, Trigger::WELCOME));
+        self::assertSame([], self::issuedIds());
+    }
+
     public function testACodeWhoseRowIsStoredButNotFinishedLeavesNoRuleBehind(): void
     {
         $template = $this->template();
@@ -208,13 +248,23 @@ final class CodeIssuerTest extends DiscountTestCase
      */
     private function valid(\CartRule $rule, int $idCart): bool
     {
+        return $this->refusal($rule, $idCart) === null;
+    }
+
+    /**
+     * What PrestaShop's cart page says when it refuses the rule for the cart; null when it takes it.
+     */
+    private function refusal(\CartRule $rule, int $idCart): ?string
+    {
         $context = \Context::getContext();
         $saved = [$context->cart, $context->customer, $context->currency];
         $context->cart = new \Cart($idCart);
         $context->customer = new \Customer((int) $context->cart->id_customer);
         $context->currency = new \Currency((int) $context->cart->id_currency);
         try {
-            return (bool) $rule->checkValidity($context, false, false);
+            $answer = $rule->checkValidity($context, false, true);
+
+            return is_string($answer) ? $answer : null;
         } finally {
             [$context->cart, $context->customer, $context->currency] = $saved;
         }

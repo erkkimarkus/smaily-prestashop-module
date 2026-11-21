@@ -200,7 +200,7 @@ final class LogViewTest extends TestCase
         ]), ResendGuard::REASON_NOT_FAILED);
 
         self::assertSame(
-            'Without a discount code: cart price rule 12 gave no code for this shop (it was deleted, is past its end date, is limited to one customer, or is not for this shop). The email goes without one.',
+            'Without a discount code: cart price rule 12 gave no code for this shop (it was deleted, is past its end date, starts after the code would end, has no uses left, is limited to one customer, or is not for this shop). The email goes without one.',
             $details['discount_notice']
         );
         self::assertSame('', $this->view()->details(self::storedRow([]), null)['discount_notice']);

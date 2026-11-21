@@ -154,7 +154,7 @@ final class LogView
                 '%date%' => date('Y-m-d H:i:s', $record['at']),
             ]),
             'discount_notice' => !is_array($notice) ? '' : $this->trans(
-                'Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, is limited to one customer, or is not for this shop). The email goes without one.',
+                'Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, starts after the code would end, has no uses left, is limited to one customer, or is not for this shop). The email goes without one.',
                 ['%rule%' => (int) ($notice['rule'] ?? 0)]
             ),
             'history' => $history,

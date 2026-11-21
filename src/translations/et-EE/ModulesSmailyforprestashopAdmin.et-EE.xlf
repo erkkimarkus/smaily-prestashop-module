@@ -2562,9 +2562,9 @@
         <target>eelmine versioon peatus väljade loendi vea tõttu ega saatnud midagi.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="c8b41a6bb6eef456bc5654e1253664c5">
-        <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, is limited to one customer, or is not for this shop). The email goes without one.</source>
-        <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas, see on piiratud ühe kliendiga või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
+      <trans-unit id="3e49289cfd6ddac0456cabb7bb5ddf66">
+        <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, starts after the code would end, has no uses left, is limited to one customer, or is not for this shop). The email goes without one.</source>
+        <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas, see hakkab kehtima alles pärast koodi kehtivuse lõppu, selle kasutuskorrad on otsas, see on piiratud ühe kliendiga või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

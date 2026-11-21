@@ -42,7 +42,8 @@ if (!defined('_PS_VERSION_')) {
  *  - it can be used once (quantity 1, once per customer), is never advertised in a cart
  *    (highlight off) and is enabled, also where the template is disabled;
  *  - it is valid from now (its start date is a day back, see issue()) until 23:59:59 of the day
- *    $days days from today, in the shop's time, and never after the template's own end date;
+ *    $days days from today, in the shop's time; never before the template's own start date and
+ *    never after its end date. A template that starts only after the code would end gives none;
  *  - it is tied to a customer account when the shopper has one (`id_customer`); else anyone who
  *    enters it can use it, once.
  *
@@ -85,7 +86,8 @@ final class CodeIssuer
 
     /**
      * A new code as a copy of the rule, and its last valid day (`Y-m-d`, the shop's time); null
-     * when no code can be a copy of the rule for the shop now (TemplateRules::usable()).
+     * when no code can be a copy of the rule for the shop now (TemplateRules::usable()), or when
+     * the rule starts only after the code would end.
      *
      * @param int $idCustomer the shopper's customer account, 0 for a shopper without one
      * @param string $trigger the automation that sends the code (Automation\Trigger)
@@ -106,6 +108,13 @@ final class CodeIssuer
         if ($templateEnd !== null && $templateEnd < $end) {
             $end = $templateEnd;
         }
+        // PrestaShop 8 lists a customer's vouchers by the database server's clock, which can be hours
+        // behind the shop's: a start a day back shows the code at once, and nobody held it before now.
+        // A template that starts later is not valid before its start, and neither is its code.
+        $start = max($now - self::START_MARGIN_SECONDS, (int) TemplateRules::start($rule));
+        if ($start >= $end) {
+            return null;
+        }
 
         // PrestaShop adds an object without an id as a new row.
         $rule->id = null;
@@ -123,9 +132,7 @@ final class CodeIssuer
         $rule->quantity_per_user = 1;
         $rule->highlight = false;
         $rule->active = true;
-        // PrestaShop 8 lists a customer's vouchers by the database server's clock, which can be hours
-        // behind the shop's: a start a day back shows the code at once, and nobody held it before now.
-        $rule->date_from = date('Y-m-d H:i:s', $now - self::START_MARGIN_SECONDS);
+        $rule->date_from = date('Y-m-d H:i:s', $start);
         $rule->date_to = date('Y-m-d H:i:s', $end);
         try {
             if (!$rule->add()) {
