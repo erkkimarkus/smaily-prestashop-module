@@ -29,7 +29,12 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 
 /**
  * Registers the services and hook listeners of the Campaign Intelligence connections and ingest.
@@ -38,5 +43,13 @@ final class EngineProvider implements ProviderInterface
 {
     public function register(Services $services): void
     {
+        $services->set(Client::class, fn (Services $services): Client => new Client(
+            $services->get(Transport::class),
+            UpdateProvider::moduleVersion()
+        ));
+        $services->set(Connections::class, fn (Services $services): Connections => new Connections(
+            $services->get(Crypto::class),
+            $services->get(StoreLayout::class)
+        ));
     }
 }
