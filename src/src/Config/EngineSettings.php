@@ -34,4 +34,30 @@ if (!defined('_PS_VERSION_')) {
  */
 final class EngineSettings extends Settings
 {
+    /**
+     * JSON object: the connection prefix that the connection of each id_shop held when it was
+     * disconnected. A row of the connection table goes at a disconnect, and the next setup exchange
+     * of that shop still has to report the prefix (contract §1 `connection.previous_prefix`).
+     */
+    public const PREVIOUS_PREFIXES = self::PREFIX . 'ENGINE_PREVIOUS_PREFIXES';
+
+    /**
+     * The prefix that the last disconnected connection of an id_shop held, exactly as the engine
+     * gave it ('' for a connection without one); null when none was disconnected.
+     */
+    public function previousPrefix(int $idShop): ?string
+    {
+        $prefix = $this->getJson(self::PREVIOUS_PREFIXES)[$idShop] ?? null;
+
+        return is_string($prefix) ? $prefix : null;
+    }
+
+    public function rememberPrefix(int $idShop, string $prefix): void
+    {
+        $prefixes = $this->getJson(self::PREVIOUS_PREFIXES);
+        $prefixes[$idShop] = $prefix;
+        // PrestaShop strips tags from a configuration value. The prefix is the engine's and is
+        // kept as it came, so the JSON spells every character that a tag needs as an escape.
+        $this->set(self::PREVIOUS_PREFIXES, (string) json_encode($prefixes, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
+    }
 }

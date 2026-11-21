@@ -29,21 +29,25 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 
 /**
  * Registers the services and hook listeners of the Campaign Intelligence connections and ingest.
  *
- * The health check asks the engine about the stored connections every 15 minutes and sends nothing
- * while there is none.
+ * Nothing here connects a shop: a connection exists only after Engine\Setup::connect() exchanged a
+ * setup link that the merchant pasted. The health check asks the engine about the stored
+ * connections every 15 minutes and sends nothing while there is none.
  */
 final class EngineProvider implements ProviderInterface
 {
@@ -51,6 +55,7 @@ final class EngineProvider implements ProviderInterface
 
     public function register(Services $services): void
     {
+        $services->set(EngineSettings::class, fn (): EngineSettings => new EngineSettings());
         $services->set(Client::class, fn (Services $services): Client => new Client(
             $services->get(Transport::class),
             UpdateProvider::moduleVersion()
@@ -58,6 +63,14 @@ final class EngineProvider implements ProviderInterface
         $services->set(Connections::class, fn (Services $services): Connections => new Connections(
             $services->get(Crypto::class),
             $services->get(StoreLayout::class)
+        ));
+        $services->set(Setup::class, fn (Services $services): Setup => new Setup(
+            $services->get(Client::class),
+            $services->get(Connections::class),
+            $services->get(EngineSettings::class),
+            $services->get(StoreLayout::class),
+            $services->get(AccountStore::class),
+            UpdateProvider::moduleVersion()
         ));
         $services->set(HealthCheck::class, fn (Services $services): HealthCheck => new HealthCheck(
             $services->get(Client::class),
