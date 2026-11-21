@@ -386,6 +386,23 @@ final class LegacyConfigMapperTest extends TestCase
         ];
     }
 
+    /**
+     * The reminder carries every field, so an unreadable selection leaves the merchant nothing to do.
+     */
+    public function testAnUnreadableCartFieldListRaisesNoFieldNotice(): void
+    {
+        $rows = array_merge(
+            self::without(self::CONFIGURED, 'SMAILY_CART_SYNCRONIZE_ADDITIONAL'),
+            [[null, null, 'SMAILY_CART_SYNCRONIZE_ADDITIONAL', 'first_name,last_name']]
+        );
+
+        foreach (['2.2.0', '1.6.2'] as $version) {
+            $plan = $this->map($rows, [1 => 1], $version);
+
+            self::assertSame([], self::noticesOf($plan, MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE), $version);
+        }
+    }
+
     // --- Welcome ---
 
     /**

@@ -72,9 +72,7 @@ final class NoticeMessages
             case MigrationPlan::NOTICE_CART_DELAY_CAPPED:
                 return $this->trans('Abandoned-cart reminders: your waiting time was longer than a day. Reminders are never sent for a cart older than 24 hours, so the waiting time is now 1435 minutes. You can change it under Settings > Automations.');
             case MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE:
-                return ($params['key'] ?? '') === 'SMAILY_CART_SYNCRONIZE_ADDITIONAL'
-                    ? $this->trans('The extra fields of the abandoned cart email could not be read and were not carried over. Choose them again under Settings > Automations.')
-                    : $this->trans('The extra fields to sync with each contact could not be read and were not carried over. Choose them again under Settings > Contacts.');
+                return $this->trans('The extra fields to sync with each contact could not be read and were not carried over. Choose them again under Settings > Contacts.');
             case MigrationPlan::NOTICE_CRON_TOKEN_REPLACED:
                 return ($params['key'] ?? '') === TickSettings::CART_CRON_TOKEN
                     ? $this->trans('The abandoned cart cron URL had no token, so anyone could call it. It now has a new token, so the old crontab line for it no longer works. Use the one cron line under Dashboard > Background tasks > Show the cron line: it runs every task and replaces both of your old crontab lines.')

@@ -497,7 +497,7 @@ regenerates it) breaks decryption.
 
 | Input | 2.x format | 1.6.x format |
 |---|---|---|
-| Field lists | JSON map `{"first_name": true, …}` | PHP-serialized list `["first_name", …]`. Read with `unserialize($v, ['allowed_classes' => false])`; a value that does not decode is an empty list plus the notice `field_list_unreadable`. |
+| Field lists | JSON map `{"first_name": true, …}` | PHP-serialized list `["first_name", …]`. Read with `unserialize($v, ['allowed_classes' => false])`; a list of contact fields that does not decode is an empty list plus the notice `field_list_unreadable`. |
 | Contact sync switch | `SMAILY_ENABLE_CUSTOMER_SYNC` | `SMAILY_ENABLE_CRON` |
 | Booleans | PHP truthiness: `'1'` on; `'0'`, `NULL`, `''`, absent off. A switched-off 2.x setting is `NULL`, not `'0'` (section 0). | `'1'` on, anything else off. |
 | Subdomain | As typed. | Only `[a-zA-Z0-9]`. |
@@ -567,7 +567,7 @@ parameters:
 | `settings_migrated` | Any account existed. | — |
 | `contact_sync_left_off`, `welcome_left_off`, `abandoned_cart_left_off` | A feature stays off at a scope for a reason above. A reason that lies at the default shop is told once, for the default shop. | `id_shop`, `reason` |
 | `cart_delay_capped` | A legacy cart delay above 1435 minutes was written as 1435 at any scope. Told once. | — |
-| `field_list_unreadable` | A legacy field list is neither JSON nor PHP-serialized. | `key` |
+| `field_list_unreadable` | The legacy list of contact fields (`SMAILY_SYNCRONIZE_ADDITIONAL`) is neither JSON nor PHP-serialized. The cart's list raises no notice: its selection is not migrated (section 2.4). | `key` |
 | `cron_token_replaced` | One per token row that the migration replaced. | `key`, `id_shop_group`, `id_shop` |
 | `cron_shop_assumed` | Multistore on, more than one shop, and a cron feature on at the default shop. | `id_shop` |
 | `newsletter_block_removed` | The previous code was 1.x. | — |

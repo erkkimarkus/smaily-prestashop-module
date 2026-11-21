@@ -570,12 +570,11 @@ final class LegacyConfigMapper
             $notices[] = ['code' => MigrationPlan::NOTICE_CART_DELAY_CAPPED, 'params' => []];
         }
 
-        foreach (['SMAILY_SYNCRONIZE_ADDITIONAL', 'SMAILY_CART_SYNCRONIZE_ADDITIONAL'] as $key) {
-            foreach ($this->state->rows() as $row) {
-                if ($row['name'] === $key && self::decodeFields((string) $row['value']) === null) {
-                    $notices[] = ['code' => MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE, 'params' => ['key' => $key]];
-                    break;
-                }
+        // The cart's field list raises no notice: its selection is not carried over.
+        foreach ($this->state->rows() as $row) {
+            if ($row['name'] === 'SMAILY_SYNCRONIZE_ADDITIONAL' && self::decodeFields((string) $row['value']) === null) {
+                $notices[] = ['code' => MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE, 'params' => ['key' => $row['name']]];
+                break;
             }
         }
 
