@@ -8,47 +8,42 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-21 — stages 1 and 2 done; Dashboard, Initial setup and
-Settings (Connection, Contacts, RSS) done; store automations built; the Log
-page built, on its branch; the Automations tab built, on its branch; gauge
-3/14._
+_Last updated: 2026-11-21 — stages 1 and 2 done; the admin screens built
+(Dashboard, Initial setup, Settings, Log); the three store automations built
+with their Automations tab; gauge 3/14._
 
 ## Next session opens with
 
-On `v3`: stages 1 and 2; the admin shell, the Initial setup and the Dashboard
-with its corrections (a contact's address shown as the siblings do; one cron
-line, whose token the upgrade creates); the 8.2.8 admin fix; the login-cookie
-fix; Settings (Story 3.3: Connection, Contacts, RSS, shop switches, layout
-change; the 2.x admin page is gone); the three store automations.
-Built on the branch `worktree-agent-af9375eb57f45d7cb`: the Automations tab of
-Settings and step 3 of the Initial setup (Story 4.1, ARCHITECTURE 10.9), walked
-on 8.2.8 and 9.2.0 against the mock; with it, the layout change merges the
-workflow rows as Magento does, and "Test connection" uses Magento's call.
-Built and not yet on `v3`: the Log page (Story 3.4), on the branch
-`worktree-agent-a0d4f2246a378b7d7`; land it by cherry-pick.
+On `v3`: stages 1 and 2; the admin shell, Initial setup, Dashboard, Settings
+(Connection, Contacts, Automations, RSS, shop switches, layout change) and Log;
+the three store automations; the upgrade hardening; the stale-subscription
+skip; the Marketplace structural rules. In flight (2026-11-21): the PHP 8.0.30
+segfault on the 8.2.8 test lane, and discount codes (CON-393).
+Last verified: in-shop 1293 tests, 6245 assertions on a fresh 8.2.8 and 9.2.0;
+host 1293 tests, 2012 assertions, 636 skipped; `tests/ci/validate.sh` one
+landing earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
 
-Last verified with the Automations tab on its branch's tip: in-shop 1293 tests,
-6245 assertions on a fresh 8.2.8 and a fresh 9.2.0. `tests/ci/validate.sh` last
-ran with Settings on the tip, 10 of 10 on both.
-Load the egress guard (`docs/DEV_ENVIRONMENT.md` 4a) before any admin walk.
-
-Then, in this order: (1) discount codes in store automations (Story 4.4;
-design with the owner first); (2) walk capabilities 3, 4, 6 and 7 through the
-screens and tick them; (3) Estonian targets for every v3 admin string (the
-XLIFF holds the 2.x strings, four v3 units and the texts of the Log and of the
-Automations screens; capability 14); (4) the document pass (ARCHITECTURE 1.1
-and 13 and the user guide lag); (5) Marketplace rules (CON-379); (6) stage 5,
-Campaign Intelligence, with group prices (CON-385, contract 1.36.0).
+Then, in this order: (1) discount codes (CON-393, Story 4.4; decided: a
+registered customer's code is tied to the customer, a guest's is single-use and
+untied; codes show in the discount list under a "Smaily Connect" name; unused
+codes go 30 days after expiry); (2) walk capabilities 3, 4, 6 and 7 through the
+screens and tick them, and check against ARCHITECTURE 6.x and the siblings that
+a newsletter-block subscriber without an account gets the welcome email only
+with "Include guests" on (an existing rule); (3) Estonian targets and an
+on-screen check for every v3 admin string, sentences for the Log's reason codes
+that still show as codes, a cron line without the admin's language prefix;
+(4) a simplification review of the Log and Automations code; (5) stage 5 (group
+prices, CON-385, contract 1.36.0) only after the owner says so.
 
 ## Queue (technical, for the orchestrator)
 
 - **Not verified:** MySQL (queue claim, `GET_LOCK`, upgrade); the official
-  9.2.0-8.1 image with any code after the event queue; LiteSpeed; the 1.6.x
-  hidden-tab removal on a real 1.6.2 install (ARCHITECTURE 14, row 15).
+  9.2.0-8.1 image after the event queue; LiteSpeed; the 1.6.x hidden-tab
+  removal on a real 1.6.2 install; the 2.x admin tab's row after an upgrade.
 - **The live Smaily API has never been called**; every run used the mock.
-- **Open follow-ups:** the live-sync guest gates take effect only once Story
-  2.3 sets `guest`; the unsubscriber list is paged by page number, so a list
-  that shrinks during one first run can skip one address (2.x had the same).
+- **Clean-up** (ARCHITECTURE 13): `Upgrade300`; the janitor skips two tables;
+  two hooks without a listener; the unwired 2.x classes; screenshots for the
+  user guide (five 2.x images are unreferenced); CLAUDE.md rule 4 says v1.35.0.
 
 ## First-release checklist (gauge: 3 / 14 demonstrated)
 
@@ -83,8 +78,8 @@ A box is ticked only when the real flow was exercised; a line names how.
 0. **Foundation** — _Done (CON-370)._
 1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
 2. **Contacts and modes** — _Done (2.1–2.4)._
-3. **Admin screens** — _Dashboard, setup, Settings done; Log in flight; no ET._
-4. **Store automations and language routing** — _Built, with the Automations tab._
+3. **Admin screens** — _Dashboard, setup, Settings, Log done; no ET sweep._
+4. **Store automations and language routing** — _Built; discount codes next._
 5. **Intelligence, tracking, recommendations, privacy.**
 6. **Release** — installation report, upgrade guide, rc1, upgrade walk.
 
@@ -108,7 +103,7 @@ all on 2026-11-20). "≠": the owner overrode the agent-side proposal.
 15. New-version notice from GitHub now; Smaily's own notice later (CON-380).
 16. The code follows the Marketplace technical rules from the start (CON-379).
 17. Admin colours: the Campaign Intelligence palette, own components (CON-377).
-18. Contract copy re-synced: still v1.35.0; §6c built and switched off.
+18. Contract copy re-synced: v1.36.0 (price groups); §6c is on at the engine.
 19. Admin screens show a contact's address as the siblings do.
 20. Separate stores → one store removes other shops' own settings (Magento).
 21. The wording of the consent-mode and layout confirmations is approved.
@@ -129,18 +124,22 @@ upgrade, with a notice (3.3; the owner may overturn it).
 
 ## Open questions (for Erkki)
 
-1. **Engine team** (one-way door: shared contract), Linear INT-306: three
-   questions still open — the platform key namespace `ps-`; the nightly
-   manifest of connections with the empty prefix; multi-currency orders.
-2. **Subscription team**, Linear SUB-28: the PrestaShop row of the
-   installation report, and later the answer on a Smaily-written notice.
-3. **Pilot store:** one interested store on PrestaShop 8 with module 2.x
-   asked about abandoned cart.
-4. **Maintain rights on the official repo:** requested at the first release;
-   the orchestrator files that request then.
-5. **GitHub Actions on the fork:** not enabled; CI on `v3` has never run.
+1. A late unsubscribe that arrives after a newer, delivered subscription
+   leaves the contact unsubscribed — keep it so? (ARCHITECTURE 14, row 23.)
+2. The Log has two guard rules beyond Magento — no "Send again" that would
+   re-subscribe, no second queue entry for a waiting event — confirm them?
+3. A Smaily account saved while an upgrade is unfinished is replaced by the
+   upgrade, or stops it at the verify step — which should it be? (3.7.)
+4. Marketplace: ten rules need your decision (`docs/MARKETPLACE.md` 6.3): the
+   licence, the public feed address, the 27 files 2.2.0 leaves, the SQL casts…
+5. The amber and red Background tasks card now hide the cron line behind the
+   same button as the green one — keep?
+6. In language mode `a` the router still ends at the no-language workflow,
+   which Magento never starts and the tab hides — remove it? (14, row 24.)
+7. The engine team (INT-306) and subscription team (SUB-28) asks are unanswered.
+8. GitHub Actions on the fork are not enabled: CI on `v3` has never run.
+9. The live Smaily service has never been called; it needs your test account.
+10. A pilot store: one PrestaShop 8 store on 2.x asked about abandoned cart.
 
-Linear: Feature P-CON-324; Epics CON-373 (upgrade; four of seven criteria
-met) and CON-378 (contacts); CON-379 (Marketplace rules); CON-380
-(new-version notice); CON-371 (stock alerts, right after 3.0.0); CON-377
-(colours); engine ask INT-306; SUB-28. Gauge: 3/14.
+Linear: P-CON-324; CON-373 (upgrade), CON-378 (contacts), CON-379 (Marketplace),
+CON-380, CON-393, CON-385, CON-371, CON-377; INT-306; SUB-28. Gauge: 3/14.
