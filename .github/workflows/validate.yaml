@@ -49,6 +49,18 @@ jobs:
         working-directory: src
       - run: src/vendor/bin/phpunit
 
+  javascript:
+    name: Storefront scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Node's built-in test runner: every script is one IIFE, the scripts add no global but
+      # window.smailyConnect, and the consent rule gates the tracker. No package is installed.
+      - run: node --test tests/js/
+
   install:
     name: Install on PrestaShop ${{ matrix.prestashop }}
     runs-on: ubuntu-latest
