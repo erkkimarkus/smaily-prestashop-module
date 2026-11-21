@@ -85,13 +85,13 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1849 tests on 8.2.8 (9877 assertions) and on 9.2.0 (9882
+Last verified results, all passing: 1957 tests on 8.2.8 (10518 assertions) and on 9.2.0 (10523
 assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the storefront of Story 5.5; 8.2.8
+the egress guard (2026-11-21, with the ingest of Story 5.2; 8.2.8
 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12; on 9.2.0 once with debug mode on and once with it off,
 with the same counts); 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (1849 tests, 3116 assertions, 951 skipped). The storefront scripts have
+and skips the integration tests (1957 tests, 3245 assertions, 1024 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -402,6 +402,9 @@ Results on 2026-11-20:
   on 9.2.0).
 - On 2026-11-21, with the storefront of Story 5.5: 10 of 10 checks on flashlight 8.2.8 and 9.2.0
   with the packaged zip, and 1849 tests in the shop on each (9877 assertions on 8.2.8, 9882 on
+  9.2.0).
+- On 2026-11-21, with the ingest of Story 5.2: 10 of 10 checks on flashlight 8.2.8 and 9.2.0
+  with the packaged zip, and 1957 tests in the shop on each (10518 assertions on 8.2.8, 10523 on
   9.2.0).
 - The official image did not run with any code after the event queue.
 
