@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
@@ -114,13 +115,12 @@ final class MarketingConsent
     private function newsletterBlock(string $email, int $idShop): bool
     {
         $table = _DB_PREFIX_ . self::NEWSLETTER_TABLE;
-        if (!\Db::getInstance()->executeS('SHOW TABLES LIKE \'' . $table . '\'', true, false)) {
+        if (Sql::rows('SHOW TABLES LIKE \'' . $table . '\'') === []) {
             return false;
         }
 
-        return (bool) \Db::getInstance()->getValue(
-            'SELECT 1 FROM `' . $table . '` WHERE `email` = \'' . pSQL($email) . '\' AND `active` = 1 AND `id_shop` = ' . $idShop,
-            false
-        );
+        return Sql::value(
+            'SELECT 1 FROM `' . $table . '` WHERE `email` = \'' . pSQL($email) . '\' AND `active` = 1 AND `id_shop` = ' . $idShop
+        ) !== null;
     }
 }

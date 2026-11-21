@@ -8,11 +8,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\Migration\LegacyStore;
@@ -21,6 +23,7 @@ use Tests\Integration\MultistoreShop;
 require_once __DIR__ . '/../Migration/LegacyStore.php';
 require_once __DIR__ . '/../MultistoreShop.php';
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * Acceptance A on a real two-shop store: in separate stores each shop's automation goes through its
@@ -106,6 +109,53 @@ final class SeparateStoresRoutingTest extends IntegrationTestCase
 
         self::assertEquals(new Skipped(Router::SKIPPED_AUTOMATION_OFF), $this->router()->route(Trigger::WELCOME, $this->shopB, 'et'));
         self::assertNotNull($this->router()->resolve(Trigger::WELCOME, $this->shopA, 'et'));
+    }
+
+    /**
+     * One store, where a shop's own account or workflow stands before the shared one. A read of
+     * the shop's own row that fails (facts file 6.11) is not "the shop has none": read so, the
+     * shop's email went through the shared Smaily account, or started the shared workflow.
+     *
+     * @return array<string, array{bool, string}>
+     */
+    public function ownRows(): array
+    {
+        return [
+            'the shop\'s own account' => [true, '/FROM `[^`]+smaily_connect_account` WHERE `id_shop` = %d /'],
+            'the shop\'s own workflow' => [false, '/FROM `[^`]+smaily_connect_automation_mapping` WHERE `id_shop` = %d /'],
+        ];
+    }
+
+    /**
+     * @dataProvider ownRows
+     */
+    public function testAShopsOwnRowThatCouldNotBeReadNeverFallsBackToTheSharedOne(bool $ownAccount, string $failing): void
+    {
+        \Configuration::updateGlobalValue(StoreLayout::SEPARATE_STORES, '0');
+        (new AutomationSettings())->setEnabled(Trigger::WELCOME, true, 0);
+        LegacyStore::reloadConfiguration();
+        if (!$ownAccount) {
+            // The shop sends through the shared account and holds a workflow of its own.
+            self::db()->delete('smaily_connect_account', '`id_shop` = ' . $this->shopB);
+        }
+        $match = $this->router()->resolve(Trigger::WELCOME, $this->shopB, 'fi');
+        self::assertSame(
+            [100 * $this->shopB + 1, $ownAccount ? 'shopb' : 'leftover'],
+            [$match->workflowId(), $match->account()->subdomain()],
+            'without a failure the shop\'s own row is used'
+        );
+
+        $mock = SmailyMockServer::start();
+        $mock->acceptCredentials('leftover-user', 'not-a-real-password');
+        $sender = new TriggerSender($this->router(), $mock->transport());
+        try {
+            FailingQueries::during(sprintf($failing, $this->shopB), function () use ($sender): void {
+                $sender->send(Trigger::WELCOME, $this->shopB, 'fi', 'shopper1@example.test', []);
+            });
+            self::fail('The email went on without the shop\'s own row.');
+        } catch (SqlException $error) {
+            self::assertSame([], $mock->requests(), 'nothing was posted');
+        }
     }
 
     private function router(): Router

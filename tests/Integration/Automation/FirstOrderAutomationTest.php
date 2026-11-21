@@ -21,6 +21,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Tests\Integration\Automation\AbandonedCart\CartFixture;
 use Tests\Integration\Contacts\ContactRows;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\Migration\LegacyStore;
@@ -29,6 +30,7 @@ require_once __DIR__ . '/../Migration/LegacyStore.php';
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/../Contacts/ContactRows.php';
 require_once __DIR__ . '/AbandonedCart/CartFixture.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The first-order automation follows a registered customer's first order (actionValidateOrder), as
@@ -154,6 +156,55 @@ final class FirstOrderAutomationTest extends IntegrationTestCase
         $this->validate($this->order($customer), $customer);
 
         self::assertSame([], $this->rows());
+    }
+
+    /**
+     * The first-order email goes to a customer without an earlier order. A read of the earlier
+     * orders that fails (facts file 6.11) is not "none": read so, a returning customer got the
+     * first-order email and its discount code. The order itself goes through, and nothing is
+     * queued.
+     */
+    public function testAnEarlierOrderThatCouldNotBeReadQueuesNothing(): void
+    {
+        $customer = $this->customer('order1@example.test');
+        $this->order($customer);
+        $second = $this->order($customer);
+
+        $failed = FailingQueries::during('/^SELECT 1 FROM `[^`]+orders` WHERE `id_customer`/', function () use ($second, $customer): void {
+            $this->validate($second, $customer);
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame([], $this->rows());
+    }
+
+    /**
+     * Two first orders in one flush. A read of the second row's check fails after the first row's
+     * email went out: the second row is retried, and the first keeps its outcome. A failure that
+     * ended the whole batch handed the first row to the handler again, and its email went twice.
+     */
+    public function testARowWhoseCheckCouldNotBeReadLeavesTheSentRowBeforeItAlone(): void
+    {
+        $first = $this->customer('order1@example.test');
+        $second = $this->customer('order2@example.test');
+        $this->validate($this->order($first), $first);
+        $order = $this->order($second);
+        $this->validate($order, $second);
+
+        $failed = FailingQueries::during('/^SELECT c\.`id_customer`, c\.`date_add`.* WHERE c\.`id_cart` = ' . (int) $order->id_cart . '$/', function (): void {
+            $this->flush();
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame(
+            [[EventQueue::STATUS_SENT, '0'], [EventQueue::STATUS_PENDING, '1']],
+            array_map(static fn (array $row): array => [$row['status'], (string) $row['attempts']], $this->rows())
+        );
+        self::assertCount(1, $this->sends(), 'the first email went once');
+
+        self::db()->update(EventQueue::TABLE, ['next_retry_at' => gmdate('Y-m-d H:i:s', time() - 1)], '`status` = \'pending\'');
+        $this->flush();
+        self::assertCount(2, $this->sends());
     }
 
     /**

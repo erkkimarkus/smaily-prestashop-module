@@ -31,6 +31,8 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
@@ -112,6 +114,10 @@ class AbandonedCartSweeper
                     $after = [(string) $cart['date_upd'], (int) $cart['id_cart']];
                     try {
                         $queued += $this->queue($cart, $idShop, $blocking);
+                    } catch (SqlException $error) {
+                        // The database failed, not the cart: the sweep stops, and the next one
+                        // takes the cart again.
+                        throw $error;
                     } catch (\Throwable $error) {
                         Log::failure('the abandoned-cart reminder of a cart', $error);
                         $this->tracker->skip((int) $cart['id_cart'], self::SKIPPED_PAYLOAD_FAILED);
@@ -191,8 +197,7 @@ class AbandonedCartSweeper
         if ($after !== null) {
             $sql .= ' AND (c.`date_upd` > \'' . pSQL($after[0]) . '\' OR (c.`date_upd` = \'' . pSQL($after[0]) . '\' AND c.`id_cart` > ' . $after[1] . '))';
         }
-        $rows = \Db::getInstance()->executeS($sql . ' ORDER BY c.`date_upd`, c.`id_cart` LIMIT ' . self::PAGE_SIZE, true, false);
 
-        return is_array($rows) ? $rows : [];
+        return Sql::rows($sql . ' ORDER BY c.`date_upd`, c.`id_cart` LIMIT ' . self::PAGE_SIZE);
     }
 }

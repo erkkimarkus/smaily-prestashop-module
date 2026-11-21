@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * The rows of the automation mapping table: which Smaily workflow a trigger starts, per shop (0 =
  * all shops), language ('' = no language) and account key ('default' = the shop's account of no
@@ -58,14 +60,12 @@ class MappingRepository
      */
     public function rows(int $idShop, ?string $trigger = null): array
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `id`, `id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`'
             . ' FROM `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' WHERE `id_shop` = ' . $idShop
             . ($trigger === null ? '' : ' AND `trigger` = \'' . pSQL($trigger) . '\'')
-            . ' ORDER BY `id`',
-            true,
-            false
+            . ' ORDER BY `id`'
         );
 
         return array_map(static fn (array $row): array => [
@@ -77,7 +77,7 @@ class MappingRepository
             'workflow_id' => $row['workflow_id'] === null ? null : (int) $row['workflow_id'],
             'optin_trigger' => (bool) $row['optin_trigger'],
             'is_default_fallback' => (bool) $row['is_default_fallback'],
-        ], is_array($rows) ? $rows : []);
+        ], $rows);
     }
 
     /**
@@ -98,7 +98,7 @@ class MappingRepository
             throw new \InvalidArgumentException('Not a valid automation mapping row.');
         }
 
-        return \Db::getInstance()->execute(
+        Sql::write(
             'INSERT INTO `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
             . ' VALUES (' . $idShop
@@ -112,6 +112,8 @@ class MappingRepository
             . ' ON DUPLICATE KEY UPDATE `workflow_id` = VALUES(`workflow_id`), `optin_trigger` = VALUES(`optin_trigger`),'
             . ' `is_default_fallback` = VALUES(`is_default_fallback`), `date_upd` = VALUES(`date_upd`)'
         );
+
+        return true;
     }
 
     /**
@@ -129,7 +131,7 @@ class MappingRepository
             throw new \InvalidArgumentException('Not a valid automation mapping row.');
         }
 
-        return \Db::getInstance()->execute(
+        Sql::write(
             'INSERT INTO `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
             . ' VALUES (' . $idShop
@@ -139,6 +141,8 @@ class MappingRepository
             . ', NULL, 0, 0, NOW())'
             . ' ON DUPLICATE KEY UPDATE `workflow_id` = NULL, `optin_trigger` = 0, `is_default_fallback` = 0, `date_upd` = VALUES(`date_upd`)'
         );
+
+        return true;
     }
 
     /**
@@ -148,12 +152,14 @@ class MappingRepository
      */
     public function removeWorkflows(int $idShop, string $accountKey): bool
     {
-        return \Db::getInstance()->execute(
+        Sql::write(
             'DELETE FROM `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' WHERE `id_shop` = ' . $idShop
             . ' AND `account_key` = \'' . pSQL($accountKey) . '\''
             . ' AND `workflow_id` IS NOT NULL'
         );
+
+        return true;
     }
 
     /**
@@ -161,12 +167,14 @@ class MappingRepository
      */
     public function delete(int $idShop, string $trigger, string $language, string $accountKey): bool
     {
-        return \Db::getInstance()->execute(
+        Sql::write(
             'DELETE FROM `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' WHERE `id_shop` = ' . $idShop
             . ' AND `trigger` = \'' . pSQL($trigger) . '\''
             . ' AND `language` = \'' . pSQL($language) . '\''
             . ' AND `account_key` = \'' . pSQL($accountKey) . '\''
         );
+
+        return true;
     }
 }

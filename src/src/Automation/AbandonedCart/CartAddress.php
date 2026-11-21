@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * Where a cart's reminder address comes from: the one place that knows it, so a new source plugs
  * in here and the sweep, the per-address rule, the order withdrawal and the send follow.
@@ -123,14 +125,12 @@ final class CartAddress
      */
     public function read(int $idCart): ?array
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT c.`id_customer`, c.`date_add`, ' . self::columns()
-            . ' FROM `' . _DB_PREFIX_ . 'cart` c' . self::joins() . ' WHERE c.`id_cart` = ' . $idCart,
-            true,
-            false
+            . ' FROM `' . _DB_PREFIX_ . 'cart` c' . self::joins() . ' WHERE c.`id_cart` = ' . $idCart
         );
 
-        return is_array($rows) && $rows !== [] ? self::of($rows[0]) : null;
+        return $rows !== [] ? self::of($rows[0]) : null;
     }
 
     /**
@@ -138,9 +138,8 @@ final class CartAddress
      */
     public function isCustomerGone(int $idCart): bool
     {
-        return (bool) \Db::getInstance()->getValue(
-            'SELECT 1 FROM `' . _DB_PREFIX_ . 'cart` c' . self::joins() . ' WHERE c.`id_cart` = ' . $idCart . ' AND ' . self::customerGone(),
-            false
-        );
+        return Sql::value(
+            'SELECT 1 FROM `' . _DB_PREFIX_ . 'cart` c' . self::joins() . ' WHERE c.`id_cart` = ' . $idCart . ' AND ' . self::customerGone()
+        ) !== null;
     }
 }

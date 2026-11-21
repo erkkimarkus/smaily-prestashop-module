@@ -34,6 +34,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -41,6 +43,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 
 /**
@@ -122,7 +125,13 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
         $this->exchanges = [];
         $outcomes = [];
         foreach ($events as $event) {
-            $outcomes[(int) $event['id']] = $this->one($event);
+            try {
+                $outcomes[(int) $event['id']] = $this->one($event);
+            } catch (SqlException $error) {
+                // A read or a write of this row failed: the row is retried, and the rows before it
+                // keep their outcome.
+                $outcomes[(int) $event['id']] = $error;
+            }
         }
 
         return $outcomes;
@@ -215,12 +224,30 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
             $this->exchanges[(int) $event['id']] = $exchange;
         }
         if ($outcome === true) {
-            $this->tracker->mailed($idCart);
+            $this->mailed($idCart);
         } elseif ($outcome instanceof Skipped) {
             $this->tracker->skip($idCart, $outcome->reason());
         }
 
         return $outcome;
+    }
+
+    /**
+     * Records that the reminder went out. The email is out whatever the database answers, so a
+     * write that fails twice is logged and the queue row is still closed as sent: a row that failed
+     * here would send the reminder again.
+     */
+    private function mailed(int $idCart): void
+    {
+        try {
+            $this->tracker->mailed($idCart);
+        } catch (SqlException $error) {
+            try {
+                $this->tracker->mailed($idCart);
+            } catch (SqlException $again) {
+                Log::failure('recording a sent abandoned-cart reminder', $again);
+            }
+        }
     }
 
     private function skip(int $idCart, string $reason): Skipped
@@ -250,12 +277,11 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
      */
     private function ordered(int $idCart, string $email, string $since): bool
     {
-        return (bool) \Db::getInstance()->getValue(
+        return Sql::value(
             'SELECT 1 FROM `' . _DB_PREFIX_ . 'orders` WHERE `id_cart` = ' . $idCart
             . ' UNION SELECT 1 FROM `' . _DB_PREFIX_ . 'orders` o'
             . ' INNER JOIN `' . _DB_PREFIX_ . 'customer` cu ON cu.`id_customer` = o.`id_customer`'
-            . ' WHERE cu.`email` = \'' . pSQL($email) . '\' AND o.`date_add` >= \'' . pSQL($since) . '\'',
-            false
-        );
+            . ' WHERE cu.`email` = \'' . pSQL($email) . '\' AND o.`date_add` >= \'' . pSQL($since) . '\''
+        ) !== null;
     }
 }

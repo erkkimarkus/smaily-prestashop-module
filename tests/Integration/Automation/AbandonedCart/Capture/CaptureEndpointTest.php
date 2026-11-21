@@ -11,8 +11,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Log\Resend;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use Tests\Integration\Automation\AbandonedCart\AbandonedCartTestCase;
+use Tests\Integration\Fixtures\FailingQueries;
 
 require_once __DIR__ . '/../AbandonedCartTestCase.php';
+require_once __DIR__ . '/../../../Fixtures/FailingQueries.php';
 
 /**
  * The checkout capture endpoint records the address a guest types on the visitor's own cart, and
@@ -287,6 +289,33 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
         self::assertTrue($this->endpoint()->handle($context, 'POST', $this->post($context, self::TYPED, '1')), 'the 2000th address of the hour is recorded');
         self::assertFalse($this->endpoint()->handle($next, 'POST', $this->post($next, self::OTHER, '1')), 'the next one is refused');
         self::assertNull($this->cartRow((int) $next->cart->id));
+    }
+
+    /**
+     * The hourly limit counts the recorded addresses. A count that fails (facts file 6.11) is not
+     * zero: read as zero, every capture passed the limit. The capture is refused, the visitor's
+     * request answers as always, and the next capture counts again.
+     */
+    public function testACountOfTheHourThatCouldNotBeReadRecordsNothing(): void
+    {
+        $endpoint = new CaptureEndpoint(new AutomationSettings(), new CartTracker(), new EventQueue(), static fn (): bool => true, 'time', 2);
+        $capture = function (string $address) use ($endpoint): array {
+            $context = $this->context($this->fixture->cart(0, 0));
+
+            return [$endpoint->handle($context, 'POST', $this->post($context, $address, '1')), (int) $context->cart->id];
+        };
+        self::assertTrue($capture(self::TYPED)[0]);
+
+        $refused = null;
+        $failed = FailingQueries::during('/^SELECT \(SELECT COUNT\(\*\) FROM \(SELECT 1 FROM/', static function () use ($capture, &$refused): void {
+            $refused = $capture('capture3@example.test');
+        });
+
+        self::assertSame(1, $failed);
+        self::assertFalse($refused[0]);
+        self::assertNull($this->cartRow($refused[1]), 'nothing is recorded on a count that failed');
+        self::assertTrue($capture('capture4@example.test')[0], 'the second address of the hour');
+        self::assertFalse($capture('capture5@example.test')[0], 'the limit still holds');
     }
 
     public function testAFailedWriteIsLoggedWithoutTheAddress(): void

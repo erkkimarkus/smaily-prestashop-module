@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 
 /**
  * How the store is set up across its shops and languages (ARCHITECTURE section 5).
@@ -136,16 +137,14 @@ class StoreLayout extends Settings
      */
     public function customerAccountScope(): string
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT DISTINCT g.`id_shop_group`, g.`share_customer`'
             . ' FROM `' . _DB_PREFIX_ . 'shop` s'
             . ' INNER JOIN `' . _DB_PREFIX_ . 'shop_group` g ON g.`id_shop_group` = s.`id_shop_group`'
-            . ' WHERE s.`deleted` = 0',
-            true,
-            false
+            . ' WHERE s.`deleted` = 0'
         );
         $shareCustomerByGroup = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             $shareCustomerByGroup[(int) $row['id_shop_group']] = (bool) $row['share_customer'];
         }
 

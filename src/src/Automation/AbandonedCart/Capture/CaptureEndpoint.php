@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCart
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
@@ -214,14 +215,13 @@ final class CaptureEndpoint
      */
     private function open(int $idCart): bool
     {
-        $row = \Db::getInstance()->getRow(
+        $row = Sql::row(
             'SELECT EXISTS(SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_product` cp WHERE cp.`id_cart` = c.`id_cart`) AS `has_products`,'
             . ' cu.`email` FROM `' . _DB_PREFIX_ . 'cart` c'
             . ' LEFT JOIN `' . _DB_PREFIX_ . 'customer` cu ON cu.`id_customer` = c.`id_customer` AND cu.`deleted` = 0'
-            . ' WHERE c.`id_cart` = ' . $idCart,
-            false
+            . ' WHERE c.`id_cart` = ' . $idCart
         );
 
-        return is_array($row) && (int) $row['has_products'] === 1 && trim((string) $row['email']) === '';
+        return $row !== null && (int) $row['has_products'] === 1 && trim((string) $row['email']) === '';
     }
 }

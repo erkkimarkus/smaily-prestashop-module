@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
@@ -128,11 +129,11 @@ final class FirstOrderTrigger
 
     private function hasEarlierOrder(int $idCustomer, int $idOrder): bool
     {
-        return (bool) \Db::getInstance()->getValue(sprintf(
+        return Sql::value(sprintf(
             'SELECT 1 FROM `%sorders` WHERE `id_customer` = %d AND `id_order` < %d',
             _DB_PREFIX_,
             $idCustomer,
             $idOrder
-        ), false);
+        )) !== null;
     }
 }

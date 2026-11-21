@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartAddress;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
@@ -75,7 +76,13 @@ final class FirstOrderHandler implements HandlerInterface, ExchangeSource
         $outcomes = [];
         foreach ($events as $event) {
             $id = (int) $event['id'];
-            $outcome = $this->check($event);
+            try {
+                $outcome = $this->check($event);
+            } catch (SqlException $error) {
+                // A read of this row failed: the row is retried, and the rows before it keep
+                // their outcome.
+                $outcome = Failure::of($error);
+            }
             if ($outcome === null) {
                 $outcome = $this->rows->handle([$event])[$id];
                 $this->exchanges += $this->rows->exchanges();

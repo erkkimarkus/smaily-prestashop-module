@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -80,7 +81,7 @@ class CartTracker
     public function capture(int $idCart, int $idShop, int $idLang, string $email, bool $newsletterTicked): void
     {
         $fresh = '`status` = \'' . self::OPEN . '\' AND `event_id` IS NULL';
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'INSERT INTO %s (`id_cart`, `id_shop`, `email`, `id_lang`, `status`, `last_activity_at`, `checkout_optin`)'
             . ' VALUES (%d, %d, %s, %d, \'%s\', %s, %d)',
             self::table(),
@@ -117,7 +118,7 @@ class CartTracker
      */
     public function recorded(int $seconds, int $limit): int
     {
-        return (int) \Db::getInstance()->getValue(sprintf(
+        return Sql::count(sprintf(
             'SELECT (SELECT COUNT(*) FROM (SELECT 1 FROM %1$s WHERE `status` = \'%2$s\' AND `last_activity_at` >= %3$s'
             . ' AND `event_id` IS NULL LIMIT %4$d) `waiting`)'
             . ' + (SELECT COUNT(*) FROM (SELECT 1 FROM %1$s t STRAIGHT_JOIN `%5$s` q ON q.`id` = t.`event_id`'
@@ -132,7 +133,7 @@ class CartTracker
             self::SKIPPED,
             $this->time(-$seconds - self::WINDOW_SECONDS - self::CLOCK_SHIFT_SECONDS),
             self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() - $seconds))
-        ), false);
+        ));
     }
 
     /**
@@ -140,13 +141,9 @@ class CartTracker
      */
     public function row(int $idCart): ?array
     {
-        $rows = \Db::getInstance()->executeS(
-            sprintf('SELECT * FROM %s WHERE `id_cart` = %d', self::table(), $idCart),
-            true,
-            false
-        );
-
-        return is_array($rows) && $rows !== [] ? $rows[0] : null;
+        return Sql::rows(
+            sprintf('SELECT * FROM %s WHERE `id_cart` = %d', self::table(), $idCart)
+        )[0] ?? null;
     }
 
     /**
@@ -156,7 +153,7 @@ class CartTracker
      */
     public function open(int $idCart, int $idShop, ?int $idCustomer, string $email, int $idLang, string $lastActivity): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'INSERT INTO %s (`id_cart`, `id_shop`, `id_customer`, `email`, `id_lang`, `status`, `last_activity_at`)'
             . ' VALUES (%d, %d, %s, %s, %d, \'%s\', %s)'
             . ' ON DUPLICATE KEY UPDATE `id_shop` = VALUES(`id_shop`), `id_customer` = VALUES(`id_customer`),'
@@ -178,7 +175,7 @@ class CartTracker
      */
     public function queued(int $idCart, int $eventId): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET `event_id` = %d WHERE `id_cart` = %d',
             self::table(),
             $eventId,
@@ -191,7 +188,7 @@ class CartTracker
      */
     public function skip(int $idCart, string $reason): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET `status` = \'%s\', `skip_reason` = %s WHERE `id_cart` = %d AND `status` = \'%s\'',
             self::table(),
             self::SKIPPED,
@@ -207,7 +204,7 @@ class CartTracker
      */
     public function forget(int $idCart, string $reason): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET `status` = \'%s\', `skip_reason` = %s, `email` = NULL WHERE `id_cart` = %d AND `status` = \'%s\'',
             self::table(),
             self::SKIPPED,
@@ -222,7 +219,7 @@ class CartTracker
      */
     public function mailed(int $idCart): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET `status` = \'%s\', `mailed_at` = %s WHERE `id_cart` = %d AND `status` = \'%s\'',
             self::table(),
             self::MAILED,
@@ -240,7 +237,7 @@ class CartTracker
      */
     public function withdraw(string $email, int $idCart, string $reason): int
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             sprintf(
                 'SELECT `id_cart` FROM %s WHERE `email` = %s AND `status` = \'%s\' UNION SELECT `id_cart` FROM %s WHERE `id_cart` = %d AND `status` = \'%s\'',
                 self::table(),
@@ -249,11 +246,9 @@ class CartTracker
                 self::table(),
                 $idCart,
                 self::OPEN
-            ),
-            true,
-            false
+            )
         );
-        $ids = is_array($rows) ? array_map(static fn (array $row): int => (int) $row['id_cart'], $rows) : [];
+        $ids = array_map(static fn (array $row): int => (int) $row['id_cart'], $rows);
         foreach ($ids as $id) {
             $this->skip($id, $reason);
         }
@@ -275,7 +270,7 @@ class CartTracker
         // A reminder goes within WINDOW_SECONDS of the cart's last change, so the status index
         // finds every reminder that can still go among the carts changed in the last window, and
         // every reminder of the last window among the carts changed in the last two.
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             sprintf(
                 'SELECT `email`, `id_customer`, `status`, `mailed_at`, `event_id` FROM %s'
                 . ' WHERE `status` = \'%s\' AND `last_activity_at` >= %s'
@@ -287,13 +282,11 @@ class CartTracker
                 self::table(),
                 self::MAILED,
                 $this->time(-2 * self::WINDOW_SECONDS)
-            ),
-            true,
-            false
+            )
         );
         $since = $this->format(-self::WINDOW_SECONDS);
         $blocking = ['emails' => [], 'customers' => []];
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             if ($row['status'] === self::OPEN ? $row['event_id'] === null : (string) $row['mailed_at'] < $since) {
                 continue;
             }
@@ -320,14 +313,13 @@ class CartTracker
      */
     public function purge(): int
     {
-        $db = \Db::getInstance();
         $stale = $this->ids(sprintf(
             '`status` = \'%s\' AND `last_activity_at` < %s AND `event_id` IS NULL',
             self::OPEN,
             $this->time(-self::WINDOW_SECONDS)
         ));
         if ($stale !== []) {
-            $db->execute(sprintf(
+            Sql::write(sprintf(
                 'DELETE FROM %s WHERE `id_cart` IN (%s) AND `status` = \'%s\' AND `event_id` IS NULL',
                 self::table(),
                 implode(', ', $stale),
@@ -347,7 +339,7 @@ class CartTracker
         ));
         $cleared = array_merge($unsent, $closed);
         if ($cleared !== []) {
-            $db->execute(sprintf('UPDATE %s SET `email` = NULL WHERE `id_cart` IN (%s)', self::table(), implode(', ', $cleared)));
+            Sql::write(sprintf('UPDATE %s SET `email` = NULL WHERE `id_cart` IN (%s)', self::table(), implode(', ', $cleared)));
         }
 
         return count($stale) + count($cleared);
@@ -366,13 +358,11 @@ class CartTracker
      */
     private function ids(string $condition): array
     {
-        $rows = \Db::getInstance()->executeS(
-            sprintf('SELECT `id_cart` FROM %s WHERE %s', self::table(), $condition),
-            true,
-            false
+        $rows = Sql::rows(
+            sprintf('SELECT `id_cart` FROM %s WHERE %s', self::table(), $condition)
         );
 
-        return is_array($rows) ? array_map(static fn (array $row): int => (int) $row['id_cart'], $rows) : [];
+        return array_map(static fn (array $row): int => (int) $row['id_cart'], $rows);
     }
 
     private function time(int $offset): string

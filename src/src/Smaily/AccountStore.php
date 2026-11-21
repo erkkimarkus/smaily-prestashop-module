@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * The rows of the account table: one Smaily account per shop and language, its password encrypted.
  *
@@ -48,12 +50,11 @@ final class AccountStore
 
     public function find(int $idShop, string $language = ''): ?Account
     {
-        $row = \Db::getInstance()->getRow(
+        $row = Sql::row(
             'SELECT `subdomain`, `username`, `password_enc` FROM `' . _DB_PREFIX_ . self::TABLE . '`'
-            . ' WHERE `id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\'',
-            false
+            . ' WHERE `id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\''
         );
-        if (!is_array($row)) {
+        if ($row === null) {
             return null;
         }
 
@@ -71,7 +72,7 @@ final class AccountStore
      */
     public function save(Account $account): bool
     {
-        return \Db::getInstance()->execute(
+        Sql::write(
             'INSERT INTO `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' (`id_shop`, `language`, `subdomain`, `username`, `password_enc`, `date_add`, `date_upd`)'
             . ' VALUES (' . $account->idShop()
@@ -83,6 +84,8 @@ final class AccountStore
             . ' ON DUPLICATE KEY UPDATE `subdomain` = VALUES(`subdomain`), `username` = VALUES(`username`),'
             . ' `password_enc` = VALUES(`password_enc`), `date_upd` = VALUES(`date_upd`)'
         );
+
+        return true;
     }
 
     /**
@@ -90,7 +93,9 @@ final class AccountStore
      */
     public function delete(int $idShop, string $language): bool
     {
-        return \Db::getInstance()->delete(self::TABLE, '`id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\'');
+        Sql::delete(self::TABLE, '`id_shop` = ' . $idShop . ' AND `language` = \'' . pSQL($language) . '\'');
+
+        return true;
     }
 
     /**
@@ -100,8 +105,6 @@ final class AccountStore
      */
     public function scopes(): array
     {
-        $rows = \Db::getInstance()->executeS('SELECT `id_shop`, `language` FROM `' . _DB_PREFIX_ . self::TABLE . '`', true, false);
-
-        return is_array($rows) ? array_values($rows) : [];
+        return Sql::rows('SELECT `id_shop`, `language` FROM `' . _DB_PREFIX_ . self::TABLE . '`');
     }
 }
