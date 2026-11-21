@@ -1560,11 +1560,11 @@ daily refresh are rows of `smaily_connect_job`:
 |---|---|---|
 | `actionCustomerAccountAdd` | `contact.sync`; `automation.welcome` (a storefront registration with `newsletter = 1`); engine customer row; engine `identity_merge` and `vs_` token at registration and guest checkout, where `actionAuthentication` does not fire | 2.3, 4.2, 5.2, 5.5 |
 | `actionObjectCustomerUpdateBefore`, `actionObjectCustomerUpdateAfter`, `actionCustomerAccountUpdate` | `contact.sync` (with status only on change); `automation.welcome` on 0→1 in the storefront | 2.3, 4.2 |
-| `actionObjectCustomerDeleteAfter` | Registered; no listener on `v3` (the plan was to mark the customer's tracker rows; open, section 13, "Queued clean-up"). The cart reminder reads no address of a deleted customer (`CartAddress`), and sends none to a cart whose customer is gone (`customer_deleted`, below). Nothing to Smaily: erasure goes through psgdpr. | — |
+| `actionObjectCustomerDeleteAfter` | Not registered (owner, 2026-11-21; section 15). The deleted customer is handled at send time: the cart reminder reads no address of a deleted customer (`CartAddress`), and sends none to a cart whose customer is gone (`customer_deleted`, below). Nothing to Smaily: erasure goes through psgdpr. | — |
 | `actionNewsletterRegistrationBefore` | `contact.sync` for a block unsubscribe (`action = '1'`), after the stored state confirms it (6.3). | 2.3 |
 | `actionNewsletterRegistrationAfter` | `contact.sync` and `automation.welcome` for a block subscribe only, also when it fires from the verification link (6.3) | 2.3, 4.2 |
 | `actionAuthentication` | Fires on login only (facts file part 2). Engine `identity_merge` (§7), customer row (§4 group c), `vs_` token for a shopper who logs in | 5.2, 5.5 |
-| `actionCartSave` | Registered; no listener on `v3`. The sweep reads the cart's last change from `cart.date_upd` (below). | 4.3 |
+| `actionCartSave` | Not registered (owner, 2026-11-21; section 15). The sweep reads the cart's last change from `cart.date_upd` (below). | — |
 | `actionValidateOrder` | `contact.sync` (profile and consent at order time); every reminder of that address that is not sent yet withdrawn (`skipped`, reason `ordered`); `automation.first_order`; attribution capture; engine order row | 2.3, 4.2, 4.3, 5.2, 5.5 |
 | `actionOrderStatusPostUpdate`, `actionOrderEdited` | Engine order re-send (whole row) | 5.2 |
 | `actionOrderSlipAdd` | Engine order re-send with `items[].returned_at` on fully refunded lines | 5.2 |
@@ -1579,9 +1579,12 @@ daily refresh are rows of `smaily_connect_job`:
 | `moduleRoutes` | Friendly URLs for relay, land, recommendations, personalization | 5.5 |
 | `actionExportGDPRData`, `actionDeleteGDPRCustomer`, `registerGDPRConsent` | Export and erasure (section 11) | 5.6 |
 
-`Install\HookList` registers the 32 hooks of this table, which excludes
-`actionObjectCategoryUpdateAfter`; the main class has one one-line method for each. A row whose
-Story is not done (section 13) names a hook that is registered and has no listener yet.
+`Install\HookList` registers the 30 hooks of this table, which excludes
+`actionObjectCustomerDeleteAfter`, `actionCartSave` and `actionObjectCategoryUpdateAfter`; the main
+class has one one-line method for each. A row whose Story is not done (section 13) names a hook
+that is registered and has no listener yet. The upgrade's `hooks` step unregisters every hook that
+the list does not name (section 3.7), so a store that ran a development build with 32 hooks holds
+30 after its next migration run.
 
 **The store automations as built** (Stories 4.1 to 4.3, `Automation\`). The queue holds one event
 type per automation: `automation.welcome`, `automation.first_order` and `automation.abandoned_cart`
@@ -1656,7 +1659,8 @@ later: the send removes it there as well (`EventQueue::forgetContact()`, by prim
 the claim), so the row keeps the cart's id alone, no entity, and nothing of what an earlier failed
 attempt sent or was answered.
 A cart that never had a customer is not meant: its recorded address is the only identity it ever
-had, and it is reminded as before. `actionObjectCustomerDeleteAfter` stays without a listener.
+had, and it is reminded as before. No hook listens to a customer's deletion: the check runs when
+the sweep and the send read the cart.
 
 **The checkout capture** (`AbandonedCart\Capture\`, front controller `capture`). On the checkout
 page of a visitor who is no customer yet, in a shop whose abandoned-cart automation is on, the
@@ -2638,8 +2642,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 3. The integration test that leaves other cron tokens behind restores the tokens it found (section 12).
 4. The queue janitor also sweeps closed rows of `smaily_connect_cart`, once the owner has decided
    whether a cart may be reminded again after its row is gone (section 11.3).
-5. `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and have no listener
-   (section 7): either the listeners that the plan named, or the hooks leave `Install\HookList`.
+5. Done (owner, 2026-11-21): `actionCartSave` and `actionObjectCustomerDeleteAfter`, which had no
+   listener, left `Install\HookList` and the main class (section 7).
 
 The contract copy `docs/RECENGINE_API_CONTRACT.md` was re-synced three times on 2026-11-20 (`docs:`
 commits). It is v1.36.0 now: 1.36.0 adds price groups (§3 `group_prices`, §4 `price_group`), §6c is
@@ -2653,6 +2657,7 @@ each for its named wiring only, and each in a commit of its own:
 | 1.7 | `uninstall()` delegates to `Install\Uninstaller` (done). |
 | 2.3 | The hook method of `actionNewsletterRegistrationBefore` (section 7) (done). |
 | 3.1 | The `$tabs` menu, and `getContent()` opens the Dashboard or the Initial setup (done). |
+| — | The hook methods of `actionCartSave` and `actionObjectCustomerDeleteAfter` removed (owner, 2026-11-21; section 15) (done). |
 | 5.5 | `WidgetInterface` (section 8.7). |
 
 These Stories never run in parallel with each other.
@@ -3214,7 +3219,7 @@ has one owner:
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
 | 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
 | 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
-| 34 | Two hooks without a listener | `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and unused (section 7). Removing them before the release changes `Install\HookList` and the main class. | Owner |
+| 34 | Two hooks without a listener | **Closed (owner, 2026-11-21):** `actionCartSave` and `actionObjectCustomerDeleteAfter` are no longer registered; `Install\HookList` holds 30 hooks (section 7). | — |
 | 35 | The first-import card after 90 days | The card reads the newest import job, and the janitor deletes a finished job after 90 days, so the card then offers "Start import" again (section 11.3). Keeping the newest import job of each shop would close it. | Owner |
 | 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
 | 37 | A workflow number of another Smaily account | Known limit, accepted for now (owner, 2026-11-21). After a save that puts another Smaily account in a stored one's place (another account in the same mode, or mode `a`'s fallback account), an automation keeps the workflow number that was picked from the first account until the merchant picks a new one (section 5.1). Magento behaves the same. | Cross-connector analysis (Linear CON-397) |
@@ -3328,3 +3333,6 @@ Decisions of 2026-11-21:
   through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
   the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
   29).
+- The two hooks without a listener, `actionCartSave` and `actionObjectCustomerDeleteAfter`, are
+  not registered (owner, 2026-11-21). They left `Install\HookList` and the main class; the
+  deleted customer is handled at send time (section 7). The module registers 30 hooks.

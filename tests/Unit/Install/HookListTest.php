@@ -15,6 +15,7 @@ final class HookListTest extends TestCase
     public function testEveryHookIsListedOnce(): void
     {
         self::assertSame(array_values(array_unique(HookList::HOOKS)), HookList::HOOKS);
+        self::assertCount(30, HookList::HOOKS);
     }
 
     public function testTheMainClassDelegatesEachRegisteredHookToTheDispatcher(): void

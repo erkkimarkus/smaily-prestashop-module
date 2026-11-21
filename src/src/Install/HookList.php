@@ -41,13 +41,11 @@ final class HookList
         'actionObjectCustomerUpdateBefore',
         'actionObjectCustomerUpdateAfter',
         'actionCustomerAccountUpdate',
-        'actionObjectCustomerDeleteAfter',
         'actionNewsletterRegistrationBefore',
         'actionNewsletterRegistrationAfter',
         'actionAuthentication',
         'additionalCustomerFormFields',
         // Carts and orders
-        'actionCartSave',
         'actionValidateOrder',
         'actionOrderStatusPostUpdate',
         'actionOrderEdited',

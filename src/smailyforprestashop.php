@@ -176,11 +176,6 @@ class SmailyForPrestaShop extends Module
         return Dispatcher::dispatch('actionCustomerAccountUpdate', $params);
     }
 
-    public function hookActionObjectCustomerDeleteAfter(array $params)
-    {
-        return Dispatcher::dispatch('actionObjectCustomerDeleteAfter', $params);
-    }
-
     public function hookActionNewsletterRegistrationBefore(array $params)
     {
         return Dispatcher::dispatch('actionNewsletterRegistrationBefore', $params);
@@ -199,11 +194,6 @@ class SmailyForPrestaShop extends Module
     public function hookAdditionalCustomerFormFields(array $params)
     {
         return Dispatcher::dispatch('additionalCustomerFormFields', $params);
-    }
-
-    public function hookActionCartSave(array $params)
-    {
-        return Dispatcher::dispatch('actionCartSave', $params);
     }
 
     public function hookActionValidateOrder(array $params)

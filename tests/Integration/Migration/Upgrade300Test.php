@@ -458,7 +458,7 @@ final class Upgrade300Test extends IntegrationTestCase
         LegacyStore::loadFixture('1.6.2-configured.sql');
         $this->recordModuleVersion('1.6.2');
         $module = self::module();
-        $module->unregisterHook('actionCartSave');
+        $module->unregisterHook('actionValidateOrder');
         // As the 1.6.2 fixture's part 2 does: 3.0.0 has no method for this hook, so it cannot register it.
         self::db()->execute(
             'INSERT INTO `' . _DB_PREFIX_ . 'hook_module` (`id_module`, `id_shop`, `id_hook`, `position`)'
@@ -472,6 +472,58 @@ final class Upgrade300Test extends IntegrationTestCase
             array_values(array_intersect(array_map('strtolower', HookList::HOOKS), $this->registeredHooks()))
         );
         self::assertNotContains('displayfooterbefore', $this->registeredHooks());
+    }
+
+    /**
+     * A store that ran a development build of 3.0.0 holds the two hooks that had no listener.
+     * The main class has no method for them any more, so the rows are written as that build left
+     * them; a migration run takes them away, also the one of a store that has nothing to migrate.
+     *
+     * @dataProvider migrationRuns
+     */
+    public function testTheTwoHooksWithoutAListenerLeaveOnAMigrationRun(?string $fixture): void
+    {
+        if ($fixture === null) {
+            Schema::markCurrent();
+            \Configuration::deleteByName(Schema::VERSION_KEY);
+            LegacyStore::reloadConfiguration();
+        } else {
+            LegacyStore::loadFixture($fixture);
+            $this->recordModuleVersion('2.2.0');
+        }
+        $module = self::module();
+        foreach (['actionCartSave', 'actionObjectCustomerDeleteAfter'] as $name) {
+            // PrestaShop lists a hook of an object model only once a module registered it.
+            if (!\Hook::getIdByName($name, false)) {
+                $hook = new \Hook();
+                $hook->name = $name;
+                $hook->title = $name;
+                self::assertTrue($hook->add());
+            }
+            self::db()->execute(
+                'INSERT INTO `' . _DB_PREFIX_ . 'hook_module` (`id_module`, `id_shop`, `id_hook`, `position`)'
+                . ' SELECT ' . (int) $module->id . ', 1, `id_hook`, 99 FROM `' . _DB_PREFIX_ . 'hook` WHERE `name` = \'' . $name . '\''
+            );
+        }
+        self::assertCount(32, $this->registeredHooks());
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        $expected = array_map('strtolower', HookList::HOOKS);
+        sort($expected);
+        self::assertSame($expected, $this->registeredHooks());
+        self::assertCount(30, $this->registeredHooks());
+    }
+
+    /**
+     * @return array<string, array{string|null}>
+     */
+    public function migrationRuns(): array
+    {
+        return [
+            'an upgrade from 2.2.0' => ['2.2.0-configured.sql'],
+            'a store with nothing to migrate' => [null],
+        ];
     }
 
     public function testAStoreWithoutTheMenuGetsItUnderCustomers(): void
