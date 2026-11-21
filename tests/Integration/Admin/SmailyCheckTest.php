@@ -10,8 +10,9 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 use Tests\Integration\IntegrationTestCase;
 
 /**
- * "Test connection" words each answer of Smaily as Magento's TestSmaily does, and its answer never
- * carries the password. Needs the shop's translator, so it runs in the shop.
+ * "Test connection" asks Smaily with Magento's call, words each answer as Magento's TestSmaily
+ * does, and its answer never carries the password. Needs the shop's translator, so it runs in the
+ * shop.
  */
 final class SmailyCheckTest extends IntegrationTestCase
 {
@@ -46,7 +47,7 @@ final class SmailyCheckTest extends IntegrationTestCase
         $answer = $check->check('demo', 'api-user', 'a-secret-password');
 
         self::assertSame(['connected' => $connected, 'error' => $error], $answer);
-        self::assertSame([['GET', 'https://demo.sendsmaily.net/api/autoresponder.php']], $requests);
+        self::assertSame([['GET', 'https://demo.sendsmaily.net/api/workflows.php?trigger_type=form_submitted']], $requests, 'Magento\'s validateCredentials() call');
         self::assertStringNotContainsString('a-secret-password', (string) json_encode($answer));
     }
 

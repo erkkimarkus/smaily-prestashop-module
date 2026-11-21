@@ -40,8 +40,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Asks Smaily once whether it accepts a subdomain, username and password, as Magento's
- * validateCredentials() does (one read of the workflow list), and words the answer as Magento's
+ * Asks Smaily once whether it accepts a subdomain, username and password, with the call of
+ * Magento's validateCredentials() (`GET workflows.php?trigger_type=form_submitted`, the list that
+ * the Automations panel reads through Automation\WorkflowList), and words the answer as Magento's
  * TestSmaily does: refused credentials, a package without API access, a subdomain that Smaily
  * does not know, or Smaily out of reach. Nothing is stored or logged; the password never enters
  * an answer.
@@ -64,7 +65,7 @@ final class SmailyCheck
     public function check(string $subdomain, string $username, string $password): array
     {
         try {
-            (new Client($this->transport, $subdomain, $username, $password))->get(Client::ENDPOINT_AUTORESPONDER);
+            (new Client($this->transport, $subdomain, $username, $password))->get(Client::ENDPOINT_WORKFLOWS, ['trigger_type' => 'form_submitted']);
 
             return ['connected' => true, 'error' => null];
         } catch (InvalidSubdomainException $exception) {
