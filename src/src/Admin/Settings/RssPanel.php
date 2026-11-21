@@ -96,7 +96,7 @@ final class RssPanel
             $errors[] = ['field' => 'category', 'message' => $this->trans('Enter a category ID, or leave it empty for all products.')];
         }
         if (!ctype_digit($limit) || (int) $limit < 1 || (int) $limit > RssSettings::MAX_LIMIT) {
-            $errors[] = ['field' => 'limit', 'message' => $this->trans('Enter a number from 1 to 250.')];
+            $errors[] = ['field' => 'limit', 'message' => $this->trans('Enter a number from 1 to %max%.', ['%max%' => RssSettings::MAX_LIMIT])];
         }
         if (!in_array($sortBy, RssSettings::SORT_BY_VALUES, true)) {
             $errors[] = ['field' => 'sort_by', 'message' => $this->trans('Pick a sort field.')];
@@ -113,8 +113,11 @@ final class RssPanel
         return [];
     }
 
-    private function trans(string $message): string
+    /**
+     * @param array<string, string|int> $parameters
+     */
+    private function trans(string $message, array $parameters = []): string
     {
-        return $this->translator->trans($message, [], BaseController::DOMAIN);
+        return $this->translator->trans($message, $parameters, BaseController::DOMAIN);
     }
 }
