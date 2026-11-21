@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Migration;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client as EngineClient;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
@@ -125,11 +126,18 @@ final class PendingMigrationTest extends IntegrationTestCase
                 return new Response(404, '');
             }
         }, '3.0.0'));
+        // The health check asks no real engine: a connection that a test left behind finds no answer.
+        $services->set(EngineClient::class, fn (): EngineClient => new EngineClient(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
 
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'migration', 'update_check'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'migration', 'update_check'], $report->jobs());
         self::assertFalse($built);
     }
 

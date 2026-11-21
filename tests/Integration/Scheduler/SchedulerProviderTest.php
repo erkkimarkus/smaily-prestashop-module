@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Scheduler;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client as EngineClient;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -81,6 +82,13 @@ final class SchedulerProviderTest extends IntegrationTestCase
                 return new Response(404, '');
             }
         }, '3.0.0'));
+        // The health check asks no real engine: a connection that a test left behind finds no answer.
+        $services->set(EngineClient::class, fn (): EngineClient => new EngineClient(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
         $queue = new EventQueue();
         $ids = [];
         for ($i = 0; $i < 250; ++$i) {
@@ -90,7 +98,7 @@ final class SchedulerProviderTest extends IntegrationTestCase
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'migration', 'update_check', 'later_area'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'migration', 'update_check', 'later_area'], $report->jobs());
         self::assertSame($ids, $sent, 'two batches of the flush sent every row');
     }
 

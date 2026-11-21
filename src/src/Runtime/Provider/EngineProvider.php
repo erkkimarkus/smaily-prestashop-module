@@ -31,16 +31,24 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 
 /**
  * Registers the services and hook listeners of the Campaign Intelligence connections and ingest.
+ *
+ * The health check asks the engine about the stored connections every 15 minutes and sends nothing
+ * while there is none.
  */
 final class EngineProvider implements ProviderInterface
 {
+    public const HEALTH_JOB = 'engine_health';
+
     public function register(Services $services): void
     {
         $services->set(Client::class, fn (Services $services): Client => new Client(
@@ -51,5 +59,14 @@ final class EngineProvider implements ProviderInterface
             $services->get(Crypto::class),
             $services->get(StoreLayout::class)
         ));
+        $services->set(HealthCheck::class, fn (Services $services): HealthCheck => new HealthCheck(
+            $services->get(Client::class),
+            $services->get(Connections::class),
+            'time'
+        ));
+
+        $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::HEALTH_JOB, 900, 5, static function (Deadline $deadline) use ($services): void {
+            $services->get(HealthCheck::class)->run($deadline);
+        }));
     }
 }
