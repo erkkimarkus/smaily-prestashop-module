@@ -4,14 +4,13 @@
 
 Smaily email marketing and automation extension module for PrestaShop.
 
-Automatically subscribe newsletter subscribers to a Smaily subscribers list, generate an RSS feed based on products for easy template import and add a Newsletter Subscription form for an opt-in sign-up form.
+Automatically subscribe newsletter subscribers to a Smaily subscribers list, generate an RSS feed based on products for easy template import and use PrestaShop's Newsletter Subscription form as an opt-in sign-up form.
 
 ## Features
 
 ### PrestaShop Newsletter Subscribers
 
 - Use the Subscribe Newsletter modules form to send subscribers directly to the Smaily subscribers list
-- Subscribe Newsletter form with CAPTCHA support
 
 ### PrestaShop Products RSS-feed
 
@@ -43,7 +42,7 @@ All development for Smaily for PrestaShop is [handled via GitHub](https://github
 
 ## Installation
 
-1. Upload or extract the `smailyforprestashop` folder to your site's `/modules/` directory. You can also find this module in **Modules -> Selection** - section in your admin panel - search for Smaily for PrestaShop.
+1. Upload or extract the `smailyforprestashop` folder to your site's `/modules/` directory.
 2. Install the plugin from the **Modules** - menu in PrestaShop.
 
 ## Usage
@@ -57,7 +56,7 @@ All development for Smaily for PrestaShop is [handled via GitHub](https://github
 7. Click **Save** to save customer synchronization settings.
 8. Under the **Abandoned Cart** tab select if you want to enable abandoned cart synchronization.
 9. Select autoresponder for abandoned cart.
-10. Select additional fields to send to the abandoned cart template. Firstname, lastname and store-url are always added.
+10. Select additional fields to send to the abandoned cart template.
 11. Add delay time when the cart is considered abandoned. Minimum time 15 minutes. Change the cron token if you like your own.
 12. Click **Save** to save abandoned cart settings.
 13. Cron is set up to synchronize contacts when cron-URL is visited. Use host cPanel, PrestaShop cron tasks manager or external cron service to automate the process.

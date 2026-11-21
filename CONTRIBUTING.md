@@ -102,7 +102,7 @@ The module follows the technical rules of the PrestaShop Marketplace (`docs/MARK
 - A new folder gets its `index.php`: `composer --working-dir src autoindex`, then the command above, so that the new file carries the notice.
 - `src/config.xml` repeats the name, version, author, tab, description and uninstall question of the main class. Change both together; a unit test fails when they differ.
 
-An agent validates a change the same way: push the branch, open a pull request, then read the result with `gh pr checks <number> --watch` and `gh run view <run-id> --log-failed`.
+From the command line, a change is validated the same way: push the branch, open a pull request, then read the result with `gh pr checks <number> --watch` and `gh run view <run-id> --log-failed`.
 
 ## Troubleshooting
 

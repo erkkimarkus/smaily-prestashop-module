@@ -1,10 +1,10 @@
 # USER GUIDE
 
-This guide will help you set up and configure Smaily for PrestaShop module.
+This guide will help you set up and configure Smaily Connect for PrestaShop (the module `smailyforprestashop`, version 3.0.0).
 
 ## Installation
 
-1. You can get the **Smaily for PrestaShop module** from Smaily's [GitHub repository](https://github.com/sendsmaily/smaily-prestashop-module/releases).
+1. You can get the **Smaily Connect module** from Smaily's [GitHub repository](https://github.com/sendsmaily/smaily-prestashop-module/releases).
 
 2. Download the .zip file for the latest release. Extracted contents of the archive to a `smailyforprestashop` folder.
 
@@ -13,6 +13,56 @@ This guide will help you set up and configure Smaily for PrestaShop module.
 4. Navigate to **Modules -> Module Catalog**. Search for "smaily" and click **Install**.
 
 ![Module install](assets/1_module_installation.png)
+
+## Upgrading from version 2.x
+
+1. Install the new version over the old one: **Modules -> Module Manager -> Upload a module**, with the .zip file of the release. Do not uninstall the old version first: uninstalling removes every setting of the module.
+
+2. The upgrade carries your settings over: the Smaily account, contact synchronization, the opt-in and abandoned cart automations with their workflows, the RSS defaults, and the record of the carts that were already reminded. The password of the Smaily account is stored encrypted from now on. Your cron URLs and your RSS feed URLs keep working.
+
+3. Notices at the top of the Smaily Connect pages tell what the upgrade changed and what it left switched off, with the reason. Close each notice once you have read it; it then goes away for every administrator. Until then the other back-office pages show one line with a link to the Dashboard.
+
+4. If the upgrade was interrupted, the Smaily Connect pages show **The upgrade to Smaily Connect 3.0.0 is not finished** with the button **Finish upgrade**. Smaily Connect stays paused and your previous settings stay in place until the upgrade finishes. It also finishes on its own with the next run of the cron URL.
+
+The Initial setup of an upgraded store is filled in with the carried-over settings and is not required: every page is open at once.
+
+## Initial setup
+
+A new store opens in the **Initial setup**, a guided setup in five steps. **Back** and **Continue** move between the steps, and each step saves when you continue.
+
+1. **Connect**: the Smaily account (see [Connecting module to Smaily account](#connecting-module-to-smaily-account)). A store with several shops first answers how its shops are run. A store without a Smaily account finds the link **Create a Smaily account** here.
+2. **Contacts**: who is synced to Smaily, and the first import (see [Customer synchronization](#customer-synchronization)).
+3. **Automations**: the store events that start Smaily workflows (see [Automations](#automations)).
+4. **Intelligence**: optional.
+5. **Overview**: a summary of what you set up, each line with **Edit** to go back to its step, and links to **Settings** and the **Log**.
+
+You can open the Initial setup again at any time under **Customers -> Smaily Connect -> Initial setup**; your settings are kept. Every setting is also in **Settings**.
+
+## Dashboard
+
+**Customers -> Smaily Connect -> Dashboard** shows at a glance whether everything works.
+
+1. The line at the top names the one thing that needs your attention, with a button that leads to it: an unfinished setup, a missing Smaily account, background tasks that are not running, or deliveries that failed in the last 24 hours.
+2. The cards show the state of the **Smaily** connection, **Campaign Intelligence**, **Browse tracking** and **Background tasks**. In a store with several shops, pick a shop in the shop selector at the top of the page to see its connection.
+3. The tiles count the **Contact syncs** delivered in the last 30 days, the events **Queued today** that wait to be sent, and the events that **Failed** in the last 24 hours.
+4. **Recent activity** lists the latest deliveries; **View full log** opens the Log.
+
+When a newer version of the module is out, the Smaily Connect pages say so, with links to download it and to read what is new. The module asks GitHub for the latest version once a day and sends no store data.
+
+## Background tasks and the cron line
+
+Smaily Connect sends contacts and automation emails in the background. The **Background tasks** card of the Dashboard shows when the tasks last ran and one of three states:
+
+- **Running**: a cron line runs the tasks; its last run is at most 5 minutes old.
+- **Visitors only**: no cron line runs them, so the tasks run only when visitors open pages of your store.
+- **Not running**: the tasks have not run for 15 minutes or more. Nothing goes to Smaily until they run again.
+
+To set the cron line up:
+
+1. Click **Show the cron line** on the card. Only an administrator who may change the Smaily Connect settings sees the button.
+2. Add the line to the crontab of your server, for example in the cron jobs of your hosting control panel. The line calls one address of your store every minute. A cron service that calls an address for you can call that address instead.
+
+One cron line runs every task. The two cron lines of version 2.x keep working; the one line replaces both.
 
 ## Connecting module to Smaily account
 
@@ -45,7 +95,7 @@ We however recommend you place a Newsletter Subscription form on your website, t
 
 ![Transplant module section](assets/6_transplant_a_module.png)
 
-2. Select **Newsletter subscription** for **Module** and the preferred form location for **Transplant to**. Notice that Smaily uses the built-in Newsletter Subscription form and extends it's functionality. When the **Welcome** automation is on (**Settings -> Automations**), users who subscribe trigger its workflow.
+2. Select **Newsletter subscription** for **Module** and the preferred form location for **Transplant to**. Notice that Smaily Connect uses PrestaShop's built-in Newsletter Subscription form. When the **Welcome** automation is on (**Settings -> Automations**), users who subscribe trigger its workflow.
 3. Click **Save** and the Newsletter subscription form should be on your store at the specified location!
 
 ## Customer synchronization
