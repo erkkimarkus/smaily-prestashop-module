@@ -137,9 +137,9 @@ final class ContactCaptureTest extends IntegrationTestCase
      * The consent stored before a save tells whether the save changed it. A read of it that fails
      * (facts file 6.11) is not "it was off": read so, the save of an unchanged subscriber went out
      * as a new subscription, which subscribes a contact who unsubscribed in Smaily. The save itself
-     * goes through, and its row carries no consent change.
+     * goes through, and a save that ends subscribed carries no consent change.
      */
-    public function testASaveWhoseConsentBeforeCouldNotBeReadIsNoConsentChange(): void
+    public function testASaveThatEndsSubscribedWhoseConsentBeforeCouldNotBeReadIsNoConsentChange(): void
     {
         $customer = $this->customer($this->shop, 'capture1@example.test', true);
         $customer->firstname = 'Otherfirst';
@@ -151,6 +151,69 @@ final class ContactCaptureTest extends IntegrationTestCase
 
         self::assertSame(1, $failed);
         self::assertSame([[true, false]], $this->flags('subscribed', 'consent_changed'));
+    }
+
+    /**
+     * The other outcome of that failed read (owner, 2026-11-21): a save that ends not subscribed
+     * queues the unsubscribe, whether the customer was subscribed before or not, so an unsubscribe
+     * made in that save is never lost. The same holds for a save that switches the consent on:
+     * with the read failed it queues no subscription.
+     *
+     * @dataProvider consentBefore
+     */
+    public function testASaveThatEndsUnsubscribedWhoseConsentBeforeCouldNotBeReadQueuesTheUnsubscribe(bool $before): void
+    {
+        $customer = $this->customer($this->shop, 'capture1@example.test', $before);
+        $customer->newsletter = false;
+
+        $failed = FailingQueries::during('/SELECT `newsletter` FROM `[^`]+customer`/', static function () use ($customer): void {
+            self::assertTrue($customer->update(), 'the shopper\'s save is not broken');
+        });
+        $this->events()->commit();
+
+        self::assertSame(1, $failed);
+        self::assertSame([[false, true]], $this->flags('subscribed', 'consent_changed'));
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public function consentBefore(): array
+    {
+        return ['subscribed before the save' => [true], 'not subscribed before the save' => [false]];
+    }
+
+    public function testASaveThatSwitchesTheConsentOnWhoseConsentBeforeCouldNotBeReadQueuesNoSubscription(): void
+    {
+        $customer = $this->customer($this->shop, 'capture1@example.test', false);
+        $customer->newsletter = true;
+
+        FailingQueries::during('/SELECT `newsletter` FROM `[^`]+customer`/', static function () use ($customer): void {
+            self::assertTrue($customer->update());
+        });
+        $this->events()->commit();
+
+        self::assertSame([[true, false]], $this->flags('subscribed', 'consent_changed'));
+    }
+
+    /**
+     * A failed read of one save says nothing about the next save of the same customer.
+     */
+    public function testTheSaveAfterAFailedReadComparesWithTheStoredConsentAgain(): void
+    {
+        $customer = $this->customer($this->shop, 'capture1@example.test', false);
+        $customer->firstname = 'Otherfirst';
+        FailingQueries::during('/SELECT `newsletter` FROM `[^`]+customer`/', static function () use ($customer): void {
+            $customer->update();
+        });
+        $this->events()->commit();
+        self::db()->delete(EventQueue::TABLE);
+
+        $customer->firstname = 'Thirdfirst';
+        self::assertTrue($customer->update());
+        $this->events()->commit();
+
+        self::assertSame([[false, false]], $this->flags('subscribed', 'consent_changed'), 'the read answered: the save changed no consent');
     }
 
     /**

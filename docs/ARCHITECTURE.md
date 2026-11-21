@@ -323,7 +323,7 @@ read that failed.
 | A scheduler job (queue flush, janitor, reconcile, refresh, import, sweep, update check) | The job ends for this tick before it stores a cursor or a state, the tick logs it as any failed job and runs the next job; the job runs again at the next tick. The sweep rethrows a database error of one cart: a cart is closed as `payload_failed` only for an error of its own. |
 | The tick | A tick whose stored state cannot be read ends with the error and writes no state. A lock that could not be asked for is not held (`Scheduler\Lock::acquire()` answers false and logs it), so the tick answers "Busy". |
 | The upgrade | The step fails and the migration stays pending; no legacy key is deleted and nothing is overwritten (section 3.7). The upgrade script still returns `true`. |
-| A hook in a shopper's or an employee's own request (customer save, newsletter block, order, checkout capture) | `Hook\Dispatcher` catches the listener's error and logs it; PrestaShop's request goes on. What the failed read would have decided is not queued: a customer save keeps its row without a consent change, an order queues no first-order email, the capture endpoint records nothing. |
+| A hook in a shopper's or an employee's own request (customer save, newsletter block, order, checkout capture) | `Hook\Dispatcher` catches the listener's error and logs it; PrestaShop's request goes on. What the failed read would have decided is not queued: an order queues no first-order email, the capture endpoint records nothing. A customer save whose read of the consent before the save failed queues an unsubscribe when the save ends not subscribed, and a row without a consent change when it ends subscribed, so no unsubscribe is lost and no subscription is sent on a failed read (owner, 2026-11-21; section 6.3). |
 | An admin JSON endpoint | The envelope's `internal_error` with HTTP 500 (section 10.1). A save throws before it writes over a shop's own value. |
 | An admin page | PrestaShop's error page, as for any uncaught error of a page. |
 
@@ -1370,6 +1370,15 @@ so with the verification email on it starts from the verification link. The reco
   an order. `NewsletterBlockCapture` records the block's subscribes and unsubscribes as above. An
   event belongs to the record's shop and language, never to the request's context; a soft-deleted
   customer is not a contact.
+- **A save whose "consent before" read failed** (owner, 2026-11-21). The read of the stored
+  `newsletter` value in `actionObjectCustomerUpdateBefore` goes through the gateway and throws
+  when it fails (section 1.6), so the save cannot be compared. A save that ends with
+  `newsletter = 0` is then recorded as an unsubscribe (`subscribed` false, `consent_changed`
+  true), whether or not the customer was subscribed before: subscribers only sends
+  `is_unsubscribed = 1`, all customers sends the contact without a status, and checkout opt-in
+  only sends nothing. A save that ends with `newsletter = 1` is recorded without a consent
+  change: no subscription, and no welcome email, ever follows from a failed read. The next save
+  of the customer reads again.
 - `ContactEvents` holds the events of one request and writes them as `contact.sync` rows when the
   request ends: one row per shop and address, which keeps a consent change or a checkout that any
   of its events saw. A shop whose contact sync is not active gets no row. A listener of the events
@@ -3294,3 +3303,6 @@ Decisions of 2026-11-21:
   guests" says, as in Magento (owner, 2026-11-21): in subscribers only and in all customers, by
   the live sync, the welcome email, the first import and the daily refresh; never in checkout
   opt-in only. "Include guests" gates guest-checkout customers only (section 6.2).
+- An unsubscribe is sent even when the read of the consent before the save failed (owner,
+  2026-11-21): a customer save that ends not subscribed then queues the unsubscribe; a save that
+  ends subscribed never queues a subscription on such a failure (section 6.3).
