@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -51,14 +52,21 @@ final class Resend
 
     private CartTracker $carts;
 
-    public function __construct(EventQueue $queue, CartTracker $carts)
+    private ?IngestQueue $ingest;
+
+    /**
+     * @param IngestQueue|null $ingest the Campaign Intelligence ingest queue, for a row of it
+     */
+    public function __construct(EventQueue $queue, CartTracker $carts, ?IngestQueue $ingest = null)
     {
         $this->queue = $queue;
         $this->carts = $carts;
+        $this->ingest = $ingest;
     }
 
     /**
-     * @param array<string, mixed> $row the failed row as stored
+     * @param array<string, mixed> $row the failed row as stored: an event-queue row, or an
+     *                                  ingest-queue row (it has a `domain`)
      * @param string $employee who asked for it
      *
      * @return int the id of the new row
@@ -68,6 +76,14 @@ final class Resend
         $payload = json_decode((string) $row['payload'], true);
         $payload = is_array($payload) ? $payload : [];
         $payload[self::PAYLOAD_KEY] = ['of' => (int) $row['id'], 'by' => $employee, 'at' => gmdate('Y-m-d\TH:i:s\Z')];
+        if (isset($row['domain'])) {
+            if ($this->ingest === null) {
+                throw new \LogicException('No ingest queue was given for a row of it.');
+            }
+
+            // A new marker for the same product, customer or order: the flush sends its state then.
+            return $this->ingest->enqueue((int) $row['id_connection'], (string) $row['domain'], (string) $row['entity_key'], $payload);
+        }
 
         $id = $this->queue->enqueue(
             (string) $row['event_type'],

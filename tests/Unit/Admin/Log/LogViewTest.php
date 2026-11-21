@@ -65,7 +65,7 @@ final class LogViewTest extends TestCase
         self::assertSame('Sending', $this->view()->row(self::listRow(['status' => 'processing']), false)['status']['label']);
 
         $ingest = $this->view()->row(self::listRow(['source' => 'intelligence', 'kind' => 'intelligence', 'type' => 'catalog', 'entity' => 'ps-12', 'status' => 'failed']), false);
-        self::assertSame(['intelligence-7', 'Campaign Intelligence', 'ps-12', false], [$ingest['log_id'], $ingest['source'], $ingest['entity'], $ingest['selectable']]);
+        self::assertSame(['intelligence-7', 'Campaign Intelligence', 'ps-12', true], [$ingest['log_id'], $ingest['source'], $ingest['entity'], $ingest['selectable']]);
     }
 
     public function testAnImportJobShowsItsContactsAndItsStatus(): void

@@ -72,13 +72,17 @@ final class LogController extends BaseController
         $page = max(1, min($pages, $request->query->getInt('page', 1)));
         $list = $rows->page($filter, ($page - 1) * self::PER_PAGE, self::PER_PAGE);
 
-        $failed = [];
+        $failed = [LogRows::SMAILY => [], LogRows::INTELLIGENCE => []];
         foreach ($list as $row) {
-            if ($row['kind'] === LogRows::SMAILY && $row['status'] === EventQueue::STATUS_FAILED) {
-                $failed[] = (int) $row['id'];
+            if (isset($failed[$row['kind']]) && $row['status'] === EventQueue::STATUS_FAILED) {
+                $failed[$row['kind']][] = (int) $row['id'];
             }
         }
-        $refused = (new ResendGuard())->refusals($rows->eventRows($failed));
+        $guard = new ResendGuard();
+        $refused = [
+            LogRows::SMAILY => $guard->refusals($rows->eventRows($failed[LogRows::SMAILY])),
+            LogRows::INTELLIGENCE => $guard->ingestRefusals($rows->ingestRows($failed[LogRows::INTELLIGENCE])),
+        ];
 
         return $this->renderPage('log', ['smaily_log' => [
             'failed' => $rows->failedSince(time() - self::DAY),
@@ -94,7 +98,7 @@ final class LogController extends BaseController
                 array_merge(LogStatus::QUEUE, LogStatus::JOB_ONLY)
             ),
             'rows' => array_map(
-                static fn (array $row): array => $view->row($row, in_array((int) $row['id'], $failed, true) && $row['kind'] === LogRows::SMAILY && !isset($refused[(int) $row['id']])),
+                static fn (array $row): array => $view->row($row, in_array((int) $row['id'], $failed[$row['kind']] ?? [], true) && !isset($refused[$row['kind']][(int) $row['id']])),
                 $list
             ),
             'total' => $total,
@@ -105,6 +109,26 @@ final class LogController extends BaseController
             'can_update' => $this->isGranted('update', $tab),
             'privacy_form' => PrivacyExport::formAvailable(),
         ]], self::TEMPLATE);
+    }
+
+    /**
+     * Why a row of the Log may not be sent again, or null when it may: the resend guard's answer
+     * for a row of either queue; an import job is never sent again.
+     *
+     * @param array<string, mixed> $row a row of LogRows::find()
+     */
+    public static function refusal(array $row): ?string
+    {
+        $guard = new ResendGuard();
+        $id = (int) $row['id'];
+        switch ($row['kind']) {
+            case LogRows::SMAILY:
+                return $guard->refusals([$id => $row])[$id] ?? null;
+            case LogRows::INTELLIGENCE:
+                return $guard->ingestRefusals([$id => $row])[$id] ?? null;
+            default:
+                return ResendGuard::REASON_NOT_FAILED;
+        }
     }
 
     /**

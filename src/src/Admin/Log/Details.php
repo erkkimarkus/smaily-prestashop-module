@@ -31,8 +31,6 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
-use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
-use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -52,8 +50,7 @@ final class Details extends AbstractJsonAction
         if ($row === null) {
             return $this->error('not_found', $this->trans('This log row no longer exists — it has likely been pruned by retention.', BaseController::DOMAIN), 404);
         }
-        $refusal = $row['kind'] === LogRows::SMAILY ? (new ResendGuard())->refusals([(int) $row['id'] => $row])[(int) $row['id']] ?? null : null;
-        $details = (new LogView(LogController::translate()))->details($row, $refusal);
+        $details = (new LogView(LogController::translate()))->details($row, LogController::refusal($row));
         $details['resend'] = ($details['resend'] ?? false) && $this->isGranted('update', (string) $request->attributes->get('_legacy_controller'));
 
         return ['html' => $this->renderView(self::TEMPLATE, ['details' => $details])];

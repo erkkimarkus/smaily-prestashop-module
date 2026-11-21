@@ -31,12 +31,13 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
- * The retention sweep of the event queue, as on the sibling connectors: a sent or skipped row is
- * kept 30 days and a failed row 90 days after its last change. Pending and processing rows are
- * never deleted. It then deletes the closed rows of the abandoned-cart tracker 30 days after the
+ * The retention sweep of the event queue and of the Campaign Intelligence ingest queue, as on the
+ * sibling connectors: a sent or skipped row is kept 30 days and a failed row 90 days after its
+ * last change. Pending and processing rows are never deleted. It then deletes the closed rows of the abandoned-cart tracker 30 days after the
  * cart's last change (CartTracker::deleteClosed()); it never reads 2.x's `smaily_cart`. The job
  * table is not swept, as on Magento: the card of the first import reads the newest import job.
  * Last, it removes the discount codes of the store automations that nobody used, 30 days after
@@ -63,12 +64,19 @@ final class QueueJanitor
 
     private int $batchSize;
 
-    public function __construct(EventQueue $queue, CartTracker $carts, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE)
+    private ?IngestQueue $ingest;
+
+    /**
+     * @param IngestQueue|null $ingest the Campaign Intelligence ingest queue, swept by the same
+     *                                 periods as the event queue
+     */
+    public function __construct(EventQueue $queue, CartTracker $carts, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE, ?IngestQueue $ingest = null)
     {
         $this->queue = $queue;
         $this->carts = $carts;
         $this->codes = $codes;
         $this->batchSize = $batchSize;
+        $this->ingest = $ingest;
     }
 
     /**
@@ -79,14 +87,16 @@ final class QueueJanitor
     public function run(Deadline $deadline): int
     {
         $deleted = 0;
-        foreach (self::RETENTION as $status => $age) {
-            do {
-                $batch = $this->queue->deleteClosed($status, $age, $this->batchSize);
-                $deleted += $batch;
-                if ($deadline->passed()) {
-                    return $deleted;
-                }
-            } while ($batch === $this->batchSize);
+        foreach (array_filter([$this->queue, $this->ingest]) as $queue) {
+            foreach (self::RETENTION as $status => $age) {
+                do {
+                    $batch = $queue->deleteClosed($status, $age, $this->batchSize);
+                    $deleted += $batch;
+                    if ($deadline->passed()) {
+                        return $deleted;
+                    }
+                } while ($batch === $this->batchSize);
+            }
         }
 
         return $deleted + $this->closedCarts($deadline) + $this->unusedDiscountCodes($deadline);

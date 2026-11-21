@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -84,7 +85,9 @@ final class SchedulerProvider implements ProviderInterface
         $services->set(QueueJanitor::class, fn (Services $services): QueueJanitor => new QueueJanitor(
             $services->get(QueueProvider::EVENT_QUEUE),
             $services->get(CartTracker::class),
-            $services->get(IssuedCodes::class)
+            $services->get(IssuedCodes::class),
+            QueueJanitor::BATCH_SIZE,
+            $services->get(IngestQueue::class)
         ));
 
         foreach (self::TRAFFIC_HOOKS as $hook) {

@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogFilter;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
@@ -50,6 +51,7 @@ final class MassRetry extends AbstractJsonAction
     protected function handle(Request $request, int $idShop)
     {
         $body = $this->body($request);
+        $ingestIds = [];
         if (($body['all'] ?? false) === true) {
             $filter = new LogFilter(is_array($body['filter'] ?? null) ? $body['filter'] : []);
             $ids = null;
@@ -57,13 +59,18 @@ final class MassRetry extends AbstractJsonAction
             $filter = new LogFilter();
             $ids = [];
             foreach (is_array($body['ids'] ?? null) ? $body['ids'] : [] as $logId) {
-                if (is_string($logId) && preg_match('/^' . LogRows::SMAILY . '-([1-9][0-9]{0,18})$/', $logId, $matches) === 1) {
-                    $ids[] = (int) $matches[1];
+                if (is_string($logId) && preg_match('/^(' . LogRows::SMAILY . '|' . LogRows::INTELLIGENCE . ')-([1-9][0-9]{0,18})$/', $logId, $matches) === 1) {
+                    if ($matches[1] === LogRows::SMAILY) {
+                        $ids[] = (int) $matches[2];
+                    } else {
+                        $ingestIds[] = (int) $matches[2];
+                    }
                 }
             }
         }
 
-        [$retried, $skipped] = (new Retry(LogController::rows(), new ResendGuard(), Services::instance()->get(QueueProvider::EVENT_QUEUE)))->retry($filter, $ids);
+        $services = Services::instance();
+        [$retried, $skipped] = (new Retry(LogController::rows(), new ResendGuard(), $services->get(QueueProvider::EVENT_QUEUE), $services->get(IngestQueue::class)))->retry($filter, $ids, $ingestIds);
 
         return [
             'message' => $skipped > 0

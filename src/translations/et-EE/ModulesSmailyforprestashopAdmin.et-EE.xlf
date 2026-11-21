@@ -2752,6 +2752,71 @@
         <target>Vastust ei ole alles — see kustutati privaatsuspäringu alusel.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="1f5a5c7d69617d19790e32e0d59661ba">
+        <source>Skipped: this shop is no longer connected to Campaign Intelligence. Nothing was sent.</source>
+        <target>Vahele jäetud: see pood ei ole enam Campaign Intelligence'iga ühendatud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="23f6c072cacb9d02e855183fc7878214">
+        <source>Skipped: this product is no longer in the shop. Nothing was sent.</source>
+        <target>Vahele jäetud: seda toodet ei ole enam poes. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fd6593515e784d49351c035c74174af7">
+        <source>Skipped: this product is still in the shop, so it was not removed from Campaign Intelligence. Nothing was sent.</source>
+        <target>Vahele jäetud: see toode on endiselt poes, seega seda Campaign Intelligence'ist ei eemaldatud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="033707235fa058ed6e998e9456cc421c">
+        <source>Skipped: this customer is no longer in the store. Nothing was sent.</source>
+        <target>Vahele jäetud: seda klienti ei ole enam poes. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="94f9bac6f0e53b3644dfe599df10681a">
+        <source>Skipped: this customer is not among the customers that the store sends to Campaign Intelligence (in the contact sync, with an order in the history period, or signed in with marketing consent). Nothing was sent.</source>
+        <target>Vahele jäetud: see klient ei kuulu nende hulka, keda pood Campaign Intelligence'ile saadab (kontaktide sünkroonimises, ajalooperioodi jääva tellimusega või turundusnõusolekuga sisse loginud). Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="90a174cce32120798b63191f26b18d73">
+        <source>Skipped: this order, or its customer, is no longer in the store. Nothing was sent.</source>
+        <target>Vahele jäetud: seda tellimust või selle klienti ei ole enam poes. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ed49ee820bedaf8a583f63d3ab7f2da0">
+        <source>Campaign Intelligence refused this row. The response shows the field it refused.</source>
+        <target>Campaign Intelligence lükkas selle rea tagasi. Vastusest on näha, millise välja tõttu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bafed62f1ccec1f9151592870787013d">
+        <source>Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold.</source>
+        <target>Saatmata: poes on üle 50 000 tooterea, rohkem öine tootenimekiri ei mahuta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c1c9c2830a1964c1588e934cd5fa5adc">
+        <source>Skipped: the shopper withdrew the marketing consent, and the visit has no visitor token. Nothing was sent.</source>
+        <target>Vahele jäetud: ostleja võttis turundusnõusoleku tagasi ja külastusel puudub külastajatunnus. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="56f538be5f06eaef9d2baab3482c8982">
+        <source>Campaign Intelligence does not have this customer yet, so the login was not linked to them. The store sends a customer who is in your contact sync, has an order or logs in with marketing consent; Retry links the login after that.</source>
+        <target>Campaign Intelligence'il seda klienti veel ei ole, seega sisselogimist temaga ei seotud. Pood saadab kliendi, kes on kontaktide sünkroonimises, kellel on tellimus või kes logib sisse turundusnõusolekuga; pärast seda seob „Proovi uuesti“ sisselogimise.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b255a24215f1f6934e495a9a42fbcf6f">
+        <source>Campaign Intelligence refused the customer, so the login was not linked to them. Retry sends the customer and the login again.</source>
+        <target>Campaign Intelligence lükkas kliendi tagasi, seega sisselogimist temaga ei seotud. „Proovi uuesti“ saadab kliendi ja sisselogimise uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fdefab59eede6843b6543aa245406d0b">
+        <source>Campaign Intelligence did not find this customer even after the store sent them, so the login was not linked to them. Retry sends the customer and the login again.</source>
+        <target>Campaign Intelligence ei leidnud seda klienti ka pärast seda, kui pood ta saatis, seega sisselogimist temaga ei seotud. „Proovi uuesti“ saadab kliendi ja sisselogimise uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b5720332b0df40237ba619f1d7519a62">
+        <source>The product list is built afresh each night, so this one is not sent again.</source>
+        <target>Tootenimekiri koostatakse igal ööl uuesti, seega seda nimekirja uuesti ei saadeta.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

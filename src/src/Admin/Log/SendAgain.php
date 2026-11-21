@@ -32,7 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
-use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Log\Resend;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
@@ -56,16 +56,14 @@ final class SendAgain extends AbstractJsonAction
         if ($row === null) {
             return $this->error('not_found', $this->trans('This log row no longer exists — it has likely been pruned by retention.', BaseController::DOMAIN), 404);
         }
-        $reason = $row['kind'] === LogRows::SMAILY
-            ? (new ResendGuard())->refusals([(int) $row['id'] => $row])[(int) $row['id']] ?? null
-            : ResendGuard::REASON_NOT_FAILED;
+        $reason = LogController::refusal($row);
         if ($reason !== null) {
             return $this->error('refused', $this->trans(ResendGuard::message($reason), BaseController::DOMAIN), 409);
         }
         $employee = \Context::getContext()->employee;
         try {
             $services = Services::instance();
-            (new Resend($services->get(QueueProvider::EVENT_QUEUE), $services->get(CartTracker::class)))->resend($row, $employee === null ? '' : trim($employee->firstname . ' ' . $employee->lastname));
+            (new Resend($services->get(QueueProvider::EVENT_QUEUE), $services->get(CartTracker::class), $services->get(IngestQueue::class)))->resend($row, $employee === null ? '' : trim($employee->firstname . ' ' . $employee->lastname));
         } catch (\RuntimeException $error) {
             Log::failure('the Log\'s Send again', $error);
 

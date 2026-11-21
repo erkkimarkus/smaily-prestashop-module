@@ -223,6 +223,49 @@ final class LogRows
     }
 
     /**
+     * failedEventIds() for the Campaign Intelligence ingest queue.
+     *
+     * @param list<int>|null $ids
+     *
+     * @return list<int>
+     */
+    public function failedIngestIds(LogFilter $filter, ?array $ids, int $after, int $limit): array
+    {
+        $condition = $this->condition(self::INTELLIGENCE, $filter);
+        if ($condition === null || $ids === []) {
+            return [];
+        }
+        $rows = Sql::rows(
+            'SELECT `id` FROM ' . self::table(self::QUEUES[self::INTELLIGENCE][0]) . ' WHERE ' . $condition
+            . ' AND `status` = \'' . EventQueue::STATUS_FAILED . '\' AND `id` > ' . $after
+            . ($ids === null ? '' : ' AND `id` IN (' . implode(', ', array_map('intval', $ids)) . ')')
+            . ' ORDER BY `id` LIMIT ' . $limit
+        );
+
+        return array_map(static fn (array $row): int => (int) $row['id'], $rows);
+    }
+
+    /**
+     * The columns of ingest-queue rows that the resend guard reads, by row id.
+     *
+     * @param list<int> $ids
+     *
+     * @return array<int, array<string, string|null>>
+     */
+    public function ingestRows(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $rows = Sql::rows(
+            'SELECT `id`, `domain`, `entity_key`, `status` FROM ' . self::table(self::QUEUES[self::INTELLIGENCE][0])
+            . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')'
+        );
+
+        return array_column($rows, null, 'id');
+    }
+
+    /**
      * One SELECT per table that the filter can match, in the columns of page().
      *
      * @return list<string>

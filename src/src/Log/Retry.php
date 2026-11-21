@@ -29,13 +29,14 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
- * The Log's mass "Retry": returns the failed event-queue rows of a selection to `pending`, in
- * place, with their attempts to spend anew (EventQueue::retry()). The selection is the ticked rows,
- * or every row that the list's filter selects. Rows that are not failed, ingest rows and import
- * jobs are no part of it.
+ * The Log's mass "Retry": returns the failed rows of a selection to `pending`, in place, with
+ * their attempts to spend anew (EventQueue::retry(), IngestQueue::retry()), as the Magento
+ * connector's does for both of its queues. The selection is the ticked rows, or every row that
+ * the list's filter selects. Rows that are not failed and import jobs are no part of it.
  *
  * Every row passes ResendGuard: a row it refuses stays as it is and is counted as skipped. The
  * selection is read by primary key in batches, so no statement names more than BATCH_SIZE rows, and
@@ -51,19 +52,28 @@ final class Retry
 
     private EventQueue $queue;
 
-    public function __construct(LogRows $rows, ResendGuard $guard, EventQueue $queue)
+    private ?IngestQueue $ingest;
+
+    /**
+     * @param IngestQueue|null $ingest the Campaign Intelligence ingest queue, whose failed rows
+     *                                 the retry covers too
+     */
+    public function __construct(LogRows $rows, ResendGuard $guard, EventQueue $queue, ?IngestQueue $ingest = null)
     {
         $this->rows = $rows;
         $this->guard = $guard;
         $this->queue = $queue;
+        $this->ingest = $ingest;
     }
 
     /**
-     * @param list<int>|null $ids the ticked event-queue rows; null takes every row of the filter
+     * @param list<int>|null $ids the ticked event-queue rows; null takes every row of the filter,
+     *                            of both queues
+     * @param list<int> $ingestIds the ticked ingest-queue rows
      *
      * @return array{0: int, 1: int} the rows queued for retry, and the rows the guard refused
      */
-    public function retry(LogFilter $filter, ?array $ids): array
+    public function retry(LogFilter $filter, ?array $ids, array $ingestIds = []): array
     {
         $retried = 0;
         $skipped = 0;
@@ -75,6 +85,18 @@ final class Retry
             }
             $refused = $this->guard->refusals($this->rows->eventRows($batch));
             $retried += $this->queue->retry(array_values(array_diff($batch, array_keys($refused))));
+            $skipped += count($refused);
+            $after = max($batch);
+        } while (count($batch) === self::BATCH_SIZE);
+
+        $after = 0;
+        do {
+            $batch = $this->ingest === null ? [] : $this->rows->failedIngestIds($filter, $ids === null ? null : $ingestIds, $after, self::BATCH_SIZE);
+            if ($batch === []) {
+                break;
+            }
+            $refused = $this->guard->ingestRefusals($this->rows->ingestRows($batch));
+            $retried += $this->ingest->retry(array_values(array_diff($batch, array_keys($refused))));
             $skipped += count($refused);
             $after = max($batch);
         } while (count($batch) === self::BATCH_SIZE);

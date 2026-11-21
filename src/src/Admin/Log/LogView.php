@@ -86,7 +86,7 @@ final class LogView
             'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB),
             'created' => self::time((string) $row['created_at']),
             'updated' => self::time((string) $row['updated_at']),
-            'selectable' => $row['kind'] === LogRows::SMAILY && $status === LogStatus::FAILED,
+            'selectable' => $row['kind'] !== LogRows::JOB && $status === LogStatus::FAILED,
             'resend' => $resend,
         ];
     }
@@ -95,8 +95,8 @@ final class LogView
      * The Details of a row.
      *
      * @param array<string, mixed> $row a row of LogRows::find()
-     * @param string|null $refusal the resend guard's reason for an event-queue row, null when the
-     *                             guard cleared it; ignored for any other row
+     * @param string|null $refusal the resend guard's reason for a row of either queue, null when
+     *                             the guard cleared it; ignored for an import job
      *
      * @return array<string, mixed>
      */
@@ -178,7 +178,7 @@ final class LogView
                     ? 'No response recorded — this row has not been attempted yet.'
                     : ($request !== '' ? 'No response received — the server did not answer. The last error says why.' : 'No response — nothing was sent for this row.'))),
             'response_is_error' => $status === LogStatus::FAILED || ($attempts > 0 && in_array($status, [LogStatus::PENDING, LogStatus::SENDING], true)),
-            'resend' => $refusal === null && $row['kind'] === LogRows::SMAILY,
+            'resend' => $refusal === null,
         ];
     }
 

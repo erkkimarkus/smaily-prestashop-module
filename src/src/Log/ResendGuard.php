@@ -30,6 +30,8 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\IdentityCapture;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -46,11 +48,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *    (the privacy Story writes it, ARCHITECTURE 11.2);
  *  - `superseded`: a later row of the same automation for the same contact in the same shop was
  *    delivered, so the contact has a later message of the same kind.
- * A contact sync repeats a state, not a message: a failed one may always go again, as stored,
- * whatever later row of the contact was delivered. A row whose event waits in the queue again (a
- * "Send again" of it, not sent yet) may go again too. An automation row without an entity cannot be
- * compared with later rows and is never superseded; a contact's row always has one
- * (Queue\ContactEntity).
+ * A contact sync and an identity merge repeat a state, not a message: a failed one may always go
+ * again, as stored, whatever later row of the contact was delivered. A row whose event waits in
+ * the queue again (a "Send again" of it, not sent yet) may go again too. An automation row without
+ * an entity cannot be compared with later rows and is never superseded; a contact's row always has
+ * one (Queue\ContactEntity).
+ *
+ * A row of the Campaign Intelligence ingest queue has refusals of its own (ingestRefusals()).
  */
 final class ResendGuard
 {
@@ -62,6 +66,9 @@ final class ResendGuard
 
     public const REASON_NOT_FAILED = 'not_failed';
 
+    /** A nightly product list of Campaign Intelligence: the next night sends a new one. */
+    public const REASON_NIGHTLY = 'nightly';
+
     /** The entity of a row whose contact was erased. */
     public const ERASED_ENTITY = '[erased]';
 
@@ -71,6 +78,7 @@ final class ResendGuard
         self::REASON_SUPERSEDED => 'A later message of this kind already reached this contact; sending again would deliver it twice.',
         self::REASON_ERASED => 'This contact\'s data was erased; the event cannot be re-sent.',
         self::REASON_NOT_FAILED => 'Only a failed event can be sent again.',
+        self::REASON_NIGHTLY => 'The product list is built afresh each night, so this one is not sent again.',
     ];
 
     /**
@@ -94,12 +102,39 @@ final class ResendGuard
                 $refused[$id] = self::REASON_ERASED;
             } elseif ((string) $row['status'] !== EventQueue::STATUS_FAILED) {
                 $refused[$id] = self::REASON_NOT_FAILED;
-            } elseif ($entity !== '' && (string) $row['event_type'] !== ContactSyncHandler::EVENT_TYPE) {
+            } elseif ($entity !== '' && !in_array((string) $row['event_type'], [ContactSyncHandler::EVENT_TYPE, IdentityCapture::EVENT_TYPE], true)) {
                 $candidates[$id] = $row;
             }
         }
 
         return $refused + $this->superseded($candidates);
+    }
+
+    /**
+     * Why each row of the Campaign Intelligence ingest queue may not be sent again; a row that may
+     * is not in the answer. Magento's refusals for an engine row: an erased one, one that did not
+     * fail, and a nightly product list, which is built afresh each night. Every other failed row
+     * may go again: it sends the store's state, and the engine takes a repeat as an update.
+     *
+     * @param array<int, array<string, mixed>> $rows ingest-queue rows by id, with `domain`,
+     *                                               `entity_key` and `status` as stored
+     *
+     * @return array<int, string> the reason by row id
+     */
+    public function ingestRefusals(array $rows): array
+    {
+        $refused = [];
+        foreach ($rows as $id => $row) {
+            if ((string) $row['domain'] === IngestQueue::DOMAIN_MANIFEST) {
+                $refused[$id] = self::REASON_NIGHTLY;
+            } elseif ((string) ($row['entity_key'] ?? '') === self::ERASED_ENTITY) {
+                $refused[$id] = self::REASON_ERASED;
+            } elseif ((string) $row['status'] !== EventQueue::STATUS_FAILED) {
+                $refused[$id] = self::REASON_NOT_FAILED;
+            }
+        }
+
+        return $refused;
     }
 
     /**
