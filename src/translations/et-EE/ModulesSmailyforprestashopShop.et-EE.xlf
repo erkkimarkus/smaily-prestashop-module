@@ -32,6 +32,11 @@
         <target>Sinu personaliseerimise eelistus on salvestatud.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="21cd19ec2a37c7273fdf56b80dd1f29e">
+        <source>Recommended for you</source>
+        <target>Sulle soovitatud</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>
