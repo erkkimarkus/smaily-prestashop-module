@@ -38,6 +38,8 @@ if (!defined('_PS_VERSION_')) {
  *     unless the customer is deleted;
  *  2. else the address recorded on the cart's tracker row (`smaily_connect_cart.email`), for
  *     example an address typed at checkout before the customer row exists (CartTracker::capture()).
+ * A cart whose customer is gone (customerGone()) still reads its recorded address here; the sweep
+ * and the send ask customerGone() first and send it no reminder.
  *
  * The store's consent that comes with the address:
  *  - `newsletter`: the customer row has `newsletter = 1` (false without a customer);
@@ -71,6 +73,17 @@ final class CartAddress
     public static function present(): string
     {
         return '((cu.`email` IS NOT NULL AND cu.`email` <> \'\') OR (t.`email` IS NOT NULL AND t.`email` <> \'\'))';
+    }
+
+    /**
+     * The SQL condition that the cart names a customer who is gone: the customer's row is removed,
+     * or flagged deleted. Such a cart gets no reminder, also not at the address its checkout
+     * recorded before the customer existed. A cart that never had a customer is not meant: the
+     * recorded address is the only identity it ever had.
+     */
+    public static function customerGone(): string
+    {
+        return '(c.`id_customer` > 0 AND cu.`id_customer` IS NULL)';
     }
 
     /**
@@ -118,5 +131,16 @@ final class CartAddress
         );
 
         return is_array($rows) && $rows !== [] ? self::of($rows[0]) : null;
+    }
+
+    /**
+     * Whether the cart's customer is gone now (customerGone()).
+     */
+    public function isCustomerGone(int $idCart): bool
+    {
+        return (bool) \Db::getInstance()->getValue(
+            'SELECT 1 FROM `' . _DB_PREFIX_ . 'cart` c' . self::joins() . ' WHERE c.`id_cart` = ' . $idCart . ' AND ' . self::customerGone(),
+            false
+        );
     }
 }

@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartSweeper;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
@@ -51,6 +52,7 @@ final class FailureMessage
         MarketingConsent::SKIPPED_NO_MARKETING_CONSENT => 'Skipped: this shopper has not agreed to marketing emails in the store, and is not a subscribed contact in Smaily. Nothing was sent.',
         MarketingConsent::SKIPPED_UNSUBSCRIBED_IN_SMAILY => 'Skipped: this shopper unsubscribed in Smaily. Nothing was sent.',
         AbandonedCartSweeper::SKIPPED_RECENTLY_REMINDED => 'Skipped: this address already got an abandoned-cart reminder for another cart in the last 24 hours. Nothing was sent.',
+        AbandonedCartHandler::SKIPPED_CUSTOMER_DELETED => 'Skipped: this shopper\'s customer account was deleted in the store. Nothing was sent.',
         Router::SKIPPED_NO_WORKFLOW => 'Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.',
         ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION => 'Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
     ];

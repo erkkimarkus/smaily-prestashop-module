@@ -47,16 +47,18 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * checks again at send time, in this order:
  *  1. the cart's tracker row: an order withdrew it, or the sweep closed it (its `skip_reason`); a
  *     row whose reminder went already, or that another queue row carries, sends nothing;
- *  2. the cart has an order, or its address ordered since the cart's last change: `ordered`;
- *  3. the cart's last change is more than 24 hours ago: `too_old`;
- *  4. the router's workflow and account (`automation_off`, `no_workflow`, `no_account`,
+ *  2. the cart's customer is gone, deleted since the reminder was queued
+ *     (CartAddress::customerGone()): `customer_deleted`, and the tracker row loses its address;
+ *  3. the cart has an order, or its address ordered since the cart's last change: `ordered`;
+ *  4. the cart's last change is more than 24 hours ago: `too_old`;
+ *  5. the router's workflow and account (`automation_off`, `no_workflow`, `no_account`,
  *     `no_credentials`);
- *  5. Smaily's status of the contact, read through that account: an unsubscribed contact gets no
+ *  6. Smaily's status of the contact, read through that account: an unsubscribed contact gets no
  *     reminder (`unsubscribed_in_smaily`); a read that fails sends nothing and the row takes the
  *     retry ladder;
- *  6. the consent of the shop's mode (ContactAudience::sendsAutomatedMarketing()):
+ *  7. the consent of the shop's mode (ContactAudience::sendsAutomatedMarketing()):
  *     `no_marketing_consent`.
- * Steps 5 and 6 are Automation\MarketingConsent, which the first-order email shares.
+ * Steps 6 and 7 are Automation\MarketingConsent, which the first-order email shares.
  * Then TriggerSender posts the reminder through the account the router matched, and the tracker
  * row records the outcome. A reason never names the contact. A reminder whose "Send a discount
  * code" is on gets its code just before the post, after these checks (Discount\AutomationDiscount);
@@ -78,6 +80,8 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
     public const SKIPPED_NO_MARKETING_CONSENT = MarketingConsent::SKIPPED_NO_MARKETING_CONSENT;
 
     public const SKIPPED_ALREADY_REMINDED = 'already_reminded';
+
+    public const SKIPPED_CUSTOMER_DELETED = 'customer_deleted';
 
     public const SKIPPED_NOT_TRACKED = 'not_tracked';
 
@@ -151,6 +155,9 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
         }
         $email = $payload['email'];
         $idShop = (int) $event['id_shop'];
+        if ($this->customerDeleted($idCart)) {
+            return new Skipped(self::SKIPPED_CUSTOMER_DELETED);
+        }
 
         $skip = $this->ordered($idCart, $email, (string) $row['last_activity_at']) ? self::SKIPPED_ORDERED : null;
         if ($skip === null && (string) $row['last_activity_at'] < $this->tracker->format(-CartTracker::WINDOW_SECONDS)) {
@@ -211,6 +218,20 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
         $this->tracker->skip($idCart, $reason);
 
         return new Skipped($reason);
+    }
+
+    /**
+     * Whether the cart's customer is gone, deleted since the reminder was queued; the cart is then
+     * closed, and the address its tracker row holds is removed.
+     */
+    private function customerDeleted(int $idCart): bool
+    {
+        if (!$this->addresses->isCustomerGone($idCart)) {
+            return false;
+        }
+        $this->tracker->forget($idCart, self::SKIPPED_CUSTOMER_DELETED);
+
+        return true;
     }
 
     /**

@@ -47,7 +47,7 @@ final class FailureMessageTest extends TestCase
         $same = static fn (string $text): string => $text;
 
         self::assertSame(['no_marketing_consent'], FailureMessage::codesShowing('marketing EMAILS', $same));
-        self::assertSame(['no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'no_workflow', 'stale_subscription'], FailureMessage::codesShowing('Nothing was sent', $same));
+        self::assertSame(['no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'no_workflow', 'stale_subscription'], FailureMessage::codesShowing('Nothing was sent', $same));
         self::assertSame([], FailureMessage::codesShowing('HTTP 503', $same));
         self::assertSame([], FailureMessage::codesShowing('', $same));
     }

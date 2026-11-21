@@ -1333,7 +1333,7 @@ daily refresh are rows of `smaily_connect_job`:
 |---|---|---|
 | `actionCustomerAccountAdd` | `contact.sync`; `automation.welcome` (a storefront registration with `newsletter = 1`); engine customer row; engine `identity_merge` and `vs_` token at registration and guest checkout, where `actionAuthentication` does not fire | 2.3, 4.2, 5.2, 5.5 |
 | `actionObjectCustomerUpdateBefore`, `actionObjectCustomerUpdateAfter`, `actionCustomerAccountUpdate` | `contact.sync` (with status only on change); `automation.welcome` on 0→1 in the storefront | 2.3, 4.2 |
-| `actionObjectCustomerDeleteAfter` | Registered; no listener on `v3` (the plan was to mark the customer's tracker rows; open, section 13, "Queued clean-up"). The cart reminder reads no address of a deleted customer (`CartAddress`). Nothing to Smaily: erasure goes through psgdpr. | — |
+| `actionObjectCustomerDeleteAfter` | Registered; no listener on `v3` (the plan was to mark the customer's tracker rows; open, section 13, "Queued clean-up"). The cart reminder reads no address of a deleted customer (`CartAddress`), and sends none to a cart whose customer is gone (`customer_deleted`, below). Nothing to Smaily: erasure goes through psgdpr. | — |
 | `actionNewsletterRegistrationBefore` | `contact.sync` for a block unsubscribe (`action = '1'`), after the stored state confirms it (6.3). | 2.3 |
 | `actionNewsletterRegistrationAfter` | `contact.sync` and `automation.welcome` for a block subscribe only, also when it fires from the verification link (6.3) | 2.3, 4.2 |
 | `actionAuthentication` | Fires on login only (facts file part 2). Engine `identity_merge` (§7), customer row (§4 group c), `vs_` token for a shopper who logs in | 5.2, 5.5 |
@@ -1403,7 +1403,8 @@ As in Magento, where a failed reminder counts for 24 hours from its queueing, it
 for good.
 
 **The send** (`AbandonedCart\AbandonedCartHandler`) checks again when the row's turn comes, in this
-order: the tracker row (an order withdrew the reminder, or the sweep closed it); the cart has an
+order: the tracker row (an order withdrew the reminder, or the sweep closed it); the cart's
+customer is gone (`customer_deleted`, below); the cart has an
 order, or its address ordered since the cart's last change (`ordered`); the cart's last change is
 more than 24 hours ago (`too_old`), so a row that waited on the retry ladder past the window is not
 sent; the router's workflow and account (`automation_off`, `no_workflow`, `no_account`,
@@ -1411,6 +1412,16 @@ sent; the router's workflow and account (`automation_off`, `no_workflow`, `no_ac
 (`unsubscribed_in_smaily`; a read that fails sends nothing, and the row takes the retry ladder);
 the consent of the shop's mode (`no_marketing_consent`, section 6.2). A reason never names the
 contact.
+
+**A deleted customer gets no reminder.** A cart that names a customer whose row is removed, or
+flagged `deleted`, is not reminded (`CartAddress::customerGone()`), also not at the address that the
+checkout capture recorded on the cart before the customer existed: without this rule the recorded
+address stood in for the deleted customer's. The sweep closes such a cart as `customer_deleted`,
+removes the recorded address from the tracker row (`CartTracker::forget()`) and queues its event
+without the address, so the Log shows the skip with its sentence and no contact. The send asks
+again, for a customer deleted after the reminder was queued, and does the same to the tracker row.
+A cart that never had a customer is not meant: its recorded address is the only identity it ever
+had, and it is reminded as before. `actionObjectCustomerDeleteAfter` stays without a listener.
 
 **The checkout capture** (`AbandonedCart\Capture\`, front controller `capture`). On the checkout
 page of a visitor who is no customer yet, in a shop whose abandoned-cart automation is on, the
@@ -1878,7 +1889,8 @@ job to its shop, and a job of shop 0 (every shop) shows in every selection.
   cut to 12 characters. An import job shows its number of contacts.
 - **Last Error.** The stored reason without its class prefix. The four skip reasons that Magento words
   (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`) show as
-  Magento's sentence, and the filter finds them by those words (`Log\FailureMessage`). A stale
+  Magento's sentence, and the filter finds them by those words (`Log\FailureMessage`). The cart of
+  a deleted customer (`customer_deleted`, section 7) shows as a sentence of its own. A stale
   contact sync (`stale_subscription`, section 6.4), which Magento does not have, shows as a sentence
   of the same form. Every other reason code shows as stored.
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the

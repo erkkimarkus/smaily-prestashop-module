@@ -52,6 +52,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
  * (CartTracker::blocking()), is closed as `recently_reminded`. Its event is still queued, so the
  * Log shows the skip; the handler closes it.
  *
+ * A cart whose customer is gone (CartAddress::customerGone()) gets no reminder at the address its
+ * checkout recorded: it is closed as `customer_deleted`, its address is removed, and its event is
+ * queued without the address, so the Log shows the skip.
+ *
  * The cart's tracker row is written before its event, so a sweep that dies in between leaves an
  * open row without an event that the next sweep takes again. The payload holds the address and the
  * template fields, and the marker field `abandoned_cart_automation_at`, stamped when it is queued.
@@ -130,6 +134,15 @@ class AbandonedCartSweeper
             return 0;
         }
         $idCart = (int) $cart['id_cart'];
+        if ((int) $cart['customer_gone'] === 1) {
+            // Only a recorded address is left of this shopper: it goes, and the Log shows the skip
+            // without it.
+            $this->tracker->forget($idCart, AbandonedCartHandler::SKIPPED_CUSTOMER_DELETED);
+            $language = $this->scopes->resolve($idShop, (int) $cart['id_lang'])->language();
+            $this->tracker->queued($idCart, $this->queue->enqueue(AbandonedCartHandler::EVENT_TYPE, $idShop, ['id_cart' => $idCart], null, $language));
+
+            return 1;
+        }
         $key = mb_strtolower($address['email']);
         $blocked = isset($blocking['emails'][$key])
             || ($address['id_customer'] !== null && isset($blocking['customers'][$address['id_customer']]));
@@ -166,6 +179,7 @@ class AbandonedCartSweeper
     {
         $delay = $this->settings->cartDelayMinutes($idShop) * 60;
         $sql = 'SELECT c.`id_cart`, c.`id_lang`, c.`id_customer`, c.`date_add`, c.`date_upd`, ' . CartAddress::columns()
+            . ', ' . CartAddress::customerGone() . ' AS `customer_gone`'
             . ' FROM `' . _DB_PREFIX_ . 'cart` c' . CartAddress::joins()
             . ' WHERE c.`id_shop` = ' . $idShop
             . ' AND c.`date_upd` >= \'' . pSQL($this->tracker->format(-CartTracker::WINDOW_SECONDS)) . '\''

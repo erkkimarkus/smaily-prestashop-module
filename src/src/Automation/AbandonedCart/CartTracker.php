@@ -158,6 +158,22 @@ class CartTracker
     }
 
     /**
+     * Closes an open cart without a reminder and removes its address from the row: for a cart whose
+     * address must not be kept, as its customer is gone.
+     */
+    public function forget(int $idCart, string $reason): void
+    {
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET `status` = \'%s\', `skip_reason` = %s, `email` = NULL WHERE `id_cart` = %d AND `status` = \'%s\'',
+            self::table(),
+            self::SKIPPED,
+            self::quote($reason),
+            $idCart,
+            self::OPEN
+        ));
+    }
+
+    /**
      * Records that Smaily took the open cart's reminder now.
      */
     public function mailed(int $idCart): void

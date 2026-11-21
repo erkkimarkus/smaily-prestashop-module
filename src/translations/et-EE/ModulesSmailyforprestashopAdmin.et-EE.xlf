@@ -797,6 +797,11 @@
         <target>Vahele jäetud: sellele aadressile saadeti viimase 24 tunni jooksul juba teise ostukorvi meeldetuletus. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="37f579c630efa787a272573efa8f0020">
+        <source>Skipped: this shopper's customer account was deleted in the store. Nothing was sent.</source>
+        <target>Vahele jäetud: selle ostja kliendikonto on poes kustutatud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="cdb17731cbc9fa30e3421d2d827598b8">
         <source>Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.</source>
         <target>Vahele jäetud: selle automaatika päästikuga pole seotud ühtegi Smaily töövoogu. Midagi ei saadetud.</target>
