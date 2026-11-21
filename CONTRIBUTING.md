@@ -96,6 +96,12 @@ The same scripts run locally with Docker:
 
 `validate.sh` prints one `ok` or `FAIL` line per check and exits non-zero when a check failed. `KEEP=1` leaves the shop running at `http://localhost:8000` afterwards.
 
+The module follows the technical rules of the PrestaShop Marketplace (`docs/MARKETPLACE.md`). Three of them need a step when files change:
+
+- A new PHP or Twig file gets the licence notice: `composer --working-dir src header-stamp`. With `-- --dry-run` the command changes nothing and fails when a file lacks the notice.
+- A new folder gets its `index.php`: `composer --working-dir src autoindex`, then the command above, so that the new file carries the notice.
+- `src/config.xml` repeats the name, version, author, tab, description and uninstall question of the main class. Change both together; a unit test fails when they differ.
+
 An agent validates a change the same way: push the branch, open a pull request, then read the result with `gh pr checks <number> --watch` and `gh run view <run-id> --log-failed`.
 
 ## Troubleshooting
