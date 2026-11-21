@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Log\PayloadRedactor;
 
 /**
@@ -48,6 +50,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Log\PayloadRedactor;
  *
  * `last_request` and `last_response` hold what the last attempt sent and what came back, for the
  * Log's Details: JSON without secrets (Log\PayloadRedactor), with the contact's data as it was sent.
+ *
+ * A statement that fails throws (Database\Sql): a failed read never answers "no row", and no
+ * outcome is taken as recorded when its write failed. The write that closes rows is tried twice.
  *
  * Times are UTC, read from the clock this queue is given.
  */
@@ -111,11 +116,9 @@ final class EventQueue
             $now,
             $now
         );
-        if (!\Db::getInstance()->execute($sql)) {
-            throw new \RuntimeException('The event queue refused a row.');
-        }
+        Sql::write($sql);
 
-        return (int) \Db::getInstance()->Insert_ID();
+        return Sql::insertId();
     }
 
     /**
@@ -127,19 +130,19 @@ final class EventQueue
      */
     public function note(string $eventType, int $idShop, string $reason, int $quietSeconds): bool
     {
-        $noted = \Db::getInstance()->getValue(sprintf(
+        $noted = Sql::value(sprintf(
             'SELECT 1 FROM %s WHERE `created_at` >= %s AND `event_type` = %s AND `last_error` = %s',
             self::table(),
             $this->time(-$quietSeconds),
             self::quote($eventType),
             self::quote(self::error($reason))
-        ), false);
-        if ($noted) {
+        ));
+        if ($noted !== null) {
             return false;
         }
         $now = $this->time(0);
 
-        return \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'INSERT INTO %s (`id_shop`, `event_type`, `payload`, `status`, `attempts`, `last_error`, `created_at`, `updated_at`)'
             . ' VALUES (%d, %s, \'[]\', %s, 0, %s, %s, %s)',
             self::table(),
@@ -150,6 +153,8 @@ final class EventQueue
             $now,
             $now
         ));
+
+        return true;
     }
 
     /**
@@ -171,7 +176,7 @@ final class EventQueue
         }
 
         $token = self::quote(bin2hex(random_bytes(16)));
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `claim_token` = %s, `updated_at` = %s WHERE `id` IN (%s) AND %s',
             self::table(),
             self::quote(self::STATUS_PROCESSING),
@@ -181,13 +186,9 @@ final class EventQueue
             $condition
         ));
 
-        $rows = \Db::getInstance()->executeS(
-            sprintf('SELECT * FROM %s WHERE `claim_token` = %s ORDER BY `id`', self::table(), $token),
-            true,
-            false
+        return Sql::rows(
+            sprintf('SELECT * FROM %s WHERE `claim_token` = %s ORDER BY `id`', self::table(), $token)
         );
-
-        return is_array($rows) ? $rows : [];
     }
 
     /**
@@ -205,7 +206,7 @@ final class EventQueue
             return;
         }
 
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `claim_token` = NULL WHERE `id` IN (%s) AND %s',
             self::table(),
             self::quote(self::STATUS_PENDING),
@@ -233,7 +234,7 @@ final class EventQueue
             }
             $assignments .= ', `last_response` = ' . self::quote($stored);
         }
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET %s WHERE `id` = %d AND `claim_token` = %s',
             self::table(),
             $assignments,
@@ -258,13 +259,11 @@ final class EventQueue
     public function updatePayload(array $row, array $payload): bool
     {
         $claimed = sprintf('`id` = %d AND `claim_token` = %s', (int) $row['id'], self::quote((string) $row['claim_token']));
-        if (!\Db::getInstance()->execute(sprintf('UPDATE %s SET `payload` = %s WHERE %s', self::table(), self::quote(self::json($payload)), $claimed))) {
-            throw new \RuntimeException('The event queue refused a payload.');
-        }
+        Sql::write(sprintf('UPDATE %s SET `payload` = %s WHERE %s', self::table(), self::quote(self::json($payload)), $claimed));
 
         // The database counts no row whose payload was that already: then the claim itself answers.
-        return \Db::getInstance()->Affected_Rows() > 0
-            || (bool) \Db::getInstance()->getValue(sprintf('SELECT 1 FROM %s WHERE %s', self::table(), $claimed), false);
+        return Sql::affectedRows() > 0
+            || Sql::value(sprintf('SELECT 1 FROM %s WHERE %s', self::table(), $claimed)) !== null;
     }
 
     /**
@@ -278,7 +277,7 @@ final class EventQueue
      */
     public function forgetContact(array $row, array $payload): void
     {
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s SET `payload` = %s, `entity_id` = NULL, `last_request` = NULL, `last_response` = NULL WHERE `id` = %d AND `claim_token` = %s',
             self::table(),
             self::quote(self::json($payload)),
@@ -300,7 +299,7 @@ final class EventQueue
         if ($ids === []) {
             return 0;
         }
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'UPDATE %s FORCE INDEX (PRIMARY) SET `status` = %s, `attempts` = 0, `next_retry_at` = NULL, `updated_at` = %s'
             . ' WHERE `id` IN (%s) AND `status` = %s',
             self::table(),
@@ -310,7 +309,7 @@ final class EventQueue
             self::quote(self::STATUS_FAILED)
         ));
 
-        return (int) \Db::getInstance()->Affected_Rows();
+        return Sql::affectedRows();
     }
 
     /**
@@ -394,14 +393,14 @@ final class EventQueue
             return 0;
         }
 
-        \Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'DELETE FROM %s WHERE `id` IN (%s) AND %s',
             self::table(),
             implode(', ', $ids),
             $condition
         ));
 
-        return (int) \Db::getInstance()->Affected_Rows();
+        return Sql::affectedRows();
     }
 
     /**
@@ -418,13 +417,19 @@ final class EventQueue
 
         $ids = array_map(static fn (array $row): int => (int) $row['id'], $rows);
         $tokens = array_map(static fn (array $row): string => self::quote((string) $row['claim_token']), $rows);
-        \Db::getInstance()->execute(sprintf(
+        $sql = sprintf(
             'UPDATE %s SET %s, `claim_token` = NULL WHERE `id` IN (%s) AND `claim_token` IN (%s)',
             self::table(),
             $assignments,
             implode(', ', $ids),
             implode(', ', array_unique($tokens))
-        ));
+        );
+        try {
+            Sql::write($sql);
+        } catch (SqlException $error) {
+            // Once more: a sent row that stays `processing` is sent again when its claim goes stale.
+            Sql::write($sql);
+        }
     }
 
     /**
@@ -434,13 +439,11 @@ final class EventQueue
      */
     private function ids(string $condition): array
     {
-        $rows = \Db::getInstance()->executeS(
-            sprintf('SELECT `id` FROM %s WHERE %s', self::table(), $condition),
-            true,
-            false
+        $rows = Sql::rows(
+            sprintf('SELECT `id` FROM %s WHERE %s', self::table(), $condition)
         );
 
-        return is_array($rows) ? array_map(static fn (array $row): int => (int) $row['id'], $rows) : [];
+        return array_map(static fn (array $row): int => (int) $row['id'], $rows);
     }
 
     /**

@@ -29,6 +29,10 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
+
 /**
  * A named database lock (GET_LOCK), held by the database connection of the request that took it.
  * The database frees it when that connection ends, so a request that dies leaves no lock behind.
@@ -50,16 +54,31 @@ final class Lock
     /**
      * Takes the lock without waiting.
      *
-     * @return bool false when another connection holds it
+     * @return bool false when another connection holds it, and when the database did not answer:
+     *              a lock that could not be asked for is not held
      */
     public function acquire(): bool
     {
-        return (int) \Db::getInstance()->getValue('SELECT GET_LOCK(\'' . self::name($this->purpose) . '\', 0)', false) === 1;
+        try {
+            return (int) Sql::value('SELECT GET_LOCK(\'' . self::name($this->purpose) . '\', 0)') === 1;
+        } catch (SqlException $error) {
+            Log::failure('taking the lock ' . $this->purpose, $error);
+
+            return false;
+        }
     }
 
+    /**
+     * Frees the lock. A release that the database did not answer is left to the end of the
+     * connection, which frees the lock too.
+     */
     public function release(): void
     {
-        \Db::getInstance()->getValue('SELECT RELEASE_LOCK(\'' . self::name($this->purpose) . '\')', false);
+        try {
+            Sql::value('SELECT RELEASE_LOCK(\'' . self::name($this->purpose) . '\')');
+        } catch (SqlException $error) {
+            Log::failure('releasing the lock ' . $this->purpose, $error);
+        }
     }
 
     /**

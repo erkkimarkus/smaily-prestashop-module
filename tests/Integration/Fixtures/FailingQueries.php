@@ -20,19 +20,24 @@ final class FailingQueries
 {
     private string $pattern;
 
+    private ?int $times;
+
     private int $failed = 0;
 
-    private function __construct(string $pattern)
+    private function __construct(string $pattern, ?int $times)
     {
         $this->pattern = $pattern;
+        $this->times = $times;
     }
 
     /**
      * Fails every statement that $pattern selects from now on, until stop().
+     *
+     * @param int|null $times how many statements fail at most; null fails every one
      */
-    public static function start(string $pattern): self
+    public static function start(string $pattern, ?int $times = null): self
     {
-        $failing = new self($pattern);
+        $failing = new self($pattern, $times);
         Sql::useConnection($failing);
 
         return $failing;
@@ -53,11 +58,13 @@ final class FailingQueries
     /**
      * Runs $work while the statements that $pattern selects fail.
      *
+     * @param int|null $times how many statements fail at most; null fails every one
+     *
      * @return int the number of statements that were failed
      */
-    public static function during(string $pattern, callable $work): int
+    public static function during(string $pattern, callable $work, ?int $times = null): int
     {
-        $failing = self::start($pattern);
+        $failing = self::start($pattern, $times);
         try {
             $work();
         } finally {
@@ -111,7 +118,7 @@ final class FailingQueries
 
     private function fails(string $sql): bool
     {
-        if (preg_match($this->pattern, $sql) !== 1) {
+        if (($this->times !== null && $this->failed >= $this->times) || preg_match($this->pattern, $sql) !== 1) {
             return false;
         }
         ++$this->failed;

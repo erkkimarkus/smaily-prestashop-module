@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Queue;
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
@@ -12,7 +13,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\IntegrationTestCase;
+
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The flush hands the due rows of each event type to that type's handler and records each row's
@@ -318,6 +322,89 @@ final class FlusherTest extends IntegrationTestCase
         $this->queue->markFailed($rows[0], Failure::permanent('late'));
 
         self::assertSame(EventQueue::STATUS_PROCESSING, $this->row($id)['status']);
+    }
+
+    /**
+     * A statement of the queue that fails throws (facts file 6.11: a live PrestaShop 9.2.0 store
+     * answers `false` and throws nothing). A read of the due rows that fails claims nothing and
+     * hands nothing to a handler; the rows wait for the next flush.
+     */
+    public function testAFlushThatCouldNotReadTheDueRowsSendsNothing(): void
+    {
+        $id = $this->queue->enqueue('test.sync', 1, []);
+        $handler = new FakeHandler(fn (array $row) => true);
+        $flusher = $this->flusher(['test.sync' => $handler]);
+
+        try {
+            FailingQueries::during('/^SELECT `id` FROM .* WHERE `status` = \'pending\'/', static function () use ($flusher): void {
+                $flusher->flush();
+            });
+            self::fail('The flush went on without its rows.');
+        } catch (SqlException $error) {
+            self::assertSame([], $handler->batches);
+            self::assertSame(EventQueue::STATUS_PENDING, $this->row($id)['status']);
+        }
+
+        self::assertSame(1, $flusher->flush());
+        self::assertSame(EventQueue::STATUS_SENT, $this->row($id)['status']);
+    }
+
+    /**
+     * The write that closes rows is tried twice: a row that went out and stays claimed is sent
+     * again once its claim is stale.
+     */
+    public function testAStatusWriteThatFailsOnceIsTriedAgain(): void
+    {
+        $first = $this->queue->enqueue('test.sync', 1, ['n' => 1]);
+        $second = $this->queue->enqueue('test.sync', 1, ['n' => 2]);
+        $flusher = $this->flusher(['test.sync' => new FakeHandler(fn (array $row) => true)]);
+
+        $failed = FailingQueries::during('/^UPDATE .* SET `status` = \'sent\'/', static function () use ($flusher): void {
+            $flusher->flush();
+        }, 1);
+
+        self::assertSame(1, $failed);
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($first)['status'], $this->row($second)['status']]);
+    }
+
+    /**
+     * One row went out and another failed, and the failed row's outcome cannot be written. The
+     * flush ends with the error, and the row that went out is still recorded as sent, so it is
+     * not sent again. The other row stays claimed and returns to the queue with its claim.
+     */
+    public function testARowThatWentOutIsRecordedWhenAnotherRowsOutcomeCouldNotBeWritten(): void
+    {
+        $failing = $this->queue->enqueue('test.sync', 1, ['fails' => true]);
+        $sent = $this->queue->enqueue('test.sync', 1, ['fails' => false]);
+        $handler = new FakeHandler(fn (array $row) => json_decode($row['payload'], true)['fails'] ? Failure::temporary('Smaily answered HTTP 503') : true);
+        $flusher = $this->flusher(['test.sync' => $handler]);
+
+        try {
+            FailingQueries::during('/^UPDATE .* SET `status` = \'pending\', `attempts` = 1/', static function () use ($flusher): void {
+                $flusher->flush();
+            });
+            self::fail('The flush hid a write that failed.');
+        } catch (SqlException $error) {
+            self::assertSame(EventQueue::STATUS_SENT, $this->row($sent)['status']);
+            self::assertSame([EventQueue::STATUS_PROCESSING, 0], [$this->row($failing)['status'], (int) $this->row($failing)['attempts']]);
+        }
+
+        $this->now += EventQueue::CLAIM_TIMEOUT_SECONDS;
+        self::assertSame(1, $flusher->flush());
+        self::assertSame([[$failing, $sent], [$failing]], $handler->batches, 'only the row that was not recorded is handled again');
+        self::assertSame([EventQueue::STATUS_PENDING, 1], [$this->row($failing)['status'], (int) $this->row($failing)['attempts']]);
+    }
+
+    /**
+     * An event that the queue could not store is an error for the code that queued it.
+     */
+    public function testAnEventThatCouldNotBeStoredThrows(): void
+    {
+        $this->expectException(SqlException::class);
+
+        FailingQueries::during('/^INSERT INTO/', function (): void {
+            $this->queue->enqueue('test.sync', 1, []);
+        });
     }
 
     public function testTheProviderBuildsAFlusherThatFindsARegisteredHandler(): void

@@ -41,6 +41,10 @@ if (!defined('_PS_VERSION_')) {
  *
  * Where the handler tells what it sent for a row (ExchangeSource), the row keeps that request and
  * its answer, whatever the outcome.
+ *
+ * A database statement that fails throws (Database\Sql) and ends the flush; the tick logs it. The
+ * rows that went out are still recorded as sent where that write passes. A row that went out and
+ * could not be recorded stays claimed and is sent again once its claim is stale (ARCHITECTURE 4.3).
  */
 final class Flusher
 {
@@ -126,29 +130,35 @@ final class Flusher
         }
 
         $exchanges = $handler instanceof ExchangeSource ? $handler->exchanges() : [];
-        $sent = [];
+        // First of all the rows that went out: a write that fails below must not leave one of them
+        // to be sent again.
+        $sent = array_values(array_filter($rows, static fn (array $row): bool => ($outcomes[(int) $row['id']] ?? null) === true));
         $waiting = [];
-        foreach ($rows as $row) {
-            $outcome = $outcomes[(int) $row['id']] ?? null;
-            $exchange = $exchanges[(int) $row['id']] ?? null;
-            if ($exchange !== null) {
-                $this->queue->recordExchange($row, $exchange['request'], $exchange['response']);
+        try {
+            foreach ($rows as $row) {
+                $outcome = $outcomes[(int) $row['id']] ?? null;
+                $exchange = $exchanges[(int) $row['id']] ?? null;
+                if ($exchange !== null) {
+                    $this->queue->recordExchange($row, $exchange['request'], $exchange['response']);
+                }
+                if ($outcome === true) {
+                    continue;
+                }
+                if ($outcome instanceof Pending) {
+                    $waiting[] = $row;
+                } elseif ($outcome instanceof Skipped) {
+                    $this->queue->markSkipped($row, $outcome->reason());
+                } elseif ($outcome instanceof Failure) {
+                    $this->queue->markFailed($row, $outcome);
+                } elseif ($outcome instanceof \Throwable) {
+                    $this->queue->markFailed($row, Failure::of($outcome));
+                } else {
+                    $this->queue->markFailed($row, Failure::temporary('The handler returned no outcome for the row'));
+                }
             }
-            if ($outcome === true) {
-                $sent[] = $row;
-            } elseif ($outcome instanceof Pending) {
-                $waiting[] = $row;
-            } elseif ($outcome instanceof Skipped) {
-                $this->queue->markSkipped($row, $outcome->reason());
-            } elseif ($outcome instanceof Failure) {
-                $this->queue->markFailed($row, $outcome);
-            } elseif ($outcome instanceof \Throwable) {
-                $this->queue->markFailed($row, Failure::of($outcome));
-            } else {
-                $this->queue->markFailed($row, Failure::temporary('The handler returned no outcome for the row'));
-            }
+        } finally {
+            $this->queue->markSent($sent);
         }
-        $this->queue->markSent($sent);
         $this->queue->release($waiting);
     }
 

@@ -4,13 +4,17 @@ declare(strict_types=1);
 namespace Tests\Integration\Scheduler;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickReport;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\IntegrationTestCase;
+
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The tick runs the due jobs in order within its budget and each job within its own, under a lock
@@ -199,6 +203,53 @@ final class TickTest extends IntegrationTestCase
         $this->tick([$this->job('minute', 60)])->run('tick', 50);
 
         self::assertTrue($this->lockIsFree());
+    }
+
+    /**
+     * The tick reads its state from the table and writes it back with its own time. A read that
+     * fails (facts file 6.11) is not an empty state: taken as one, the tick stored a state without
+     * the other sources and jobs, and every job ran again at once.
+     */
+    public function testAFailedReadOfTheTickStateOverwritesNothingAndRunsNoJob(): void
+    {
+        (new TickSettings())->saveState(TickState::fromJson(null)->withJobRun('daily', self::START - 3600));
+        $stored = self::storedValue(TickSettings::TICK_STATE);
+        $tick = $this->tick([$this->job('minute', 60), $this->job('daily', 86400)]);
+
+        try {
+            FailingQueries::during(
+                '/SELECT `value` FROM `[^`]+configuration` WHERE `name` = \'' . TickSettings::TICK_STATE . '\'/',
+                static function () use ($tick): void {
+                    $tick->run('tick', 50);
+                }
+            );
+            self::fail('The tick went on without its state.');
+        } catch (SqlException $error) {
+            self::assertSame([], $this->ran);
+        }
+
+        \Configuration::resetStaticCache();
+        self::assertSame($stored, self::storedValue(TickSettings::TICK_STATE));
+        self::assertTrue($this->lockIsFree(), 'the failed tick released its lock');
+
+        self::assertSame(['minute'], $tick->run('tick', 50)->jobs(), 'the next tick runs what is due');
+        self::assertSame(self::START - 3600, (new TickSettings())->storedState()->jobRanAt('daily'));
+    }
+
+    /**
+     * A tick that cannot ask for its lock does not run: a lock that the database did not answer
+     * for is not held.
+     */
+    public function testATickWhoseLockCouldNotBeAskedForDoesNotRun(): void
+    {
+        $tick = $this->tick([$this->job('minute', 60)]);
+
+        $failed = FailingQueries::during('/SELECT GET_LOCK/', function () use ($tick): void {
+            self::assertSame(TickReport::BUSY, $tick->run('tick', 50)->status());
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame([], $this->ran);
     }
 
     /**
