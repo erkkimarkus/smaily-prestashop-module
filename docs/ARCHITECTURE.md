@@ -1588,7 +1588,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
 - **Settings.** Per automation and per shop: the switch "Send a discount code", the cart rule and
   "Valid for (days)" (section 2.1), saved by the Automations panel (section 10.9).
 - **Which cart rule can be the template** (`Discount\TemplateRules`). A cart rule that the merchant
-  made: not one that this module issued, not limited to one customer (`id_customer`), not past its
+  made: not one that this module issued or that comes from such a code (the marker, below), not
+  limited to one customer (`id_customer`), not past its
   end date (the shop's time), with uses left (below), and usable in the shop (no shop restriction,
   or the shop among its shops). An enabled and a disabled rule alike. A rule limited to one customer is never a
   template, because a code is a copy for another shopper, and because the vouchers that PrestaShop
@@ -1599,7 +1600,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   (`PaymentModule::validateOrder()`). Each carries the `id_customer` of its order or cart, with one
   exception: the remainder voucher of a guest's order has `id_customer` 0 and nothing else that
   tells it from a rule of the merchant, so the picker lists it, under the name of the rule it
-  remains of. **PrestaShop differs from the siblings here:** an enabled cart rule without a code applies
+  remains of. The remainder of one of the module's own codes is never listed: it carries the
+  marker. **PrestaShop differs from the siblings here:** an enabled cart rule without a code applies
   to every cart by itself, and anyone who knows the code of an enabled rule can use it. So the
   merchant keeps the template disabled, or gives it a code that is not shared (and not
   highlighted); the panel says so. A code is always issued enabled.
@@ -1608,14 +1610,26 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   the shop, carrier, group, country, combination and product restrictions. The discount and every
   condition are the template's. The copy differs in this: a random code of 10 upper-case letters
   and digits without 0, O, 1 and I, checked unique; the name "Smaily Connect – <the template's
-  name>" in every language; the description `smaily-connect-issued: template=<id>
-  trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so an untied code
+  name>" in every language; the description `smaily-connect-issued: code=<the code>
+  template=<id> trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so an untied code
   is never advertised in a cart; `active` 1; `id_customer` (below). On PrestaShop 9 the copy's
   `total_quantity` is 1.
-- **The marker.** A cart rule is one of the module's when its description starts with
-  `smaily-connect-issued:` (`CodeIssuer::MARKER`). No column and no table holds that. The
-  remainder voucher that PrestaShop makes when a code with partial use is not spent in full is a
-  copy of the code, description included, so the module treats it as its own too.
+- **The marker.** No column and no table says that a cart rule is one of the module's codes: its
+  description does, in two ways that differ on purpose.
+  - *A code of the module* (`CodeIssuer::isIssued()`, `issued()`): the description starts with
+    `smaily-connect-issued: code=` and the code it names is the rule's own `code`, compared byte
+    by byte. Only such a rule is ever removed (the clean-up and the privacy operations below).
+    When a code with partial use is not spent in full, PrestaShop makes a remainder voucher that
+    copies the code's description and customer under a new code, `<the code>-2`
+    (`PaymentModule::validateOrder()`). It does not name its own code, so it is not one of the
+    module's: it holds the shopper's remaining credit, and nothing here selects or removes it.
+  - *A rule that comes from a code* (`CodeIssuer::isMarked()`, `notMarked()`): the description
+    starts with `smaily-connect-issued:` at all. Such a rule is never a template, the remainder
+    voucher included.
+  A cart rule of a development build before 3.0.0, whose description is `smaily-connect-issued:
+  template=<id> trigger=<automation>` without a code, is on the safe side of both: never a
+  template and never removed. Such rules exist in development shops only. A rule whose
+  description the merchant rewrote is the merchant's from then on.
 - **Validity.** Until 23:59:59 of the day N days after today, in the shop's time, and never after
   the template's own end date. The contact field carries that last valid day as `Y-m-d`; a
   template that ends at 00:00:00 leaves the day before. PrestaShop itself refuses the code after
@@ -1662,11 +1676,17 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   copy, or another module's hook on a new cart rule throws) fails the row with nothing posted, and
   the row takes the retry ladder; the issuer removes a copy that was stored only in part.
 - **Clean-up** (`Discount\IssuedCodes`, section 11.3). The daily janitor removes a code that no
-  order carries once its end date is more than 30 days past. A used code stays.
+  order carries once its end date is more than 30 days past. A used code stays. Used means an
+  `order_cart_rule` row, also one that an employee removed from the order. A code that only sits
+  in a cart is not used: the janitor's codes ended 30 days ago, so no cart can order with one, and
+  `CartRule::delete()` takes the code out of the cart. A merchant's rule, a template and a
+  remainder voucher are never selected: each query asks for a code of the module (the marker).
 - **Privacy** (`IssuedCodes::ofCustomer()`, `ofAddress()`, `removeUnused()`). The codes of a
   customer account, and the codes that the automation rows of the event queue still hold for an
   address, each with its creation and end time and whether an order used it; and the removal of
-  the unused ones. Story 5.6 wires them into the export and the erasure; nothing calls them yet.
+  the unused ones, also of one that sits in the shopper's cart. A remainder voucher is not among
+  them and keeps its value. Story 5.6 wires them into the export and the erasure; nothing calls
+  them yet.
 - **The Discounts list** shows the issued rules under their "Smaily Connect – …" name (owner's
   decision): it is not filtered.
 - **Not built.** One working code per shopper and automation, sent again while it is unused

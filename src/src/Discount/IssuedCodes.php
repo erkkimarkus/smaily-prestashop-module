@@ -37,12 +37,17 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
- * The cart rules that this module issued as discount codes (CodeIssuer::MARKER): the clean-up of
- * the ones nobody used, and a shopper's codes for a privacy request. A cart rule that the merchant
- * made is never read or removed here.
+ * The cart rules that this module issued as discount codes (CodeIssuer::issued(): the rule's
+ * description names the rule's own code): the clean-up of the ones nobody used, and a shopper's
+ * codes for a privacy request. No other cart rule is read or removed here: not a rule that the
+ * merchant made, and not the remainder voucher that PrestaShop makes when a code is spent in part,
+ * which copies the code's description under a code of its own and holds the shopper's credit.
  *
- * A code is used once an order carries it (`order_cart_rule`). A used code stays in every case:
- * its orders name it.
+ * A code is used once an order carries it (`order_cart_rule`, also a row that an employee removed
+ * from the order). A used code stays in every case: its orders name it. A code that only sits in
+ * a cart is not used: it is removed with the others, and PrestaShop takes it out of the cart
+ * (CartRule::delete()). The janitor's codes are 30 days past their end, so no cart can still
+ * order with one, and a privacy erasure removes what the shopper holds.
  *
  * - The janitor removes an unused code once its end date is more than KEEP_SECONDS past, as the
  *   WooCommerce connector does.

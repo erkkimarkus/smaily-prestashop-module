@@ -32,7 +32,8 @@ if (!defined('_PS_VERSION_')) {
 /**
  * The merchant's cart rules that an automation's discount codes can be copies of (the templates;
  * the Magento connector's Discount\RuleSource and the WooCommerce connector's template coupon):
- *  - a cart rule that the merchant made, never one this module issued (CodeIssuer::MARKER);
+ *  - a cart rule that the merchant made, never one this module issued nor one that comes from
+ *    such a code, as the remainder voucher of a code spent in part (CodeIssuer::isMarked());
  *  - not limited to one customer (`id_customer`): a code is a copy for another shopper, and the
  *    vouchers that PrestaShop makes itself are a customer's own (the voucher of a refund, the
  *    remainder of a voucher that was spent in part, a discount or free shipping that an employee
@@ -87,7 +88,7 @@ final class TemplateRules
             . ' ORDER BY crl.`name`, cr.`id_cart_rule` LIMIT %7$d',
             _DB_PREFIX_,
             $idLang,
-            CodeIssuer::notIssued('cr'),
+            CodeIssuer::notMarked('cr'),
             pSQL(date('Y-m-d H:i:s', ($this->clock)())),
             $shops === [] ? '0' : implode(', ', $shops),
             count($shops),
@@ -105,13 +106,13 @@ final class TemplateRules
 
     /**
      * The rule, with its names in every language, when a code can be a copy of it for the shop
-     * now; null when it is gone, was issued by this module, is limited to one customer, is past
+     * now; null when it is gone, comes from this module's codes, is limited to one customer, is past
      * its end date, has no uses left or is not usable in the shop.
      */
     public function usable(int $idRule, int $idShop): ?\CartRule
     {
         $rule = new \CartRule($idRule);
-        if (!\Validate::isLoadedObject($rule) || CodeIssuer::isIssued($rule) || (int) $rule->id_customer > 0) {
+        if (!\Validate::isLoadedObject($rule) || CodeIssuer::isMarked($rule) || (int) $rule->id_customer > 0) {
             return null;
         }
         $end = self::end($rule);

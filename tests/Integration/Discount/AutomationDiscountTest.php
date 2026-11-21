@@ -53,7 +53,7 @@ final class AutomationDiscountTest extends DiscountTestCase
             self::assertSame([], array_filter(array_keys($address), static fn (string $name): bool => strpos($name, 'coupon') !== false && strpos($name, $prefix . '_coupon_') !== 0));
             $rule = new \CartRule((int) \CartRule::getIdByCode($address[$prefix . '_coupon_code']));
             self::assertSame($idCustomer, (int) $rule->id_customer, 'tied to the customer account of the address, when it has one');
-            self::assertSame('smaily-connect-issued: template=' . $template . ' trigger=' . $prefix, $rule->description);
+            self::assertSame('smaily-connect-issued: code=' . $address[$prefix . '_coupon_code'] . ' template=' . $template . ' trigger=' . $prefix, $rule->description);
             $codes[] = $address[$prefix . '_coupon_code'];
         }
         self::assertCount(3, array_unique($codes));

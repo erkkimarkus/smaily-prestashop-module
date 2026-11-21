@@ -113,6 +113,77 @@ final class IssuedCodesTest extends DiscountTestCase
         self::assertNotFalse(self::db()->getValue('SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` = ' . $template));
     }
 
+    public function testTheRemainderVoucherOfACodeIsTheShoppersAndIsNeverSelected(): void
+    {
+        $template = $this->credit('', ['active' => false]);
+        $customer = $this->fixture->customer('shopper1@example.test');
+        $guest = $this->fixture->customer('guest1@example.test', true);
+        $tied = $this->issue($template, time(), $customer);
+        $untied = $this->issue($template, time());
+        $untiedCode = (new \CartRule($untied))->code;
+        $this->queue()->enqueue(WelcomeTrigger::EVENT_TYPE, $this->idShop, ['email' => 'guest1@example.test', 'fields' => ['welcome_coupon_code' => $untiedCode]], 'guest1@example.test', 'en');
+
+        $ofCustomer = $this->spendPartOf($tied, $customer)['remainder'];
+        $ofGuest = $this->spendPartOf($untied, $guest)['remainder'];
+
+        $codes = new IssuedCodes();
+        foreach ([[$ofCustomer, $tied, $customer], [$ofGuest, $untied, 0]] as [$idRemainder, $idCode, $owner]) {
+            $remainder = new \CartRule($idRemainder);
+            $code = new \CartRule($idCode);
+            self::assertSame([$code->description, $code->code . '-2', $owner], [$remainder->description, $remainder->code, (int) $remainder->id_customer], 'PrestaShop copies the description under a new code');
+            self::assertGreaterThan(0, (float) $remainder->reduction_amount);
+            self::assertFalse(CodeIssuer::isIssued($remainder));
+            self::assertTrue(CodeIssuer::isIssued($code));
+            self::assertNull((new TemplateRules())->usable($idRemainder, $this->idShop), 'and it is no template');
+        }
+        self::assertSame([], array_intersect([$ofCustomer, $ofGuest, $tied, $untied], array_column((new TemplateRules())->listFor([$this->idShop], (int) \Configuration::get('PS_LANG_DEFAULT')), 'id')));
+        self::assertSame([$tied, $untied], self::issuedIds());
+        self::assertSame([[$tied, true]], array_map(static fn (array $row): array => [$row['id'], $row['used']], $codes->ofCustomer($customer)));
+        self::assertSame([[$untied, true]], array_map(static fn (array $row): array => [$row['id'], $row['used']], $codes->ofAddress('guest1@example.test')));
+        self::assertSame(['removed' => 0, 'kept' => 2], $codes->removeUnused([$ofCustomer, $ofGuest, $tied, $untied]));
+
+        // Long past its end: the janitor still leaves the shopper's credit alone.
+        self::db()->update('cart_rule', ['date_to' => date('Y-m-d H:i:s', time() - 40 * self::DAY)], '`id_cart_rule` IN (' . $ofCustomer . ', ' . $ofGuest . ')');
+        self::assertSame(0, $codes->deleteExpiredUnused());
+        foreach ([$ofCustomer, $ofGuest] as $idRemainder) {
+            self::assertSame(1, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` = ' . $idRemainder . ' AND `reduction_amount` > 0'), 'the remainder keeps its value');
+        }
+    }
+
+    public function testARuleOfAnEarlierDevelopmentBuildIsNeitherACodeNorATemplate(): void
+    {
+        $old = $this->template(['description' => 'smaily-connect-issued: template=1 trigger=welcome']);
+        $named = $this->template(['description' => 'smaily-connect-issued: code=OTHERCODE2 template=1 trigger=welcome', 'code' => 'MERCHANT22']);
+
+        foreach ([$old, $named] as $id) {
+            self::assertFalse(CodeIssuer::isIssued(new \CartRule($id)));
+            self::assertNull((new TemplateRules())->usable($id, $this->idShop));
+        }
+        self::assertSame([], self::issuedIds());
+        self::db()->update('cart_rule', ['date_to' => date('Y-m-d H:i:s', time() - 40 * self::DAY)], '`id_cart_rule` IN (' . $old . ', ' . $named . ')');
+        self::assertSame(0, (new IssuedCodes())->deleteExpiredUnused(), 'the safe side: what is not surely a code stays');
+        self::assertSame(['removed' => 0, 'kept' => 0], (new IssuedCodes())->removeUnused([$old, $named]));
+    }
+
+    public function testACodeThatOnlySitsInACartIsNotUsed(): void
+    {
+        $template = $this->template();
+        $customer = $this->fixture->customer('shopper1@example.test');
+        $expired = $this->issue($template, time() - 38 * self::DAY);
+        $fresh = $this->issue($template, time(), $customer);
+        $idCart = $this->fixture->cart($customer, 1);
+        self::db()->insert('cart_cart_rule', ['id_cart' => $idCart, 'id_cart_rule' => $expired]);
+        self::assertTrue((new \Cart($idCart))->addCartRule($fresh));
+        $codes = new IssuedCodes();
+
+        self::assertSame([false], array_column($codes->ofCustomer($customer), 'used'));
+        self::assertSame(1, $codes->deleteExpiredUnused(), 'a code 30 days past its end goes, also from a cart that still holds it');
+        self::assertSame(['removed' => 1, 'kept' => 0], $codes->removeUnused([$fresh]));
+
+        self::assertSame([], self::issuedIds());
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'cart_cart_rule` WHERE `id_cart` = ' . $idCart), 'PrestaShop takes the code out of the cart');
+    }
+
     public function testAnUninstallLeavesTheIssuedCodesInPlace(): void
     {
         $id = $this->issue($this->template(), time());

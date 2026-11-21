@@ -92,7 +92,7 @@ final class CodeIssuerTest extends DiscountTestCase
         foreach (array_map('intval', \Language::getIDs(false)) as $idLang) {
             self::assertSame('Smaily Connect – Ten percent ' . \Language::getIsoById($idLang), $rule->name[$idLang]);
         }
-        self::assertSame('smaily-connect-issued: template=' . $template . ' trigger=first_order', $rule->description);
+        self::assertSame('smaily-connect-issued: code=' . $code['code'] . ' template=' . $template . ' trigger=first_order', $rule->description);
         self::assertTrue(CodeIssuer::isIssued($rule));
         self::assertFalse(CodeIssuer::isIssued($source));
         self::assertSame(

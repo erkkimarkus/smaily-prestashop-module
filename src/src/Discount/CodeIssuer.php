@@ -37,8 +37,8 @@ if (!defined('_PS_VERSION_')) {
  *  - a new code, unique among the cart rules: CODE_LENGTH letters and digits of ALPHABET;
  *  - the name "Smaily Connect – <the template's name>" in every language, under which Catalog >
  *    Discounts lists it;
- *  - the description is the marker (MARKER, the template's id and the automation), by which the
- *    module knows its own rules: no column or table holds that;
+ *  - the description is the marker (MARKER, the rule's own code, the template's id and the
+ *    automation), by which the module knows its own rules: no column or table holds that;
  *  - it can be used once (quantity 1, once per customer), is never advertised in a cart
  *    (highlight off) and is enabled, also where the template is disabled;
  *  - it is valid from now (its start date is a day back, see issue()) until 23:59:59 of the day
@@ -49,11 +49,23 @@ if (!defined('_PS_VERSION_')) {
  *
  * PrestaShop enforces all of it at the cart (CartRule::checkValidity()): the module adds no check
  * of its own.
+ *
+ * Two questions are asked of a cart rule's description, and they differ on purpose:
+ *  - isIssued(), issued(): the rule is a code of this module. Its description names its own code
+ *    (`smaily-connect-issued: code=<its code> …`). Only such a rule is ever removed (IssuedCodes).
+ *    The remainder voucher that PrestaShop makes when a code is spent in part copies the
+ *    description and gets a code of its own, so it is not one: it holds a shopper's credit. A
+ *    rule of a development build before 3.0.0, whose marker names no code, is not one either.
+ *  - isMarked(), notMarked(): the description starts with MARKER at all. Such a rule comes from a
+ *    code and is never a template (TemplateRules), the remainder voucher included.
  */
 final class CodeIssuer
 {
     /** What the description of every cart rule this module issued starts with. */
     public const MARKER = 'smaily-connect-issued:';
+
+    /** What follows MARKER in the description of an issued rule, before the rule's own code. */
+    private const MARKER_CODE = ' code=';
 
     /** What the name of every issued rule starts with, before the template's name. */
     public const NAME_PREFIX = 'Smaily Connect – ';
@@ -122,7 +134,7 @@ final class CodeIssuer
         foreach ((array) $rule->name as $idLang => $name) {
             $rule->name[$idLang] = mb_substr(self::NAME_PREFIX . $name, 0, self::NAME_LENGTH);
         }
-        $rule->description = sprintf('%s template=%d trigger=%s', self::MARKER, $idRule, $trigger);
+        $rule->description = sprintf('%s%s%s template=%d trigger=%s', self::MARKER, self::MARKER_CODE, $rule->code, $idRule, $trigger);
         $rule->id_customer = $idCustomer;
         $rule->quantity = 1;
         if (property_exists($rule, 'total_quantity')) {
@@ -158,25 +170,47 @@ final class CodeIssuer
     }
 
     /**
-     * Whether the cart rule is one this module issued.
+     * Whether the cart rule is a code this module issued: its description names its own code.
      */
     public static function isIssued(\CartRule $rule): bool
+    {
+        $prefix = self::MARKER . self::MARKER_CODE;
+        $description = (string) $rule->description;
+        $code = (string) $rule->code;
+
+        return $code !== '' && strpos($description, $prefix) === 0 && explode(' ', substr($description, strlen($prefix)), 2)[0] === $code;
+    }
+
+    /**
+     * The SQL condition that the cart rule read as $alias is a code this module issued, as
+     * isIssued() decides it: the codes are compared byte by byte.
+     */
+    public static function issued(string $alias): string
+    {
+        $prefix = self::MARKER . self::MARKER_CODE;
+
+        return sprintf(
+            '(%1$s.`description` LIKE \'%2$s%%\' AND %1$s.`code` <> \'\''
+            . ' AND CAST(SUBSTRING_INDEX(SUBSTRING(%1$s.`description`, %3$d), \' \', 1) AS BINARY) = CAST(%1$s.`code` AS BINARY))',
+            $alias,
+            pSQL($prefix),
+            strlen($prefix) + 1
+        );
+    }
+
+    /**
+     * Whether the cart rule's description starts with the marker: a code this module issued, or a
+     * rule that comes from one.
+     */
+    public static function isMarked(\CartRule $rule): bool
     {
         return strpos((string) $rule->description, self::MARKER) === 0;
     }
 
     /**
-     * The SQL condition that the cart rule read as $alias is one this module issued.
+     * The SQL condition that the cart rule read as $alias is not one that isMarked() means.
      */
-    public static function issued(string $alias): string
-    {
-        return sprintf('%s.`description` LIKE \'%s%%\'', $alias, pSQL(self::MARKER));
-    }
-
-    /**
-     * The SQL condition that the cart rule read as $alias is not one this module issued.
-     */
-    public static function notIssued(string $alias): string
+    public static function notMarked(string $alias): string
     {
         return sprintf('(%1$s.`description` IS NULL OR %1$s.`description` NOT LIKE \'%2$s%%\')', $alias, pSQL(self::MARKER));
     }
