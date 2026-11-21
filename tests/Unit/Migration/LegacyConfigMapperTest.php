@@ -605,6 +605,76 @@ final class LegacyConfigMapperTest extends TestCase
         self::assertSame(['welcome', 'abandoned_cart'], array_column($plan['mappings'], 'trigger'));
     }
 
+    // --- Multistore off with more than one row in `shop` ---
+
+    /**
+     * With multistore off PrestaShop writes the global row whatever shop a call names, so a row
+     * planned for a second shop would overwrite the global setting. The store is one store: the
+     * plan holds the global scope alone, as for a single shop.
+     *
+     * @dataProvider defaultShops
+     */
+    public function testWithMultistoreOffASecondShopGetsNoScopeOfItsOwn(int $defaultShop): void
+    {
+        $oneShop = $this->map(self::CONFIGURED, [$defaultShop => 1], '2.2.0', $defaultShop);
+
+        $plan = $this->map(self::CONFIGURED, [1 => 1, 2 => 1], '2.2.0', $defaultShop, [], 0, false);
+
+        self::assertSame($oneShop, $plan);
+        self::assertSame([0], array_keys($plan['settings']));
+        self::assertSame('1', $plan['settings'][0]['SMAILY_CONNECT_CART_ENABLED']);
+        self::assertSame([0], array_column($plan['accounts'], 'id_shop'));
+        self::assertSame([0, 0], array_column($plan['mappings'], 'id_shop'));
+        self::assertSame([], self::noticesOf($plan, MigrationPlan::NOTICE_ABANDONED_CART_LEFT_OFF));
+        self::assertSame([], self::noticesOf($plan, MigrationPlan::NOTICE_CRON_SHOP_ASSUMED));
+    }
+
+    /**
+     * @return array<string, array{int}>
+     */
+    public static function defaultShops(): array
+    {
+        return ['the first shop is the default' => [1], 'the second shop is the default' => [2]];
+    }
+
+    /**
+     * Rows that a save in shop 2's context left while multistore was on are dead once it is off:
+     * the previous code read none of them, and the plan takes none.
+     */
+    public function testWithMultistoreOffTheRowsOfAShopOrAGroupAreNotRead(): void
+    {
+        $oneShop = $this->map(self::CONFIGURED);
+
+        $plan = $this->map(array_merge(self::CONFIGURED, [
+            [1, 2, 'SMAILY_SUBDOMAIN', 'other-store'],
+            [1, 2, 'SMAILY_USERNAME', 'other-api-user'],
+            [1, 2, 'SMAILY_PASSWORD', 'not-a-real-password-either'],
+            [1, 2, 'SMAILY_ENABLE_ABANDONED_CART', null],
+            [1, 2, 'SMAILY_OPTIN_ENABLED', null],
+            [1, 2, 'SMAILY_SYNCRONIZE_ADDITIONAL', 'not a field list'],
+            [1, 2, 'SMAILY_CART_CRON_TOKEN', null],
+            [1, null, 'SMAILY_CUSTOMER_CRON_TOKEN', ''],
+            [1, null, 'SMAILY_ENABLE_CUSTOMER_SYNC', null],
+        ]), [1 => 1, 2 => 1], '2.2.0', 1, [], 0, false);
+
+        self::assertSame($oneShop, $plan);
+        self::assertSame([], $plan['tokens_to_generate']);
+        self::assertSame([], self::noticesOf($plan, MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE));
+    }
+
+    public function testWithMultistoreOffAnEmptyGlobalTokenStillGetsANewOne(): void
+    {
+        $plan = $this->map(array_merge(self::without(self::CONFIGURED, 'SMAILY_CART_CRON_TOKEN'), [
+            [null, null, 'SMAILY_CART_CRON_TOKEN', null],
+            [1, 2, 'SMAILY_CART_CRON_TOKEN', null],
+        ]), [1 => 1, 2 => 1], '2.2.0', 1, [], 0, false);
+
+        self::assertSame(
+            [['key' => 'SMAILY_CART_CRON_TOKEN', 'id_shop_group' => null, 'id_shop' => null]],
+            $plan['tokens_to_generate']
+        );
+    }
+
     // --- Shop layout ---
 
     public function testShopsOnDifferentAccountsWithoutAGlobalOneAreSeparateStores(): void
@@ -763,10 +833,11 @@ final class LegacyConfigMapperTest extends TestCase
         string $version = '2.2.0',
         int $defaultShop = 1,
         array $groupsSharingCustomers = [],
-        int $sentCarts = 0
+        int $sentCarts = 0,
+        ?bool $multishop = null
     ): array {
         return (new LegacyConfigMapper())
-            ->map(self::state($rows, $shopGroups, $version, $defaultShop, $groupsSharingCustomers, $sentCarts))
+            ->map(self::state($rows, $shopGroups, $version, $defaultShop, $groupsSharingCustomers, $sentCarts, $multishop))
             ->toArray();
     }
 
@@ -774,6 +845,7 @@ final class LegacyConfigMapperTest extends TestCase
      * @param list<array{0: int|null, 1: int|null, 2: string, 3: string|null}> $rows
      * @param array<int, int> $shopGroups
      * @param list<int> $groupsSharingCustomers
+     * @param bool|null $multishop null: on when the state holds more than one shop
      */
     private static function state(
         array $rows,
@@ -781,14 +853,15 @@ final class LegacyConfigMapperTest extends TestCase
         string $version = '2.2.0',
         int $defaultShop = 1,
         array $groupsSharingCustomers = [],
-        int $sentCarts = 0
+        int $sentCarts = 0,
+        ?bool $multishop = null
     ): LegacyState {
         $stateRows = [];
         foreach ($rows as [$idShopGroup, $idShop, $name, $value]) {
             $stateRows[] = ['id_shop_group' => $idShopGroup, 'id_shop' => $idShop, 'name' => $name, 'value' => $value];
         }
 
-        return new LegacyState($version, count($shopGroups) > 1, $defaultShop, $shopGroups, $groupsSharingCustomers, $stateRows, $sentCarts);
+        return new LegacyState($version, $multishop ?? count($shopGroups) > 1, $defaultShop, $shopGroups, $groupsSharingCustomers, $stateRows, $sentCarts);
     }
 
     /**

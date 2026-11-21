@@ -157,6 +157,24 @@ final class LegacyConfigMapperFixturesTest extends TestCase
     }
 
     /**
+     * Multistore off with two rows in `shop`: PrestaShop keeps one value per key then, so the store
+     * maps as the single shop of 2.2.0-configured.sql does, and the dead rows of shop 2 give nothing.
+     */
+    public function testA220StoreWithMultistoreOffAndTwoShopRowsMapsAsOneStore(): void
+    {
+        $plan = (new LegacyConfigMapper())->map(
+            LegacyFixture::state('2.2.0-multistore-off-two-shops.sql', '2.2.0', [1 => 1, 2 => 1])
+        );
+
+        $single = (new LegacyConfigMapper())->map(LegacyFixture::state('2.2.0-configured.sql', '2.2.0'));
+        self::assertSame($single->toArray(), $plan->toArray());
+        self::assertSame([0], array_keys($plan->settings()));
+        self::assertSame('1', $plan->settings()[0]['SMAILY_CONNECT_CART_ENABLED']);
+        self::assertSame([], $plan->tokensToGenerate());
+        self::assertTrue($plan->passwordToEncrypt(0) === 'not-a-real-password', 'the account carries the global password');
+    }
+
+    /**
      * Decision 4: 2.x code on rows that 1.6.x left sent the opt-in, ran no contact sync (it reads
      * another switch) and sent no reminder (its cart cron stops on a serialized field list).
      */

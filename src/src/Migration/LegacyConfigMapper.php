@@ -41,6 +41,11 @@ if (!defined('_PS_VERSION_')) {
  * are assumed to have run in the default shop's context: the contact sync pushed every shop's
  * subscribers through that context's account, the cart cron reminded the carts of the default shop
  * and of the shops that share customers with it.
+ *
+ * With multistore off the store is one store, however many rows the `shop` table holds: PrestaShop
+ * then reads and writes the global row whatever shop a call names, so a setting planned for a second
+ * shop would overwrite the global one. The plan then covers the default shop alone, which the global
+ * scope stands for, and takes no row of a shop or a shop group.
  */
 final class LegacyConfigMapper
 {
@@ -78,7 +83,7 @@ final class LegacyConfigMapper
         $this->state = $state;
         $this->index = ['shop' => [], 'group' => [], 'global' => []];
         $this->cartDelayCapped = false;
-        foreach ($state->rows() as $row) {
+        foreach ($this->rows() as $row) {
             if (!in_array($row['name'], LegacyState::KEYS, true)) {
                 continue;
             }
@@ -91,7 +96,7 @@ final class LegacyConfigMapper
             }
         }
 
-        $shops = array_keys($state->shopGroups());
+        $shops = $this->shops();
         $globalAccount = $this->account(null);
         $shopAccounts = [];
         $subdomains = [];
@@ -154,6 +159,35 @@ final class LegacyConfigMapper
             array_values(array_diff(LegacyState::KEYS, self::TOKEN_KEYS)),
             $this->notices($upgraded, $tokens)
         );
+    }
+
+    /**
+     * The shops that the plan covers: every shop, or with multistore off the default shop alone.
+     *
+     * @return list<int>
+     */
+    private function shops(): array
+    {
+        return $this->state->multishopActive()
+            ? array_keys($this->state->shopGroups())
+            : [$this->state->defaultShopId()];
+    }
+
+    /**
+     * The legacy rows that the previous code could read: every row, or with multistore off the
+     * global rows alone.
+     *
+     * @return array<int, array{id_shop_group: int|null, id_shop: int|null, name: string, value: string|null}>
+     */
+    private function rows(): array
+    {
+        if ($this->state->multishopActive()) {
+            return $this->state->rows();
+        }
+
+        return array_values(array_filter($this->state->rows(), static function (array $row): bool {
+            return $row['id_shop_group'] === null && $row['id_shop'] === null;
+        }));
     }
 
     /**
@@ -506,7 +540,7 @@ final class LegacyConfigMapper
         foreach (self::TOKEN_KEYS as $key) {
             $global = false;
             $scopes = [];
-            foreach ($this->state->rows() as $row) {
+            foreach ($this->rows() as $row) {
                 if ($row['name'] !== $key) {
                     continue;
                 }
@@ -539,7 +573,7 @@ final class LegacyConfigMapper
             $notices[] = ['code' => MigrationPlan::NOTICE_SETTINGS_MIGRATED, 'params' => []];
         }
 
-        $shops = array_keys($this->state->shopGroups());
+        $shops = $this->shops();
         $features = [
             MigrationPlan::NOTICE_CONTACT_SYNC_LEFT_OFF => 'contactSync',
             MigrationPlan::NOTICE_WELCOME_LEFT_OFF => 'welcome',
@@ -571,7 +605,7 @@ final class LegacyConfigMapper
         }
 
         // The cart's field list raises no notice: its selection is not carried over.
-        foreach ($this->state->rows() as $row) {
+        foreach ($this->rows() as $row) {
             if ($row['name'] === 'SMAILY_SYNCRONIZE_ADDITIONAL' && self::decodeFields((string) $row['value']) === null) {
                 $notices[] = ['code' => MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE, 'params' => ['key' => $row['name']]];
                 break;
@@ -611,7 +645,7 @@ final class LegacyConfigMapper
     {
         $optIn = [];
         $fields = [];
-        foreach ($this->state->rows() as $row) {
+        foreach ($this->rows() as $row) {
             $scope = $row['id_shop_group'] . ':' . $row['id_shop'];
             if ($row['name'] === 'SMAILY_OPTIN_ENABLED') {
                 $optIn[$scope] = $row['value'] === '1';

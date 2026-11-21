@@ -305,7 +305,10 @@ PrestaShop's `Configuration` behaves as follows on 8.2.8 and 9.2.0 (facts file 1
    global write therefore uses `updateGlobalValue()`, and a shop write passes both the shop group id
    and the shop id (as `Config\Settings::set()` does).
 5. While multishop is off, PrestaShop ignores the shop id in `Configuration::get()` and
-   `updateValue()`: the shop and the global scope hold one value.
+   `updateValue()`: the shop and the global scope hold one value. This holds also where the `shop`
+   table has more than one shop (multistore was on once; facts file 6.9): a value written for a
+   second shop overwrites the global row, `Shop::getShops()` still lists every shop, `hasKey()`
+   still sees a shop's row that no `get()` reads, and the storefront still serves every shop.
 
 PrestaShop drops its loaded configuration in two more places (read from code on 8.0.0 and 9.2.0,
 facts file part 6): `deleteByName()` of any key, and `resetStaticCache()`. After either, `hasKey()`
@@ -326,9 +329,10 @@ reads nothing until `Configuration::get()` or `loadConfiguration()` loads the co
   scope with one SQL query, past the configuration that the request loaded, so it also sees a value
   that another request wrote after this one started.
 - **The mapper (Story 1.3).** A shop row that holds `NULL` is that shop's effective value (off). It
-  does not inherit the global value (section 3.3).
+  does not inherit the global value (section 3.3). With multistore off it plans the global scope
+  alone, whatever number of shops the store holds.
 - **The upgrade (Story 1.7).** The migration writes global rows with `updateGlobalValue()` and shop
-  rows with both ids, never `NULL`. It deletes the legacy keys at every scope with one SQL `DELETE`
+  rows with both ids, never `NULL`, and a shop row only while multistore is on. It deletes the legacy keys at every scope with one SQL `DELETE`
   inside the transaction that also marks the schema current (section 3.7). After a direct SQL write,
   it calls `Configuration::resetStaticCache()` and then `loadConfiguration()`.
 
@@ -519,7 +523,8 @@ A value that 1.6.x stripped is kept as it is: the mapper cannot restore a remove
 **[D]** The mapper first computes, per shop, the **effective legacy value** of each key exactly as the
 previous code resolved it in that shop's context:
 
-1. With multistore off, it reads only the global row (PrestaShop ignored the shop then).
+1. With multistore off, it reads only the global row (PrestaShop ignored the shop then), and it
+   takes no row of a shop or a shop group, also not a cron token's.
 2. With multistore on, it reads the shop row when it exists, else the shop-group row when it exists,
    else the global row.
 3. A row that exists wins whatever it holds. A shop or group row that holds `NULL` or `''` reads as
@@ -559,6 +564,24 @@ shares customers. Hooks (the welcome opt-in) ran in each shop's own context.
   one, and an own mapping row when it has an own account or its workflow differs.
 - **Separate stores.** Every shop gets every setting, its account and its mapping rows at its own
   scope; the global scope keeps only the layout, the setup state and the RSS keys.
+- **Multistore off.** One store at the global scope, however many shops the `shop` table holds
+  (multistore was on once and a shop was added). The plan covers the default shop alone, which the
+  global scope stands for: no shop gets a setting, an account or a mapping row, no notice names
+  another shop, and a token row of a shop or a shop group is neither read nor replaced. PrestaShop
+  leaves no other way: a setting written for a second shop lands on the global row (section 2.1,
+  item 5). The plan reads the default shop and does not merge the shops, because under 2.x every
+  shop read the same global rows; the shops differed only in whose carts the cart cron reached,
+  and the store's one value is that of the shop the cron ran in.
+
+  Before this rule the plan gave a second shop `_CART_ENABLED = 0` (its carts were not reached);
+  that write switched the reminder off for the whole store, and `verify` then failed on every run
+  (observed on 8.2.8 and 9.2.0). A development build that stopped this way finishes on its next
+  run; its abandoned-cart switch stays off until the merchant switches it on in Settings.
+
+  **Limit.** 3.0.0 runs every shop under that one value: the abandoned-cart sweep reminds the
+  carts of every shop that the table holds, where the 2.x cron reminded the carts of the shop whose
+  URL the crontab named. A second shop that still takes orders with multistore off therefore gets
+  reminders that 2.x did not send. Contact sync is not wider: 2.x pushed every shop's subscribers.
 
 **[D]** The multishop edge (orchestrator, under the rule "never widen the audience"; the owner may
 overturn it): a shop whose own Smaily account differs from the default shop's gets contact sync and
@@ -664,7 +687,8 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    unless one is stored, so the Dashboard has the cron line of an upgraded store at once (section
    4.3); it changes no legacy token.
 4. `verify` checks that every account row decrypts to its legacy password and that every setting holds
-   one row in the table at its scope.
+   one row in the table at its scope. `settings` writes a shop's row only while multistore is on,
+   and stops otherwise: PrestaShop would write the global row in its place (section 2.1, item 5).
 5. `finish` deletes the legacy keys (not the two tokens) at every scope and calls
    `Schema::markCurrent()` in one database transaction. A failure rolls both back.
 6. A failed step stops the run. `SMAILY_CONNECT_MIGRATION` then records `status` `failed` and
@@ -718,6 +742,12 @@ on the old schema).
   two languages, was upgraded through the console and then set up (setup done, consent mode, an
   automation on, the layout answered). With its schema version removed, and again with its progress
   record removed too, a storefront request stored the version again and changed no other row.
+
+- On 8.2.8 and 9.2.0 (2026-11-21): a genuine 2.2.0 store with multistore off and a second shop
+  (`2.2.0-multistore-off-two-shops.sql`), with the 2.x abandoned cart on, was upgraded through the
+  console behind the egress guard. The migration ended `done`, the global abandoned-cart switch
+  stayed on, shop 2 got no row, the Dashboard opened, and a cart that was due got its reminder
+  through the migrated account and workflow, against the Smaily mock.
 
 **Limits:**
 
@@ -1029,7 +1059,7 @@ shop, for parity with Magento CON-190 (the admin lists them).
 ### 5.4 What the upgrade infers
 
 Section 3.3: language mode `single`; shop layout from the account rows; every 2.x setting at the
-scope where its effective value differs.
+scope where its effective value differs. With multistore off: the global scope alone.
 
 ---
 

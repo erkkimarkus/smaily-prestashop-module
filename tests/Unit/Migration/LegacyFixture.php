@@ -8,11 +8,15 @@ use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 /**
  * Turns a fixture of tests/fixtures/legacy/ into the LegacyState that the legacy reader would build
  * from the same database: the configuration rows in file order, and the number of smaily_cart rows.
- * Every fixture is a single shop with multistore off: shop 1 in shop group 1, the default shop.
+ * The state has multistore off and shop 1 in shop group 1 as the default shop; $shopGroups names
+ * the shops of a fixture that holds more than one.
  */
 final class LegacyFixture
 {
-    public static function state(string $file, string $previousVersion): LegacyState
+    /**
+     * @param array<int, int> $shopGroups id_shop => id_shop_group
+     */
+    public static function state(string $file, string $previousVersion, array $shopGroups = [1 => 1]): LegacyState
     {
         $sql = (string) file_get_contents(__DIR__ . '/../../fixtures/legacy/' . $file);
 
@@ -34,7 +38,7 @@ final class LegacyFixture
 
         $sentCarts = preg_match_all("/^\\(\\d+, \\d+, \\d+, '[^']+'\\)/m", $sql);
 
-        return new LegacyState($previousVersion, false, 1, [1 => 1], [], $rows, (int) $sentCarts);
+        return new LegacyState($previousVersion, false, 1, $shopGroups, [], $rows, (int) $sentCarts);
     }
 
     /**

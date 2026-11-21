@@ -324,7 +324,9 @@ final class Upgrade300
     /**
      * Writes each setting at the scope the plan names: shop 0 is the global row, any other shop its
      * own row in its shop group. A scope that holds a row for the key keeps it: a merchant saved it
-     * while the upgrade was not finished.
+     * while the upgrade was not finished. A shop's row is written only while multistore is on: with
+     * multistore off PrestaShop would write the global row in its place, and the plan names no shop
+     * then.
      */
     private function stepSettings(): void
     {
@@ -337,7 +339,7 @@ final class Upgrade300
                     self::check(\Configuration::updateGlobalValue($key, $value));
                 } else {
                     $idShopGroup = (int) \Shop::getGroupFromShop($idShop);
-                    self::check($idShopGroup > 0);
+                    self::check($idShopGroup > 0 && \Shop::isFeatureActive());
                     self::check(\Configuration::updateValue($key, $value, false, $idShopGroup, $idShop));
                 }
             }

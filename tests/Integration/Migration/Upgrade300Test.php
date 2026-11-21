@@ -240,6 +240,7 @@ final class Upgrade300Test extends IntegrationTestCase
             'upgraded by an FTP copy, the progress record lost too' => ['2.2.0-configured.sql', true, true, '2.2.0'],
             'upgraded multistore store' => ['2.2.0-multistore-own-rows.sql', true, false, '3.0.0'],
             'upgraded multistore store by an FTP copy, the progress record lost too' => ['2.2.0-multistore-own-rows.sql', true, true, '2.2.0'],
+            'upgraded store with multistore off and two shops, the progress record lost too' => ['2.2.0-multistore-off-two-shops.sql', true, true, '2.2.0'],
             'installed by 3.0.0 and set up' => [null, true, false, '3.0.0'],
             'installed by 3.0.0, not set up yet' => [null, false, false, '3.0.0'],
         ];
@@ -514,6 +515,39 @@ final class Upgrade300Test extends IntegrationTestCase
 
         $this->assertPlanApplied($plan);
         self::assertArrayHasKey(2, $plan->settings(), 'shop 2 differs from the global setup in each case');
+    }
+
+    /**
+     * Multistore off with a second row in `shop`: PrestaShop writes the global row whatever shop a
+     * call names (docs/internal/spikes/platform-facts.md 6.9), so the upgrade plans and writes the
+     * global scope alone. The reminder that 2.x sent stays on, shop 2 gets no row, and the dead
+     * legacy rows of shop 2 go with the others.
+     */
+    public function testAStoreWithMultistoreOffAndASecondShopUpgradesAsOneStore(): void
+    {
+        LegacyStore::loadFixture('2.2.0-multistore-off-two-shops.sql');
+        $this->recordModuleVersion('2.2.0');
+        $state = (new LegacyReader())->read('2.2.0');
+        self::assertFalse($state->multishopActive());
+        self::assertSame([1 => 1, 2 => 1], $state->shopGroups());
+        $plan = $this->plan('2.2.0');
+        $tokens = $this->tokenRows();
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame('done', $this->upgrade()->state()['status']);
+        $this->assertPlanApplied($plan);
+        self::assertSame([0], array_keys($plan->settings()));
+        self::assertSame('1', LegacyStore::row('SMAILY_CONNECT_CART_ENABLED'), 'the reminder that 2.x sent stays on');
+        self::assertSame('0', (string) self::db()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` LIKE \'SMAILY\\_CONNECT\\_%\''
+            . ' AND (`id_shop` IS NOT NULL OR `id_shop_group` IS NOT NULL)',
+            false
+        ), 'no setting at a shop or a shop group');
+        self::assertSame([0], array_map('intval', array_column(self::db()->executeS(
+            'SELECT DISTINCT `id_shop` FROM `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
+        ) ?: [], 'id_shop')));
+        self::assertSame($tokens, $this->tokenRows(), 'every cron token row stays as stored, also the empty one of shop 2');
     }
 
     public function testTheUpgradeScriptReturnsTrueWhenTheMigrationFails(): void

@@ -10,6 +10,7 @@ leave in a shop. The 3.0.0 upgrade test loads one of them into a shop and then r
 | `1.6.2-configured.sql` | 1.6.2 | **Derived from code.** Written from `git show 1.6.2:src/...`. Loaded on 8.2.8 and 9.2.0 since (see "Loaded into a database"). |
 | `2.2.0-multistore-shared.sql` | 2.2.0 | **Derived** from the observed write pattern (section "Multistore"). Multistore on, a minimal shop 2 in shop group 1 (no shared customers), and only the global rows of `2.2.0-configured.sql`: both shops share one setup. |
 | `2.2.0-multistore-own-rows.sql` | 2.2.0 | **Derived** as above. The same global rows, plus a row for every key at shop 2 as a save in shop 2's context writes them: another account (`other-store`, `other-api-user`, `not-a-real-password-either`), opt-in workflow 103, abandoned cart workflow 104, other field lists. |
+| `2.2.0-multistore-off-two-shops.sql` | 2.2.0 | **Derived** as above. Multistore switched off (the switch holds `NULL`, as the back office stores it) while the `shop` table still holds the minimal shop 2. The global rows of `2.2.0-configured.sql`, plus dead rows at shop 2 from a save made while multistore was on: another account, abandoned cart off, an empty cart cron token. PrestaShop reads none of them (`docs/internal/spikes/platform-facts.md` 6.9), so the store upgrades as the single shop does. |
 | `payloads/2.2.0-all-ticked.json` | 2.2.0 | **Observed.** The 2.2.0 tag's own cart payload code ran in a PrestaShop 8.2.8 and a 9.2.0 shop (section "The abandoned-cart payloads of 2.2.0"). |
 | `override-2.x.ps_emailsubscription.php.txt` | 2.0.0–2.2.0 | Byte copy of `src/overrides/ps_emailsubscription.php`, identical at every 2.x tag (SHA-256 `5fb063e2…`). The `.txt` name keeps code-style tools from rewriting it. |
 
@@ -160,11 +161,14 @@ no file needed a correction.
   mode the install was not tried.
 - The 2.2.0 install copied the override file on both versions; it matched the hash of the
   `override-2.x…` file.
+- `2.2.0-multistore-off-two-shops.sql` was loaded on 2026-11-21 into a 2.2.0 store on 8.2.8 and on
+  9.2.0, and each store was upgraded to 3.0.0 through the console (ARCHITECTURE section 3.7).
 
 ## Multistore fixtures
 
-The two `2.2.0-multistore-*.sql` files add shop 2 themselves: a `shop` row copied from shop 1 and a
-`shop_url` row (`virtual_uri` `second/`), and they set `PS_MULTISHOP_FEATURE_ACTIVE` to `1`. That is
+The three `2.2.0-multistore-*.sql` files add shop 2 themselves: a `shop` row copied from shop 1 and a
+`shop_url` row (`virtual_uri` `second/`), and they set `PS_MULTISHOP_FEATURE_ACTIVE`: to `1`, or to
+`NULL` in `2.2.0-multistore-off-two-shops.sql`. That is
 enough for PrestaShop's configuration and shop classes and for the migration; it is no browsable
 storefront (no `*_shop` association rows). Part 2 enables the module in shop 2. To undo: delete the
 shop 2 rows of `shop`, `shop_url`, `module_shop` and `configuration`, and set the multistore switch

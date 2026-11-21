@@ -474,3 +474,64 @@ therefore writes `Context::getContext()->cookie` before it calls the finish func
 write then finds the cookie unchanged and the headers sent, so no cookie is set twice and no "headers
 already sent" warning can arise. The employee login of 8.2.8 (`AdminLoginController`) stores the
 session before its own `write()` and was not affected (read from code).
+
+### 6.9 Multistore off with a second row in `shop`
+
+**Observed** on 8.2.8 and 9.2.0 (flashlight images, 2026-11-21), identical on both. A store can hold
+more than one shop while the multistore feature is off: multistore was on once, a shop was added, and
+the switch was turned off again. The back office stores the switched-off switch as a global row that
+holds `NULL` (`Adapter\Configuration::set('PS_MULTISHOP_FEATURE_ACTIVE', false)`, as
+`PreferencesConfiguration` calls it).
+
+The shape, on the demo database (shop 1 in shop group 1, which shares no customers):
+
+    INSERT INTO ps_shop (id_shop, id_shop_group, name, color, id_category, theme_name, active, deleted)
+      SELECT 2, 1, 'Second shop', '', id_category, theme_name, 1, 0 FROM ps_shop WHERE id_shop = 1;
+    INSERT INTO ps_shop_url (id_shop, domain, domain_ssl, physical_uri, virtual_uri, main, active)
+      VALUES (2, 'shop2.localhost', 'shop2.localhost', '/', '', 1, 1);
+    DELETE FROM ps_configuration WHERE name = 'PS_MULTISHOP_FEATURE_ACTIVE';
+    INSERT INTO ps_configuration (id_shop_group, id_shop, name, value, date_add, date_upd)
+      VALUES (NULL, NULL, 'PS_MULTISHOP_FEATURE_ACTIVE', NULL, NOW(), NOW());
+
+Then a PHP script that includes `config/config.inc.php` ran these calls from the command line (the
+default shop's context), each after `Shop::resetStaticCache()`, `Configuration::resetStaticCache()`
+and `loadConfiguration()`. `K` is a key of the script's own; "rows" lists `(id_shop_group, id_shop)`
+and the value of each row of `K`.
+
+| Call | Multistore off | Multistore on (the switch `'1'`), for contrast |
+|---|---|---|
+| `Shop::isFeatureActive()` | `false` | `true` |
+| `Shop::getShops(true, null, true)` | `[1, 2]` | `[1, 2]` |
+| `Shop::getContextShopID()` / `getContextShopID(true)` | `1` / `null` | `1` / `1` |
+| `Shop::addSqlRestriction(Shop::SHARE_CUSTOMER, 'c')` | `AND c.id_shop IN (1)` | the same |
+| `updateGlobalValue(K, 'global')`, then `updateValue(K, 'for-shop-2', false, 1, 2)` | returns `true`; rows: **`(NULL, NULL)` = `for-shop-2`**. The global row is overwritten and shop 2 gets no row. | rows: `(NULL, NULL)` = `global`, `(1, 2)` = `for-shop-2` |
+| `get(K, null, 1, 2)` after it | `for-shop-2` (the global row) | `for-shop-2` (the shop's row) |
+| `getGlobalValue(K)` after it | `for-shop-2` | `global` |
+| `hasKey(K, null, 1, 2)` after it | `false` | `true` |
+| With the rows `(NULL, NULL)` = `global` and `(1, 2)` = `own` written by SQL: `get(K, null, 1, 2)` | `global`: the shop's row is not read | `own` |
+| the same rows: `hasKey(K, null, 1, 2)` | **`true`**: `hasKey()` looks at the loaded rows and ignores the switch | `true` |
+| the same rows: `updateValue(K, 'second', false, 1, 2)` | rows: `(NULL, NULL)` = `second`, `(1, 2)` = `own` | rows: `(NULL, NULL)` = `global`, `(1, 2)` = `second` |
+| `deleteFromGivenContext(K, 1, 2)` | deletes the row `(1, 2)`; the global row stays | the same |
+| `Adapter\Configuration::set(K, v, ShopConstraint::shop(2))` | writes the global row | writes the row `(1, 2)` |
+
+So while multistore is off:
+
+- `Configuration::updateValue()` and `get()` replace a given shop id and shop group id with those of
+  the context (`Shop::getContextShopID(true)`, which is `null` then): **every write lands on the
+  global row and every read takes it, whatever shop the call names.** A value written "for shop 2"
+  overwrites the store's one value.
+- `Shop::getShops()` still lists every shop, so a loop over the shops runs once per shop row.
+- `hasKey()` with a shop id still sees a row that the table holds for that shop; no `get()` reads
+  that row. A row written while multistore was on is dead until multistore is on again.
+- The storefront still serves every shop. A request with shop 2's host
+  (`curl -H 'Host: shop2.localhost' http://127.0.0.1/…`, a script in the web root that includes
+  `config/config.inc.php`) ran with `Context::getContext()->shop->id` = 2,
+  `Shop::getContextShopID()` = 2, `Shop::addSqlRestriction(Shop::SHARE_CUSTOMER, 'c')` =
+  `AND c.id_shop IN (2)`, and read the global configuration value; the shop's home page answered
+  HTTP 200. Carts and customers keep their `id_shop`; only the configuration is one.
+
+What follows for the module: with multistore off the upgrade plans and writes the global scope alone
+(ARCHITECTURE sections 2.1 and 3.3). Before that, the plan gave a second shop a row of its own for a
+setting that differed, the write landed on the global row, and the check of that row at the shop's
+scope failed on every run (observed on both versions with a genuine 2.2.0 store: the store's
+abandoned-cart reminder was switched off, and the upgrade never finished).

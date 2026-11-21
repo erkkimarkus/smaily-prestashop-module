@@ -190,7 +190,10 @@ ask (Linear discipline below).
   come from. `Configuration` values can be set per shop group, per shop and
   per language; the legacy module mostly wrote global values. Magento had
   three release-candidate bugs of exactly this kind — every upgrade test
-  covers a multishop, multilanguage database.
+  covers a multishop, multilanguage database. With multistore off,
+  `Configuration` reads and writes the global row whatever shop a call
+  names, while `Shop::getShops()` still lists every row of `shop`: never
+  write a value per shop in a loop over the shops (facts file 6.9).
 - **Admin cache.** Stale `var/cache` breaks module routes and service
   configuration (CONTRIBUTING.md, "Invalidating cache").
 - **Admin page addresses.** PrestaShop's back office reads the parameters
