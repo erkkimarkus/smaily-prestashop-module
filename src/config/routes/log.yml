@@ -20,3 +20,20 @@ smailyforprestashop_api_log_retry:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry::execute
     _legacy_controller: AdminSmailyConnectLog
+
+# The "Privacy request" form of the Log (Admin\Log\PrivacyExport, PrivacyErase): an export and an
+# erasure for one email address, for a store without the GDPR module. Both need the right to change
+# the Log.
+smailyforprestashop_api_log_privacy_export:
+  path: /smailyforprestashop/api/log/privacy-export
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyExport::execute
+    _legacy_controller: AdminSmailyConnectLog
+
+smailyforprestashop_api_log_privacy_erase:
+  path: /smailyforprestashop/api/log/privacy-erase
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyErase::execute
+    _legacy_controller: AdminSmailyConnectLog

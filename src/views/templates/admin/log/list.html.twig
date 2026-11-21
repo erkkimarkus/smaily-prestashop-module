@@ -189,6 +189,29 @@
     {% endif %}
   </div>
 
+  {% if log.privacy_form and log.can_update %}
+    {# For a store without PrestaShop's GDPR module, whose own screens run the same two requests. #}
+    <div class="smaily-card smaily-log__privacy" data-smaily-log-privacy
+         data-api-export="{{ path('smailyforprestashop_api_log_privacy_export') }}"
+         data-api-erase="{{ path('smailyforprestashop_api_log_privacy_erase') }}"
+         data-label-erase-title="{{ 'Erase the data of this address?'|trans }}"
+         data-label-erase-message="{{ 'Everything this module holds about the address is erased in every shop: queued messages are deleted, sent rows of the Log lose the contact\'s data, unused discount codes are removed, and Campaign Intelligence is asked to delete the shopper. This cannot be undone.'|trans }}"
+         data-label-erase="{{ 'Erase'|trans }}">
+      <div class="smaily-card__head">
+        <h2>{{ 'Privacy request'|trans }}</h2>
+      </div>
+      <p class="smaily-intro">{{ 'Export or erase what this module holds about one email address: its rows of the Log, its abandoned-cart reminders, order attribution, discount codes and personalization preference, and its Campaign Intelligence data. The customer account, the orders and the Smaily contact are not changed; handle those in PrestaShop and in Smaily.'|trans }}</p>
+      <div class="smaily-log__privacy-form">
+        <div class="smaily-field">
+          <label for="smaily-privacy-email">{{ 'Email address'|trans }}</label>
+          <input type="email" id="smaily-privacy-email" class="form-control" autocomplete="off" data-smaily-log-privacy-email>
+        </div>
+        <button type="button" class="btn btn-outline-secondary" data-smaily-log-privacy-export>{{ 'Export'|trans }}</button>
+        <button type="button" class="btn btn-outline-danger" data-smaily-log-privacy-erase>{{ 'Erase'|trans }}</button>
+      </div>
+    </div>
+  {% endif %}
+
   <div class="smaily-drawer" data-smaily-log-drawer hidden>
     <div class="smaily-drawer__backdrop" data-smaily-log-close></div>
     <aside class="smaily-drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'Details'|trans }}">

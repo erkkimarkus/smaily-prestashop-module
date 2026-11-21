@@ -17,6 +17,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details as LogDetails;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyErase;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyExport;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController;
@@ -76,6 +78,7 @@ final class ControllerContainerTest extends IntegrationTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
+            \Cache::clean('Module::isEnabled' . PrivacyExport::GDPR_MODULE);
             self::db()->delete(EventQueue::TABLE);
             \Configuration::deleteByName(MigrationNotices::KEY);
             if ($this->setupState === null) {
@@ -376,9 +379,11 @@ final class ControllerContainerTest extends IntegrationTestCase
         $id = 'smaily-' . $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'x']);
         $route = ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log'];
 
-        foreach ([LogDetails::class, SendAgain::class, MassRetry::class] as $action) {
-            self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), ['id' => $id, 'ids' => [$id]], $route));
-            self::assertError(403, 'invalid_token', 'The page has expired. Reload it and try again.', $this->execute(new $action(), $this->locator(true, false), ['id' => $id, 'ids' => [$id]], $route));
+        $this->gdprModule(false);
+        $body = ['id' => $id, 'ids' => [$id], 'email' => 'shopper1@example.test'];
+        foreach ([LogDetails::class, SendAgain::class, MassRetry::class, PrivacyExport::class, PrivacyErase::class] as $action) {
+            self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), $body, $route));
+            self::assertError(403, 'invalid_token', 'The page has expired. Reload it and try again.', $this->execute(new $action(), $this->locator(true, false), $body, $route));
         }
         self::assertSame(
             [['failed', '5']],
@@ -388,6 +393,58 @@ final class ControllerContainerTest extends IntegrationTestCase
             ),
             'a refused request changes nothing'
         );
+    }
+
+    public function testTheLogsPrivacyRequestFormAnswersInWords(): void
+    {
+        $route = ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log_privacy'];
+        $kept = $this->queueRow(['entity_id' => 'shopper2@example.test', 'payload' => '{"email":"shopper2@example.test"}']);
+        $sent = $this->queueRow();
+        $waiting = $this->queueRow(['status' => 'pending']);
+
+        // A store without PrestaShop's GDPR module: the form's two requests run.
+        $this->gdprModule(false);
+        foreach ([PrivacyExport::class, PrivacyErase::class] as $action) {
+            self::assertError(400, 'invalid_email', 'Enter a valid email address.', $this->execute(new $action(), $this->locator(), ['email' => 'not an address'], $route));
+            self::assertError(400, 'invalid_email', 'Enter a valid email address.', $this->execute(new $action(), $this->locator(), [], $route));
+        }
+        $answer = json_decode((string) $this->execute(new PrivacyExport(), $this->locator(), ['email' => ' Shopper1@Example.test '], $route)->getContent(), true);
+        self::assertTrue($answer['ok']);
+        self::assertMatchesRegularExpression('/^smaily-connect-privacy-export-\d{8}-\d{6}\.json$/', $answer['data']['filename'], 'the file\'s name does not hold the address');
+        self::assertSame(['exported_at', 'email', 'store', 'campaign_intelligence'], array_keys($answer['data']['export']));
+        self::assertSame('Shopper1@Example.test', $answer['data']['export']['email']);
+        self::assertCount(2, $answer['data']['export']['store']['queue'], 'the rows of the address alone');
+        self::assertSame('The export was saved as a file.', $answer['data']['message']);
+        self::assertStringNotContainsString('shopper2', (string) json_encode($answer));
+
+        $answer = json_decode((string) $this->execute(new PrivacyErase(), $this->locator(), ['email' => 'shopper1@example.test'], $route)->getContent(), true);
+        self::assertTrue($answer['ok']);
+        self::assertSame(
+            'The data of this address was erased. Queued rows deleted: 1; Log rows cleared: 1; cart reminders closed: 0; discount codes removed: 0. The deletion in Campaign Intelligence is queued; connections: 0.',
+            $answer['data']['message']
+        );
+        $rows = array_column((array) self::db()->executeS('SELECT `id`, `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`', true, false), 'entity_id', 'id');
+        self::assertSame([$kept => 'shopper2@example.test', $sent => '[erased]'], $rows, 'the waiting row ' . $waiting . ' is gone, the delivered one cleared, the other shopper\'s untouched');
+
+        // With that module enabled, its own screens run the requests, and the form's do not.
+        $this->gdprModule(true);
+        foreach ([PrivacyExport::class, PrivacyErase::class] as $action) {
+            self::assertError(404, 'not_available', 'Privacy requests are handled by the store\'s GDPR module.', $this->execute(new $action(), $this->locator(), ['email' => 'shopper2@example.test'], $route));
+        }
+        self::assertSame('shopper2@example.test', self::db()->getValue('SELECT `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '` WHERE `id` = ' . $kept));
+    }
+
+    public function testTheLogShowsThePrivacyRequestFormOnlyWithoutTheGdprModule(): void
+    {
+        foreach ([[false, true], [true, false]] as [$gdprModule, $form]) {
+            $this->gdprModule($gdprModule);
+            $controller = new LogController();
+            $controller->setContainer($this->locator());
+
+            $controller->index(new Request());
+
+            self::assertSame($form, $this->rendered['smaily_log']['privacy_form']);
+        }
     }
 
     /**
@@ -419,6 +476,8 @@ final class ControllerContainerTest extends IntegrationTestCase
             'the setup Automations step' => [SaveStep::class, ['step' => 'automations', 'data' => $automations]],
             'the setup Finish' => [SaveStep::class, ['step' => 'finish']],
             'the Log retry of every row' => [MassRetry::class, ['all' => true, 'filter' => []]],
+            'the Log privacy export' => [PrivacyExport::class, ['email' => 'shopper1@example.test']],
+            'the Log privacy erasure' => [PrivacyErase::class, ['email' => 'shopper1@example.test']],
         ];
     }
 
@@ -497,6 +556,15 @@ final class ControllerContainerTest extends IntegrationTestCase
 
         self::assertError(500, 'internal_error', 'Something went wrong. Try again; if it keeps failing, see the PrestaShop logs.', $response);
         self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'log` WHERE `message` LIKE \'Smaily Connect: the admin endpoint smailyforprestashop_api_setup_save failed with LogicException%\'');
+    }
+
+    /**
+     * Plays a store with or without PrestaShop's GDPR module enabled: Module::isEnabled() answers
+     * from PrestaShop's cache, which tearDown() empties again.
+     */
+    private function gdprModule(bool $enabled): void
+    {
+        \Cache::store('Module::isEnabled' . PrivacyExport::GDPR_MODULE, $enabled);
     }
 
     /**

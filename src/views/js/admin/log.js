@@ -24,8 +24,9 @@
 /*
  * The Log page (views/templates/admin/log/): Details in the side panel, "Send again" of one row and
  * "Retry" of the ticked rows or of every row the filter selects, each after a question in the
- * page's own dialog. Plain JavaScript, no build; the endpoints are those of Admin\Log, called
- * through window.smailyConnect.api; api() and ready() come from common.js.
+ * page's own dialog, and the "Privacy request" form where the page shows it. Plain JavaScript, no
+ * build; the endpoints are those of Admin\Log, called through window.smailyConnect.api; api() and
+ * ready() come from common.js.
  *
  * An answer's message shows in the flash line above the list. After a change the page reloads, and
  * the message waits in the browser's session storage until the reloaded page shows it.
@@ -187,6 +188,50 @@
           }).catch(function (error) {
             showFlash(error.message, false);
             refreshSelection();
+          });
+        });
+      });
+    }
+
+    /*
+     * The "Privacy request" form: an export and an erasure for one email address. The address goes
+     * in the request body. The export is saved as a file; the erasure asks first.
+     */
+    var privacy = document.querySelector('[data-smaily-log-privacy]');
+    if (privacy) {
+      var privacyEmail = privacy.querySelector('[data-smaily-log-privacy-email]');
+      var privacyButtons = privacy.querySelectorAll('button');
+      var privacyBusy = function (busy) {
+        privacyButtons.forEach(function (button) {
+          button.disabled = busy;
+        });
+      };
+      var privacyCall = function (url, done) {
+        privacyBusy(true);
+        api(url, {email: privacyEmail.value}).then(function (data) {
+          privacyBusy(false);
+          done(data);
+        }).catch(function (error) {
+          privacyBusy(false);
+          showFlash(error.message, false);
+        });
+      };
+      privacy.querySelector('[data-smaily-log-privacy-export]').addEventListener('click', function () {
+        privacyCall(privacy.getAttribute('data-api-export'), function (data) {
+          var link = document.createElement('a');
+          link.href = URL.createObjectURL(new Blob([JSON.stringify(data.export, null, 2)], {type: 'application/json'}));
+          link.download = data.filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+          showFlash(data.message, true);
+        });
+      });
+      privacy.querySelector('[data-smaily-log-privacy-erase]').addEventListener('click', function () {
+        ask(privacy.getAttribute('data-label-erase-title'), privacy.getAttribute('data-label-erase-message'), privacy.getAttribute('data-label-erase'), function () {
+          privacyCall(privacy.getAttribute('data-api-erase'), function (data) {
+            reloadWith(data.message);
           });
         });
       });

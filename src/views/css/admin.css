@@ -1337,6 +1337,22 @@
   border-bottom: 1px solid var(--smaily-border);
 }
 
+.smaily-ui .smaily-log__privacy {
+  margin-top: 16px;
+}
+
+.smaily-ui .smaily-log__privacy-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.smaily-ui .smaily-log__privacy-form .smaily-field {
+  flex: 0 1 360px;
+  margin: 0;
+}
+
 .smaily-ui .smaily-log__all {
   display: inline-flex;
   align-items: center;

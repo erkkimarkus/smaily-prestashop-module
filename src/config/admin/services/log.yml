@@ -13,3 +13,9 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\MassRetry
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyExport:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyExport
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyErase:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyErase
