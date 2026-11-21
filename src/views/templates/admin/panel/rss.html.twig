@@ -49,8 +49,8 @@
           <input type="number" class="form-control" min="1" data-smaily-field="category" value="{{ rss.defaults.category > 0 ? rss.defaults.category : '' }}" placeholder="{{ 'All products'|trans }}">
         </label>
         <label class="smaily-rss-builder__field">
-          <span>{{ 'Number of products (1-250)'|trans }}</span>
-          <input type="number" class="form-control" min="1" max="250" data-smaily-field="limit" value="{{ rss.defaults.limit }}">
+          <span>{{ 'Number of products (1-%max%)'|trans({'%max%': rss.feed.max_limit}) }}</span>
+          <input type="number" class="form-control" min="1" max="{{ rss.feed.max_limit }}" data-smaily-field="limit" value="{{ rss.defaults.limit }}">
         </label>
         <label class="smaily-rss-builder__field">
           <span>{{ 'Sort by'|trans }}</span>

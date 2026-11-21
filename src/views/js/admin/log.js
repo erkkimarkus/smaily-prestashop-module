@@ -25,7 +25,7 @@
  * The Log page (views/templates/admin/log/): Details in the side panel, "Send again" of one row and
  * "Retry" of the ticked rows or of every row the filter selects, each after a question in the
  * page's own dialog. Plain JavaScript, no build; the endpoints are those of Admin\Log, called
- * through window.smailyConnect.api (common.js).
+ * through window.smailyConnect.api; api() and ready() come from common.js.
  *
  * An answer's message shows in the flash line above the list. After a change the page reloads, and
  * the message waits in the browser's session storage until the reloaded page shows it.
@@ -35,15 +35,7 @@
 
   var FLASH_KEY = 'smailyConnectLogFlash';
 
-  function ready(callback) {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', callback);
-    } else {
-      callback();
-    }
-  }
-
-  ready(function () {
+  window.smailyConnect.ready(function () {
     var log = document.querySelector('[data-smaily-log]');
     if (!log) {
       return;

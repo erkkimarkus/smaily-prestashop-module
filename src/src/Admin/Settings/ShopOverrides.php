@@ -49,7 +49,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * - The Contacts settings: sync on or off, the mode, "include guests", the fields and the checkout
  *   checkbox. The confirmation (CONTACTS_CONFIRMED) is not an own value: it is never copied or
  *   removed, as in Magento.
- * - The automations: their switches, the cart delay and fields, and the shop's mapping rows.
+ * - The automations: their switches, the cart delay, and the shop's mapping rows.
  *
  * A change of the shop layout (LayoutChange) reloads the configuration once, after its last
  * removal: copySharedToShops() and promoteToShared() only write, and a write keeps the loaded
