@@ -3,14 +3,18 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Scheduler;
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use Tests\Integration\IntegrationTestCase;
+use Tests\Integration\Migration\LegacyStore;
 
 /**
- * The janitor deletes sent and skipped event queue rows after 30 days and failed ones after 90
- * days, and no other rows.
+ * The janitor deletes sent and skipped event queue rows after 30 days, failed ones after 90 days
+ * and finished jobs after 90 days, and no other rows: no cart of the tracker, and none of 2.x's
+ * `smaily_cart`.
  */
 final class QueueJanitorTest extends IntegrationTestCase
 {
@@ -26,6 +30,7 @@ final class QueueJanitorTest extends IntegrationTestCase
     {
         parent::setUp();
         self::clearQueue();
+        self::clearJobs();
         $this->queue = new EventQueue(fn (): int => $this->now);
     }
 
@@ -33,6 +38,9 @@ final class QueueJanitorTest extends IntegrationTestCase
     {
         if (defined('_PS_ROOT_DIR_')) {
             self::clearQueue();
+            self::clearJobs();
+            self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '` WHERE `id_cart` BETWEEN 990001 AND 990003');
+            self::db()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'smaily_cart`');
         }
         parent::tearDown();
     }
@@ -76,9 +84,69 @@ final class QueueJanitorTest extends IntegrationTestCase
         self::assertCount(3, $this->ids());
     }
 
+    public function testDeletesTheFinishedJobsPastRetentionAndNoOthers(): void
+    {
+        $kept = [
+            $this->job(JobStore::STATUS_DONE, 90 * self::DAY - 60),
+            $this->job(JobStore::STATUS_FAILED, 31 * self::DAY),
+            $this->job(JobStore::STATUS_CANCELLED, 89 * self::DAY),
+            $this->job(JobStore::STATUS_QUEUED, 400 * self::DAY),
+            $this->job(JobStore::STATUS_RUNNING, 400 * self::DAY),
+        ];
+        $this->job(JobStore::STATUS_DONE, 90 * self::DAY + 60);
+        $this->job(JobStore::STATUS_FAILED, 91 * self::DAY);
+        $this->job(JobStore::STATUS_CANCELLED, 400 * self::DAY);
+
+        self::assertSame(3, $this->janitor()->run($this->deadline(false)));
+
+        self::assertSame($kept, $this->jobIds());
+    }
+
+    public function testDeletesTheFinishedJobsInBatchesUntilNoneIsLeft(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->job(JobStore::STATUS_DONE, 100 * self::DAY);
+        }
+
+        self::assertSame(5, $this->janitor(2)->run($this->deadline(false)));
+        self::assertSame([], $this->jobIds());
+    }
+
+    public function testStopsTheJobsAfterABatchOnceItsDeadlinePassed(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->job(JobStore::STATUS_DONE, 100 * self::DAY);
+        }
+        // The deadline passes once the first batch of jobs is gone.
+        $deadline = new Deadline(10.0, fn (): float => count($this->jobIds()) < 5 ? 10.0 : 0.0);
+
+        self::assertSame(2, $this->janitor(2)->run($deadline));
+        self::assertCount(3, $this->jobIds());
+    }
+
+    public function testLeavesTheCartTrackerAndTheLegacyCartTableAlone(): void
+    {
+        $longAgo = date('Y-m-d H:i:s', time() - 400 * self::DAY);
+        foreach ([CartTracker::MAILED, CartTracker::SKIPPED, CartTracker::OPEN] as $index => $status) {
+            self::db()->insert(CartTracker::TABLE, [
+                'id_cart' => 990001 + $index,
+                'id_shop' => 1,
+                'id_lang' => 1,
+                'status' => $status,
+                'last_activity_at' => $longAgo,
+            ]);
+        }
+        LegacyStore::createSentCarts(3);
+
+        self::assertSame(0, $this->janitor()->run($this->deadline(false)));
+
+        self::assertSame('3', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '`', false));
+        self::assertSame('3', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_cart`', false));
+    }
+
     private function janitor(int $batch = QueueJanitor::BATCH_SIZE): QueueJanitor
     {
-        return new QueueJanitor($this->queue, $batch);
+        return new QueueJanitor($this->queue, new JobStore(), $batch);
     }
 
     private function deadline(bool $passed): Deadline
@@ -113,8 +181,40 @@ final class QueueJanitorTest extends IntegrationTestCase
         return array_map(static fn (array $row): int => (int) $row['id'], is_array($rows) ? $rows : []);
     }
 
+    /**
+     * A job that reached $status $secondsAgo seconds ago.
+     */
+    private function job(string $status, int $secondsAgo): int
+    {
+        $id = (new JobStore())->create('contacts_import', 1, $status, []);
+        self::db()->execute(sprintf(
+            'UPDATE `%s%s` SET `updated_at` = \'%s\' WHERE `id` = %d',
+            _DB_PREFIX_,
+            JobStore::TABLE,
+            gmdate('Y-m-d H:i:s', time() - $secondsAgo),
+            $id
+        ));
+
+        return $id;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function jobIds(): array
+    {
+        $rows = self::db()->executeS('SELECT `id` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` ORDER BY `id`', true, false);
+
+        return array_map(static fn (array $row): int => (int) $row['id'], is_array($rows) ? $rows : []);
+    }
+
     private static function clearQueue(): void
     {
         self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . 'smaily_connect_event_queue`');
+    }
+
+    private static function clearJobs(): void
+    {
+        self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . JobStore::TABLE . '`');
     }
 }

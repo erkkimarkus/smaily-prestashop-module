@@ -29,16 +29,21 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
  * The retention sweep of the event queue, as on the sibling connectors: a sent or skipped row is
  * kept 30 days and a failed row 90 days after its last change. Pending and processing rows are
- * never deleted.
+ * never deleted. It also deletes a finished job of the job table 90 days after its last change; a
+ * queued or running job is never deleted.
  */
 final class QueueJanitor
 {
     public const BATCH_SIZE = 1000;
+
+    /** Seconds a finished job is kept. */
+    public const JOB_RETENTION = 90 * 86400;
 
     /**
      * Seconds each closed status is kept.
@@ -51,11 +56,14 @@ final class QueueJanitor
 
     private EventQueue $queue;
 
+    private JobStore $jobs;
+
     private int $batchSize;
 
-    public function __construct(EventQueue $queue, int $batchSize = self::BATCH_SIZE)
+    public function __construct(EventQueue $queue, JobStore $jobs, int $batchSize = self::BATCH_SIZE)
     {
         $this->queue = $queue;
+        $this->jobs = $jobs;
         $this->batchSize = $batchSize;
     }
 
@@ -76,6 +84,20 @@ final class QueueJanitor
                 }
             } while ($batch === $this->batchSize);
         }
+
+        return $deleted + $this->finishedJobs($deadline);
+    }
+
+    /**
+     * Deletes batches of finished jobs past JOB_RETENTION until none is left or the deadline passes.
+     */
+    private function finishedJobs(Deadline $deadline): int
+    {
+        $deleted = 0;
+        do {
+            $batch = $this->jobs->deleteFinished(self::JOB_RETENTION, $this->batchSize);
+            $deleted += $batch;
+        } while ($batch === $this->batchSize && !$deadline->passed());
 
         return $deleted;
     }

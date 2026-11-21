@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -80,7 +81,8 @@ final class SchedulerProvider implements ProviderInterface
             'register_shutdown_function'
         ));
         $services->set(QueueJanitor::class, fn (Services $services): QueueJanitor => new QueueJanitor(
-            $services->get(QueueProvider::EVENT_QUEUE)
+            $services->get(QueueProvider::EVENT_QUEUE),
+            new JobStore()
         ));
 
         foreach (self::TRAFFIC_HOOKS as $hook) {

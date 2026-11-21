@@ -1906,15 +1906,25 @@ shop instead); "Edit design", transactional emails and the Campaign Intelligence
 rows in a terminal state 30 days, finished jobs 90 days. Engine-side retention follows contract §8;
 the user guide carries the privacy-policy template of `woo:docs/DATA_MODEL_GDPR.md`.
 
-As built (Story 1.6): the job `queue_janitor` (`Scheduler\QueueJanitor`) runs daily and covers the
-event queue only. It deletes `sent` and `skipped` rows 30 days and `failed` rows 90 days after their
-`updated_at`, in batches of 1000 by primary key (`EventQueue::deleteClosed()`), until none is left or
-its deadline passes. It never deletes a `pending` or `processing` row. The Story that builds the
-ingest queue (5.2) adds its table to the sweep. Two tables are written and not swept, each a
-clean-up item (section 13, "Queued clean-up"): the job table (Story 2.4), whose finished import jobs
-stay until uninstall, and the cart tracker (Story 4.3), whose closed rows stay until uninstall.
-The tracker's own `CartTracker::purge()` removes only the addresses: it deletes a recorded address
-that served no reminder, and clears the address of a closed cart (section 7).
+As built: the job `queue_janitor` (`Scheduler\QueueJanitor`) runs daily. It deletes `sent` and
+`skipped` rows of the event queue 30 days and `failed` rows 90 days after their `updated_at`, in
+batches of 1000 by primary key (`EventQueue::deleteClosed()`), until none is left or its deadline
+passes. It never deletes a `pending` or `processing` row. It then deletes the finished jobs of the
+job table (`done`, `failed`, `cancelled`) 90 days after their `updated_at`, in the same batches
+(`JobStore::deleteFinished()`); it never deletes a `queued` or `running` job. The card of the first
+import (Settings > Contacts, the Initial setup) reads the newest import job, so it offers "Start
+import" again once that job is 90 days old; the daily refresh does not read it. Magento's janitor
+does not sweep its job table. The Story that builds the ingest queue (5.2) adds its table to the
+sweep.
+
+The cart tracker (Story 4.3) is written and not swept: its closed rows stay until uninstall. The
+30 days above are not applied to it yet, because they meet another rule: the sweep knows that a
+cart was reminded from its tracker row alone (section 7), so a cart whose row is gone is due again
+when the shopper changes it, and section 3.5 says that a cart that 2.x reminded is never reminded
+again. Magento deletes a closed row after 30 days and reminds such a cart again. Which rule holds
+is the owner's decision (section 13, "Queued clean-up"). The tracker's own `CartTracker::purge()`
+removes only the addresses: it deletes a recorded address that served no reminder, and clears the
+address of a closed cart (section 7). The janitor never reads 2.x's `smaily_cart`.
 
 ### 11.4 Uninstall
 
@@ -2047,8 +2057,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 1. The deferred part of Story 1.8 (below).
 2. The Smaily mock's transport refuses every host other than `*.sendsmaily.net` (section 12).
 3. The integration test that leaves other cron tokens behind restores the tokens it found (section 12).
-4. The queue janitor also sweeps finished rows of `smaily_connect_job` and closed rows of
-   `smaily_connect_cart` (section 11.3).
+4. The queue janitor also sweeps closed rows of `smaily_connect_cart`, once the owner has decided
+   whether a cart may be reminded again after its row is gone (section 11.3).
 5. `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and have no listener
    (section 7): either the listeners that the plan named, or the hooks leave `Install\HookList`.
 
