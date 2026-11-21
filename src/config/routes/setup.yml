@@ -27,3 +27,10 @@ smailyforprestashop_api_setup_import_progress:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress::execute
     _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_workflows:
+  path: /smailyforprestashop/api/setup/workflows
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows::execute
+    _legacy_controller: AdminSmailyConnectSetup

@@ -10,6 +10,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportProgress;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\Details as LogDetails;
@@ -45,6 +46,9 @@ use Twig\Environment;
 final class ControllerContainerTest extends IntegrationTestCase
 {
     private const SETUP_ROUTE = ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_save'];
+
+    /** An Automations save that is refused before anything is written or asked of Smaily. */
+    private const CART_DELAY_TOO_SHORT = ['triggers' => ['abandoned_cart' => ['enabled' => true]], 'cart_delay' => '9'];
 
     private ?string $setupState = null;
 
@@ -163,6 +167,8 @@ final class ControllerContainerTest extends IntegrationTestCase
     {
         return [
             'save' => [SaveTab::class, 'smailyforprestashop_api_settings_save', ['tab' => 'no-such-tab'], 400, 'unknown_tab', 'Saving failed.'],
+            'save automations' => [SaveTab::class, 'smailyforprestashop_api_settings_save', ['tab' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT], 422, 'invalid_fields', 'The abandoned-cart wait must be from 10 to 1435 minutes. A longer wait would send no reminder.'],
+            'workflows' => [Workflows::class, 'smailyforprestashop_api_settings_workflows', ['account' => 'no such account'], 200, null, null],
             'test-connection' => [TestConnection::class, 'smailyforprestashop_api_settings_test', [], 422, 'invalid_fields', 'Please fill in the subdomain, username and password.'],
             'layout' => [ChangeLayout::class, 'smailyforprestashop_api_settings_layout', ['shape' => 'no-such-shape'], 422, 'invalid_fields', 'Pick how your shops are run.'],
             'contact-import' => [ContactImportAction::class, 'smailyforprestashop_api_settings_import', ['action' => 'no-such-action'], 400, 'unknown_action', 'Saving failed.'],
@@ -185,6 +191,42 @@ final class ControllerContainerTest extends IntegrationTestCase
         self::assertSame($code === null, $answer['ok']);
         self::assertSame($code, $answer['error']['code'] ?? null);
         self::assertSame($message, $answer['error']['message'] ?? null);
+    }
+
+    public function testTheSetupsAutomationsStepAndItsWorkflowListAnswerInWords(): void
+    {
+        $response = $this->execute(new SaveStep(), $this->locator(), ['step' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT]);
+        $answer = json_decode((string) $response->getContent(), true);
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame([['field' => 'cart_delay', 'message' => 'The abandoned-cart wait must be from 10 to 1435 minutes. A longer wait would send no reminder.']], $answer['error']['fields']);
+
+        $response = $this->execute(new Workflows(), $this->locator(), ['account' => 'no such account'], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_workflows']);
+        self::assertSame(['ok' => true, 'data' => ['workflows' => [], 'error' => null]], json_decode((string) $response->getContent(), true));
+    }
+
+    /**
+     * @return array<string, array{class-string<AbstractJsonAction>, array<string, mixed>}>
+     */
+    public function automationEndpoints(): array
+    {
+        return [
+            'Save Automations' => [SaveTab::class, ['tab' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT]],
+            'the workflow lists' => [Workflows::class, ['account' => 'default']],
+        ];
+    }
+
+    /**
+     * @dataProvider automationEndpoints
+     *
+     * @param class-string<AbstractJsonAction> $action
+     * @param array<string, mixed> $body
+     */
+    public function testAnAutomationsEndpointRefusesAMissingRightAndAStalePageToken(string $action, array $body): void
+    {
+        $route = ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_settings_save'];
+
+        self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), $body, $route));
+        self::assertError(403, 'invalid_token', 'The page has expired. Reload it and try again.', $this->execute(new $action(), $this->locator(true, false), $body, $route));
     }
 
     public function testTheLogHandsItsFilteredListToTwig(): void

@@ -39,6 +39,7 @@ use Symfony\Component\HttpFoundation\Request;
  * - `connect`: the Smaily account and the language mode (ConnectionPanel); answers `connected`
  *   and, when Smaily refused or could not be asked, `error`. The save stands either way.
  * - `contacts`: the Contacts settings (ContactsPanel); contact sync starts with it.
+ * - `automations`: the store automations (AutomationsPanel).
  * - `finish`: the setup is done; the Configure button opens the Dashboard from now on.
  */
 final class SaveStep extends AbstractSetupAction
@@ -64,6 +65,10 @@ final class SaveStep extends AbstractSetupAction
                 return ['connected' => $result['connected'], 'error' => $result['error']];
             case 'contacts':
                 $errors = $panels->contacts()->save($scope, $data);
+
+                return $errors === [] ? [] : $this->fieldErrors($errors);
+            case 'automations':
+                $errors = $panels->automations()->save($scope, $data);
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'finish':

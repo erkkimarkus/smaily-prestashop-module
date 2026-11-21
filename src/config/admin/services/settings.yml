@@ -14,3 +14,6 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows

@@ -34,12 +34,13 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Saves one tab of Settings, as Magento's Settings saves a tab through its SaveStep: POST {"tab":
- * …, "data": {…}, "own": bool}. Connection and Contacts go through the Initial setup's panels
- * (Admin\Settings\TabSaver), RSS through Admin\Settings\RssPanel.
+ * …, "data": {…}, "own": bool}. Connection, Contacts and Automations go through the Initial
+ * setup's panels (Admin\Settings\TabSaver), RSS through Admin\Settings\RssPanel.
  *
  * - `connection`: answers `connected` and, when Smaily refused or could not be asked, `error`; the
  *   save stands either way.
  * - `contacts`: the Contacts settings.
+ * - `automations`: the store automations' switches, workflows and cart delay.
  * - `rss`: the product feed URL builder's defaults.
  *
  * `own` is the tab's switch "Use its own … on this shop", which a shop selected in one store shows.
@@ -69,7 +70,10 @@ final class SaveTab extends AbstractSettingsAction
                     'own_account_started' => $result['own_account_started'],
                 ];
             case 'contacts':
-                $result = $settings->saver()->saveContacts($settings->context($idShop), $data, $own);
+            case 'automations':
+                $saver = $settings->saver();
+                $context = $settings->context($idShop);
+                $result = $body['tab'] === 'contacts' ? $saver->saveContacts($context, $data, $own) : $saver->saveAutomations($context, $data, $own);
 
                 return $result['errors'] === [] ? ['returned' => $result['returned']] : $this->fieldErrors($result['errors']);
             case 'rss':
