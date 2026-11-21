@@ -145,6 +145,24 @@ final class CatalogManifestTest extends IngestTestCase
         self::assertCount(count(self::combinations(1)) + count(self::combinations(2)), $requests[1]['body']['products']);
     }
 
+    public function testAConnectionOfTheOtherShopLayoutSendsNoList(): void
+    {
+        // The installation-wide connection of one store, left behind by a change to separate stores.
+        $shared = $this->connect();
+        [$first] = $this->separateStores();
+
+        $this->manifest()->run(self::deadline());
+        self::assertSame([], $this->engine->requestsTo(self::MANIFEST), 'it serves no shop now, so it claims no list');
+
+        $this->engine->set('next_prefix', 'c4-');
+        $own = $this->connect($first);
+        $this->manifest()->run(self::deadline());
+
+        $requests = $this->engine->requestsTo(self::MANIFEST);
+        self::assertSame(['Bearer ' . $own->apiKey()], array_column($requests, 'authorization'), 'the shop\'s own connection sends its list');
+        self::assertNotSame($shared->apiKey(), $own->apiKey());
+    }
+
     /**
      * @dataProvider unprefixed
      */

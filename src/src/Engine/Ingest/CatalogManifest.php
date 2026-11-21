@@ -52,6 +52,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
  *
  * A list is due from 03:30 of the shop's day, once (the first tick after that time sends it).
  * Nothing is sent, and nothing is recorded, while one of these holds; the next run asks again:
+ *  - the connection is of the other shop layout (the installation-wide one in separate stores, a
+ *    shop's own in one store) and so serves no shop;
  *  - the engine refuses the connection, or its key does not read;
  *  - the connection shares its engine store (`tenant_id`) with another stored connection while
  *    either holds no prefix (suppressed(), ARCHITECTURE 5.3): two lists without a prefix would
@@ -123,6 +125,11 @@ final class CatalogManifest
      */
     public function isDue(Connection $connection, array $connections): bool
     {
+        // A connection of the other shop layout serves no shop now: nothing keeps its catalog up
+        // to date, so it claims no list either.
+        if ($this->connections->keyOf(max(1, $connection->idShop())) !== $connection->idShop()) {
+            return false;
+        }
         if (!IngestFlusher::maySend($connection) || self::suppressed($connection, $connections)) {
             return false;
         }
