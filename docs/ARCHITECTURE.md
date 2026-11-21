@@ -1585,7 +1585,8 @@ with `force_opt_in = false`.
   newsletter-block subscriber without an account is such a contact in subscribers only and in all
   customers, whatever "include guests" says (owner, 2026-11-21; section 6.2). A consent that
   the back office, the reconcile, an import or the upgrade writes starts no welcome. Each storefront
-  subscribe starts it, a re-subscribe too: there is no once-per-contact record. The contact sync
+  subscribe starts it, a re-subscribe too, as in Magento and WooCommerce (owner, 2026-11-21): there
+  is no once-per-contact record. The contact sync
   itself need not be on.
 - **First order** (`FirstOrder\FirstOrderTrigger`, `FirstOrderHandler`). `actionValidateOrder` queues
   one row for the first order of a registered customer (no earlier order, in any state); a
@@ -2995,18 +2996,21 @@ has one owner:
 
 ### Story 4.2 — Welcome and first-order automations
 
-- **Goal.** The two contact automations fire once per contact, through the right account.
+- **Goal.** The welcome fires on each storefront subscribe and the first-order email once per
+  customer, through the right account.
 - **Owns.** `src/src/Automation/{Welcome,FirstOrder}/`, `src/src/Queue/Handler/AutomationHandler.php`.
 - **Depends on.** 4.1, 2.3.
 - **Acceptance.**
-  1. A subscribe fires welcome once; a resubscribe, an admin change or an import does not (Magento
-     parity audit R6). With the block's verification email on, the welcome starts from the
-     verification link (section 6.3).
+  1. A storefront subscribe fires the welcome, each time: after subscribe → unsubscribe →
+     subscribe the contact gets it again, as in Magento and WooCommerce (owner, 2026-11-21; this
+     replaces "fires welcome once; a resubscribe … does not"). An admin change or an import fires
+     none (Magento parity audit R6). With the block's verification email on, the welcome starts
+     from the verification link (section 6.3).
   2. A first order fires first-order once per address; the trigger carries its `*_automation_at` field.
   3. Every trigger sends `force_opt_in = false`.
 - **As built** (section 7). The welcome starts on a shopper's own consent in the storefront, each
-  time: a re-subscribe starts it again, and no once-per-contact record exists (acceptance 1 says
-  "once"). The first-order email goes for the first order of a registered customer, never for a
+  time: a re-subscribe starts it again, and no once-per-contact record exists. The first-order
+  email goes for the first order of a registered customer, never for a
   guest-checkout customer, and only with marketing consent, checked at send time (owner,
   2026-11-20). `Automation\FirstOrder\FirstOrderHandler` wraps `Queue\Handler\AutomationHandler`.
 
@@ -3198,7 +3202,6 @@ has one owner:
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
 | 29 | Two shops on one Smaily account with different consent modes | Not known: whether the reconcile of the "Subscribers only" shop can mark a customer subscribed because the "All customers" shop created the contact in Smaily (section 6.5). It depends on how Smaily's action log records a contact that the API creates, which no run against the live service has shown. | Owner, with a live Smaily account |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
-| 31 | The welcome email repeats | Every storefront subscribe starts the welcome, a re-subscribe too: no once-per-contact record exists (section 7). Magento and WooCommerce do the same; Shopify sends it once per contact. | Owner |
 | 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
 | 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
 | 34 | Two hooks without a listener | `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and unused (section 7). Removing them before the release changes `Install\HookList` and the main class. | Owner |
@@ -3218,8 +3221,8 @@ and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x c
 more), row 24 (mode `a` and the workflow of no language) and row 38 (the cron line on the Background
 tasks card) on 2026-11-21; they moved to section 15. So did rows 23 (a late unsubscribe after a newer
 subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription check covers one
-shop), answered together on 2026-11-21, and row 25 (a newsletter-block subscriber without an
-account).
+shop), answered together on 2026-11-21, row 25 (a newsletter-block subscriber without an
+account) and row 31 (the welcome email repeats).
 
 ## 15. Decisions
 
@@ -3306,3 +3309,6 @@ Decisions of 2026-11-21:
 - An unsubscribe is sent even when the read of the consent before the save failed (owner,
   2026-11-21): a customer save that ends not subscribed then queues the unsubscribe; a save that
   ends subscribed never queues a subscription on such a failure (section 6.3).
+- The welcome email may repeat on subscribe → unsubscribe → subscribe, as in Magento and
+  WooCommerce (owner, 2026-11-21). No once-per-contact record is built; Story 4.2's acceptance
+  says so now (section 13).
