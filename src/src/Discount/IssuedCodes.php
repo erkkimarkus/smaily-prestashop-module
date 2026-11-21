@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCart
 use PrestaShop\Module\SmailyForPrestaShop\Automation\FirstOrder\FirstOrderTrigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
@@ -116,15 +117,15 @@ final class IssuedCodes
         if ($address === '') {
             return [];
         }
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT `payload` FROM `%s%s` WHERE `entity_id` = \'%s\' AND `event_type` IN (\'%s\')',
             _DB_PREFIX_,
             EventQueue::TABLE,
             pSQL(ContactEntity::of($address)),
             implode('\', \'', self::EVENT_TYPES)
-        ), true, false);
+        ));
         $codes = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             $payload = json_decode((string) $row['payload'], true);
             if (!is_array($payload) || !is_array($payload['fields'] ?? null) || mb_strtolower(trim((string) ($payload['email'] ?? ''))) !== $address) {
                 continue;
@@ -166,13 +167,13 @@ final class IssuedCodes
      */
     private function rows(string $condition): array
     {
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT cr.`id_cart_rule`, cr.`code`, cr.`date_add`, cr.`date_to`, (NOT %s) AS `used` FROM `%scart_rule` cr WHERE %s AND %s ORDER BY cr.`id_cart_rule`',
             self::unused(),
             _DB_PREFIX_,
             CodeIssuer::issued('cr'),
             $condition
-        ), true, false);
+        ));
 
         return array_map(static fn (array $row): array => [
             'id' => (int) $row['id_cart_rule'],
@@ -180,7 +181,7 @@ final class IssuedCodes
             'created_at' => (string) $row['date_add'],
             'expires_at' => (string) $row['date_to'],
             'used' => (bool) $row['used'],
-        ], is_array($rows) ? $rows : []);
+        ], $rows);
     }
 
     /**
@@ -190,14 +191,14 @@ final class IssuedCodes
      */
     private function ids(string $condition): array
     {
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT cr.`id_cart_rule` FROM `%scart_rule` cr WHERE %s AND %s',
             _DB_PREFIX_,
             CodeIssuer::issued('cr'),
             $condition
-        ), true, false);
+        ));
 
-        return array_map(static fn (array $row): int => (int) $row['id_cart_rule'], is_array($rows) ? $rows : []);
+        return array_map(static fn (array $row): int => (int) $row['id_cart_rule'], $rows);
     }
 
     /**

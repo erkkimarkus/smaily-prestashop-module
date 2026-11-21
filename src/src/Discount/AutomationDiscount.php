@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -159,7 +160,7 @@ final class AutomationDiscount
             return 0;
         }
 
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT cu.`id_customer` FROM `%1$scustomer` cu'
             . ' INNER JOIN `%1$sshop` s ON s.`id_shop` = %2$d'
             . ' INNER JOIN `%1$sshop_group` sg ON sg.`id_shop_group` = s.`id_shop_group`'
@@ -169,10 +170,7 @@ final class AutomationDiscount
             _DB_PREFIX_,
             $idShop,
             pSQL(trim($email))
-        ), true, false);
-        if (!is_array($rows)) {
-            throw new \RuntimeException('The customer account of the address could not be read.');
-        }
+        ));
 
         return $rows === [] ? 0 : (int) $rows[0]['id_customer'];
     }

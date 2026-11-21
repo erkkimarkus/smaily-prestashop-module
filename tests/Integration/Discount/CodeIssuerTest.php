@@ -228,6 +228,63 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertNotNull($this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME), 'the next attempt makes its code');
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public function restrictionTables(): array
+    {
+        return [
+            'the shops' => ['cart_rule_shop'],
+            'the countries' => ['cart_rule_country'],
+            'the customer groups' => ['cart_rule_group'],
+            'the product rules' => ['cart_rule_product_rule_group'],
+            'the products of a rule' => ['cart_rule_product_rule_value'],
+        ];
+    }
+
+    /**
+     * PrestaShop's copy of a template's restrictions answers nothing, and on PrestaShop 9.2.0 with
+     * debug mode off a statement of it that fails raises no error (facts file 6.11): the code was
+     * issued without that restriction, valid for more shops, countries, groups or products than
+     * its template. Here the database refuses the copy's rows of one table for real, by a trigger;
+     * the issuer counts the rows of the copy against the template's and issues nothing. Run this
+     * test with debug mode off too (DEV_ENVIRONMENT 4): with it on, and on PrestaShop 8, the
+     * failed statement throws by itself.
+     *
+     * @dataProvider restrictionTables
+     */
+    public function testACodeThatLacksARestrictionOfItsTemplateIsNotIssued(string $table): void
+    {
+        $template = $this->template(['shop_restriction' => true, 'country_restriction' => true, 'group_restriction' => true, 'product_restriction' => true]);
+        self::db()->insert('cart_rule_shop', ['id_cart_rule' => $template, 'id_shop' => $this->idShop]);
+        self::db()->insert('cart_rule_country', ['id_cart_rule' => $template, 'id_country' => (int) \Configuration::get('PS_COUNTRY_DEFAULT')]);
+        self::db()->insert('cart_rule_group', ['id_cart_rule' => $template, 'id_group' => (int) \Configuration::get('PS_CUSTOMER_GROUP')]);
+        self::db()->insert('cart_rule_product_rule_group', ['id_cart_rule' => $template, 'quantity' => 1]);
+        self::db()->insert('cart_rule_product_rule', ['id_product_rule_group' => (int) self::db()->Insert_ID(), 'type' => 'products']);
+        self::db()->insert('cart_rule_product_rule_value', ['id_product_rule' => (int) self::db()->Insert_ID(), 'id_item' => 1]);
+        $rules = (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'cart_rule`', false);
+
+        self::db()->execute('DROP TRIGGER IF EXISTS `smaily_test_refuse`');
+        self::assertTrue(self::db()->execute(
+            'CREATE TRIGGER `smaily_test_refuse` BEFORE INSERT ON `' . _DB_PREFIX_ . $table . '`'
+            . ' FOR EACH ROW SIGNAL SQLSTATE \'45000\' SET MESSAGE_TEXT = \'refused for the test\''
+        ));
+        try {
+            $this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME);
+            self::fail('The issuer reported a code that lacks a restriction of its template.');
+        } catch (\Throwable $error) {
+            self::assertNotInstanceOf(\PHPUnit\Framework\AssertionFailedError::class, $error);
+        } finally {
+            self::db()->execute('DROP TRIGGER IF EXISTS `smaily_test_refuse`');
+        }
+
+        self::assertSame([], self::issuedIds(), 'the code is discarded');
+        self::assertSame($rules, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'cart_rule`', false));
+        $code = $this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME);
+        self::assertNotNull($code, 'the next attempt makes its code');
+        self::assertSame('1', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'cart_rule_country` WHERE `id_cart_rule` = ' . $code['id'], false));
+    }
+
     public function testPrestaShopTakesTheCodeOnceForItsCustomerUntilItsLastDay(): void
     {
         $template = $this->template();

@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * The merchant's cart rules that an automation's discount codes can be copies of (the templates;
  * the Magento connector's Discount\RuleSource and the WooCommerce connector's template coupon):
@@ -78,7 +80,7 @@ final class TemplateRules
     public function listFor(array $shops, int $idLang): array
     {
         $shops = array_values(array_unique(array_map('intval', $shops)));
-        $rows = \Db::getInstance()->executeS(sprintf(
+        $rows = Sql::rows(sprintf(
             'SELECT cr.`id_cart_rule`, cr.`code`, crl.`name` FROM `%1$scart_rule` cr'
             . ' LEFT JOIN `%1$scart_rule_lang` crl ON crl.`id_cart_rule` = cr.`id_cart_rule` AND crl.`id_lang` = %2$d'
             . ' WHERE %3$s AND cr.`id_customer` = 0 AND (cr.`date_to` IS NULL OR cr.`date_to` = \'0000-00-00 00:00:00\' OR cr.`date_to` >= \'%4$s\')'
@@ -93,10 +95,10 @@ final class TemplateRules
             $shops === [] ? '0' : implode(', ', $shops),
             count($shops),
             self::LIST_LIMIT
-        ), true, false);
+        ));
 
         $rules = [];
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             $name = trim((string) $row['name']);
             $rules[] = ['id' => (int) $row['id_cart_rule'], 'name' => $name !== '' ? $name : (string) $row['code']];
         }
@@ -148,12 +150,7 @@ final class TemplateRules
      */
     private static function count(string $table, string $condition): int
     {
-        $count = \Db::getInstance()->getValue(sprintf('SELECT COUNT(*) FROM `%s%s` WHERE %s', _DB_PREFIX_, $table, $condition), false);
-        if ($count === false || $count === null) {
-            throw new \RuntimeException('The cart rules could not be read.');
-        }
-
-        return (int) $count;
+        return Sql::count(sprintf('SELECT COUNT(*) FROM `%s%s` WHERE %s', _DB_PREFIX_, $table, $condition));
     }
 
     /**

@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * Issues one shopper's discount code as a copy of a template cart rule, the way PrestaShop itself
  * copies a rule (the remainder voucher of PaymentModule): the template's main row, then
@@ -83,6 +85,26 @@ final class CodeIssuer
     private const CODE_ATTEMPTS = 5;
 
     private const START_MARGIN_SECONDS = 86400;
+
+    /**
+     * A count per table that CartRule::copyConditions() copies: the rows of one cart rule (`%2$d`)
+     * in the tables of prefix `%1$s`.
+     */
+    private const RESTRICTION_COUNTS = [
+        'SELECT COUNT(*) FROM `%1$scart_rule_shop` WHERE `id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_carrier` WHERE `id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_group` WHERE `id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_country` WHERE `id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_combination` WHERE `id_cart_rule_1` = %2$d OR `id_cart_rule_2` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_product_rule_group` WHERE `id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_product_rule` pr'
+        . ' INNER JOIN `%1$scart_rule_product_rule_group` g ON g.`id_product_rule_group` = pr.`id_product_rule_group`'
+        . ' WHERE g.`id_cart_rule` = %2$d',
+        'SELECT COUNT(*) FROM `%1$scart_rule_product_rule_value` v'
+        . ' INNER JOIN `%1$scart_rule_product_rule` pr ON pr.`id_product_rule` = v.`id_product_rule`'
+        . ' INNER JOIN `%1$scart_rule_product_rule_group` g ON g.`id_product_rule_group` = pr.`id_product_rule_group`'
+        . ' WHERE g.`id_cart_rule` = %2$d',
+    ];
 
     private TemplateRules $templates;
 
@@ -156,15 +178,20 @@ final class CodeIssuer
             }
             \CartRule::copyConditions($idRule, (int) $rule->id);
             self::copyCompatibleTypes($idRule, (int) $rule->id);
+            self::checkRestrictions($idRule, (int) $rule->id);
         } catch (\Throwable $error) {
-            // PrestaShop stores the main row first: its names, or another module's hook on a new
-            // cart rule, can still fail. No half-made rule stays, so a retry starts anew.
+            // PrestaShop stores the main row first: its names, another module's hook on a new cart
+            // rule, or the copy of the restrictions can still fail. No half-made rule stays, so a
+            // retry starts anew.
             if ((int) $rule->id > 0) {
                 try {
-                    $rule->delete();
+                    $deleted = $rule->delete();
                 } catch (\Throwable $ignored) {
-                    \Db::getInstance()->delete('cart_rule', '`id_cart_rule` = ' . (int) $rule->id);
-                    \Db::getInstance()->delete('cart_rule_lang', '`id_cart_rule` = ' . (int) $rule->id);
+                    $deleted = false;
+                }
+                if (!$deleted) {
+                    Sql::delete('cart_rule', '`id_cart_rule` = ' . (int) $rule->id);
+                    Sql::delete('cart_rule_lang', '`id_cart_rule` = ' . (int) $rule->id);
                 }
             }
             throw $error;
@@ -243,20 +270,32 @@ final class CodeIssuer
     private static function copyCompatibleTypes(int $idTemplate, int $idRule): void
     {
         $table = _DB_PREFIX_ . 'cart_rule_compatible_types';
-        $tables = \Db::getInstance()->executeS('SHOW TABLES LIKE \'' . str_replace('_', '\\_', pSQL($table)) . '\'', true, false);
-        if (!is_array($tables)) {
-            throw new \RuntimeException('The tables of the cart rules could not be read.');
-        }
-        if ($tables === []) {
+        if (Sql::rows('SHOW TABLES LIKE \'' . str_replace('_', '\\_', pSQL($table)) . '\'') === []) {
             return;
         }
-        if (!\Db::getInstance()->execute(sprintf(
+        Sql::write(sprintf(
             'INSERT INTO `%1$s` (`id_cart_rule`, `id_cart_rule_type`) SELECT %2$d, `id_cart_rule_type` FROM `%1$s` WHERE `id_cart_rule` = %3$d',
             $table,
             $idRule,
             $idTemplate
-        ))) {
-            throw new \RuntimeException('PrestaShop did not store the discount types of the code.');
+        ));
+    }
+
+    /**
+     * Checks that the code carries every restriction of its template: the same number of rows in
+     * each table that CartRule::copyConditions() copies. That method answers nothing, and on
+     * PrestaShop 9.2.0 with debug mode off a statement of it that fails raises no error: the code
+     * would then be valid in more shops, countries, customer groups, carriers or for more
+     * products than its template.
+     *
+     * @throws \RuntimeException when the code lacks a restriction of its template
+     */
+    private static function checkRestrictions(int $idTemplate, int $idRule): void
+    {
+        foreach (self::RESTRICTION_COUNTS as $count) {
+            if (Sql::count(sprintf($count, _DB_PREFIX_, $idTemplate)) !== Sql::count(sprintf($count, _DB_PREFIX_, $idRule))) {
+                throw new \RuntimeException('The discount code does not carry the restrictions of its template.');
+            }
         }
     }
 
