@@ -1,0 +1,151 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # The Automations panel: shared by the Initial setup (step 3) and Settings > Automations, read and
+ # saved by Admin\Setup\AutomationsPanel. Magento's panel/automations.phtml, with "store view" read
+ # as "language".
+ #
+ # Each store automation is a card: its name, the Off/Active pill, its description and the Enabled
+ # switch; while it is on, also its Smaily workflow and, for the abandoned cart, the wait. A
+ # switched-off card keeps its values in the form, so the save keeps them. The workflow lists come
+ # live from Smaily (Admin\Api\Workflows): a select is empty until its list has answered, and
+ # `data-saved` holds what it posts until then. `data-smaily-workflows` names the account whose
+ # list a select takes: `default`, or in mode `a` its language.
+ #
+ # In the language modes `a` and `b`, the card "Per-language workflows" follows: one table per
+ # automation that is on, with a workflow per language and the default fallback. In mode `a` the
+ # cards' own workflow is not drawn: it belongs to no language's account.
+ #
+ # Takes `automations` (AutomationsPanel::values()), `languages` (ISO code => name) and `context`
+ # ('setup' or 'settings': the Initial setup shows the title above the step).
+ # Behaviour: views/js/admin/panels.js ([data-smaily-panel=automations]).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set mode = automations.mode %}
+{% set per_language = mode in ['a', 'b'] %}
+{% set triggers = {
+  welcome: ['Welcome'|trans, 'Fires when a shopper subscribes to the newsletter in your store.'|trans],
+  first_order: ['First order'|trans, 'Fires on a customer\'s first purchase.'|trans],
+  abandoned_cart: ['Abandoned cart'|trans, 'Fires when a cart is left behind.'|trans],
+} %}
+{% set any_on = automations.triggers|filter(saved => saved.enabled)|length > 0 %}
+<div class="smaily-panel" data-smaily-panel="automations" data-mode="{{ mode }}"
+     data-label-active="{{ 'Active'|trans }}"
+     data-label-off="{{ 'Off'|trans }}"
+     data-label-not-selected="{{ '-- Not Selected --'|trans }}"
+     data-label-kept="{{ 'Workflow #%id% (not in your Smaily list — kept)'|trans }}"
+     data-label-optin="{{ 'Smaily\'s opt-in trigger (from 2.x)'|trans }}">
+  <div class="smaily-card">
+    {% if context|default('setup') == 'settings' %}
+      <h2>{{ 'Map store events to Smaily automations'|trans }}</h2>
+    {% endif %}
+    <p>
+      {{ 'Each event triggers the Smaily automation workflow you pick. The lists below come live from your Smaily account — create the workflows there first if they are missing, then press Refresh.'|trans }}
+      <button type="button" class="btn btn-link smaily-triggers__refresh" data-smaily-action="refresh-workflows">{{ 'Refresh workflows'|trans }}</button>
+    </p>
+
+    <div class="smaily-triggers">
+      {% for trigger, card in triggers %}
+        {% set saved = automations.triggers[trigger] %}
+        <div class="smaily-trigger{{ saved.enabled ? ' is-active' : ' is-off' }}" data-smaily-trigger="{{ trigger }}">
+          <div class="smaily-trigger__head">
+            <div class="smaily-trigger__name-row">
+              <span class="smaily-trigger__name">{{ card[0] }}</span>
+              <span class="smaily-pill{{ saved.enabled ? ' smaily-pill--active' : '' }}" data-smaily-pill><span class="smaily-pill__dot"></span><span data-smaily-pill-text>{{ saved.enabled ? 'Active'|trans : 'Off'|trans }}</span></span>
+            </div>
+            <div class="smaily-trigger__desc">{{ card[1] }}</div>
+            <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-field="{{ trigger }}.enabled"{{ saved.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>
+          </div>
+          {# A later block of the card (a discount code) goes after the controls, inside the settings. #}
+          <div class="smaily-trigger__settings" data-smaily-trigger-settings{% if not saved.enabled %} hidden{% endif %}>
+            <div class="smaily-trigger__controls">
+              {% if mode != 'a' %}
+                <label class="smaily-trigger__ctrl">
+                  <span>{{ 'Smaily Workflow'|trans }}</span>
+                  <select class="form-control" data-smaily-field="{{ trigger }}.workflow" data-smaily-workflows="default" data-saved="{{ saved.workflow }}"></select>
+                </label>
+              {% endif %}
+              {% if trigger == 'abandoned_cart' %}
+                <label class="smaily-trigger__ctrl">
+                  <span>{{ 'Wait (minutes)'|trans }}</span>
+                  <input type="number" class="form-control smaily-trigger__delay" data-smaily-field="cart_delay" min="10" max="1435" value="{{ automations.cart_delay }}">
+                </label>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <p class="smaily-note">{{ 'How long a cart must be inactive before it counts as abandoned. From 10 to 1435 minutes. Carts older than 24 hours are never mailed.'|trans }}</p>
+    <p class="smaily-note">{{ 'If another tool also sends abandoned-cart emails (for example another PrestaShop module such as Customer follow-up), switch those emails off there, so a shopper does not get two reminders for one cart.'|trans }}</p>
+    <p class="smaily-note">
+      {{ 'The automation receives the cart contents (up to 10 products).'|trans }}
+      {% if languages|length > 1 and not per_language %}
+        {{ 'Want a different workflow per language? Pick a per-language mode on the Connection panel.'|trans }}
+      {% endif %}
+    </p>
+  </div>
+
+  {% if per_language %}
+    <div class="smaily-card" data-smaily-language-workflows{% if not any_on %} hidden{% endif %}>
+      <h2>{{ 'Per-language workflows'|trans }}</h2>
+      {% if mode == 'a' %}
+        <p class="smaily-note">{{ 'Each language row lists the workflows of that language\'s own Smaily account (Connection panel) and fires through it.'|trans }}</p>
+        <p class="smaily-note">{{ 'The default fallback handles contacts whose language has no workflow. Leave it on "None" to use the workflow of the default fallback account\'s language (Connection panel). With neither, these contacts get no automation.'|trans }}</p>
+      {% else %}
+        <p class="smaily-note">{{ 'All languages share one Smaily account; each language fires its own workflow from the list.'|trans }}</p>
+        <p class="smaily-note">{{ 'The default fallback handles contacts whose language is not mapped. Leave it on "None" to fall back to the default workflow above.'|trans }}</p>
+      {% endif %}
+
+      {% for trigger, card in triggers %}
+        {% set saved = automations.triggers[trigger] %}
+        <div class="smaily-field smaily-ml-trigger" data-smaily-language-trigger="{{ trigger }}"{% if not saved.enabled %} hidden{% endif %}>
+          <label>{{ card[0] }}</label>
+          <table class="smaily-ml-table">
+            <thead>
+              <tr>
+                <th>{{ 'Language'|trans }}</th>
+                <th>{{ 'Workflow'|trans }}</th>
+                <th>{{ 'Default fallback'|trans }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for iso in languages|keys %}
+                <tr>
+                  <td>{{ iso|upper }}</td>
+                  <td><select class="form-control" data-smaily-field="{{ trigger }}.languages.{{ iso }}" data-language="{{ iso }}" data-smaily-workflows="{{ mode == 'a' ? iso : 'default' }}" data-saved="{{ saved.languages[iso]|default('') }}" aria-label="{{ card[0] }}, {{ iso|upper }}"></select></td>
+                  <td><input type="radio" name="smaily-fallback-{{ trigger }}" value="{{ iso }}"{{ saved.fallback == iso ? ' checked' : '' }} aria-label="{{ 'Default fallback'|trans }}, {{ iso|upper }}"></td>
+                </tr>
+              {% endfor %}
+              <tr>
+                <td colspan="2" class="smaily-ml-none">{{ mode == 'a' ? 'None (use the default fallback account\'s language)'|trans : 'None (use the default workflow above)'|trans }}</td>
+                <td><input type="radio" name="smaily-fallback-{{ trigger }}" value=""{{ saved.fallback == '' ? ' checked' : '' }} aria-label="{{ 'Default fallback'|trans }}"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>

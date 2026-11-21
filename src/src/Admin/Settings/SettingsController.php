@@ -38,9 +38,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The Settings page. The shell renders its frame (layout/settings.html.twig); this controller
- * passes the content of the tabs Connection, Contacts and RSS (views/templates/admin/settings/) as
- * `smaily_settings`, read by the Initial setup's panels for the shop of PrestaShop's shop selector
- * (SettingsScope), and the store-layout bar with its Change on a multishop store.
+ * passes the content of the tabs Connection, Contacts, Automations and RSS
+ * (views/templates/admin/settings/) as `smaily_settings`, read by the Initial setup's panels for
+ * the shop of PrestaShop's shop selector (SettingsScope), and the store-layout bar with its Change
+ * on a multishop store.
  *
  * No password reaches the page: the panels say only whether one is stored. The connection's state
  * is asked of Smaily after the page has loaded (views/js/admin/settings.js), so a slow Smaily never
@@ -62,9 +63,12 @@ final class SettingsController extends BaseController
         $ownShop = $context->ownShop();
         $shared = $context->shared();
         $connectionScope = $context->connectionScope($overrides);
+        $automationsScope = $context->automationsScope($overrides, $ownShop !== null && $overrides->hasOwn(ShopOverrides::AUTOMATIONS, $ownShop));
         $own = $ownShop === null ? null : [
             'connection' => $connectionScope !== $shared,
             'contacts' => $overrides->hasOwn(ShopOverrides::CONTACTS, $ownShop),
+            'automations' => $automationsScope !== $shared,
+            'automations_required' => $overrides->keepsOwnAutomations($ownShop),
         ];
         $connection = $setup->connection()->values($connectionScope);
         $contacts = $setup->contacts()->values($context->scope($own['contacts'] ?? false));
@@ -86,6 +90,9 @@ final class SettingsController extends BaseController
                 'account_per_language_elsewhere' => $context->accountPerLanguageElsewhere(),
                 'contacts' => $contacts,
                 'import' => $target === null ? null : $import->progress($target),
+                'automations' => $setup->automations()->values($automationsScope),
+                'automations_languages' => $automationsScope->languages(),
+                'pick_workflows' => $ownShop !== null && $overrides->needsOwnWorkflows($ownShop),
                 'rss' => $panels->rss()->values(),
             ],
         ], self::TEMPLATE);

@@ -1696,3 +1696,129 @@
   font-size: 12px;
   word-break: break-word;
 }
+
+/*
+ * The Automations panel (Story 4.1): one card per store automation, with Magento's measures (its
+ * trigger cards), and the per-language workflow table. The pill and the outer card are the shared
+ * ones above.
+ */
+.smaily-ui .smaily-triggers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.smaily-ui .smaily-triggers__refresh {
+  padding: 0;
+  vertical-align: baseline;
+}
+
+.smaily-ui .smaily-trigger {
+  padding: 15px 17px;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+  box-shadow: 0 0 4px 0 rgba(0, 0, 0, .06);
+}
+
+.smaily-ui .smaily-trigger.is-off {
+  background: var(--smaily-surface-2);
+}
+
+.smaily-ui .smaily-trigger.is-active {
+  border-left: 3px solid var(--smaily-success);
+}
+
+.smaily-ui .smaily-trigger__name-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.smaily-ui .smaily-trigger__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-trigger__desc {
+  font-size: 12px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-trigger__enable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.smaily-ui .smaily-trigger__settings {
+  margin-top: 12px;
+}
+
+.smaily-ui .smaily-trigger__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.smaily-ui .smaily-trigger__ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.smaily-ui .smaily-trigger__ctrl > span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-trigger__ctrl select {
+  min-width: 16rem;
+}
+
+.smaily-ui .smaily-trigger__delay {
+  width: 6rem;
+}
+
+.smaily-ui .smaily-ml-trigger {
+  margin-top: 16px;
+}
+
+.smaily-ui .smaily-ml-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.smaily-ui .smaily-ml-table th {
+  padding: 6px 16px 6px 0;
+  font-weight: 600;
+  text-align: left;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-ml-table td {
+  padding: 8px 16px 8px 0;
+  vertical-align: middle;
+  border-top: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-ml-table th:last-child,
+.smaily-ui .smaily-ml-table td:last-child {
+  text-align: center;
+}
+
+.smaily-ui .smaily-ml-none {
+  color: var(--smaily-muted);
+}

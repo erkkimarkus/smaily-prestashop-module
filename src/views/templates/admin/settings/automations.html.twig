@@ -1,0 +1,70 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # Settings > Automations (Magento's Automations tab): the switch "Use its own automations on this
+ # shop" for a shop selected in one store, the Automations panel of the Initial setup, and Save
+ # Automations. A shop that always keeps its own automations (its own account per language, or
+ # another Smaily account than the shared one) shows the switch ticked and fixed, and while it
+ # holds no workflow of its own, the warning to pick them. In separate stores with "All shops"
+ # selected, the tab says to pick a shop.
+ #
+ # `smaily_settings` comes from Admin\Settings\SettingsController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set s = smaily_settings %}
+{% if s.automations is null %}
+  <div class="smaily-panel">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/separate-stores.html.twig' only %}
+  </div>
+{% else %}
+  {% if s.own is not null %}
+    {% include '@Modules/smailyforprestashop/views/templates/admin/settings/own-toggle.html.twig' with {
+      section: 'automations',
+      label: 'Use its own automations on this shop'|trans,
+      own: s.own.automations,
+      required: s.own.automations_required,
+    } only %}
+  {% endif %}
+  {% if s.pick_workflows %}
+    <div class="smaily-panel">
+      <div class="smaily-banner" role="status">
+        <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+        <div class="smaily-banner__body">
+          <div class="smaily-banner__title">{{ 'Pick this shop\'s workflows'|trans }}</div>
+          <div class="smaily-banner__message">{{ 'This shop uses another Smaily account than the one saved for all shops, so it starts only workflows picked from its own account. No automation starts on it until you pick its workflows below and save.'|trans }}</div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  <div class="smaily-own-region" data-smaily-own-region="automations">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/automations.html.twig' with {
+      automations: s.automations,
+      languages: s.automations_languages,
+      context: 'settings',
+    } only %}
+  </div>
+  <div class="smaily-tab-footer">
+    <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-tab" data-tab="automations">{{ 'Save Automations'|trans }}</button>
+    <span class="smaily-result" data-smaily-tab-result role="status"></span>
+  </div>
+{% endif %}

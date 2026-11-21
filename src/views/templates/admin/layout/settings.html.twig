@@ -63,7 +63,7 @@
     </section>
     <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-automations" aria-labelledby="smaily-tab-automations" data-tab="automations" data-smaily-slot="settings/automations"{% if current != 'automations' %} hidden{% endif %}>
       <h2 class="smaily-tab-title">{{ 'Automations'|trans }}</h2>
-      <p class="smaily-tab-desc">{{ 'How store events and Campaign Intelligence triggers fire Smaily workflows.'|trans }}</p>
+      <p class="smaily-tab-desc">{{ 'How store events fire Smaily workflows.'|trans }}</p>
       {% block smaily_settings_automations %}{% include settings ~ 'automations.html.twig' ignore missing %}{% endblock %}
     </section>
     <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-intelligence" aria-labelledby="smaily-tab-intelligence" data-tab="intelligence" data-smaily-slot="settings/intelligence"{% if current != 'intelligence' %} hidden{% endif %}>

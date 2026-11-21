@@ -24,9 +24,9 @@
 /*
  * What the Initial setup (setup.js) and Settings (settings.js) share of the panels in
  * views/templates/admin/panel/: the page's words and endpoints, the field errors, the Connection
- * panel's account blocks with Test connection and the state, what the Connection and Contacts
- * panels would save, and the first contact import. Plain JavaScript, no build; on the shell of
- * common.js.
+ * panel's account blocks with Test connection and the state, what the Connection, Contacts and
+ * Automations panels would save, the Automations panel's cards and workflow lists, and the first
+ * contact import. Plain JavaScript, no build; on the shell of common.js.
  *
  * window.smailyConnect.panels(root, connectedLabel) takes the page's root element, which carries
  * the endpoints (data-api-*) and the words (data-label-*), and the label that a passed test of the
@@ -216,6 +216,120 @@
       return data;
     }
 
+    /*
+     * Automations: a card follows its Enabled switch, and the selects take their options from
+     * Smaily, one list per account (`default`, or a language in mode a).
+     */
+    var automations = panel('automations');
+    var workflowLists = {};
+
+    /* A select whose list has not answered yet holds what is saved. */
+    function workflowValue(select) {
+      return select.options.length ? select.value : (select.getAttribute('data-saved') || '');
+    }
+
+    /*
+     * A saved workflow that the list does not offer stays as an option of its own, so the save
+     * keeps it (Magento PRO-1286); the opt-in trigger of 2.x shows while it is the saved one.
+     */
+    function fillWorkflows(select) {
+      var word = labels(automations);
+      var current = workflowValue(select);
+      var listed = current === '';
+      select.textContent = '';
+      select.add(new Option(word('not-selected'), ''));
+      if (select.getAttribute('data-saved') === 'optin') {
+        select.add(new Option(word('optin'), 'optin'));
+        listed = listed || current === 'optin';
+      }
+      (workflowLists[select.getAttribute('data-smaily-workflows')] || []).forEach(function (workflow) {
+        select.add(new Option(workflow.name + ' (' + workflow.id + ')', workflow.id));
+        listed = listed || String(workflow.id) === current;
+      });
+      if (!listed) {
+        select.add(new Option(word('kept', {id: current}), current));
+      }
+      select.value = current;
+    }
+
+    /* Asks Smaily for each account's list; a list that cannot be loaded says why in `line`. */
+    function loadWorkflows(line) {
+      if (!automations) {
+        return Promise.resolve();
+      }
+      var selects = automations.querySelectorAll('[data-smaily-workflows]');
+      var accounts = [];
+      selects.forEach(function (select) {
+        var account = select.getAttribute('data-smaily-workflows');
+        if (accounts.indexOf(account) === -1) {
+          accounts.push(account);
+        }
+      });
+      var own = root.querySelector('[data-smaily-own="automations"]');
+      return Promise.all(accounts.map(function (account) {
+        return post('workflows', {account: account, own: own ? own.checked : false}).then(function (answer) {
+          workflowLists[account] = answer.workflows;
+          return answer.error;
+        }, function (error) {
+          workflowLists[account] = [];
+          return error.message;
+        });
+      })).then(function (errors) {
+        selects.forEach(fillWorkflows);
+        var failure = errors.filter(Boolean)[0];
+        show(line, failure || '', !failure);
+      });
+    }
+
+    function showTrigger(card) {
+      var trigger = card.getAttribute('data-smaily-trigger');
+      var on = card.querySelector('[data-smaily-field="' + trigger + '.enabled"]').checked;
+      card.classList.toggle('is-active', on);
+      card.classList.toggle('is-off', !on);
+      card.querySelector('[data-smaily-trigger-settings]').hidden = !on;
+      var pill = card.querySelector('[data-smaily-pill]');
+      pill.classList.toggle('smaily-pill--active', on);
+      pill.querySelector('[data-smaily-pill-text]').textContent = labels(automations)(on ? 'active' : 'off');
+      var languages = automations.querySelector('[data-smaily-language-workflows]');
+      if (languages) {
+        languages.querySelector('[data-smaily-language-trigger="' + trigger + '"]').hidden = !on;
+        languages.hidden = !automations.querySelector('[data-smaily-trigger].is-active');
+      }
+    }
+
+    /* What the Automations panel would save. */
+    function automationsData() {
+      var data = {triggers: {}, cart_delay: value(automations, 'cart_delay').trim()};
+      automations.querySelectorAll('[data-smaily-trigger]').forEach(function (card) {
+        var trigger = card.getAttribute('data-smaily-trigger');
+        var item = {enabled: card.querySelector('[data-smaily-field="' + trigger + '.enabled"]').checked};
+        var workflow = card.querySelector('[data-smaily-field="' + trigger + '.workflow"]');
+        if (workflow) {
+          item.workflow = workflowValue(workflow);
+        }
+        var table = automations.querySelector('[data-smaily-language-trigger="' + trigger + '"]');
+        if (table) {
+          item.languages = {};
+          table.querySelectorAll('select').forEach(function (select) {
+            item.languages[select.getAttribute('data-language')] = workflowValue(select);
+          });
+          item.fallback = checked(table, 'smaily-fallback-' + trigger);
+        }
+        data.triggers[trigger] = item;
+      });
+      return data;
+    }
+
+    /* After a save, what the selects hold is what is saved: the 2.x opt-in option goes with it. */
+    function automationsSaved() {
+      automations.querySelectorAll('[data-smaily-workflows]').forEach(function (select) {
+        select.setAttribute('data-saved', workflowValue(select));
+        if (select.options.length) {
+          fillWorkflows(select);
+        }
+      });
+    }
+
     /* The first contact import: its state, Start, Cancel, and the progress while it runs. */
     var importCard = (function (card) {
       if (!card) {
@@ -331,6 +445,9 @@
       if (hook) {
         hook(input);
       }
+      if (/\.enabled$/.test(input.getAttribute('data-smaily-field') || '') && input.closest('[data-smaily-trigger]')) {
+        showTrigger(input.closest('[data-smaily-trigger]'));
+      }
       if (input.matches('.smaily-choice__input')) {
         root.querySelectorAll('input[name="' + input.name + '"]').forEach(function (other) {
           other.closest('.smaily-choice').classList.toggle('is-selected', other.checked);
@@ -368,6 +485,9 @@
       showStatus: showStatus,
       connectionData: connectionData,
       contactsData: contactsData,
+      automationsData: automationsData,
+      automationsSaved: automationsSaved,
+      loadWorkflows: loadWorkflows,
       importCard: importCard,
       onChange: function (pageHook) {
         hook = pageHook;

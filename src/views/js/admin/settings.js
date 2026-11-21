@@ -22,15 +22,19 @@
  */
 
 /*
- * The Settings page's tabs Connection, Contacts and RSS (views/templates/admin/settings/ and the
- * panels of panel/), on the shell of common.js, which switches the tabs, and the panels of
- * panels.js. Plain JavaScript, no build. As Magento's Settings:
+ * The Settings page's tabs Connection, Contacts, Automations and RSS
+ * (views/templates/admin/settings/ and the panels of panel/), on the shell of common.js, which
+ * switches the tabs, and the panels of panels.js. Plain JavaScript, no build. As Magento's
+ * Settings:
  *
  * - every tab saves on its own (Admin\Api\Settings\SaveTab), and a refused save marks each field
  *   at fault with its message;
  * - a tab's switch "Use its own … on this shop", unticked on a shop that holds own values, mutes the
  *   tab until the save removes them; the page then reloads to show the shared values;
  * - the connection's state is asked of Smaily once the page has loaded;
+ * - the workflow lists of the Automations tab are asked of Smaily when the tab first shows, and
+ *   again on Refresh workflows; a saved language mode that changed reloads the page, because the
+ *   Automations tab is drawn for the saved mode;
  * - Change of the store layout opens the choice above the tabs; to one store it asks first;
  * - the RSS builder builds the feed URL from the picked values, with Copy.
  *
@@ -148,6 +152,16 @@
       });
     }
 
+    /* Automations: the workflow lists load when the tab first shows. */
+    var workflowsAsked = false;
+
+    function loadWorkflows() {
+      if (panel('automations')) {
+        workflowsAsked = true;
+        panels.loadWorkflows(tabPanel('automations').querySelector('[data-smaily-tab-result]'));
+      }
+    }
+
     /* Contacts: what a save changes about who is synced. */
     var contacts = panel('contacts');
 
@@ -193,7 +207,8 @@
       var scope = tabPanel(tab);
       var tabResult = scope.querySelector('[data-smaily-tab-result]');
       var own = ownSwitch(tab);
-      var data = tab === 'connection' ? panels.connectionData() : (tab === 'contacts' ? panels.contactsData() : rssData());
+      var collect = {connection: panels.connectionData, contacts: panels.contactsData, automations: panels.automationsData, rss: rssData};
+      var data = collect[tab]();
       if (tab === 'contacts' && !confirmAudience(data, own)) {
         return;
       }
@@ -211,7 +226,13 @@
           applyOwn(own);
         }
         if (tab === 'connection') {
-          savedLanguageMode = data.language_mode;
+          if (data.language_mode !== savedLanguageMode) {
+            reload();
+            return;
+          }
+          if (workflowsAsked) {
+            loadWorkflows();
+          }
           languageModeConfirmed = false;
           panels.showStatus(!!answer.connected);
           scope.querySelectorAll('[data-smaily-field$="password"]').forEach(function (input) {
@@ -228,6 +249,8 @@
             region.setAttribute('data-saved-guests', data.guests ? '1' : '0');
             contacts.setAttribute('data-active', data.enabled === false ? '0' : '1');
             panels.importCard.saved(data.enabled !== false, data.mode);
+          } else if (tab === 'automations') {
+            panels.automationsSaved();
           }
           result(tabResult, label('saved'), true);
         }
@@ -343,6 +366,8 @@
       var action = target.getAttribute('data-smaily-action');
       if (action === 'save-tab') {
         saveTab(target);
+      } else if (action === 'refresh-workflows') {
+        loadWorkflows();
       } else if (action === 'rss-copy') {
         copyFeedUrl();
       } else if (action === 'shape-change') {
@@ -363,5 +388,13 @@
     });
 
     checkStoredAccounts();
+    root.querySelector('[role=tab][data-tab="automations"]').addEventListener('click', function () {
+      if (!workflowsAsked) {
+        loadWorkflows();
+      }
+    });
+    if (!tabPanel('automations').hidden) {
+      loadWorkflows();
+    }
   });
 }());
