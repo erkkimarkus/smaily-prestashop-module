@@ -58,7 +58,7 @@ are written as finished-product public documentation. Internal process talk
    unified Log with retry. Only the technical stack and the visual shell come
    from what PrestaShop offers.
 4. **Shared contracts are byte-identical copies, never edited here.**
-   `docs/RECENGINE_API_CONTRACT.md` v1.35.0 (source of truth: the engine
+   `docs/RECENGINE_API_CONTRACT.md` v1.36.0 (source of truth: the engine
    repo `../intelligence/docs/`; refresh by copying and checking with `cmp`)
    and installation-report-v1 v1.0.1 (`../subscription/docs/contracts/`).
    Cross-connector rules:
@@ -295,9 +295,12 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
 - Walks and suites run behind `tests/egress-guard`, installed before the
   first request to the module (an admin page or a tick), and the suite needs
   a reset shop (`docs/DEV_ENVIRONMENT.md` 4 and 4a).
-- Observed on 2026-11-21, cause under investigation (replace this line with
-  the finding): the 8.2.8 lane (PHP 8.0.30) has segfaulted in PHP's garbage
-  collector during the in-shop suite.
+- One worker saw the in-shop suite segfault three times on the 8.2.8 lane
+  (PHP 8.0.30) on 2026-11-21. It did not reproduce in 113 later runs, and
+  the upgrade, the re-run, the tick and the admin pages ran 22 to 42 times
+  each without a crash; the cause is unknown. On a next crash keep
+  `/var/www/html/core` and the tree (`docs/DEV_ENVIRONMENT.md` 5). A
+  multilanguage storefront answers 302 at `/` and runs no tick: follow it.
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.
