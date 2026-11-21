@@ -123,6 +123,8 @@ src/
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
                               TriggerSender, MarketingConsent, WorkflowResolverInterface;
                               Welcome/, FirstOrder/, AbandonedCart/ (with Capture/)
+    Discount/                 TemplateRules, CodeIssuer, AutomationDiscount, IssuedCodes: the
+                              discount code of a store automation's email (section 7)
     Log/                      LogRows, LogFilter, LogStatus, FailureMessage, AttemptHistory,
                               PayloadRedactor, Resend, ResendGuard, Retry (section 10.8)
     Admin/                    BaseController, ContextTranslation, EntryController, Menu,
@@ -137,8 +139,8 @@ src/
                               (a shop's own values), LayoutChange (section 5.1), RssPanel
     Admin/Log/                LogController, LogView, Details, MassRetry, SendAgain
     Admin/Api/                AbstractJsonAction, FinishUpgrade, DismissNotice, DismissUpdate,
-                              DismissInvitation, Workflows (the workflow lists of the Automations
-                              panel); Setup/ (AbstractSetupAction, SaveStep, TestSmaily,
+                              DismissInvitation, Workflows and DiscountRules (the workflow lists
+                              and the cart rules of the Automations panel); Setup/ (AbstractSetupAction, SaveStep, TestSmaily,
                               ContactImportAction, ContactImportProgress); Settings/
                               (AbstractSettingsAction, SaveTab, TestConnection, ChangeLayout)
   views/templates/admin/      layout/, dashboard/, setup/, settings/, log/, panel/ (Twig)
@@ -349,6 +351,7 @@ writes.
 | `SMAILY_CONNECT_CONTACTS_FIELDS` | global or shop | Comma list of the contact fields to send, `store` first, then the known names of `first_name,last_name,birthday,website` that the legacy list ticked, in that order. The code reads only the four names; it sends `store` always. |
 | `SMAILY_CONNECT_RECONCILE_CURSORS` | global | JSON object: the reconcile's cursor per Smaily account (section 6.5). |
 | `SMAILY_CONNECT_WELCOME_ENABLED`, `_FIRST_ORDER_ENABLED`, `_CART_ENABLED`, `_CART_DELAY_MINUTES` | global or shop | Automations section. Workflows live in the mapping table. The cart delay is saved from 10 to 1435 minutes and reads 30 where none is stored, as in Magento: a cart older than 24 hours is never reminded, so a longer delay would remind nobody. A stored value below 10 reads 10. The upgrade writes 1435 for a 2.x delay above it (section 3.3), so no code stores a longer delay. |
+| `SMAILY_CONNECT_WELCOME_DISCOUNT_ENABLED`, `_WELCOME_DISCOUNT_RULE`, `_WELCOME_DISCOUNT_DAYS`, and the same three for `_FIRST_ORDER_DISCOUNT_` and `_CART_DISCOUNT_` | global or shop | Each store automation's discount code (section 7): `1` = "Send a discount code" is on; the id of the cart rule that the codes are copies of; the days a code is valid, saved from 1 to 365 and read as 7 where none is stored. They belong to the Automations section: a shop's own automations hold them (`ShopOverrides`). |
 | `SMAILY_CONNECT_RSS_CATEGORY`, `_RSS_LIMIT`, `_RSS_SORT_BY`, `_RSS_SORT_ORDER` | global | The RSS URL builder's defaults: the category id (`0` = all products), the number of products (1 to 250), the sort field and `desc` or `asc`. The migration writes each only when the legacy value is valid. `Config\RssSettings` reads them, and `Admin\Settings\RssPanel` writes them from Settings > RSS; a value that is not stored, or that the feed does not take, reads as the feed's own default (50 products, `date_upd`, `desc`). The feed reads only its URL's parameters, never these keys. |
 | `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); a fresh install creates it on its first read (section 4.3). |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
@@ -886,6 +889,10 @@ holds no tick.
 - **Enqueue.** `EventQueue::enqueue(string $eventType, int $idShop, array $payload, ?string $entityId
   = null, ?string $language = null): int` stores a `pending` row (the payload as JSON) and returns its
   id. The service id is `QueueProvider::EVENT_QUEUE`.
+- **Change a row's payload.** `EventQueue::updatePayload(int $id, array $payload): void` replaces
+  the stored payload of the row with that id and changes nothing else of it. A handler uses it to
+  keep what it made for the row before the send (a discount code, section 7), so that a retry and
+  the Log's "Send again" send the same.
 - **Handle.** A Story registers the handler of its event type in its own provider:
   `$services->set(QueueProvider::handlerId('<type>'), fn (Services $s) => new MyHandler(…))`. The
   handler implements `Queue\HandlerInterface::handle(array $events): array` and returns one outcome
@@ -1419,6 +1426,79 @@ No setting holds a selection, and the upgrade migrates none.
 `abandoned_cart_automation_at`) as a contact field on the trigger, as the siblings do; the marker
 is stamped when the event is queued (`Automation\Trigger::marker()`).
 
+**Discount codes as built** (Story 4.4, `Discount\`; owner's decisions of 2026-11-20, section 15).
+Each store automation can send one discount code with its email, as the Magento connector (its
+CON-198) and the WooCommerce connector (its CON-199) do. The merchant makes the discount as a cart
+rule in Catalog > Discounts; the module issues one code from it for each email.
+
+- **Settings.** Per automation and per shop: the switch "Send a discount code", the cart rule and
+  "Valid for (days)" (section 2.1), saved by the Automations panel (section 10.9).
+- **Which cart rule can be the template** (`Discount\TemplateRules`). A cart rule that the merchant
+  made: not one that this module issued, not past its end date (the shop's time), and usable in
+  the shop (no shop restriction, or the shop among its shops). An enabled and a disabled rule
+  alike. **PrestaShop differs from the siblings here:** an enabled cart rule without a code applies
+  to every cart by itself, and anyone who knows the code of an enabled rule can use it. So the
+  merchant keeps the template disabled, or gives it a code that is not shared (and not
+  highlighted); the panel says so. A code is always issued enabled.
+- **Issuing** (`Discount\CodeIssuer`). A copy of the template as PrestaShop itself copies a rule
+  (the remainder voucher of `PaymentModule`): the main row, then `CartRule::copyConditions()` for
+  the shop, carrier, group, country, combination and product restrictions. The discount and every
+  condition are the template's. The copy differs in this: a random code of 10 upper-case letters
+  and digits without 0, O, 1 and I, checked unique; the name "Smaily Connect – <the template's
+  name>" in every language; the description `smaily-connect-issued: template=<id>
+  trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so an untied code
+  is never advertised in a cart; `active` 1; `id_customer` (below). On PrestaShop 9 the copy's
+  `total_quantity` is 1.
+- **The marker.** A cart rule is one of the module's when its description starts with
+  `smaily-connect-issued:` (`CodeIssuer::MARKER`). No column and no table holds that. The
+  remainder voucher that PrestaShop makes when a code with partial use is not spent in full is a
+  copy of the code, description included, so the module treats it as its own too.
+- **Validity.** Until 23:59:59 of the day N days after today, in the shop's time, and never after
+  the template's own end date. The contact field carries that last valid day as `Y-m-d`; a
+  template that ends at 00:00:00 leaves the day before. PrestaShop itself refuses the code after
+  that, after its one use, and for another customer (`CartRule::checkValidity()`): the module adds
+  no check, where Magento needed a plugin for the end date. The start date is one day before the
+  code is made: PrestaShop 8 lists a customer's vouchers by the clock of the database server
+  (`NOW()` in `CartRule::getCustomerCartRules()`), which can be hours behind the shop's, and nobody
+  holds the code before the email goes.
+- **Whose code it is** (owner, as WooCommerce ties its code to the address). The code of an address
+  that has a customer account in the shop (not a guest-checkout row, not deleted; an account of
+  the shop, or of its shop group where the group shares customers) carries that account's
+  `id_customer`: only that customer, signed in, can use it, and the account's voucher page lists
+  it. An address without an account gets an untied code, which whoever enters it can use, once.
+- **When.** `Discount\AutomationDiscount::fields()` runs in both send paths once
+  `Automation\TriggerSender` has the router's workflow, just before the post (the `$beforeSend`
+  of `TriggerSender::send()`): for the welcome and the first order through
+  `Queue\Handler\AutomationHandler`, for the reminder through `AbandonedCartHandler`. The
+  consent checks of the first order and of the reminder come before it, so a skipped row makes no
+  code; the router has already skipped a row whose automation is off.
+- **Once per queue row.** The code and its last valid day go into the row's stored `fields`
+  before the post (`EventQueue::updatePayload()`, section 4.3). An automatic retry and the Log's
+  "Retry" find them there, and "Send again" copies the payload, so each sends the same code and
+  makes no second rule.
+- **The contact fields** are the siblings': `welcome_coupon_code` and `welcome_coupon_expires_at`,
+  `first_order_coupon_code` and `first_order_coupon_expires_at`, `abandoned_cart_coupon_code` and
+  `abandoned_cart_coupon_expires_at` (`Automation\Trigger::COUPON_FIELDS`). No amount is sent.
+  With the switch off the payload is what it was before.
+- **No code.** A template that is deleted, past its end date or not usable in the row's shop does
+  not hold the email back: it goes without a code, and the row's payload keeps
+  `"discount_notice": {"reason": "rule_unavailable", "rule": <id>}`, which the Log's Details show
+  as a sentence (section 10.8). A row stored that way makes no code on a retry either; the next
+  event does, once the template is fixed. An error while the code is made (PrestaShop refuses the
+  copy, or another module's hook on a new cart rule throws) fails the row with nothing posted, and
+  the row takes the retry ladder; the issuer removes a copy that was stored only in part.
+- **Clean-up** (`Discount\IssuedCodes`, section 11.3). The daily janitor removes a code that no
+  order carries once its end date is more than 30 days past. A used code stays.
+- **Privacy** (`IssuedCodes::ofCustomer()`, `ofAddress()`, `removeUnused()`). The codes of a
+  customer account, and the codes that the automation rows of the event queue still hold for an
+  address, each with its creation and end time and whether an order used it; and the removal of
+  the unused ones. Story 5.6 wires them into the export and the erasure; nothing calls them yet.
+- **The Discounts list** shows the issued rules under their "Smaily Connect – …" name (owner's
+  decision): it is not filtered.
+- **Not built.** One working code per shopper and automation, sent again while it is unused
+  (WooCommerce's rule): each event makes a new code here, as in Magento. A discount code for a
+  Campaign Intelligence automation. The picker lists at most 200 rules, by name.
+
 ---
 
 ## 8. Campaign Intelligence integration
@@ -1665,7 +1745,8 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
 | A workflow list that cannot be loaded shows Magento's sentence with a reason code (`authentication_failed`, `unavailable`, …), not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text. |
-| The Automations tab has no "Edit design", no "Send a discount code", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (4.4, 5.4). |
+| The Automations tab has no "Edit design", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (5.4). |
+| The discount block of a card lists cart rules, enabled and disabled alike, and tells the merchant to keep the rule disabled or to give it a code that is not shared. Magento lists rules with "Use Auto Generation". | A PrestaShop cart rule has one code or none: an enabled rule without a code applies to every cart, and its code works for anyone (section 7). |
 | The cron line and Background tasks card. | Section 4. |
 
 ### 10.4 Wording and translations
@@ -1767,6 +1848,11 @@ error with its failure class, or the reason of a skip; the payload as sent (`las
 queued payload while nothing was sent; the last answer (`last_response`); and "Copy payload". An
 import job shows its summary, its progress line and its last error.
 
+A row whose email went without its discount code (section 7) says so in one sentence above the
+attempts: "Without a discount code: cart price rule N gave no code for this shop (it was deleted,
+is past its end date, or is not for this shop). The email goes without one." The row itself reads
+as sent; the list shows nothing more.
+
 **[D]** (owner, 2026-11-20) Details show the request and the answer in full to the admin, the
 contact's data included, without secrets, as Magento does: the Log is an admin's debugging tool
 behind its own permission. `Log\PayloadRedactor` replaces every value under a key that looks like a
@@ -1821,6 +1907,17 @@ modes `a` and `b` the card "Per-language workflows" follows, one table per autom
 Language, Workflow, Default fallback, and the row "None". In mode `a` a card has no workflow of its
 own: it belongs to no language's account. The panel is drawn for the saved mode (section 10.3).
 
+**The discount block** (Story 4.4, section 7) is the last block of a card that is on, as in
+Magento: "Send a discount code", and while it is on "Cart price rule" and "Valid for (days)", with
+Magento's two notes and a third one that tells the merchant to keep the rule itself disabled or
+coded. The picker's list comes from `Admin\Api\DiscountRules` with the workflow lists (one route
+per page, the right to read its menu tab; `{"own": bool}` answers `{"rules": [{"id", "name"}]}`):
+the cart rules that can be a template in the shop that the panel saves for, and for the values all
+shops share the rules that every shop can use. A stored rule that the list no longer offers shows
+as "Pick a rule". While the card and the switch are on, a save without a rule, or with days outside
+1 to 365, is refused at the field; with either off the block is hidden, and a value at fault is
+left unsaved and refuses nothing.
+
 **The workflow lists** come live from Smaily through `Admin\Api\Workflows` (one route per page,
 the right to read its menu tab): `{"account": "default"|<language>, "own": bool}` answers the list
 of the stored account that the rows of that account key send through
@@ -1867,7 +1964,7 @@ this shop's workflows". In separate stores the switch is absent and every shop s
 **Not built.** Magento's notice of the languages without a workflow in mode `a`; a shop's own "no
 workflow" over a shared workflow (the table holds no such row: switch the automation off at the
 shop instead); "Edit design", transactional emails and the Campaign Intelligence card (out of
-3.0.0, or Story 5.4); the discount code (Story 4.4), whose block goes after a card's controls.
+3.0.0, or Story 5.4).
 
 ---
 
@@ -1897,6 +1994,7 @@ shop instead); "Edit design", transactional emails and the Campaign Intelligence
 | Export (psgdpr `actionExportGDPRData`) | Local rows for the address (event queue, cart tracker, attribution, privacy record) + engine §8 per connection, one 10 s attempt; a failed engine call names the failure, not the remote text (`woo:docs/LESSONS.md` §2.32). |
 | Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes local rows that hold the address or its keyed hash; marks tracker rows `erased`; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). Since Story 3.4 a queue row also holds the contact's data in `last_request` and `last_response`, and the Log shows it in full (section 10.8): the erasure must clear the stored payloads and the entity of every queue row of the address that it keeps, as Shopify replaces them with "[erased]". The entity of such a row is `[erased]` (`Log\ResendGuard::ERASED_ENTITY`), which the Log refuses to send again. |
 | Profiling opt-out (§10) | My Account "Personalization" page, shown only with a connection; writes the local record first, then queues §10; the newest choice wins; a marketing unsubscribe also stops profiling (Magento parity audit R1–R3). |
+| Discount codes (section 7) | Story 5.6 adds them to both requests with `Discount\IssuedCodes`: the export lists the codes of the customer account (`ofCustomer()`) and the codes that the address's automation rows of the event queue still hold (`ofAddress()`, read before the erasure clears those rows); the erasure removes the unused ones (`removeUnused()`). A used code stays with its order. The operations exist and are tested (Story 4.4); nothing calls them yet. |
 | Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address. |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
 
@@ -1914,8 +2012,11 @@ job table (`done`, `failed`, `cancelled`) 90 days after their `updated_at`, in t
 (`JobStore::deleteFinished()`); it never deletes a `queued` or `running` job. The card of the first
 import (Settings > Contacts, the Initial setup) reads the newest import job, so it offers "Start
 import" again once that job is 90 days old; the daily refresh does not read it. Magento's janitor
-does not sweep its job table. The Story that builds the ingest queue (5.2) adds its table to the
-sweep.
+does not sweep its job table. Last, it removes the discount codes of the store automations that no
+order carries, once their end date is more than 30 days past (`Discount\IssuedCodes`, as the
+WooCommerce connector), 200 codes a batch, each through `CartRule::delete()`, until none is left
+or its deadline passes; a used code and every cart rule that the merchant made stay. The Story
+that builds the ingest queue (5.2) adds its table to the sweep.
 
 The cart tracker (Story 4.3) is written and not swept: its closed rows stay until uninstall. The
 30 days above are not applied to it yet, because they meet another rule: the sweep knows that a
@@ -1949,6 +2050,11 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 
 Demonstrated on 8.0.0, 8.2.8 and 9.2.0: a console uninstall leaves 0 module keys and 0 module tables,
 after a fresh install and after an upgrade.
+
+The discount codes that the module issued (section 7) are PrestaShop's cart rules and stay after an
+uninstall, as the Magento and WooCommerce connectors leave theirs: shoppers hold them in emails
+that were sent. Nothing removes the unused ones afterwards; the merchant deletes them in Catalog >
+Discounts, where their names start with "Smaily Connect".
 
 ### 11.5 New-version check
 
@@ -2046,7 +2152,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 4.1 Automation routing, mapping and the Automations tab | Done (section 10.9) | `automations:`, `automation:`, `admin:`, `tests:`, `docs:` |
 | 4.2 Welcome and first order | Done (section 7); the Automations tab of Story 4.1 switches them on and picks their workflows. | `automation:`, `tests:` |
 | 4.3 Abandoned cart | Done (section 7): the sweep, the send, the checkout capture, the delay's bounds and the upgrade's cap. Switched on in the Automations tab, as 4.2. | `automation:`, `abandoned-cart:`, `tests:` |
-| 4.4 Discount codes in store automations | Not started | — |
+| 4.4 Discount codes in store automations | Done (section 7, "Discount codes as built"); the privacy export and erasure of the codes wait for Story 5.6 | `automation:`, `queue:`, `admin:`, `translations:`, `docs:` |
 | New-version notice on the admin pages (CON-380) | Done (section 10.7) | `admin:` |
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
@@ -2459,8 +2565,18 @@ has one owner:
 
 - **Goal.** A store automation can send a discount code: a cart rule that the merchant made, with a
   validity in days, as the WooCommerce and Magento connectors do.
-- **State.** Not started. The design is confirmed with the owner before work starts.
+- **Owns.** `src/src/Discount/`, `src/src/Admin/Api/DiscountRules.php`, the discount block of
+  `views/templates/admin/panel/automations.html.twig`.
 - **Depends on.** The Automations tab (4.1) and the Log page (3.4) on `v3`.
+- **As built.** Section 7, "Discount codes as built"; the settings in section 2.1, the panel in
+  10.9, the Log's sentence in 10.8, the clean-up in 11.3, the uninstall in 11.4. Walked on 8.2.8
+  and 9.2.0 against the Smaily mock, behind the egress guard: the three emails with their codes,
+  a code used in a storefront order, refused the second time, after its last day and for another
+  customer, the same code on a retry and on "Send again", an email without a code and the Log's
+  sentence, and the settings of a second shop.
+- **Left open.** The privacy export and erasure call `Discount\IssuedCodes` only once Story 5.6
+  wires them (section 11.2). Each event makes a new code; WooCommerce sends an unused working
+  code again instead.
 
 **Stage 4 parallel groups.** 4.1 → {4.2, 4.3} → 4.4.
 
@@ -2660,6 +2776,7 @@ Later decisions of 2026-11-20:
 | Wording of the confirmations | **DECIDED:** the consent-mode and layout confirmations' wording is approved: the consent-mode confirmations as built, and the change to one store with Magento's text ("website" read as "shop"). | Owner (Erkki) | 10.3 | 3.3 |
 | What the Log's Details show | **DECIDED:** The Log's Details show the request and response in full to the admin, without secrets, as Magento does. The queue stores them that way (section 2.2); only passwords, API keys and tokens are never stored and never shown. | Owner (Erkki) | 2.2, 10.8 | 3.4 |
 | Discount codes in store automations | **DECIDED:** discount codes in store automations are in 3.0.0, as a Story of their own after the Automations tab and the Log page. "Edit design" stays out. | Owner (Erkki) | 13 | 4.4 |
+| How a discount code is issued | **DECIDED:** each email gets one code that is a copy of a cart rule of the merchant, valid N days (1 to 365, default 7), single-use; a registered customer's code is tied to the customer account, a guest's code stays untied; a template may be disabled; an email whose template gives no code still goes, with a notice in the Log; the issued rules show in Catalog > Discounts as "Smaily Connect – <name>"; an unused code goes 30 days after its end date; an uninstall leaves the codes. | Owner (Erkki) | 7 | 4.4 |
 | Which fields the abandoned-cart reminder carries | **DECIDED:** the abandoned-cart reminder always carries every field, as the siblings do: every product field in all 10 slots, and the shopper's names when known. No field picker; the 2.x selection is not migrated. | Owner (Erkki) | 7 | 4.3 |
 | The bounds of the abandoned-cart delay | **DECIDED:** cart delay 10–1435 minutes, default 30, as Magento. An upgraded store keeps its delay up to 1435 minutes; a longer one is capped (below). | Owner (Erkki) | 2.1, 3.3 | 4.1, 4.3 |
 | Does the abandoned-cart reminder apply the guest rule of the live sync? | **DECIDED:** the cart reminder applies no separate guest rule, as the siblings. Who is reminded follows the consent mode through `ContactAudience::sendsAutomatedMarketing()`; "include guests" gates the contact sync only. | Owner (Erkki) | 6.2 | 4.3 |

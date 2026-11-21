@@ -17,23 +17,24 @@ with their Automations tab; gauge 3/14._
 On `v3`: stages 1 and 2; the admin shell, Initial setup, Dashboard, Settings
 (Connection, Contacts, Automations, RSS, shop switches, layout change) and Log;
 the three store automations; the upgrade hardening; the stale-subscription
-skip; the Marketplace structural rules. In flight (2026-11-21): the PHP 8.0.30
-segfault on the 8.2.8 test lane, and discount codes (CON-393).
+skip; the Marketplace structural rules. Built on the branch
+`worktree-agent-ab0c8477db5c692d3`, not yet on `v3`: discount codes in store
+automations (CON-393, Story 4.4, ARCHITECTURE 7). In flight (2026-11-21): the
+PHP 8.0.30 segfault on the 8.2.8 test lane.
 Last verified: in-shop 1293 tests, 6245 assertions on a fresh 8.2.8 and 9.2.0;
 host 1293 tests, 2012 assertions, 636 skipped; `tests/ci/validate.sh` one
 landing earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
 
-Then, in this order: (1) discount codes (CON-393, Story 4.4; decided: a
-registered customer's code is tied to the customer, a guest's is single-use and
-untied; codes show in the discount list under a "Smaily Connect" name; unused
-codes go 30 days after expiry); (2) walk capabilities 3, 4, 6 and 7 through the
-screens and tick them, and check against ARCHITECTURE 6.x and the siblings that
-a newsletter-block subscriber without an account gets the welcome email only
-with "Include guests" on (an existing rule); (3) Estonian targets and an
-on-screen check for every v3 admin string, sentences for the Log's reason codes
-that still show as codes, a cron line without the admin's language prefix;
-(4) a simplification review of the Log and Automations code; (5) stage 5 (group
-prices, CON-385, contract 1.36.0) only after the owner says so.
+Then, in this order: (1) land discount codes (CON-393; its privacy export and
+erasure wait for Story 5.6, which calls `Discount\IssuedCodes`); (2) walk
+capabilities 3, 4, 6 and 7 through the screens and tick them, and check against
+ARCHITECTURE 6.x and the siblings that a newsletter-block subscriber without an
+account gets the welcome email only with "Include guests" on (an existing
+rule); (3) Estonian targets and an on-screen check for every v3 admin string,
+sentences for the Log's reason codes that still show as codes, a cron line
+without the admin's language prefix; (4) a simplification review of the Log and
+Automations code; (5) stage 5 (group prices, CON-385, contract 1.36.0) only
+after the owner says so.
 
 ## Queue (technical, for the orchestrator)
 
@@ -79,7 +80,7 @@ A box is ticked only when the real flow was exercised; a line names how.
 1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
 2. **Contacts and modes** — _Done (2.1–2.4)._
 3. **Admin screens** — _Dashboard, setup, Settings, Log done; no ET sweep._
-4. **Store automations and language routing** — _Built; discount codes next._
+4. **Store automations and language routing** — _Built, with discount codes._
 5. **Intelligence, tracking, recommendations, privacy.**
 6. **Release** — installation report, upgrade guide, rc1, upgrade walk.
 

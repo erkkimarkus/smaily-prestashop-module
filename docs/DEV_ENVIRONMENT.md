@@ -83,10 +83,10 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1298 tests, 6256 assertions on 8.2.8 and 9.2.0, each on a fresh
-shop behind the egress guard (2026-11-21, with the retention of finished import jobs); 8.0.0 last
-ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs
-its unit tests and skips the integration tests (1298 tests, 2014 assertions, 640 skipped).
+Last verified results, all passing: 1336 tests, 6498 assertions on 8.2.8 and 9.2.0, each on a fresh
+shop behind the egress guard (2026-11-21, with the discount codes of the store automations); 8.0.0
+last ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite
+runs its unit tests and skips the integration tests (1336 tests, 2037 assertions, 670 skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
@@ -211,7 +211,7 @@ a call went to; a workflow of the state with a `subdomain` is listed only to tha
 console's `prestashop:module upgrade` asks PrestaShop's Distribution API first and fails behind the
 guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the pending migration. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
 write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for
-a single-contact read. The guard is not installed in the shop of `tests/ci/validate.sh`.
+a single-contact read, and `"automation_posts_fail"` for every automation email (`POST autoresponder.php`), so an automation row fails and waits for its retry. The guard is not installed in the shop of `tests/ci/validate.sh`.
 
 In a shop with debug mode on (the dev stack), `prestashop:module upgrade` stops behind the guard with
 `Unable to retrieve informations from Distribution API`: a native module asks

@@ -210,6 +210,12 @@ ask (Linear discipline below).
   sent in "All customers", and with a ticked box in "Subscribers only", only
   when "include guests" is on; "Checkout opt-in only" sends a ticked box
   always. All audience questions go through `Contacts\ContactAudience`.
+- **Discount codes are cart rules** (ARCHITECTURE 7). The module knows the
+  rules it issued by their description (`smaily-connect-issued:`); never
+  filter by name. PrestaShop 8 lists a customer's vouchers by the database
+  server's clock, so a code starts a day back. Another module's hook on a new
+  cart rule can throw (`ps_eventbus` behind the egress guard): the row then
+  fails once and is retried, and the issuer removes the half-made rule.
 - **Colours and logos.** The module's own components use the Campaign
   Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
   (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
