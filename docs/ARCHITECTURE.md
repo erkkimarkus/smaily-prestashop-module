@@ -172,7 +172,8 @@ src/
   controllers/front/          relay, land, recommendations, personalization
   src/
     Engine/                   Payload/, IngestQueue, History/, Automations/
-    Storefront/               Relay, Attribution, Recommendations, PageContext
+    Storefront/               Relay, Landing, Attribution, OrderAttribution, VisitorToken,
+                              Recommendations, RecommendationsBlock, Widget, PageScripts (8.10)
     Privacy/                  PrivacyRequest, LocalData, ExportRows, GdprHooks, ProfilingRecord,
                               ProfilingConsent and its handler, CustomerDeleteHandler, AccountLink
     Report/                   ReportBuilder, ReportSender, InstallationReport, ConnectionHealth
@@ -438,7 +439,7 @@ writes.
 | `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); on a fresh install the Dashboard's Background tasks card creates it when it asks for the cron line (section 4.3). A request to a door never creates a token. |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
-| `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
+| `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). The storefront reads it (`Config\EngineSettings::consentConfirmed()`, Story 5.5); no screen writes it yet (Story 5.3). |
 | `SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES` | global | JSON object, id_shop of a connection => the connection prefix it held when it was disconnected, exactly as the engine gave it (`Config\EngineSettings`). The next setup exchange of that shop reports it (section 8.9). Written only by a disconnect on request. |
 | `SMAILY_CONNECT_HEALTH`, `_REPORT_STATE` | global | Section 11. Not written yet. |
 | `SMAILY_CONNECT_UPDATE_CHECK` | global | JSON `{"version", "download_url", "release_url", "checked_at", "dismissed"}`: the latest release that the daily check found, and the newest version that the merchant dismissed (section 11.5). |
@@ -943,11 +944,13 @@ Registered on `v3` today:
 | `contacts_import` | `ContactReconcileProvider` | 60 s | 15 s | no | `ContactImport::run()`: sends pages of the first import and of the daily refresh (section 6.5). |
 | `abandoned_cart` | `AutomationProvider`, through `Automation\AbandonedCart\AbandonedCartAutomation` | 5 min (300 s) | 10 s | no | `AbandonedCartSweeper::sweep()`: queues the due reminders, which the next queue flush sends (section 7). |
 | `engine_health` | `EngineProvider` | 15 min (900 s) | 5 s | no | `Engine\HealthCheck::run()`: pings every stored Campaign Intelligence connection and records the answer with it; sends nothing while no connection is stored (section 8.9). |
+| `storefront_cache` | `StorefrontProvider` | daily (86 400 s) | 5 s | no | `Storefront\Store::prune()`: deletes the expired files of the storefront's cache (section 8.10). |
 | `migration` | `MigrationProvider` | 0 (every tick) | 10 s | yes | Calls `Upgrade300::runPending()` while the schema is not current (section 3.7). |
 | `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
 
 The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
-`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `migration`, `update_check`.
+`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `storefront_cache`, `migration`,
+`update_check`.
 Two integration
 tests pin this full list (section 12).
 
@@ -1634,11 +1637,11 @@ daily refresh are rows of `smaily_connect_job`:
 | `actionObjectProductDeleteAfter`, `actionObjectCombinationDeleteAfter` | `catalog_remove` (§3b) | 5.2 |
 | `actionObjectCategoryUpdateAfter` | Not registered (not in `Install\HookList`). A category rename reaches the engine through the next catalog import ("Run again"), as the nightly manifest does not carry names. | — |
 | `actionObjectShopDeleteAfter` | §16 for a connection anchored on that shop | 5.1 |
-| `actionFrontControllerSetMedia` | Fallback tick; the checkout capture script of the cart reminder (below); front JS and page context | 1.6, 4.3, 5.5 |
+| `actionFrontControllerSetMedia` | Fallback tick; the checkout capture script of the cart reminder (below); the storefront scripts and their definition in a shop with a connection (`Storefront\PageScripts`, section 8.10) | 1.6, 4.3, 5.5 |
 | `actionAdminControllerSetMedia`, `displayBackOfficeHeader` | Fallback tick; upgrade and health notices | 1.6, 3.1 |
 | `additionalCustomerFormFields` | Own checkout box (6.1) | 2.3 |
 | `displayCustomerAccount` | "Personalization" link (§10), only with a connection | 5.6 |
-| `moduleRoutes` | Friendly URLs for relay, land, recommendations, personalization | 5.5 |
+| `moduleRoutes` | No listener. The storefront endpoints are plain module front controllers (`…/module/smailyforprestashop/relay`); Story 5.5 added no friendly URL (section 8.10). | — |
 | `actionExportGDPRData`, `actionDeleteGDPRCustomer`, `registerGDPRConsent` | Export and erasure (section 11) | 5.6 |
 
 `Install\HookList` registers the 30 hooks of this table, which excludes
@@ -2049,6 +2052,8 @@ leaves stale rows that only a manual engine purge removes (contract §3 "Lifecyc
 
 ### 8.4 Front controllers
 
+As built: section 8.10. The three storefront controllers have no friendly URL.
+
 | Controller | Does | Sibling |
 |---|---|---|
 | `relay` (POST) | Takes batched browse events, validates them (no client-sent identity), adds the visitor token from the cookie, rate-limits per address, forwards to §6 with the server-side key; one 3 s attempt. Never named `beacon` (ad blockers). | `magento:Controller/Relay/Index`, `woo:` relay |
@@ -2058,12 +2063,17 @@ leaves stale rows that only a manual engine purge removes (contract §3 "Lifecyc
 
 ### 8.5 Cookies
 
+As built: section 8.10, "The cookies".
+
 From the setup exchange's `config`, with the contract defaults: `smaily_rec_uid` (365 d),
 `smaily_anon_sid` (30 d), `smaily_rec_id` (30 d), `smaily_rec_ctx` (30 d). `SameSite=Lax`, `Secure` on
 HTTPS, not `HttpOnly`. The context cookie rule of contract v1.9.0 applies. The order attribution
 validates `smaily_rec_id` as a UUID before it stores it (Magento parity audit P1).
 
 ### 8.6 Storefront JavaScript
+
+As built: section 8.10. The page's context is part of the one definition `smailyConnectStorefront`
+(`page`), not a `window.smailyPageContext` of its own.
 
 **[D]** Port Magento's four hand-written scripts (`consent.js`, `attribution.js`, `tracker.js`,
 `recommendations.js`), not Woo's TypeScript bundle. Each `define()` becomes an IIFE that exposes only
@@ -2082,6 +2092,8 @@ are written.
   the same for every visitor.
 
 ### 8.7 Recommendations block
+
+As built: section 8.10, "The recommendations block".
 
 **[D]** The main class implements PrestaShop's `WidgetInterface`. The widget renders an empty
 container `<div data-smaily-connect-recs>`, the same for every visitor, and nothing without a
@@ -2222,6 +2234,161 @@ disconnect is one attempt.
 5.3); the sending gate for a refused connection, which Story 5.2 reads from `Connection::refusedAt()`;
 what a layout change does with the connections (Story 5.3).
 
+### 8.10 The storefront (as built in Story 5.5)
+
+Story 5.5 built sections 8.4 to 8.7 and section 9: three front controllers, four scripts, the
+recommendations block, the order's attribution and the store-created visitor token. Nothing of it
+runs in a shop without a Campaign Intelligence connection, and browse tracking and the block also
+wait for the visitor's consent (section 9). No screen switches the consent setting yet (Story 5.3).
+
+**What a storefront page gets** (`Storefront\PageScripts`, `actionFrontControllerSetMedia`). A shop
+with a stored connection gets `consent.js` and `attribution.js`; while the engine takes the
+connection it also gets `tracker.js` and `recommendations.js`. The scripts read one JavaScript
+definition, `smailyConnectStorefront` (`Media::addJsDef()`): the merchant's consent setting, the three
+endpoint addresses, the cookie and link parameter names with the cookies' lifetimes, the shop's
+cookie path, and the page's context (`type`, and `productId` with `productAttributeId`,
+`categoryPath` or `searchQuery`). Every value describes the shop or the page and none the visitor,
+so a cached page is right for everyone. The connection's key is in no page and no script. Loading
+the scripts sets no cookie and sends nothing: each script decides in the browser. Each script is
+one IIFE, and together they add one global, `window.smailyConnect` (`consentGiven()` and the
+tracker's shared helpers); PrestaShop itself prints `smailyConnectStorefront`.
+
+**The cookies.** The names and lifetimes are the connection's (`config` of the setup exchange), else
+the contract's defaults below (`Storefront\ClientConfig`). Every cookie has the shop's own path
+(`Shop::getBaseURI()`), no domain, `SameSite=Lax`, `Secure` on HTTPS and no `HttpOnly`
+(`Storefront\Cookies`).
+
+| Cookie | Holds | Set by | Only when | Lifetime |
+|---|---|---|---|---|
+| `smaily_anon_sid` | A random UUID: the anonymous session of the browse events | `tracker.js` | The visitor consented (section 9) | 30 days |
+| `smaily_rec_id` | The recommendation id of the last Smaily link | The server (`land`); the script only when that request fails | The page address carries a well-formed `smaily_rec` (a UUID). Not gated on consent. | 30 days |
+| `smaily_rec_ctx` | The context of that link | As `smaily_rec_id`; a landing with `smaily_rec` and no well-formed `smaily_ctx` deletes it | As `smaily_rec_id` | 30 days |
+| `smaily_rec_uid` | The visitor token: an engine `vt_` token from a link, or a store-created `vs_` token | The server: `land` for a link's `smaily_vt` (only the `vt_` form), `Storefront\VisitorToken` for a store-created one | A link: not gated on consent. A store-created token: the shopper has marketing consent (below). | 365 days |
+
+No other cookie is set. The `utm_content` fallback of the Magento connector's landing script (a
+recommendation id read from `utm_content` when `utm_source=smaily`) is not ported: it sets the
+recommendation cookie from another parameter than the three of the contract.
+
+**What leaves the browser, and what leaves the store.**
+
+| Call | The browser sends | The store sends to the engine |
+|---|---|---|
+| `POST …/land` (not gated) | `rec_id`, `context`, `visitor_token`: the link's own values, after the script's shape checks | Nothing: the answer sets the cookies. |
+| `POST …/relay` (with consent) | A batch of up to 100 events: `event_id`, `session_id` (the session cookie), `event_type`, and the page's `product_id` with `product_attribute_id`, `category_path` or `search_query` | §6 `POST /api/v1/ingest/browse` with the connection's key: each event's `event_id`, `session_id`, `event_type`, `event_ts` (the server's time), `category_path`, `search_query`, `dwell_seconds`, the `sku` where a product key exists (below), and `smaily_visitor_token` from the request's own cookie where it may be sent. One attempt of 3 s; a failure loses the batch. |
+| `GET …/recommendations` (with consent, on a page with a container) | Nothing but the request's own cookies | §15 `POST /api/v1/recommendations/customer` with the key: `customer_external_id` (a logged-in customer's id) or `smaily_visitor_token`, and `limit: 4`. Never an address or a name. One attempt of 10 s. |
+
+The events: `product_view`, `category_view`, `search`, `checkout_start` (the checkout page) and
+`checkout_complete` (the confirmation page) from the page's context, and `cart_add` and `cart_remove`
+from PrestaShop's own `updateCart` event (`prestashop.on()`), sent in batches of up to 5 seconds
+with `navigator.sendBeacon()`.
+
+**The relay** (`Storefront\Relay`). Answers, in order: 405 unless a POST; 404 without a connection
+that the engine takes; 429 beyond 30 requests of one network address in a minute; 400 without an
+`events` list, when any event names the shopper, or when no event is valid; else 200. A batch in
+which an event carries `customer_email`, `email`, `external_id`, `customer_external_id`,
+`customer_id`, `smaily_visitor_token` or `visitor_token` is refused as a whole and nothing of it is
+forwarded (the Magento connector drops such a key and forwards the rest). Every other key that
+contract §6 does not define is dropped, `smaily_rec_id` and `smaily_ctx` among them (§6: ignored
+since v1.7.0). No `source` is sent: the contract lists no constant for PrestaShop, and the engine
+then stores `web` (section 14).
+
+**The product key seam.** The browser names a product by the store's own ids, never by a key. The
+relay asks the listeners of `StorefrontProvider::PRODUCT_KEY` for the engine's `sku` of that
+product on the connection (`connection`, `id_product`, `id_product_attribute`); without a listener
+the event goes without `sku`, which §6 allows. No listener exists yet: the key builder with the
+platform namespace is Story 5.2's (section 8.2), and nothing here spells `ps-`.
+
+**The landing** (`Storefront\Landing`). 405 unless a POST; 404 without a stored connection; 429
+beyond 30 requests per address and minute; 400 when nothing posted has its shape; 500 when a cookie
+could not be sent (the script then writes the cookies itself); else 204. A recommendation id counts
+only as a UUID; a visitor token only in the engine's `vt_` form, because an engine link never
+carries a store-created one.
+
+**The order's attribution** (`Storefront\OrderAttribution`, `actionValidateOrder`). An order that a
+shopper's own storefront request places, in a shop with a stored connection, stores the request's
+`smaily_rec_id`, `smaily_rec_ctx` and visitor token in `smaily_connect_order_attribution`. The
+context is stored only beside a recommendation id. An order without a recommendation id and without
+a visitor token gets no row; so does an order that the back office, a command or a payment
+provider's server call creates, because that request carries no shopper's cookies. Story 5.2's order
+row reads the table.
+
+**The visitor token and marketing consent** (`Storefront\VisitorToken`, `Storefront\Attribution`).
+At a login (`actionAuthentication`) and at a registration or the customer step of a guest checkout
+(`actionCustomerAccountAdd`), a shopper with marketing consent and no visitor token gets a `vs_`
+token of 22 characters `[A-Za-z0-9]` from `random_int()`, set in the visitor-token cookie by the
+server. A token that the browser holds is kept and never replaced. `VisitorToken::token()` answers
+the token to send for the shopper of the request, the same through the request. It implements the
+identity merge's seam, the interface `Engine\Capture\VisitorToken` (`token(int $idShop, bool
+$marketingConsent)`), and is registered under that name, so the merge of Story 5.2 sends its
+answer. The interface file is a byte copy of Story 5.2's, taken so that the two Stories meet
+before either lands. **[D]** Marketing consent for a store-created token is
+both of:
+
+- the merchant's consent setting of section 9 for the shop: what the server can see of the
+  browser's consent rule, as the accepted cookie notice is for the Magento connector and the WP
+  Consent API's answer for the WooCommerce plugin;
+- where the request knows the customer (the login, the registration, the guest checkout, the
+  order), the customer's `customer.newsletter`, PrestaShop's own marketing consent (section 6.1).
+
+A store-created token in the cookie reads as absent on every sending path (the relay, a guest's
+recommendations, the order's row, the merge) while that does not hold. An engine `vt_` token came
+with an email link, is attribution, and is read as it is.
+
+**The recommendations block** (`Storefront\Widget`, `RecommendationsBlock`, `Recommendations`,
+`RecommendedProducts`). The main class is a `WidgetInterface`; both of its methods hand the call to
+`Storefront\Widget`. The widget renders an empty `<div data-smaily-connect-recs>`, the same for
+every visitor, and nothing without a connection that the engine takes. The module registers it on
+no hook. On a hook of the home page (`displayHome…`) of a theme built from components the element
+also carries the theme's `container` class, as that theme's own product blocks do there: its home
+page gives a module the whole width of the window. After `load`, with consent and only on a page
+that has a container, `recommendations.js` asks the `recommendations` controller once and puts the
+answer into every container. The answer is the heading "Recommended for you" and up to four products, drawn by the
+theme's own `catalog/_partials/productlist.tpl` and product miniature, in the frame the theme gives
+its own product blocks (the `components/section-title.tpl` of a theme built from components, as
+PrestaShop 9's Hummingbird; else the classic theme's markup). A theme can replace the template.
+An empty answer leaves the container empty: no heading and no frame.
+
+- **Who is asked about.** A logged-in customer by the customer id. Any other visitor by the visitor
+  token of the request's cookie that may be sent. Nobody else: no engine call.
+- **An opted-out shopper** sees nothing, as in the Magento connector: a logged-in customer whose
+  opt-out of personalization the store holds (`Privacy\ProfilingConsent::isAllowed()`, section 11.2)
+  is never asked about, not by the visitor token either, and the block stays empty. For a visitor
+  who is not logged in the store knows no address; the engine's own answer for an opted-out
+  customer's token is empty (§15). The browse events of an opted-out shopper are still relayed, as
+  in the Magento connector: the engine stores them without binding them to the customer (§6).
+- **Products.** A slot names its product by `external_id` (`<id_product>` or
+  `<id_product>-<id_product_attribute>`, section 8.2). On a connection with a prefix a slot counts
+  only when its `sku` starts with the prefix. A product that is not active or not visible in the
+  catalog in this shop, that cannot be ordered, or that is out of stock where the shop takes no
+  order then, is left out, and nothing takes its place. Each link carries `smaily_rec` and
+  `smaily_ctx=storefront` before a fragment.
+- **Cache.** The slots, an empty answer too, are kept for 1 hour under a keyed hash of the
+  connection, the engine store, the shop and the identifier; a failure for 10 minutes; no answer or
+  a 5xx pauses every request of the connection for 2 minutes (the Magento connector's periods).
+- **Guards.** 404 without a connection that the engine takes; 429 beyond 120 requests per address
+  and minute; an empty 200 to a request with `Sec-Fetch-Site: cross-site` or `same-site`.
+- No `website` is sent (§15, v1.21.0): PrestaShop's customer ids are unique across the shops of an
+  installation, and the products are drawn by the shop itself. Story 5.2 decides what the catalog
+  rows say about websites (section 14).
+
+**The cache and the limit** (`Storefront\Store`, `RateLimiter`). PrestaShop has no shared cache that
+a module can rely on, and no table may be added, so the short-lived values are small files in
+PrestaShop's cache folder (`var/cache/<environment>/smaily_connect/`), named by a hash; "Clear
+cache" empties it. A file's modification time is its expiry. The limit counts the requests of one
+network address (`Tools::getRemoteAddr()`) per endpoint and minute under an HMAC of the address with
+the shop's cookie key; no address is stored. The job `storefront_cache` deletes the expired files
+once a day (section 4.1).
+
+**The endpoints' addresses.** The three endpoints are plain module front controllers
+(`…/module/smailyforprestashop/relay`); `moduleRoutes` adds no friendly URL, and none is named
+"beacon". While the schema version is not current, each answers 404. Every answer carries
+`Cache-Control: no-store, private`.
+
+**Not built here.** The Settings switch for the consent setting and its help text (Story 5.3); the
+identity merge and the order's row to the engine (Story 5.2).
+An order whose validation runs in a payment provider's server call gets no attribution row: that
+request has no cookies (section 14).
+
 ---
 
 ## 9. Cookie consent for tracking and recommendations
@@ -2231,6 +2398,13 @@ mode. Browse tracking and the recommendations call set or read non-essential coo
 visitor's prior consent under ePrivacy rules.
 
 ### 9.1 Design
+
+As built in Story 5.5 (section 8.10): `views/js/front/consent.js` is the rule of item 4, and
+`window.smailyConnect.consentGiven()` answers it in the browser's console. A store whose banner
+changes its answer on an open page fires the DOM event `smaily:consent-changed` on `document`. The
+switch of item 1 has no screen yet (Story 5.3); `Config\EngineSettings::setConsentConfirmed()` writes
+it. A store-created visitor token needs this setting and the customer's newsletter consent (section
+8.10, "The visitor token and marketing consent").
 
 **[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
 
@@ -2893,10 +3067,10 @@ once a day and sends no store data."
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
 | Subprocesses | Concurrency tests start PHP workers next to the test (`Queue/flush-worker.php`, `Migration/migration-worker.php`, `Scheduler/lock-holder.php`). A worker prints with `fwrite(STDOUT, …)`: the shop's bootstrap can buffer what `echo` prints. | `tests/Integration/<Area>/` |
-| JavaScript | Planned with Story 5.5: the IIFE first-statement check for every file in `views/js/front/`, and the logic of `consent.js` tested with Node's built-in test runner (no npm packages), in a folder `tests/js/`. No JavaScript test exists today; `views/js/front/` holds one file, `checkout-capture.js`. | — |
+| JavaScript | `node --test tests/js/` (Node's built-in test runner, no package installed; a job of `validate.yaml`): every file of `views/js/front/` is one IIFE in strict mode with the licence notice; the storefront scripts add no global but `window.smailyConnect`; the consent rule; and, in a stand-in page (`tests/js/harness.js`), what the tracker, the landing capture and the recommendations script write and send with and without consent. | `tests/js/` |
 | Contract check | Planned: CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and the installation-report contract with the subscription repository's copy (`gh api`, read token), and fails on any difference. Today `validate.yaml` has no such step, the engine contract copy is compared by hand with `cmp`, and no copy of the report contract is in this repository (Story 6.1 adds it). | — |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 1669 tests on PrestaShop 8.2.8 (8667 assertions) and on 9.2.0 (8672 assertions, with debug mode on and with it off), each on a fresh shop, with the engine connection of Story 5.1 (2026-11-21). On the host: 1669 tests, 2567 assertions, 876 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
+| Last verified counts | The in-shop suite: 1849 tests on PrestaShop 8.2.8 (9877 assertions) and on 9.2.0 (9882 assertions, with debug mode on and with it off), each on a fresh shop, with the storefront of Story 5.5 (2026-11-21). On the host: 1849 tests, 3116 assertions, 951 skipped; `node --test tests/js/`: 43 tests. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` (`bin/package.sh`) builds the zip from the files that git tracks under `src/`, minus `src/.zipignore`, with the production `vendor/`; `tests/ci/validate.sh` installs it. `tests/Unit/Install/ConfigXmlTest.php` holds `src/config.xml` equal to the main class. Planned with Story 6.3: a check that the version is equal in the main class and `composer.json`, and an upgrade of the zip on the matrix. | `bin/package.sh`, CI |
@@ -2942,7 +3116,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
 | 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. It sends no product or order key, so the platform namespace `ps-` (section 8.2) is in no code yet. | `engine:`, `tests:`, `tooling:`, `docs:` |
 | 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows wait for Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
-| Stage 5 from Story 5.2 on, and stage 6 | Not started | — |
+| 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries no `sku` until Story 5.2's key builder answers the product key seam. | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
+| Stories 5.2, 5.3, 5.4, and stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -2967,7 +3142,7 @@ each for its named wiring only, and each in a commit of its own:
 | 2.3 | The hook method of `actionNewsletterRegistrationBefore` (section 7) (done). |
 | 3.1 | The `$tabs` menu, and `getContent()` opens the Dashboard or the Initial setup (done). |
 | — | The hook methods of `actionCartSave` and `actionObjectCustomerDeleteAfter` removed (owner, 2026-11-21; section 15) (done). |
-| 5.5 | `WidgetInterface` (section 8.7). |
+| 5.5 | `WidgetInterface` (section 8.7) (done). |
 
 These Stories never run in parallel with each other.
 
@@ -3449,6 +3624,15 @@ has one owner:
      `window.smailyConnect`.
   6. The `vs_` token links the visitor at login, at registration and at guest checkout (section 7).
 
+- **As built** (section 8.10). Criteria 1 to 5 hold as written. Criterion 6: the token is created,
+  set and answered at the three moments (`Storefront\VisitorToken::token()`), and the order's
+  attribution row carries it; the identity merge that sends it is Story 5.2's, and the storefront
+  answers its seam `Engine\Capture\VisitorToken`. Beyond the "Owns"
+  list: `src/src/Storefront/EndpointController.php` (the base of the three front controllers),
+  `src/views/templates/front/recommendations-container.tpl` (the widget's empty container; HTML
+  comes from a template), `Config\EngineSettings` (the consent setting's read and write), two calls
+  in `Engine\Client`, two routes in the engine mock, and `tests/js/harness.js`.
+
 ### Story 5.6 — Privacy
 
 - **Goal.** Export, erasure and profiling opt-out across store, queues and engine.
@@ -3546,6 +3730,11 @@ has one owner:
 
 | 44 | A send whose `sent` cannot be written | A row that went out and whose status write fails twice is sent again after 10 minutes (section 4.3, item 7). Core reads that the module does not own (an object model's load, `Configuration`'s writes) still answer a failure as "nothing" on a live 9.2.0, and were not reviewed one by one (section 1.6). | Owner |
 | 45 | The form of the connection prefix | The module stores `config.connection.prefix` exactly as the engine sends it, whatever its form (section 8.9). The Magento and WooCommerce connectors refuse an exchange, and ignore a ping, whose prefix is neither `c<N>-` nor `''`. The owner's rule "one connector never changes a behaviour rule alone" (section 15) asks for one answer for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
+| 46 | No `source` constant for PrestaShop's browse events | Contract §6 lists `plugin_woo`, `plugin_shopify` and `plugin_magento` and asks a sender to use its listed constant; it lists none for PrestaShop. The relay sends no `source`, so the engine stores `web` (section 8.10). A `plugin_prestashop` needs a contract change. | Engine team |
+| 47 | Browse events without `sku` | The relay has the store's product ids and asks the product key seam for the engine's key (section 8.10). No listener answers until Story 5.2's key builder is wired to it, and that key carries the namespace of row 1. Until then the engine stores product views and cart events without a product. | Story 5.2; engine team (row 1) |
+| 48 | Marketing consent for a store-created visitor token | The contract asks for a shopper's marketing consent (§5, §7). The siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API). PrestaShop has neither, so the module asks for both the merchant's consent setting and the customer's `newsletter` (section 8.10). Confirm, or name another rule for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
+| 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
+| 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or

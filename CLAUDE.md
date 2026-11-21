@@ -263,6 +263,15 @@ ask (Linear discipline below).
   (`Queue\ContactEntity::key()`) and its customer accounts. Every table that holds a person's
   data joins `Privacy\LocalData` for the export and the erasure. No log line, stored reason or
   screen holds an engine's text: the HTTP status and the error code only.
+- **The storefront** (ARCHITECTURE 8.10, 9). Browse tracking and the recommendations run only with
+  the browser's consent rule (`consent.js`: the store's `consentOverride()`, else the merchant's
+  setting, which is off until confirmed); the three landing cookies are not gated, and nothing else
+  may join them. Every front script is one IIFE and the scripts add one global,
+  `window.smailyConnect` (`node --test tests/js/`). A page holds nothing about its visitor: what
+  differs per visitor comes after load from `relay`, `land` and `recommendations`. A store-created
+  `vs_` token needs the setting and the customer's `newsletter`. The cache is files in PrestaShop's
+  cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
+  process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
   (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the

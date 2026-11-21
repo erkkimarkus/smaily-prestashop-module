@@ -159,6 +159,37 @@ After an upgrade from version 2.x, a store whose opt-in automation had no workfl
 
 Sent and skipped rows are kept for 30 days, failed rows for 90 days. Contact imports stay in the list.
 
+## Product recommendations in your store
+
+With Campaign Intelligence connected, your store can show each shopper the block **Recommended for you**: up to four products that Campaign Intelligence picked for that shopper, the same ones as in the shopper's emails. The products are drawn as your theme draws its own product lists, with your store's own names, pictures and prices.
+
+You decide where the block shows. The module puts it nowhere by itself.
+
+1. **On a page position.** Open **Design -> Positions** and click **Transplant a module** (PrestaShop 8) or **Hook a module** (PrestaShop 9). Pick **Smaily Connect** as the module and a position, for example `displayHome` for the home page or `displayFooterProduct` for the product page, and save.
+2. **In a theme template.** A theme developer writes `{widget name='smailyforprestashop'}` where the block belongs.
+
+The block shows only to a shopper whom the store knows and who has recommendations: a logged-in customer, or a visitor who came from one of your Smaily emails or shopped with you before. For everyone else, and whenever Campaign Intelligence has no answer, nothing shows at all: no heading and no empty frame. A customer who switched personalization off on their account page never sees the block. The block also needs the visitor's consent, as browse tracking does (below).
+
+A theme can restyle the block by overriding the module's template `views/templates/front/recommendations.tpl`.
+
+## Browse tracking and cookies
+
+With Campaign Intelligence connected, the store can tell it which products, categories and searches a visitor looks at and what goes into the cart, so that the recommendations fit the visitor. The events go through your own store's server; no key or password of your store is ever in a page.
+
+**Browse tracking and the recommendations block are off until you confirm that your store's cookie banner covers them**, with the switch **My store's cookie banner covers Smaily tracking** in **Settings -> Intelligence**. PrestaShop has no cookie-consent setting that a module can read, so the module cannot see what a visitor answered to your banner. When you confirm, the module treats every visitor of that shop as having agreed to Smaily tracking and recommendations: make sure that your banner asks for it. A new store and a store upgraded from version 2.x start with this off.
+
+If your store's developer can read the banner's answer, they can give the module each visitor's own choice: define the function `window.smailyConnect.consentOverride()` in the theme, returning `true` only for a visitor who agreed. Where it is defined, its answer decides, whatever the setting says. When the answer changes on an open page, fire the event `smaily:consent-changed` on `document`.
+
+What a visitor's browser stores:
+
+| Cookie | What it holds | When it is set | Kept for |
+|---|---|---|---|
+| `smaily_anon_sid` | A random number for this browser's visits | Only with consent, by the tracker | 30 days |
+| `smaily_rec_id`, `smaily_rec_ctx` | Which recommendation in a Smaily email, or in the block, the visitor clicked | When the visitor lands from such a link | 30 days |
+| `smaily_rec_uid` | A token that stands for the visitor, so that the store can ask for their recommendations | When the visitor lands from a Smaily email link. Also when a newsletter subscriber logs in, registers or checks out as a guest, but only once you have confirmed the cookie banner | 365 days |
+
+The cookies of an email click are set without the consent switch, as in every Smaily store connector: they record that the visitor came from your own email, so that the order can be credited to it. Without consent nothing else is stored and no browsing is sent.
+
 ## Privacy requests
 
 A customer can ask for a copy of their personal data, or to have it erased. Smaily Connect answers both for the data that the module itself keeps, and for the customer's data in Campaign Intelligence.

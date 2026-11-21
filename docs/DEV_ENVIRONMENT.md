@@ -85,13 +85,14 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1703 tests on 8.2.8 (9127 assertions) and on 9.2.0 (9132
+Last verified results, all passing: 1849 tests on 8.2.8 (9877 assertions) and on 9.2.0 (9882
 assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the privacy requests of Story 5.6; 8.2.8
+the egress guard (2026-11-21, with the storefront of Story 5.5; 8.2.8
 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12; on 9.2.0 once with debug mode on and once with it off,
 with the same counts); 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (1703 tests, 2684 assertions, 896 skipped).
+and skips the integration tests (1849 tests, 3116 assertions, 951 skipped). The storefront scripts have
+their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
@@ -239,7 +240,12 @@ also answers the three privacy routes (contract §8, §9 and §10): it knows eve
 that `unknown_customers` lists or that a deletion put into `deleted_customers` (both answer
 HTTP 404, one list for every engine store), keeps each address's choice under `opt_outs`, and
 takes `fail` and `delay` under the names `customer_export`, `customer_delete` and
-`customer_opt_out`. Any token
+`customer_opt_out`. It answers the two storefront routes too (contract §6 and §15): the browse
+events, each validated on its own, and a shopper's recommendations, which a walk gives under
+`recommendations` as `{"customer:<id>": [{"external_id": "6"}, …]}` or `{"token:<visitor token>":
+[…]}` (a shopper without an entry gets the empty answer); `visitor_tokens` lists the tokens that
+count as bound to a customer; their names for `fail` and `delay` are `browse` and
+`recommendations`. Any token
 that the mock has not seen works once as a setup link
 (`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
 No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls
@@ -274,6 +280,44 @@ without the answer and the upgrade runs (verified on 8.2.8):
 
 The command builds `var/cache/prod`; remove that folder afterwards. A shop that runs with debug mode
 off needs no such step: 22 console upgrades from 2.2.0 ran behind the guard in one.
+
+## 4b. Walking the storefront: the consent gate, the block and the cache (verified on 8.2.8 and 9.2.0)
+
+Nothing of the storefront runs before the shop has a connection (section 4a). No screen confirms
+the consent setting yet (Story 5.3); a walk writes it from a PHP script that boots the shop:
+
+    Services::instance()->get(Config\EngineSettings::class)->setConsentConfirmed(true, 0);
+
+**Probe the consent gate in a real browser, in both states.** A gate that fails closed looks the
+same as a tracker that works and has nothing to send. On any storefront page, in the console:
+
+    window.smailyConnect.consentGiven()                    // the rule's answer for this visitor
+    window.smailyConnectStorefront.consentConfirmed        // the merchant's setting, as the page got it
+    typeof window.smailyConnect.consentOverride            // "function" when the store defines one
+    await cookieStore.getAll()                             // no smaily_anon_sid without consent
+
+and in the network log: without consent no request to `…/module/smailyforprestashop/relay` or
+`…/recommendations`; with consent a `relay` request about 5 seconds after a product, category or
+search page, or when the page is left. The engine mock's state lists what reached the engine. A
+store's own consent adapter is one line in the theme, for example
+`window.smailyConnect = window.smailyConnect || {}; window.smailyConnect.consentOverride = function () { return false; };`
+before the module's scripts.
+
+**The block.** Put the module on a display hook in Design > Positions ("Transplant a module" on
+PrestaShop 8, "Hook a module" on 9), or write `{widget name='smailyforprestashop'}` into a theme
+template. The flashlight shops never recompile a changed template (`PS_SMARTY_FORCE_COMPILE` is
+`0`): set it to `1` in the `configuration` table, or clear the cache in Advanced Parameters >
+Performance, before a changed `.tpl` shows. A visitor gets products only with a visitor token or a
+login: open a page with `?smaily_vt=vt_<10 characters>` first, and give the mock recommendations
+for that token.
+
+**The cache.** The recommendations and the per-address limits are small files in
+`var/cache/<environment>/smaily_connect/`. An answer of the engine, an empty one too, stays for an
+hour: a walk that changes the mock's recommendations for a shopper who was already asked about
+uses another token or customer, or clears PrestaShop's cache. A limit's count ends with its minute.
+
+**The checkout.** The flashlight shops offer their payment modules to one country only; a walk
+that orders from another country adds that country in Payment > Preferences first.
 
 ## 5. PrestaShop 8
 
@@ -345,6 +389,9 @@ Results on 2026-11-20:
 - On 2026-11-21, with the privacy requests of Story 5.6: 10 of 10 checks on flashlight 8.2.8 and
   9.2.0 with the packaged zip, and 1703 tests in the shop on each (9127 assertions on 8.2.8, 9132
   on 9.2.0).
+- On 2026-11-21, with the storefront of Story 5.5: 10 of 10 checks on flashlight 8.2.8 and 9.2.0
+  with the packaged zip, and 1849 tests in the shop on each (9877 assertions on 8.2.8, 9882 on
+  9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
