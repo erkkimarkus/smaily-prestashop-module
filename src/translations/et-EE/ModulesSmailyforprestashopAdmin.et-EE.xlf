@@ -9,7 +9,7 @@
       </trans-unit>
       <trans-unit id="3e614e6ed6a76b403e9cc5ce027ac0a9">
         <source>Smaily email marketing and automation module for PrestaShop.</source>
-        <target>Smaily E-turunduse ja kontaktide automaatse sünkrooniseerimise moodul Prestashopile</target>
+        <target>Smaily e-turunduse ja automaatika moodul PrestaShopile.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="876f23178c29dc2552c0b48bf23cd9bd">
@@ -469,7 +469,7 @@
       </trans-unit>
       <trans-unit id="7b1ce4d3b5cca634d239b2294bd9a11e">
         <source>Most retry automatically with backoff; anything still failed can be retried manually from the grid.</source>
-        <target>Enamik proovitakse automaatselt tagasilangusega uuesti; endiselt ebaõnnestunuid saab tabelist käsitsi uuesti proovida.</target>
+        <target>Enamikku proovitakse automaatselt kasvava ooteajaga uuesti; endiselt ebaõnnestunuid saab tabelist käsitsi uuesti proovida.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="dbc21052e49ff575d6456181a1f05b3e">
@@ -1190,6 +1190,1381 @@
       <trans-unit id="2d6e1bd54e0064ec850e27a2f93e76f4">
         <source>This save replaced a Smaily account. The workflows that the automations picked from the replaced account were removed: pick workflows of the new account under Automations.</source>
         <target>See salvestamine asendas Smaily konto. Töövood, mille automaatikad olid valinud asendatud kontolt, eemaldati: vali uue konto töövood jaotises Automaatikad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5d4b56d5c31cb003dc27c419a8f11a99">
+        <source>A later change of this contact's newsletter subscription already reached Smaily; sending this one again would undo it.</source>
+        <target>Selle kontakti uudiskirja tellimuse hilisem muudatus on juba Smailysse jõudnud; selle rea uuesti saatmine tühistaks muudatuse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fffc9248d7be3014d01ff15289ab5e7f">
+        <source>A password is already saved — leave this empty to keep it.</source>
+        <target>Parool on juba salvestatud — jäta väli tühjaks, et seda alles hoida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0c4b9f5073989869f6177de1a4dbf212">
+        <source>A product feed for the RSS block of the Smaily template editor. Optional query parameters filter by category and control the amount and order of products.</source>
+        <target>Tootevoog Smaily mallieditori RSS-ploki jaoks. Valikuliste URL-i parameetritega saab filtreerida kategooria järgi ning määrata toodete arvu ja järjestuse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f16e4939be9a6d6447ab78e9a66b21a6">
+        <source>A single Smaily account, but each language triggers its own automation workflow. The most common setup.</source>
+        <target>Üks Smaily konto, kuid iga keel käivitab oma automaatika töövoo. Kõige levinum seadistus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a625fdf18a18d9467692f4a354b05e9f">
+        <source>A single workflow that branches on the contact's language inside Smaily. The language is sent with every contact.</source>
+        <target>Üks töövoog, mis hargneb Smaily sees kontakti keele järgi. Keel saadetakse kaasa iga kontaktiga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="37e31370e4ab230ff6fba12cc6390aff">
+        <source>API password</source>
+        <target>API parool</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="266ba5df48aed68af0cce5f735035291">
+        <source>API username</source>
+        <target>API kasutajanimi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bca414d1248f3654e8fbc5affe23e845">
+        <source>Abandoned cart reminder</source>
+        <target>Ostukorvi meeldetuletus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="496b40bb56edf8565da0f47025389435">
+        <source>Add the cron line</source>
+        <target>Lisa cron-rida</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9de408bb92b0c6381d96511b5fdefa4c">
+        <source>All customers (legitimate interest)</source>
+        <target>Kõik kliendid (õigustatud huvi)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="111ec29607d9b54799e7a9c0f5b2a3ea">
+        <source>All customers: from now on every registered customer is synced to Smaily, also those who never opted in to your newsletter, and the daily refresh sends your existing customers too.</source>
+        <target>Kõik kliendid: edaspidi sünkroonitakse Smailysse iga registreeritud klient, ka need, kes pole sinu uudiskirjaga kunagi liitunud, ning igapäevane värskendus saadab ka olemasolevad kliendid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f7a14aab3b703dc1c25067c7efd532d7">
+        <source>All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. The other shops' own settings are removed.</source>
+        <target>Seejärel kasutavad kõik poed seadeid, mis on poel %shop%: selle Smaily kontot, kontaktide seadeid ja automaatikaid. Teiste poodide oma seaded eemaldatakse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a2be4a30691dfcba26486d1a541b42e8">
+        <source>All systems normal</source>
+        <target>Kõik toimib normaalselt</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="87a8f5987c3b81061d0e2b7e036b2572">
+        <source>Also sync newsletter subscribers who signed up in the newsletter block without an account, and customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way.</source>
+        <target>Sünkrooni ka uudiskirja tellijad, kes liitusid uudiskirja plokis ilma kontota, ja kliendid, kes ostsid külalisena. Režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“ sünkroonitakse külaline, kes märgib kassas uudiskirja märkeruudu, igal juhul.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="70f540bee332df27ad46708ff676e766">
+        <source>Ask an administrator who may change the Smaily Connect settings to add the cron line.</source>
+        <target>Palu cron-rida lisada administraatoril, kellel on õigus Smaily Connecti seadeid muuta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2aa97e44cace7cb882c9dcba32940f8f">
+        <source>Attention</source>
+        <target>Tähelepanu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8b18d9845744f050df7223e98dda8694">
+        <source>Automated</source>
+        <target>Automaatne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0557fa923dcee4d0f86b1409f5c2167f">
+        <source>Back</source>
+        <target>Tagasi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b9f79cd5dd5c8ac08d0eab7d25cfeaa2">
+        <source>Background tasks are not running — nothing goes to Smaily until they run again.</source>
+        <target>Taustatööd ei tööta — Smailysse ei jõua midagi enne, kui need jälle käivituvad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="df4f4396cba01294c87d9d39bd6cb4ad">
+        <source>Background tasks are not running; add the cron line.</source>
+        <target>Taustatööd ei tööta; lisa cron-rida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b8843acb0f248953987bc7962101bdf8">
+        <source>Background tasks last ran</source>
+        <target>Taustatööde viimane käivitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e96b140a3e0cf21be9d83e939a866ca4">
+        <source>Browse tracking</source>
+        <target>Sirvimise jälgimine</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fb21eb56811980ea7146e114be107bb4">
+        <source>Campaign Intelligence (optional)</source>
+        <target>Campaign Intelligence (valikuline)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ea4788705e6873b424c65e91c2846b19">
+        <source>Cancel</source>
+        <target>Tühista</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d28d3c41df677e737aab11d508a32e78">
+        <source>Cancel import</source>
+        <target>Katkesta import</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0e22fe7d45f8e5632a4abf369b24e29c">
+        <source>Canceled</source>
+        <target>Katkestatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5d6127047b9c5985a6fd1ff18282ffa8">
+        <source>Canceling…</source>
+        <target>Katkestamine…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2c2905aae791156b52ca72056d5cd901">
+        <source>Catalog items</source>
+        <target>Kataloogitooted</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="84c1279788a6e56499d729a2598fbf98">
+        <source>Category ID (optional)</source>
+        <target>Kategooria ID (valikuline)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f4ec5f57bd4d31b803312d873be40da9">
+        <source>Change</source>
+        <target>Muuda</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cbe701b8da0ead3c572a60947a9280d9">
+        <source>Checking…</source>
+        <target>Kontrollin…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8a726cb5dd85ffb2183e6cd649d20810">
+        <source>Checkout opt-in only</source>
+        <target>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="dd7756294d55bc7ce610336a38109ee6">
+        <source>Checkout opt-in only syncs nobody automatically, so there is nothing to import.</source>
+        <target>Režiim „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“ ei sünkrooni kedagi automaatselt, seega pole midagi importida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d909bf618de1d2e920213bfadcca918c">
+        <source>Checkout opt-in only: from now on only shoppers who tick the newsletter checkbox at checkout are synced. Contacts already in Smaily stay there.</source>
+        <target>Ainult kassas turunduskirjade nõusoleku andnud kontaktid: edaspidi sünkroonitakse ainult ostjad, kes märgivad kassas uudiskirja märkeruudu. Juba Smailys olevad kontaktid jäävad sinna alles.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ee8390c41403642e46c7f150f388eec8">
+        <source>Connect your Smaily account</source>
+        <target>Ühenda oma Smaily konto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6d27bf87926c384eb572da6e0d91fba6">
+        <source>Connect your store to Smaily to sync contacts and set up automated emails.</source>
+        <target>Ühenda oma pood, et tuua klientide kontaktid Smailysse ja seadistada automaatseid e-kirju.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2ec0d16e4ca169baedb9b2d50ec5c6d7">
+        <source>Connected</source>
+        <target>Ühendatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8de247b1411fc2dbfcec236c7ab6e1e2">
+        <source>Connected (%subdomain%)</source>
+        <target>Ühendatud (%subdomain%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d2cfe2f8ad57d3c51177f5defadd8e8c">
+        <source>Connected! Continue to the next step.</source>
+        <target>Ühendatud! Jätka järgmise sammuga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c2cc7082a89c1ad6631a2f66af5f00c0">
+        <source>Connection</source>
+        <target>Ühendus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="930ab1993378c2a9782171a3ce187209">
+        <source>Connection failed.</source>
+        <target>Ühendus ebaõnnestus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ab7a3f83752f7c9d3e4789c37350d900">
+        <source>Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.</source>
+        <target>Kontaktide sünkroonimine on selle poe jaoks väljas, seega import ei saadaks midagi. Lülita see sisse ja salvesta, et importida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0f369cd9ae87e949177555aa1b703d39">
+        <source>Contact synchronization stays off for %shop%: %reason% Switch it on under Settings &gt; Contacts when you want it.</source>
+        <target>Kontaktide sünkroonimine jääb välja lülitatuks (pood: %shop%): %reason% Soovi korral lülita see sisse: Seaded &gt; Kontaktid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bb8b9f9eda2f7d66712938a7678fee29">
+        <source>Contact synchronization to Smaily</source>
+        <target>Kontaktide sünkroonimine Smailysse</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d71d7794b37b6445b7187058219348ec">
+        <source>Contact syncs</source>
+        <target>Kontaktide sünkroonimised</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9aa698f602b1e5694855cee73a683488">
+        <source>Contacts</source>
+        <target>Kontaktid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="90b3e95aa944f2614db783dcf05ce2e4">
+        <source>Contacts in the %language% language sync to this account, and their automations start from it.</source>
+        <target>Selle keele (%language%) kontaktid sünkroonitakse sellele kontole ja nende automaatikad käivituvad selle kaudu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="43b60fd390d730cc3afc8bc515f62de4">
+        <source>Contacts start syncing to Smaily once the Contacts settings are saved, so an import would send nothing yet. Save them to import.</source>
+        <target>Kontaktide sünkroonimine Smailysse algab, kui kontaktide seaded on salvestatud, seega import ei saadaks veel midagi. Salvesta need, et importida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="64083c4a8a9426ba62af87f05e720542">
+        <source>Contacts start syncing to Smaily when you save this step.</source>
+        <target>Kontaktide sünkroonimine Smailysse algab, kui salvestad selle sammu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a0bfb8e59e6c13fc8d990781f77694fe">
+        <source>Continue</source>
+        <target>Jätka</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="140e317e0077aece29910d4f129b2cdd">
+        <source>Continue?</source>
+        <target>Kas jätkata?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5fb63579fc981698f97d55bfecb213ea">
+        <source>Copy</source>
+        <target>Kopeeri</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0d9bdf4b20c7c1c4446bbd8be2ddb111">
+        <source>Copying failed — select the URL and copy it manually.</source>
+        <target>Kopeerimine ebaõnnestus — märgista URL ja kopeeri käsitsi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="47c05856a468886a409478e269290bb2">
+        <source>Could not reach Smaily: %error%</source>
+        <target>Smailyga ei saadud ühendust: %error%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8623e78036ec9716f5bd87080dd02c5c">
+        <source>Create a Smaily account</source>
+        <target>Loo Smaily konto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3eb99dea2c525b3d9a2485e6403b60d8">
+        <source>Create a connection with Campaign Intelligence (optional)</source>
+        <target>Loo ühendus Campaign Intelligence’ga (valikuline)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e7ae4c6b54767c3ea2a2e0033d677cdf">
+        <source>Credentials missing or invalid</source>
+        <target>Kasutajaandmed puuduvad või on valed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2938c7f7e560ed972f8a4f68e80ff834">
+        <source>Dashboard</source>
+        <target>Töölaud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1218caa99c5210e89e89f6c92b0512c2">
+        <source>Date created</source>
+        <target>Loomise kuupäev</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4965e9e891c3381d1ec7379f036131de">
+        <source>Date of birth</source>
+        <target>Sünnikuupäev</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cfbd7f130051f2cd27c267cea5a71f07">
+        <source>Default fallback account</source>
+        <target>Vaikimisi varukonto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b9f5c797ebbf55adccdd8539a65a0241">
+        <source>Disabled</source>
+        <target>Väljas</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c8a59e7135a20b362f9c768b09454fdb">
+        <source>Dismiss</source>
+        <target>Peida</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="801ab24683a4a8c433c6eb40c48bcd9d">
+        <source>Download</source>
+        <target>Laadi alla</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="de6977810715dee6eb2cab71543ded72">
+        <source>Each language has its own Smaily account (subdomain and credentials) with its own contact list.</source>
+        <target>Igal keelel on oma Smaily konto (alamdomeen ja kasutajaandmed) koos oma kontaktide nimekirjaga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="760b508d08462c27d48b07602f83f092">
+        <source>Each shop is a business of its own, with its own Smaily account, contacts and automations. You set each shop up on its own, as a single store.</source>
+        <target>Iga pood on omaette ettevõte, oma Smaily konto, kontaktide ja automaatikatega. Seadistad iga poe eraldi, nagu üksiku poe.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="341d80228ec7ef54df298841e8fef08a">
+        <source>Each shop keeps the settings it uses now, as its own. Change them for each shop afterwards.</source>
+        <target>Iga pood jätab praegu kasutatavad seaded endale oma seadeteks. Muuda neid hiljem iga poe juures eraldi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7dce122004969d56ae2e0245cb754d35">
+        <source>Edit</source>
+        <target>Muuda</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9ed6b46fac0f85ae6d464bb1b6d5d56c">
+        <source>Empty values are never sent, so existing Smaily data is not wiped.</source>
+        <target>Tühje väärtusi ei saadeta kunagi, seega olemasolevaid Smaily andmeid ei kustutata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4fcd8cb7957e00bcf9fe5c6e6635b3d0">
+        <source>Enter a category ID, or leave it empty for all products.</source>
+        <target>Sisesta kategooria ID või jäta väli tühjaks, et kaasata kõik tooted.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8477351bb9d037a19036de0b05fd2bcb">
+        <source>Enter a number from 1 to %max%.</source>
+        <target>Sisesta arv vahemikus 1 kuni %max%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="67daf563fe878f506ceb76860cdf1052">
+        <source>Every registered customer is synced; anyone who has not unsubscribed can receive your emails (soft opt-in). Soft opt-in allows marketing emails only about products similar to those the customer bought, and the customer must have had a clear way to refuse at purchase. Every email needs an unsubscribe link. You are responsible for the legal basis.</source>
+        <target>Sünkroonitakse iga registreeritud klient; igaüks, kes pole loobunud, võib saada sinu kirju (pehme nõusolek). Pehme nõusolek lubab saata turunduskirju ainult kliendi ostetuga sarnaste toodete kohta ning kliendil pidi ostu ajal olema selge võimalus sellest keelduda. Igas kirjas peab olema loobumislink. Õigusliku aluse eest vastutad sina.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9a02788c4f689dd9ae77fc4337b96ebf">
+        <source>Everything is running — deliveries to Smaily are flowing normally.</source>
+        <target>Kõik töötab — saadetised Smailysse liiguvad tavapäraselt.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c2564145d106322ebfe65f3169d867bc">
+        <source>Extra fields to sync with each contact</source>
+        <target>Lisaväljad, mis sünkroonitakse iga kontaktiga</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="62eed6de426b4045d6bcc98d606ade57">
+        <source>Feed URL</source>
+        <target>Voo-URL</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fb64d8bc576ccf2340d4ff0e5c121ff3">
+        <source>Fill in the subdomain and username of the %language% account.</source>
+        <target>Täida %language% konto alamdomeen ja kasutajanimi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a20ddccbb6f808ec42cd66323e6c6061">
+        <source>Finish</source>
+        <target>Lõpeta</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd2e233e19947e740a4b22eef3c753d1">
+        <source>Finish upgrade</source>
+        <target>Vii uuendus lõpule</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d74e68d3b42fca01da095e93a7e11235">
+        <source>Finishing the upgrade…</source>
+        <target>Viin uuendust lõpule…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d19e8ab738bcb64f6c960a6ee116b3b5">
+        <source>Go to Dashboard</source>
+        <target>Ava töölaud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="655d9b340a37313a1f52fc326dd94ffb">
+        <source>How are your shops run?</source>
+        <target>Kuidas on sinu poed korraldatud?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4e4586743087a5cc3ca7fe6c7ad7606e">
+        <source>How is Smaily organized for your store languages?</source>
+        <target>Kuidas on Smaily sinu poe keelte jaoks korraldatud?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="49e22d98fa2f3a3955a8cd9850db3546">
+        <source>How the shops are run is changed under Settings.</source>
+        <target>Poodide korraldust saab muuta lehel Seaded.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2001c207c4656736dcdc2a0610600563">
+        <source>If your Smaily URL is https://demo.sendsmaily.net, the subdomain is "demo". Pasting the full URL also works.</source>
+        <target>Kui sinu Smaily URL on https://demo.sendsmaily.net, on alamdomeen „demo“. Sobib ka täieliku URL-i kleepimine.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d24e41338a9cc7a753860d17df1ae3eb">
+        <source>Importing…</source>
+        <target>Impordin…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="59ea91438b82d8dd0be1d65f4dda10aa">
+        <source>Include guests</source>
+        <target>Kaasa külalised</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e5a390674e124e6c626065291b5a8c60">
+        <source>Include guests: from now on newsletter subscribers without an account and guest-checkout customers are synced too, and the daily refresh sends the existing ones.</source>
+        <target>Kaasa külalised: edaspidi sünkroonitakse ka kontota uudiskirja tellijad ja külalisena ostnud kliendid ning igapäevane värskendus saadab ka olemasolevad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2ecd671d4fc202ac82ad83e25a292507">
+        <source>Initial contact import</source>
+        <target>Esmane kontaktide import</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1231369e1218613623e1b520c27ce190">
+        <source>Initial setup</source>
+        <target>Algseadistus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8f7ba58961e0fe40cfda61b412537fba">
+        <source>Intelligence</source>
+        <target>Intelligence</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3a08e2e340ab29fd9263af48193cbf8e">
+        <source>Languages</source>
+        <target>Keeled</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d2942b56e8f4a81cbb02020dbc252286">
+        <source>Last run %time% from shop visits</source>
+        <target>Viimane käivitus %time%, poe külastusest</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="04a544f5f0007d041d4472bf5a1d206d">
+        <source>Last run %time% from the cron URL</source>
+        <target>Viimane käivitus %time%, cron-URL-ist</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d0601242d40853b83325471545e7923e">
+        <source>Log in to Smaily: gear icon → Integrations → Create a new user (API username and password).</source>
+        <target>Logi Smailysse sisse: hammasratas → Liidestused → loo uus API-kasutaja ja parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a5b66f16e0c14f7505522c97b75391c1">
+        <source>Most common</source>
+        <target>Levinuim</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d6f5722e464f95d8d6411841b90ee6d2">
+        <source>Needs attention</source>
+        <target>Vajab tähelepanu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="54219de6322f1c51b8ada940fae8ab98">
+        <source>Never run</source>
+        <target>Pole kordagi käivitunud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0a0f426d04bcec32c87d978afa295131">
+        <source>No Smaily account is saved for all shops, so each shop uses its own.</source>
+        <target>Kõigi poodide jaoks pole Smaily kontot salvestatud, seega kasutab iga pood oma kontot.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d6b2161d4f5d55be8d03e2b992c3d001">
+        <source>No Smaily account is saved for this shop and language.</source>
+        <target>Selle poe ja keele jaoks pole Smaily kontot salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="01b414a1f7f3a71f0065307b5d252a83">
+        <source>No deliveries yet. Once contacts, orders or catalog changes start flowing, the latest queue rows show up here.</source>
+        <target>Saadetisi veel pole. Kui kontaktid, tellimused või kataloogimuudatused liikuma hakkavad, ilmuvad värskeimad järjekorraread siia.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b265e2f25b80ec39a0cdccb82b44731b">
+        <source>Nobody is synced automatically — only shoppers who tick the newsletter checkbox at checkout.</source>
+        <target>Kedagi ei sünkroonita automaatselt — ainult ostjad, kes märgivad kassas uudiskirja märkeruudu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6adf97f83acf6453d4a6a4b1070f3754">
+        <source>None</source>
+        <target>Puudub</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b277018e43d41bc445731092b91547d">
+        <source>Not connected</source>
+        <target>Pole ühendatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="84435c8fed125c1f06699e20bdcee63d">
+        <source>Not running</source>
+        <target>Ei tööta</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9d932812ff0c29199bc91aa8bdd33913">
+        <source>Not saved yet: nothing syncs to Smaily.</source>
+        <target>Veel salvestamata: Smailysse ei sünkroonita midagi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ace1d137a73af7e93d57d9896c1c4fbb">
+        <source>Not started</source>
+        <target>Alustamata</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9d76aca60838d896fb7754d4a890eb9d">
+        <source>Not yet</source>
+        <target>Veel mitte</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="50a49c9bd4e9c0c732a4431990ea0cf1">
+        <source>Number of products (1-%max%)</source>
+        <target>Toodete arv (1-%max%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="521c36a31c2762741cf0f8890cbe05e3">
+        <source>On</source>
+        <target>Sees</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1fefa6f313428989db7ddf7d0dd8bbc3">
+        <source>One account, per-language workflows</source>
+        <target>Üks konto, keelepõhised töövood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="62641c129e8629449ef07eec291c421c">
+        <source>One store in several versions</source>
+        <target>Üks pood mitmes versioonis</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="85a7aab901afd283844cb764b6a18149">
+        <source>One workflow branching by language</source>
+        <target>Üks töövoog, mis hargneb keele järgi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d0c47f6478c469f0239d889b3a93023c">
+        <source>Only customers who opted into the newsletter are synced. Unsubscribes in Smaily are mirrored back to PrestaShop automatically (two-way sync).</source>
+        <target>Sünkroonitakse ainult uudiskirjaga liitunud kliendid. Smailys tehtud loobumised peegeldatakse automaatselt PrestaShopi tagasi (kahesuunaline sünkroonimine).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="dd92dbb7f1fb916dec3d48946fb35e83">
+        <source>Open Connection settings</source>
+        <target>Ava ühenduse seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="638c05f4f159a403e04aebe94b46a2a8">
+        <source>Open Settings</source>
+        <target>Ava seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="465e883e1d982f8279b4727ede78aa31">
+        <source>Otherwise this shop uses the settings saved for all shops, and a change here applies to every shop that uses them.</source>
+        <target>Muidu kasutab see pood kõigi poodide jaoks salvestatud seadeid ja siin tehtud muudatus kehtib igas poes, mis neid kasutab.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3b878279a04dc47d60932cb294d96259">
+        <source>Overview</source>
+        <target>Ülevaade</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5d8d177cf0a54dc72539adec020e22f7">
+        <source>Paste this URL into the RSS block of the Smaily template editor. Category IDs are shown in Catalog &gt; Categories.</source>
+        <target>Kleebi see URL Smaily mallieditori RSS-plokki. Kategooriate ID-d leiad menüüst Kataloog &gt; Kategooriad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e99180abf47a8b3a856e0bcb2656990a">
+        <source>Paused</source>
+        <target>Peatatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0f049476ed80640b0008d69402b62dc4">
+        <source>Per shop</source>
+        <target>Poe kaupa</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="720399f3e32ec6db02a8d9c1c94e303e">
+        <source>Per-language Smaily accounts</source>
+        <target>Keelepõhised Smaily kontod</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2b96f842192b7e4f84b544d13b668f89">
+        <source>Per-language Smaily accounts are set for one shop: under Settings &gt; Connection, pick the shop and tick Use its own Smaily account on this shop.</source>
+        <target>Keelepõhised Smaily kontod seadistatakse ühele poele: vali pood, ava Seaded &gt; Ühendus ja märgi „Kasuta selles poes oma Smaily kontot“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3a2e7322eb4b663dd54ad7c9cccf4b94">
+        <source>Pick a shop in the shop selector to see its connection.</source>
+        <target>Ühenduse nägemiseks vali poevalijast pood.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d190a6931043cbb0a58766dbb69a64d1">
+        <source>Pick a sort field.</source>
+        <target>Vali järjestamise väli.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9bba7a58f02f86af362b74c0507a69ad">
+        <source>Pick a sort order.</source>
+        <target>Vali järjestamise suund.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="38bda5a9056f48f64b361455a310db27">
+        <source>Pick how your shops are run.</source>
+        <target>Vali, kuidas on sinu poed korraldatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="82092b63b532b866056f61b1999cd224">
+        <source>Pick the default fallback account.</source>
+        <target>Vali vaikimisi varukonto.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="298b4d299cef3e990edd2cc3bee40f48">
+        <source>Pick who should be synced to Smaily.</source>
+        <target>Vali, keda Smailysse sünkroonida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="65b2fb7db21d0a3e699ed0c94a210d6b">
+        <source>Please fill in the subdomain, username and password.</source>
+        <target>Palun täida alamdomeen, kasutajanimi ja parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9544a7d9fd4aeb2c665b53129291c82d">
+        <source>PrestaShop's newsletter module (ps_emailsubscription) already shows a newsletter checkbox at checkout, so Smaily Connect adds none of its own.</source>
+        <target>PrestaShopi uudiskirjamoodul (ps_emailsubscription) näitab juba kassas uudiskirja märkeruutu, seega Smaily Connect oma märkeruutu ei lisa.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5a2419ed5ebb27ab3552ddd11b6acebf">
+        <source>PrestaShop's newsletter module shows it</source>
+        <target>Seda näitab PrestaShopi uudiskirjamoodul</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3601146c4e948c32b6424d2c0a7f0118">
+        <source>Price</source>
+        <target>Hind</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0de434dd5c32a2c9c3a6dc417d1d6277">
+        <source>Product RSS feed</source>
+        <target>Toodete RSS-voog</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0eebbe336686c1fd7b4c7b02498fa6b8">
+        <source>Queued today</source>
+        <target>Täna järjekorda pandud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7298e4abc5483d6bfd7a0ec46ba8bdd6">
+        <source>Quick links</source>
+        <target>Kiirlingid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bf1981220040a8ac147698c85d55334f">
+        <source>RSS</source>
+        <target>RSS</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d421fc3948ceb443dcd0e65bd4901a58">
+        <source>Read them</source>
+        <target>Loe teateid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f7ceab16b033278c6652818cd0553fc1">
+        <source>Recent activity</source>
+        <target>Viimane tegevus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="654866693fd91ce8e9764a218f569918">
+        <source>Recommended</source>
+        <target>Soovitatav</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="90a521d73cad15b4a353df47ccdc06d8">
+        <source>Resume setup</source>
+        <target>Jätka seadistamist</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="97b3f1bb70a55cd1414ca9d324032949">
+        <source>Review failures</source>
+        <target>Vaata ebaõnnestumised üle</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7c7c3b2a52ecafb368f2ba863e2a61ed">
+        <source>Run again</source>
+        <target>Käivita uuesti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c9cc8cce247e49bae79f15173ce97354">
+        <source>Save</source>
+        <target>Salvesta</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0ab7b9a444cce3516d108d48325109fe">
+        <source>Save Connection</source>
+        <target>Salvesta ühendus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0d27cf7f39361293459ce051f8e03735">
+        <source>Save Contacts</source>
+        <target>Salvesta kontaktid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="827ca4db021a2ea0841ccca7244459b0">
+        <source>Save to remove this shop's own values: it then uses the settings saved for all shops.</source>
+        <target>Salvesta, et eemaldada selle poe oma väärtused: siis kasutab see kõigi poodide jaoks salvestatud seadeid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4475a153cf2b4f292bae22d5894ecc04">
+        <source>Saved for all shops</source>
+        <target>Salvestatud kõigi poodide jaoks</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2bcf4d0012d8fec18f5b97a1f307c958">
+        <source>Saved.</source>
+        <target>Salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="94079e95acef4ad10ec3049c4de5a977">
+        <source>Saving failed.</source>
+        <target>Salvestamine ebaõnnestus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c5d590a6bbb4dbd4a7954707d3841a2c">
+        <source>Saving this step starts contact sync on every shop: %shops%.</source>
+        <target>Selle sammu salvestamine käivitab kontaktide sünkroonimise igas poes: %shops%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eedf6b8bfc83284c3294ec4b38188e8a">
+        <source>Saving…</source>
+        <target>Salvestan…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5f064612c5bae216d076a52d3e5fd14c">
+        <source>Separate stores</source>
+        <target>Eraldi poed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c8ddef1dc3d66cb1ff1e145aae2255d1">
+        <source>Set up Smaily account connections</source>
+        <target>Smaily kontoga ühenduse loomine</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="af07b0d5721bd94b11dbed642cae2e6a">
+        <source>Setting up triggers for automations</source>
+        <target>Automaatikate päästikute seadistamine</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f4f70727dc34561dfde1a3c529b6205c">
+        <source>Settings</source>
+        <target>Seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eb36b482e87284d8fab23a26e67bf483">
+        <source>Setup incomplete</source>
+        <target>Seadistus on pooleli</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="305f03c38a9bb5ca76e83d43382d0640">
+        <source>Setup is not finished yet — complete the initial setup to start syncing.</source>
+        <target>Seadistamine pole veel lõpetatud — sünkroonimise alustamiseks läbi algseadistus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6c92b48dbbd5391bbe8bc261e58a7ee1">
+        <source>Show a newsletter checkbox at checkout</source>
+        <target>Näita kassas uudiskirja märkeruutu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3330fc8aa5732f8a111fc1f9ed6df43c">
+        <source>Single language</source>
+        <target>Üks keel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6511c8cce5a346c5ea119770ad0b75ce">
+        <source>Skipped: contact synchronization is off for this shop. Nothing was sent.</source>
+        <target>Vahele jäetud: kontaktide sünkroonimine on selle poe jaoks väljas. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="876bafef57147437d3ff7c61f23a7c49">
+        <source>Skipped: no Smaily account is saved for this shop and language. Nothing was sent.</source>
+        <target>Vahele jäetud: selle poe ja keele jaoks pole Smaily kontot salvestatud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="893a523472662702bef88962634903ee">
+        <source>Skipped: the Contacts settings of this shop do not sync this contact. Nothing was sent.</source>
+        <target>Vahele jäetud: selle poe kontaktide seaded seda kontakti ei sünkrooni. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="92d8c3481a9aa2645fc7f18feb9afc54">
+        <source>Skipped: the Smaily account for this shop and language has no subdomain, username or password. Nothing was sent.</source>
+        <target>Vahele jäetud: selle poe ja keele Smaily kontol puudub alamdomeen, kasutajanimi või parool. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bd1871d71f9855a30adaec0150d46ad1">
+        <source>Skipped: the contents of this cart could not be read. Nothing was sent.</source>
+        <target>Vahele jäetud: selle ostukorvi sisu ei õnnestunud lugeda. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="63a5007af656284d9cfb38d95ee56fa9">
+        <source>Skipped: the reminder of this cart was already sent or closed. Nothing was sent.</source>
+        <target>Vahele jäetud: selle ostukorvi meeldetuletus on juba saadetud või suletud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6916b38cc1893039b8e16d425b5ab435">
+        <source>Skipped: this automation is switched off for this shop. Nothing was sent.</source>
+        <target>Vahele jäetud: see automaatika on selle poe jaoks välja lülitatud. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="208d579cfeeac8572f40b02da9fdee74">
+        <source>Skipped: this cart no longer waits for a reminder. Nothing was sent.</source>
+        <target>Vahele jäetud: see ostukorv ei oota enam meeldetuletust. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6b4001b84c055d225dc5f0bf8e05cbcd">
+        <source>Skipped: this cart was left more than 24 hours ago, and a reminder is never sent for a cart that old. Nothing was sent.</source>
+        <target>Vahele jäetud: see ostukorv jäeti maha rohkem kui 24 tundi tagasi ja nii vanale ostukorvile meeldetuletust ei saadeta. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a4857955e7e39eef5a83217a1c07ae45">
+        <source>Skipped: this version of the module does not know this automation trigger. Nothing was sent.</source>
+        <target>Vahele jäetud: see mooduli versioon ei tunne seda automaatika päästikut. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eed78317f91858c4ac662df82960dfb0">
+        <source>Smaily API credentials</source>
+        <target>Smaily API kasutajaandmed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="03a02bcf417c6aa538ebb02659ea9ba6">
+        <source>Smaily Connect</source>
+        <target>Smaily Connect</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="325121e89096464e9dc9d2e36917654c">
+        <source>Smaily Connect %version%</source>
+        <target>Smaily Connect %version%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fc1090bc55ab9c01bcf9f2bcd0bcd5bd">
+        <source>Smaily Connect %version% is available.</source>
+        <target>Saadaval on Smaily Connect %version%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="da8d2459f00dd6096195b9c6c4bff2ed">
+        <source>Smaily Connect is now syncing in near-real-time. Here is where everything lives from now on:</source>
+        <target>Smaily Connect sünkroonib nüüd peaaegu reaalajas. Edaspidi leiad kõik siit:</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6bb1674e96492db957414c1dc44d5629">
+        <source>Smaily Connect is running, but %count% deliveries failed in the last 24 hours.</source>
+        <target>Smaily Connect töötab, kuid viimase 24 tunni jooksul ebaõnnestus %count% saadetist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5396f26863047490c9622785ec5223f6">
+        <source>Smaily Connect is running, but %count% delivery failed in the last 24 hours.</source>
+        <target>Smaily Connect töötab, kuid viimase 24 tunni jooksul ebaõnnestus %count% saadetis.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e9407a5a5526173e1ed16cf4d5b4b141">
+        <source>Smaily Connect stays paused and your previous settings stay in place until the upgrade finishes. It also finishes on its own with the next run of the cron URL.</source>
+        <target>Smaily Connect on peatatud ja sinu senised seaded jäävad paika, kuni uuendus lõpule jõuab. Uuendus jõuab lõpule ka ise, kui cron-URL järgmine kord käivitub.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d14e41916405797506704dd8c2666d1f">
+        <source>Smaily Connect stays paused until the upgrade finishes.</source>
+        <target>Smaily Connect on peatatud, kuni uuendus lõpule jõuab.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d21067d49dcdd0cf6c1516ba7fa04bac">
+        <source>Smaily Connect upgrade</source>
+        <target>Smaily Connecti uuendus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d748e951021529684781c45730e13745">
+        <source>Smaily Connect — Dashboard</source>
+        <target>Smaily Connect — Töölaud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8523cd5c75be22a7239142ec08b5d80b">
+        <source>Smaily Connect — Initial setup</source>
+        <target>Smaily Connect — Algseadistus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8ca549c35c5dc2d0e5e5bad5d4ca988b">
+        <source>Smaily Connect — Log</source>
+        <target>Smaily Connect — Logi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6622c343588169806170deaa59fd6472">
+        <source>Smaily Connect — Settings</source>
+        <target>Smaily Connect — Seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d5f6d5d2ea8b5926a6c8fe108b453353">
+        <source>Smaily Connect: the upgrade left notices for you.</source>
+        <target>Smaily Connect: uuendus jättis sulle teateid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="97058d2a87afeb710043456b23744ecb">
+        <source>Smaily Connect: the upgrade to version 3.0.0 is not finished.</source>
+        <target>Smaily Connect: uuendus versioonile 3.0.0 on lõpetamata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c97ae6af74a12d5bf53f13f3c1852aa4">
+        <source>Smaily account</source>
+        <target>Smaily konto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="75ed6c6e1ad0395a7f500e22d9bc1398">
+        <source>Smaily account for %language%</source>
+        <target>Smaily konto keelele %language%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="67200dd330e23802e8de7d5606581b72">
+        <source>Smaily answered with an error.</source>
+        <target>Smaily vastas veaga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e0fcbc3e54e2e42e32e7454f54905500">
+        <source>Smaily did not answer. Try again in a moment.</source>
+        <target>Smaily ei vastanud. Proovi hetke pärast uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c82168e2daf280b38f1cfe454c817937">
+        <source>Smaily does not know this subdomain. Check the subdomain.</source>
+        <target>Smaily ei tunne seda alamdomeeni. Kontrolli alamdomeeni.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bfa8d677cd82a17762eca4ccc478881f">
+        <source>Smaily for PrestaShop requires PHP 8.0 or newer.</source>
+        <target>Smaily for PrestaShop vajab PHP versiooni 8.0 või uuemat.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f02cbb8d46126e19c7973a18d1b7c331">
+        <source>Smaily in action</source>
+        <target>Smaily töös</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3ebbe203c1916f46c673c1cd038b1748">
+        <source>Smaily refused the request because this account's package does not include API access. Upgrade the package in Smaily to connect — until then the credentials cannot be checked at all.</source>
+        <target>Smaily keeldus päringust, sest selle konto pakett ei sisalda API-ligipääsu. Ühendamiseks uuenda Smailys paketti — enne seda ei saa kasutajaandmeid üldse kontrollida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e473080a693c56338e0944280bb22e63">
+        <source>Smaily refused the request.</source>
+        <target>Smaily keeldus päringust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bd1b9a42def5c8e0304eafe1a7aafc88">
+        <source>Smaily rejected these credentials. Check the subdomain, username and password.</source>
+        <target>Smaily lükkas need kasutajaandmed tagasi. Kontrolli alamdomeeni, kasutajanime ja parooli.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0b14ead8e66f20bf1b7e08cd0b226c46">
+        <source>Some contacts were left out: no Smaily account is saved for their shop and language.</source>
+        <target>Osa kontakte jäi välja: nende poe ja keele jaoks pole Smaily kontot salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8cd70fa773f89e0b24e65f48c3c8f430">
+        <source>Some contacts were left out: the Smaily account for their shop and language has no subdomain, username or password.</source>
+        <target>Osa kontakte jäi välja: nende poe ja keele Smaily kontol puudub alamdomeen, kasutajanimi või parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="64f7a302bfa4b13eda0d95a5cd1f16c8">
+        <source>Something went wrong. Try again; if it keeps failing, see the PrestaShop logs.</source>
+        <target>Midagi läks valesti. Proovi uuesti; kui viga kordub, vaata PrestaShopi logisid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="aaabfd317d76a7cf42f993faa1970aa0">
+        <source>Start import</source>
+        <target>Alusta importi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eebb72eeb3d26111ca9ed75e1ae59491">
+        <source>Step %number% of %count%</source>
+        <target>%number%. samm %count%-st</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c23e2b09ebe6bf4cb5e2a9abe85c0be2">
+        <source>Stopped</source>
+        <target>Peatunud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eb0fa3b1dc92a8eac393d5503294ded5">
+        <source>Subdomain and username are required.</source>
+        <target>Alamdomeen ja kasutajanimi on kohustuslikud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6c39c2fc07d900a89e7a383c41e87dab">
+        <source>Subscribers only (consent)</source>
+        <target>Ainult turunduskirjade tellijad (nõusolekuga)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="943e1795235afa68b5c73141b84618a8">
+        <source>Subscribers only: from now on only customers who opted in to the newsletter are synced. Contacts already in Smaily stay there.</source>
+        <target>Ainult turunduskirjade tellijad: edaspidi sünkroonitakse ainult uudiskirjaga liitunud kliendid. Juba Smailys olevad kontaktid jäävad sinna alles.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="06b95765b49436b7ea8ab2f7e8172d45">
+        <source>Summary and last check</source>
+        <target>Kokkuvõte ja viimane kontroll</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="58930928088706bb26c36491ddfe76c5">
+        <source>Sync contacts to Smaily</source>
+        <target>Sünkrooni kontaktid Smailysse</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="162a8c9834b90e3835176c323baad304">
+        <source>Synchronization settings</source>
+        <target>Sünkroonimise seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1506ac694d077f2bc2065db880b9f6e2">
+        <source>Syncing starts once Smaily accepts the credentials — check them in Settings &gt; Connection and test the connection. Here is where everything lives from now on:</source>
+        <target>Sünkroonimine algab, kui Smaily on kasutajaandmed vastu võtnud — kontrolli neid jaotises Seaded &gt; Ühendus ja testi ühendust. Edaspidi leiad kõik siit:</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c74255dccdf3e4c7fb65fd19429082ae">
+        <source>Tasks run only when visitors come; add the cron line.</source>
+        <target>Taustatööd käivituvad ainult siis, kui poodi külastatakse; lisa cron-rida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="39838db537c95bc8df810c5601601d5b">
+        <source>Test connection</source>
+        <target>Testi ühendust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1e9731b0f033754e9df1973d1fd77b0f">
+        <source>Testing…</source>
+        <target>Testin…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1af4a41ea4a541955904723d11639994">
+        <source>The %language% account</source>
+        <target>%language% konto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e0e439d9ead17a70867f7d131bd4cf6e">
+        <source>The Smaily account has no subdomain, username or password.</source>
+        <target>Smaily kontol puudub alamdomeen, kasutajanimi või parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7c4b13ea5eff3a293884d1a4221bd7a3">
+        <source>The Smaily credentials are missing or Smaily has not accepted them — check them in Settings &gt; Connection and test the connection.</source>
+        <target>Smaily kasutajaandmed puuduvad või Smaily pole neid vastu võtnud — kontrolli neid jaotises Seaded &gt; Ühendus ja testi ühendust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1d0d4a6027f4d905c91db010bf0deee9">
+        <source>The abandoned cart automation stays off for %shop%: %reason% Switch it on under Settings &gt; Automations when you want it.</source>
+        <target>Hüljatud ostukorvi automaatika jääb välja lülitatuks (pood: %shop%): %reason% Soovi korral lülita see sisse: Seaded &gt; Automaatikad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd889c0a08d0232fa31f49d12bacf5c8">
+        <source>The data stored with this row is incomplete, so it cannot be sent.</source>
+        <target>Selle reaga salvestatud andmed on puudulikud, seega ei saa seda saata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cbf5ecf6e24f8e4f2135f53d8850e19d">
+        <source>The extra fields to sync with each contact could not be read and were not carried over. Choose them again under Settings &gt; Contacts.</source>
+        <target>Iga kontaktiga sünkroonitavaid lisavälju ei õnnestunud lugeda ja neid ei võetud üle. Vali need uuesti: Seaded &gt; Kontaktid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="77994a24565686ae7b1d614abfe4493d">
+        <source>The file %path% was left in place: the previous version of this module did not ship it as it is now.</source>
+        <target>Fail %path% jäeti alles: selle mooduli eelmine versioon ei paigaldanud seda praegusel kujul.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="948968d9eb43143588376e1e0a440f0a">
+        <source>The import sends the contacts that your Contacts settings sync. It runs in the background, a chunk per minute, and never slows the storefront down.</source>
+        <target>Import saadab kontaktid, mida sinu kontaktide seaded sünkroonivad. Import töötab taustal, üks tükk minutis, ega aeglusta kunagi poe tööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="11e73ba2f3624027cd77ca491cfc763b">
+        <source>The newsletter block of version 1.6 is gone. Use PrestaShop's own newsletter block (ps_emailsubscription) instead.</source>
+        <target>Versiooni 1.6 uudiskirja plokki enam ei ole. Kasuta selle asemel PrestaShopi enda uudiskirja plokki (ps_emailsubscription).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e9443a931bfee4898b1bafc206a50c56">
+        <source>The page has expired. Reload it and try again.</source>
+        <target>Leht on aegunud. Laadi see uuesti ja proovi siis uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9e306ff779e0081b2b9abfa71bc4e026">
+        <source>The previous version ran its cron jobs for one shop only. They now run for %shop%; set up the other shops under Settings.</source>
+        <target>Eelmine versioon käivitas oma cron-töid ainult ühe poe jaoks. Nüüd käivituvad need selle poe jaoks: %shop%. Teised poed seadista lehel Seaded.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3032c0ef20db277dbf6629470a99bc7e">
+        <source>The previous version switched off the verification and confirmation emails of the newsletter block (ps_emailsubscription) and cleared its voucher. They stay as they are: switch them on again in that module if you want them.</source>
+        <target>Eelmine versioon lülitas välja uudiskirja ploki (ps_emailsubscription) kontroll- ja kinnituskirjad ning tühjendas selle sooduskoodi. Need jäävad nii, nagu on: soovi korral lülita need selles moodulis uuesti sisse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="26fdf031e4232044fa5df299f015ffee">
+        <source>The shops are country or language versions of one business, on one Smaily account. You set the store up once; a shop differs only where you give it its own settings.</source>
+        <target>Poed on ühe ettevõtte riigi- või keeleversioonid ühel Smaily kontol. Seadistad poe üks kord; pood erineb ainult seal, kus annad talle oma seaded.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c2466f4289f61d4ef3ccd0c887f1e012">
+        <source>The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.</source>
+        <target>Alamdomeen peab olema lihtne Smaily alamdomeen, näiteks „demo“: ainult tähed, numbrid ja sidekriipsud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="08116f522ccb129e05d8d60aca9b165c">
+        <source>The subdomain or username changed — enter the password of this account.</source>
+        <target>Alamdomeen või kasutajanimi muutus — sisesta selle konto parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8e7c4e47798629d5f39710ddb550cde4">
+        <source>The subdomain or username of the %language% account changed — enter its password.</source>
+        <target>%language% konto alamdomeen või kasutajanimi muutus — sisesta selle parool.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="359993ec70f75c94349662ef7006267d">
+        <source>The upgrade did not finish. Your previous settings are kept. Try again in a few minutes; if it keeps stopping, see the PrestaShop logs.</source>
+        <target>Uuendus ei jõudnud lõpule. Sinu senised seaded on alles. Proovi mõne minuti pärast uuesti; kui uuendus peatub ikka, vaata PrestaShopi logisid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6b56464f38f76d8ed78375f27a93c0ca">
+        <source>The upgrade is finished.</source>
+        <target>Uuendus on lõpule viidud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b447bae2174f8cccbd435895e9b1f671">
+        <source>The upgrade left a notice (%code%).</source>
+        <target>Uuendus jättis teate (%code%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7be47967a4aad5be49e5399744ac1a16">
+        <source>The upgrade to Smaily Connect 3.0.0 is not finished</source>
+        <target>Uuendus versioonile Smaily Connect 3.0.0 on lõpetamata</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e9238683362a93f51517301b5ed8d993">
+        <source>The upgrade to Smaily Connect 3.0.0 stopped before it finished</source>
+        <target>Uuendus versioonile Smaily Connect 3.0.0 peatus enne lõppu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="934e75d0685e1192fe578e79c0f3b9c5">
+        <source>The welcome automation stays off for %shop%: %reason% Switch it on under Settings &gt; Automations when you want it.</source>
+        <target>Tervituse automaatika jääb välja lülitatuks (pood: %shop%): %reason% Soovi korral lülita see sisse: Seaded &gt; Automaatikad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="435228f43a15218db00629e63409d9bb">
+        <source>These shops are set up as separate stores. Pick a shop in the shop selector at the top of the page and set each shop up on its own.</source>
+        <target>Need poed on seadistatud eraldi poodidena. Vali lehe ülaosas poevalijast pood ja seadista iga pood eraldi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cc79eedefa4b05530ff6582fd0752064">
+        <source>These shops are set up as separate stores. Reload the page and set each shop up on its own.</source>
+        <target>Need poed on seadistatud eraldi poodidena. Laadi leht uuesti ja seadista iga pood eraldi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="00a925ec8ddea0c647457ab64a05ad87">
+        <source>This installation has %count% shops: %shops%.</source>
+        <target>Selles paigalduses on poode %count%: %shops%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="078d71f3ebf3a0687c7c2d17c2d16f46">
+        <source>This is a lawful-basis choice. Pick the preset that matches how you have asked your customers for permission — you can change it later in Settings &gt; Contacts.</source>
+        <target>See on õigusliku aluse valik. Vali eelseadistus, mis vastab sellele, kuidas oled klientidelt luba küsinud — hiljem saab seda muuta jaotises Seaded &gt; Kontaktid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d705d11b28d243a8d2001e8f2af2e472">
+        <source>This is a lawful-basis choice. Pick the preset that matches how you have asked your customers for permission.</source>
+        <target>See on õigusliku aluse valik. Vali eelseadistus, mis vastab sellele, kuidas oled klientidelt luba küsinud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="710344ac978b5904b3d7e921f7ec74b7">
+        <source>Treat every language the same: one Smaily account and one workflow per automation.</source>
+        <target>Kohtle kõiki keeli ühtmoodi: üks Smaily konto ja üks töövoog automaatika kohta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="92fdcce27f891432447928d759874327">
+        <source>Use its own Contacts settings on this shop</source>
+        <target>Kasuta selles poes oma kontaktide seadeid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="55b9bd4aaedb763f3d937aa084a71f6c">
+        <source>Use its own Smaily account on this shop</source>
+        <target>Kasuta selles poes oma Smaily kontot</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e1f746e401e45834864ca641cc8266ee">
+        <source>Used when a contact's language cannot be matched to any account. Its credentials also serve every scope without a per-language override.</source>
+        <target>Kasutusel siis, kui kontakti keelt ei õnnestu ühegi kontoga sobitada. Selle kasutajaandmeid kasutatakse ka kõikjal, kus keelel oma kontot pole.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="812e58ddc29cb84416b5bf9e3ee03c93">
+        <source>View failed deliveries</source>
+        <target>Vaata ebaõnnestunud saatmisi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0a6e5d06701827253c3cd83c2cc2e4c4">
+        <source>View full log</source>
+        <target>Vaata täislogi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="24679cdc4ecdfc24da20cf066fac1526">
+        <source>Visitors only</source>
+        <target>Ainult külastustest</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="345a5726b10b0e0be129ae7d3f2bf10d">
+        <source>Waits for the upgrade to finish</source>
+        <target>Ootab uuenduse lõppu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd398a41e889e7c964b7e15396b51dd0">
+        <source>Welcome email</source>
+        <target>Tervituskiri</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="490414e0366b091220802d406e52c076">
+        <source>What’s new</source>
+        <target>Mis on uut</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a6e1215fb0fe3a9eb16e19f64b5f38fd">
+        <source>Who should be synced to Smaily?</source>
+        <target>Keda Smailysse sünkroonida?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="26ef476ae1184dd26c0f68c3891bdbe7">
+        <source>You are all set!</source>
+        <target>Kõik on valmis!</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="79b58b5ba2af2984ecfdb73d2664609f">
+        <source>You are setting up %shop%. Pick another shop in the shop selector at the top of the page.</source>
+        <target>Seadistad poodi: %shop%. Teise poe valimiseks kasuta lehe ülaosas olevat poevalijat.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="80553ad926d56f812c3e2c445f5e877c">
+        <source>You can find or create API credentials in Smaily under gear icon → Integrations. The password is stored encrypted and never leaves your server.</source>
+        <target>API kasutajaandmed leiad või lood Smailys: hammasratas → Liidestused. Parool salvestatakse krüpteeritult ega lahku kunagi sinu serverist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a9afb8868ed93f0764b76237e71dea32">
+        <source>You do not have permission to do this.</source>
+        <target>Sul ei ole õigust seda teha.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1592affcfd2e8e107b60f1e93699410d">
+        <source>You do not have permission to open this page.</source>
+        <target>Sul ei ole õigust seda lehte avada.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a882ca179584f286e13bf4ff23937df6">
+        <source>Your Smaily API credentials for this store.</source>
+        <target>Sinu Smaily API kasutajaandmed selle poe jaoks.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="44157f9f6d3b03676a9c810ebc91467f">
+        <source>Your settings from the previous version of the module were carried over. Review them under Settings, or re-run the initial setup — your saved configuration is untouched either way.</source>
+        <target>Sinu seaded mooduli eelmisest versioonist võeti üle. Vaata need üle lehel Seaded või läbi algseadistus uuesti — salvestatud seadistus jääb mõlemal juhul puutumata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4311e067f091bcec75b32001276909a2">
+        <source>Your shops</source>
+        <target>Sinu poed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5fe404e7ee432abfa60dd35491c37906">
+        <source>Your store speaks %count% languages (%languages%). Pick how contacts and automations should route between them — the sections below adapt right away.</source>
+        <target>Sinu poes on keeli %count% (%languages%). Vali, kuidas kontaktid ja automaatikad nende vahel suunduvad — allolevad jaotised kohanduvad kohe.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4c456901a25964e1be3585405328cb31">
+        <source>Your store’s connection to Campaign Intelligence, storefront browse tracking and historical imports.</source>
+        <target>Sinu poe ühendus Campaign Intelligence'iga, poe sirvimise jälgimine ja ajaloolised impordid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="541e0f0d00069948d5cc3ce8f6044a82">
+        <source>connection, contacts, automations, Intelligence and RSS in one tabbed page</source>
+        <target>ühendus, kontaktid, automaatikad, Intelligence ja RSS ühel vahekaartidega lehel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3a19847bd194a7e755fac73962508697">
+        <source>delivered, last 30 days</source>
+        <target>edastatud, viimased 30 päeva</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b83e64ea20e9c38e9d5e83604a50766">
+        <source>events waiting to send</source>
+        <target>saatmist ootavad sündmused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="44863c7f5443bc80f93e5068c0659425">
+        <source>every delivery to Smaily and Campaign Intelligence with retry; check here first if something seems off</source>
+        <target>iga saadetis Smailysse ja Campaign Intelligence'i koos uuesti proovimisega; kui miski tundub paigast ära, vaata kõigepealt siia</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e1499ad70e1907cc51d8f4e706686201">
+        <source>every delivery with retry for failed rows</source>
+        <target>iga saadetis koos ebaõnnestunud ridade uuesti proovimisega</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5050ef9b9a8ee4ca56ac7451f9753893">
+        <source>every setting from the initial setup as always-available tabs, including the historical imports and the RSS feed URL builder</source>
+        <target>kõik algseadistuse seaded alati kättesaadavate vahekaartidena, sealhulgas ajaloolised impordid ja RSS-voo URL-i koostaja</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="49105fd9a56d931e3c9ffe2a08a1f69c">
+        <source>last 24 hours</source>
+        <target>viimased 24 tundi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="db6a1993aa1d497ec677a96b6d0f0410">
+        <source>no Smaily account was saved for it.</source>
+        <target>selle jaoks polnud Smaily kontot salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="acd2ef71f1abfc904af34027e167db95">
+        <source>no Smaily workflow was chosen for it.</source>
+        <target>selle jaoks polnud Smaily töövoogu valitud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6c4c4212a333e6d55af1b41a6cdaa66e">
+        <source>re-run the guided setup at any time; your settings are kept</source>
+        <target>käivita juhendatud seadistus igal ajal uuesti; sinu seaded säilivad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ca0bf993fc095e8402d6ce6cb2789863">
+        <source>the previous version did not reach the carts of this shop.</source>
+        <target>eelmine versioon ei jõudnud selle poe ostukorvideni.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6ebb5be30c2ba70ccba139f508a4bfde">
+        <source>the previous version did not run it, as it read another switch.</source>
+        <target>eelmine versioon seda ei käivitanud, sest luges teist lülitit.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="71653321a52e4347a52000be293558e9">
+        <source>the previous version did not send it.</source>
+        <target>eelmine versioon seda ei saatnud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8e4e459ac164073273251341665da0f5">
+        <source>the previous version ran it for the default shop only.</source>
+        <target>eelmine versioon käivitas seda ainult vaikepoe jaoks.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ef18971c3910e425c17d64f372142442">
+        <source>the previous version sent it through the default shop's Smaily account.</source>
+        <target>eelmine versioon saatis seda vaikepoe Smaily konto kaudu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3a2209483df1270dc3e014fd72537761">
+        <source>the previous version stopped with an error on its field list, so it sent nothing.</source>
+        <target>eelmine versioon peatus väljade loendi vea tõttu ega saatnud midagi.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

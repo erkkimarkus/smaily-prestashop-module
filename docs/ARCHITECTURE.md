@@ -1931,6 +1931,32 @@ XLIFF files; one translation sweep per stage (Stories 3.5 and 6.2) writes
 `translations/et-EE/*.xlf`, so no two workers edit one XLIFF file. Stories 3.4 and 4.1 wrote the
 Estonian units of their own screens.
 
+**As built (2026-11-21).** Every admin string has an Estonian target. A change that adds a string
+appends its unit to `translations/et-EE/ModulesSmailyforprestashopAdmin.et-EE.xlf` (the id is the
+MD5 of the source) in the same commit. The target is Magento's or Woo's for the same English, with
+"veebisait" changed to "pood" and "poevaade" to "keel"; else it uses the terms below, in short
+sentence-case imperatives without "teie". Product names stay as they are. A sentence with a
+placeholder is worded so that the placeholder needs no case ending ("pood: %shop%").
+
+| English | Estonian | From |
+|---|---|---|
+| Dashboard, Initial setup, Settings, Log | Töölaud, Algseadistus, Seaded, Logi | Magento |
+| Automations, workflow, trigger | Automaatikad, töövoog, päästik | Magento |
+| subscriber, unsubscribe, consent, opt-in | tellija, loobuma, nõusolek, (uudiskirjaga) liituma | Magento |
+| contact sync, initial contact import | kontaktide sünkroonimine, esmane kontaktide import | Magento |
+| abandoned cart, abandoned cart reminder | hüljatud ostukorv, ostukorvi meeldetuletus | Magento |
+| discount code, cart price rule | sooduskood, ostukorvi hinnareegel | Magento |
+| shop, language (Magento: website, store view) | pood, keel | this module |
+| default fallback, default fallback account | vaikimisi varuvalik, vaikimisi varukonto | Magento |
+| credentials, subdomain, token | kasutajaandmed, alamdomeen, võti | Magento |
+| Background tasks, cron line | taustatööd, cron-rida | this module |
+| upgrade, payload, queue, guest, checkout | uuendus, andmesisu, järjekord, külaline, kassa | Magento |
+
+Ten strings of the Log are PrestaShop's own ("Search", "Reset", "Select all", "Cancel", "Close",
+"From", "To", "Previous", "Next", "No records found", domains `Admin.Actions` and `Admin.Global`):
+their Estonian comes from PrestaShop's language pack, not from the module. The Smaily client's own
+message of a failure is stored in English and shows as stored (section 10.8).
+
 ### 10.5 Logos
 
 **[D]** The admin screens use the new Smaily Connect and Campaign Intelligence logos (Linear GMS-66,
