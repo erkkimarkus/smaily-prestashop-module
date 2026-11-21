@@ -31,6 +31,12 @@
  *                                  with "notfound" answers 404.
  * - GET  /api/v1/ingest/ping       §2.
  * - POST /api/v1/store/uninstall   §16. Revokes the calling key.
+ * - GET    /api/v1/customer/{email}/export   §8. Privacy: what the engine holds of a shopper.
+ * - DELETE /api/v1/customer/{email}          §9. Privacy: deletes the shopper; a repeat answers 404.
+ * - POST   /api/v1/customer/{email}/opt-out  §10. Privacy: the shopper's choice about profiling.
+ *   The three know every address, but one that `unknown_customers` lists or that §9 deleted
+ *   (`deleted_customers`): that one answers 404. `opt_outs` holds each address's choice. Their
+ *   names for `fail` and `delay` are `customer_export`, `customer_delete` and `customer_opt_out`.
  * - Anything else: HTTP 404.
  *
  * An authenticated call needs a key that an exchange of this mock issued and that is not revoked
@@ -62,6 +68,14 @@ $routes = [
     'POST /api/v1/store/uninstall' => 'uninstall',
 ];
 $route = $routes[$method . ' ' . $path] ?? null;
+
+// Privacy (§8, §9, §10): the address stands in the path, URL-encoded.
+$customerRoutes = ['GET /export' => 'customer_export', 'DELETE ' => 'customer_delete', 'POST /opt-out' => 'customer_opt_out'];
+$customerEmail = null;
+if ($route === null && preg_match('~^/api/v1/customer/([^/]+)(/export|/opt-out)?$~', $path, $customerMatch) === 1) {
+    $route = $customerRoutes[$method . ' ' . ($customerMatch[2] ?? '')] ?? null;
+    $customerEmail = strtolower(rawurldecode($customerMatch[1]));
+}
 
 $state = $read();
 $state['requests'][] = [
@@ -294,6 +308,119 @@ if ($route === 'uninstall') {
         'status' => $others ? 'connection_removed' : 'store_paused',
         'other_connections_remain' => $others,
     ]);
+}
+
+// Privacy (§8, §9, §10).
+if ($customerEmail !== null) {
+    if ($connection === null || $connection['revoked'] !== false) {
+        return $answer(401, $unauthorised);
+    }
+    if (!empty($state['tenant_inactive'])) {
+        return $answer(403, [
+            'error' => 'tenant_inactive',
+            'message' => 'This tenant is currently deactivated. Contact engine administrator.',
+            'tenant_status' => 'suspended',
+        ]);
+    }
+    $unknown = in_array($customerEmail, $state['unknown_customers'] ?? [], true)
+        || in_array($customerEmail, $state['deleted_customers'] ?? [], true);
+    if ($unknown) {
+        // §8, §9 and §10 "Response 404 Not Found". The message names the address, as an engine's
+        // text can: no caller may keep or show it.
+        return $answer(404, [
+            'error' => 'customer_not_found',
+            'message' => 'No customer with the email ' . $customerEmail . '.',
+            'timestamp' => $now,
+        ]);
+    }
+    $optOut = $state['opt_outs'][$customerEmail] ?? ['opt_out_status' => false, 'effective_at' => null];
+
+    if ($route === 'customer_export') {
+        // §8 "Response 200 OK": the body's keys as the contract prints them, with one order.
+        $customerId = '660f9500-0000-4000-8000-' . substr(md5($customerEmail), 0, 12);
+        $orderId = '82f231e1-0000-4000-8000-' . substr(md5($customerEmail), 12, 12);
+
+        return $answer(200, [
+            'export_metadata' => [
+                'exported_at' => $now,
+                'tenant_id' => $connection['tenant_id'],
+                'customer_email' => $customerEmail,
+                'customer_id' => $customerId,
+                'data_retention_policy' => ['browse_events' => '14 months', 'orders' => '60 months from the order date'],
+                'data_retention_purpose' => ['browse_events' => 'comparison with the same month last year', 'orders' => 'learning buying patterns'],
+            ],
+            'customer' => [
+                'customer_id' => $customerId,
+                'tenant_id' => $connection['tenant_id'],
+                'email' => $customerEmail,
+                'first_seen_at' => '2026-01-15T10:30:00Z',
+                'opted_out' => $optOut['opt_out_status'],
+                'opted_out_at' => $optOut['opt_out_status'] ? $optOut['effective_at'] : null,
+                'language' => 'en',
+            ],
+            'orders' => [[
+                'order_id' => $orderId,
+                'tenant_id' => $connection['tenant_id'],
+                'customer_id' => $customerId,
+                'external_order_id' => $connection['prefix'] . 'mock-order-1',
+                'ordered_at' => '2026-05-15T14:30:00.000Z',
+                'total_amount' => '67.50',
+                'currency' => 'EUR',
+                'status' => 'completed',
+            ]],
+            'order_items' => [[
+                'item_id' => 1,
+                'order_id' => $orderId,
+                'tenant_id' => $connection['tenant_id'],
+                'sku' => $connection['prefix'] . 'mock-sku-1',
+                'qty' => 1,
+                'unit_price' => '67.50',
+                'line_total' => '67.50',
+            ]],
+            'browse_events' => [],
+            'email_events' => [],
+            'recommendations' => [],
+            'visitor_tokens' => [],
+            'outcome_events' => [],
+            'stock_alert_requests' => [],
+        ]);
+    }
+
+    if ($route === 'customer_delete') {
+        $state['deleted_customers'][] = $customerEmail;
+        unset($state['opt_outs'][$customerEmail]);
+        $write($state);
+
+        // §9 "Response 200 OK".
+        return $answer(200, [
+            'ok' => true,
+            'deleted' => true,
+            'customer_email' => $customerEmail,
+            'records_removed' => ['customer' => 1, 'orders' => 1, 'order_items' => 1, 'browse_events' => 0, 'email_events' => 0, 'outcome_events' => 0, 'recommendations' => 0, 'rec_attribution' => 0, 'visitor_tokens' => 0, 'trigger_candidates' => 0],
+            'audit_log_id' => 'audit_' . bin2hex(random_bytes(8)),
+            'deleted_at' => $now,
+        ]);
+    }
+
+    if ($route === 'customer_opt_out') {
+        if (!is_array($body) || !is_bool($body['opt_out'] ?? null)) {
+            return $answer(400, ['error' => 'validation_failed', 'message' => 'One or more fields failed validation', 'timestamp' => $now]);
+        }
+        $state['opt_outs'][$customerEmail] = ['opt_out_status' => $body['opt_out'], 'effective_at' => $now];
+        $write($state);
+
+        // §10 "Response 200 OK".
+        return $answer(200, [
+            'ok' => true,
+            'customer_email' => $customerEmail,
+            'opt_out_status' => $body['opt_out'],
+            'previous_status' => $optOut['opt_out_status'],
+            'effective_at' => $now,
+            'next_recommendations_cron' => gmdate('Y-m-d\\T05:00:00\\Z', time() + 86400),
+        ]);
+    }
+
+    return $answer(404, ['error' => 'not_found', 'message' => 'No such route.', 'timestamp' => $now]);
 }
 
 // §2.
