@@ -29,10 +29,13 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 
 /**
  * The checkout capture endpoint (front controller `capture`): records the address a guest typed in
@@ -58,6 +61,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
  * tracker rows: one address gets at most one reminder per 24 hours, whatever number of carts
  * carry it (CartTracker::blocking()). Each cart has one tracker row, so captures never add rows
  * beyond one per cart.
+ *
+ * What bounds the number of addresses such a caller names is the installation's limit, the
+ * Magento connector's: HOURLY_LIMIT addresses in a rolling hour, every shop together, counted
+ * from the tracker and the queue (CartTracker::recorded()); no visitor's network address is
+ * stored. At the limit a capture is refused as any other, and the Log gets one row an hour, a
+ * skipped cart reminder with the reason SKIPPED_CAPTURE_LIMIT, in the shop of the refused cart.
  */
 final class CaptureEndpoint
 {
@@ -69,9 +78,18 @@ final class CaptureEndpoint
 
     public const COOKIE_KEY = 'smailyCapture';
 
+    /** Addresses per rolling hour for the installation, every shop together. */
+    public const HOURLY_LIMIT = 2000;
+
+    public const SKIPPED_CAPTURE_LIMIT = 'capture_limit';
+
+    private const HOUR_SECONDS = 3600;
+
     private AutomationSettings $settings;
 
     private CartTracker $tracker;
+
+    private EventQueue $queue;
 
     /** @var callable(): bool */
     private $schemaIsCurrent;
@@ -79,16 +97,20 @@ final class CaptureEndpoint
     /** @var callable(): int */
     private $clock;
 
+    private int $hourlyLimit;
+
     /**
      * @param callable(): bool $schemaIsCurrent
      * @param callable(): int $clock the current Unix time
      */
-    public function __construct(AutomationSettings $settings, CartTracker $tracker, callable $schemaIsCurrent, callable $clock)
+    public function __construct(AutomationSettings $settings, CartTracker $tracker, EventQueue $queue, callable $schemaIsCurrent, callable $clock, int $hourlyLimit = self::HOURLY_LIMIT)
     {
         $this->settings = $settings;
         $this->tracker = $tracker;
+        $this->queue = $queue;
         $this->schemaIsCurrent = $schemaIsCurrent;
         $this->clock = $clock;
+        $this->hourlyLimit = $hourlyLimit;
     }
 
     /**
@@ -160,9 +182,31 @@ final class CaptureEndpoint
         if (!$this->settings->enabled(Trigger::ABANDONED_CART, (int) $cart->id_shop) || !$this->open((int) $cart->id)) {
             return false;
         }
+        if ($this->tracker->recorded(self::HOUR_SECONDS, $this->hourlyLimit) >= $this->hourlyLimit) {
+            $this->noteLimit((int) $cart->id_shop);
+
+            return false;
+        }
         $this->tracker->capture((int) $cart->id, (int) $cart->id_shop, (int) $cart->id_lang, $email, ($post['newsletter'] ?? null) === '1');
 
         return true;
+    }
+
+    /**
+     * Tells the Log that the installation's limit refused a capture: one row an hour. The lock
+     * lets one request at a time look for that row and add it.
+     */
+    private function noteLimit(int $idShop): void
+    {
+        $lock = new Lock('capture_limit');
+        if (!$lock->acquire()) {
+            return;
+        }
+        try {
+            $this->queue->note(AbandonedCartHandler::EVENT_TYPE, $idShop, self::SKIPPED_CAPTURE_LIMIT, self::HOUR_SECONDS);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**

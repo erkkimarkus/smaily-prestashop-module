@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
@@ -51,6 +52,7 @@ final class CheckoutCapture implements ProviderInterface
         $services->set(CaptureEndpoint::class, fn (Services $services): CaptureEndpoint => new CaptureEndpoint(
             $services->get(AutomationSettings::class),
             $services->get(CartTracker::class),
+            $services->get(QueueProvider::EVENT_QUEUE),
             [Schema::class, 'isCurrent'],
             'time'
         ));

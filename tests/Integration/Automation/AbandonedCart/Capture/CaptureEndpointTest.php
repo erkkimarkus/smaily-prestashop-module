@@ -7,6 +7,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\Captu
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use Tests\Integration\Automation\AbandonedCart\AbandonedCartTestCase;
 
 require_once __DIR__ . '/../AbandonedCartTestCase.php';
@@ -134,6 +136,74 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
         self::assertSame(self::OTHER, $this->cartRow($idCart)['email']);
     }
 
+    /**
+     * The installation takes the hourly limit of addresses and no more, whatever cart or visitor
+     * they come from; the Log says so once an hour; the next hour starts a fresh count.
+     */
+    public function testTheInstallationRecordsAtMostTheHourlyLimitOfAddresses(): void
+    {
+        $now = time();
+        $clock = static function () use (&$now): int {
+            return $now;
+        };
+        $endpoint = new CaptureEndpoint(new AutomationSettings(), new CartTracker($clock), new EventQueue($clock), static fn (): bool => true, $clock, 3);
+        $capture = function (string $address, ?\Context $context = null) use ($endpoint): array {
+            $context ??= $this->context($this->fixture->cart(0, 0));
+
+            return [$endpoint->handle($context, 'POST', $this->post($context, $address, '1')), $context];
+        };
+        $notes = fn (): array => array_values(array_filter($this->events(), static fn (array $event): bool => $event['last_error'] === CaptureEndpoint::SKIPPED_CAPTURE_LIMIT));
+
+        [$recorded, $first] = $capture(self::TYPED);
+        self::assertTrue($recorded);
+        self::assertTrue($capture('capture3@example.test')[0]);
+        self::assertTrue($capture('capture4@example.test')[0]);
+        self::assertSame([], $notes());
+
+        [$recorded, $refused] = $capture('capture5@example.test');
+        self::assertFalse($recorded);
+        self::assertNull($this->cartRow((int) $refused->cart->id));
+        self::assertFalse($capture(self::OTHER, $first)[0], 'a cart that has an address takes no other one at the limit');
+        self::assertSame(self::TYPED, $this->cartRow((int) $first->cart->id)['email']);
+        self::assertSame(
+            [[(string) $this->idShop, 'skipped', null, '[]', '0']],
+            array_map(static fn (array $note): array => [(string) $note['id_shop'], $note['status'], $note['entity_id'], $note['payload'], (string) $note['attempts']], $notes()),
+            'one Log row for the refused captures of the hour, without a contact'
+        );
+        self::assertStringContainsString((string) CaptureEndpoint::HOURLY_LIMIT, FailureMessage::forDisplay($notes()[0]['last_error'], static fn (string $sentence): string => $sentence));
+
+        $now += 3601;
+        self::assertTrue($capture('capture5@example.test', $refused)[0]);
+        self::assertTrue($capture('capture6@example.test')[0]);
+        self::assertTrue($capture('capture7@example.test')[0]);
+        self::assertFalse($capture('capture8@example.test')[0]);
+        self::assertFalse($capture('capture9@example.test')[0]);
+        self::assertCount(2, $notes(), 'the next hour has a Log row of its own');
+        self::assertSame(0, $this->flush(), 'a Log row of the limit is no event to send');
+    }
+
+    /**
+     * The sweep puts the cart's last change in place of the time of the capture: an address that
+     * it took still counts, by its queued reminder, also when the cart is older than the hour.
+     */
+    public function testAnAddressThatTheSweepTookStillCountsInItsHour(): void
+    {
+        $endpoint = new CaptureEndpoint(new AutomationSettings(), new CartTracker(), new EventQueue(), static fn (): bool => true, 'time', 2);
+        $capture = function (string $address) use ($endpoint): int {
+            $context = $this->context($this->fixture->cart(0, 0));
+
+            return $endpoint->handle($context, 'POST', $this->post($context, $address, '1')) ? (int) $context->cart->id : 0;
+        };
+
+        $old = $capture(self::TYPED);
+        $this->fixture->age($old, 120);
+        self::assertSame(1, $this->sweep());
+        self::assertLessThan(date('Y-m-d H:i:s', time() - 3600), $this->cartRow($old)['last_activity_at']);
+
+        self::assertGreaterThan(0, $capture(self::OTHER));
+        self::assertSame(0, $capture('capture3@example.test'));
+    }
+
     public function testAFailedWriteIsLoggedWithoutTheAddress(): void
     {
         $logs = (int) self::db()->getValue('SELECT MAX(`id_log`) FROM `' . _DB_PREFIX_ . 'log`', false);
@@ -144,7 +214,7 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
             {
                 throw new \RuntimeException('Could not record ' . $email);
             }
-        }, static fn (): bool => true, 'time');
+        }, new EventQueue(), static fn (): bool => true, 'time');
 
         self::assertFalse($endpoint->handle($context, 'POST', $this->post($context, self::TYPED, '0')));
 
@@ -155,7 +225,7 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
 
     private function endpoint(?callable $schemaIsCurrent = null, ?callable $clock = null): CaptureEndpoint
     {
-        return new CaptureEndpoint(new AutomationSettings(), new CartTracker(), $schemaIsCurrent ?? static fn (): bool => true, $clock ?? 'time');
+        return new CaptureEndpoint(new AutomationSettings(), new CartTracker(), new EventQueue(), $schemaIsCurrent ?? static fn (): bool => true, $clock ?? 'time');
     }
 
     /**

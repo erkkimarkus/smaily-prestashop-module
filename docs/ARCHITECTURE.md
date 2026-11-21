@@ -1493,12 +1493,38 @@ checkout request, behind WooCommerce's session nonce):
   each with its sentence. The rule counts across all shops of the installation.
 - At most 6 captures per visitor per minute, counted in the visitor's cookie. It slows a browser
   down; a caller that drops its cookie is not held by it.
+- **At most 2000 addresses per hour for the installation**, every shop together
+  (`CaptureEndpoint::HOURLY_LIMIT`; Magento's `MAX_WRITES_PER_HOUR`, also one count for the whole
+  installation). Magento counts in its cache, in clock hours; PrestaShop has no shared cache, so
+  the count is one query over rows that exist anyway (`CartTracker::recorded()`), over a rolling
+  hour: the tracker's recorded addresses of the last hour that the sweep has not taken yet
+  (`status` `open`, no `event_id`: the index on `status`, `last_activity_at`), plus the cart
+  reminders queued in the last hour (the event queue's index on `created_at`). The second part is
+  needed because the sweep replaces a row's `last_activity_at` with the cart's last change: the
+  tracker alone no longer says when a taken address was recorded, and a cart older than an hour
+  would leave the count at once. Each part stops counting at the limit. Every address recorded
+  in the last hour is in one of the two parts, unless its cart was ordered or the sweep could not
+  build its reminder (neither gets one), so no more than 2000 carts get an address in any hour. The count is wider than Magento's on one
+  side: the reminders of customers' carts queued in that hour count too, so a store that queues
+  cart reminders by the thousand an hour records fewer checkout addresses. A capture at the limit
+  is answered as every other request (the empty JSON object, as Magento answers `false` to every
+  refusal) and writes nothing, also not a new address on a cart that has one. Two requests that
+  count at the same moment can both pass, as in Magento.
+- **The merchant sees it in the Log**: the first refused capture of an hour adds one row, a
+  skipped `automation.abandoned_cart` event of the refused cart's shop without a contact, with the
+  reason `capture_limit` and its sentence (`EventQueue::note()`, under the lock `capture_limit`,
+  so requests that arrive together add one row). Magento shows its merchant nothing.
+
+Not built: Magento's 5 writes per cart. The tracker row has no counter, and a count needs a
+column; a cart holds one address and gets one reminder, whatever number of times its address
+changed. No limit counts the requests of one network address: the module stores no visitor
+addresses.
 
 What stays possible: a caller that loads a checkout page for each cart can have one reminder sent
-to each address it names, once per 24 hours per address, where the shop's consent mode sends a
-reminder to that address ("All customers": any address; the other two modes: with the newsletter
-box, which the caller sets). No limit counts the requests of one network address: the module
-stores no visitor addresses, and PrestaShop has no shared cache to count in.
+to each address it names, once per 24 hours per address and to no more than 2000 addresses an
+hour, where the shop's consent mode sends a reminder to that address ("All customers": any
+address; the other two modes: with the newsletter box, which the caller sets). While such a
+caller holds the count at the limit, the addresses of real shoppers are not recorded either.
 
 **[D]** The abandoned-cart payload keeps the 2.x template fields byte-compatible: the 10 product slots
 with `''` for unused slots (the empty values clear the previous cart in Smaily,
@@ -1929,9 +1955,10 @@ job to its shop, and a job of shop 0 (every shop) shows in every selection.
 - **Last Error.** The stored reason without its class prefix. The four skip reasons that Magento words
   (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`) show as
   Magento's sentence, and the filter finds them by those words (`Log\FailureMessage`). The cart of
-  a deleted customer (`customer_deleted`, section 7) shows as a sentence of its own. A stale
-  contact sync (`stale_subscription`, section 6.4), which Magento does not have, shows as a sentence
-  of the same form. Every other reason code shows as stored.
+  a deleted customer (`customer_deleted`, section 7) shows as a sentence of its own, and so does
+  the checkout capture's hourly limit (`capture_limit`, section 7), whose row stands for no event
+  and was never pending. A stale contact sync (`stale_subscription`, section 6.4), which Magento
+  does not have, shows as a sentence of the same form. Every other reason code shows as stored.
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
   selected shops, and its button applies the filter `status=failed`, as Magento's does.
 
@@ -2880,8 +2907,10 @@ Later decisions of 2026-11-20:
 | Does the abandoned-cart reminder apply the guest rule of the live sync? | **DECIDED:** the cart reminder applies no separate guest rule, as the siblings. Who is reminded follows the consent mode through `ContactAudience::sendsAutomatedMarketing()`; "include guests" gates the contact sync only. | Owner (Erkki) | 6.2 | 4.3 |
 | The cron line of an upgraded store | **DECIDED:** an upgraded store gets one cron line; the upgrade creates its token. The Background tasks card offers that line in every state behind "Show the cron line", and the notice of a replaced legacy token points at it. The two 2.x cron URLs keep working with their tokens and are not listed. | Owner (Erkki) | 3.4, 3.7, 4.3 | 1.7, 3.2 |
 
-Decision of 2026-11-21:
+Decisions of 2026-11-21:
 
 - A 2.x cart delay above 1435 minutes is capped at 1435 with a notice (owner, 2026-11-21). The
   upgrade writes 1435 at every scope whose legacy delay was longer and leaves one notice,
   `cart_delay_capped` (section 3.3); a legacy delay of 1435 minutes or less is untouched.
+- The checkout capture accepts at most 2000 addresses an hour for the installation, as Magento
+  (2026-11-21; section 7, "The checkout capture").

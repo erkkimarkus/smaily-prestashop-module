@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartSweeper;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CaptureEndpoint;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
@@ -44,6 +45,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * and Details show the class beside it. A skip is stored as a reason code; the codes of REASONS
  * show as Magento's sentence, in the admin's language, and any other code shows as stored. Magento
  * has no stale contact sync; that sentence follows its sentence for a replaced profiling choice.
+ * Magento tells its merchant nothing of its capture limit; that sentence is this module's own.
  */
 final class FailureMessage
 {
@@ -53,6 +55,7 @@ final class FailureMessage
         MarketingConsent::SKIPPED_UNSUBSCRIBED_IN_SMAILY => 'Skipped: this shopper unsubscribed in Smaily. Nothing was sent.',
         AbandonedCartSweeper::SKIPPED_RECENTLY_REMINDED => 'Skipped: this address already got an abandoned-cart reminder for another cart in the last 24 hours. Nothing was sent.',
         AbandonedCartHandler::SKIPPED_CUSTOMER_DELETED => 'Skipped: this shopper\'s customer account was deleted in the store. Nothing was sent.',
+        CaptureEndpoint::SKIPPED_CAPTURE_LIMIT => 'Skipped: the store reached its limit of 2000 checkout addresses in one hour. An address typed at checkout after that was not recorded, and gets no abandoned-cart reminder.',
         Router::SKIPPED_NO_WORKFLOW => 'Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.',
         ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION => 'Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
     ];

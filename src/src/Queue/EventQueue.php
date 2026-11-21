@@ -119,6 +119,40 @@ final class EventQueue
     }
 
     /**
+     * Adds a row that is closed as skipped with $reason at once: a line for the Log about events
+     * that were never queued. Adds none while a row of that type and reason is younger than
+     * $quietSeconds.
+     *
+     * @return bool whether a row was added
+     */
+    public function note(string $eventType, int $idShop, string $reason, int $quietSeconds): bool
+    {
+        $noted = \Db::getInstance()->getValue(sprintf(
+            'SELECT 1 FROM %s WHERE `created_at` >= %s AND `event_type` = %s AND `last_error` = %s',
+            self::table(),
+            $this->time(-$quietSeconds),
+            self::quote($eventType),
+            self::quote(self::error($reason))
+        ), false);
+        if ($noted) {
+            return false;
+        }
+        $now = $this->time(0);
+
+        return \Db::getInstance()->execute(sprintf(
+            'INSERT INTO %s (`id_shop`, `event_type`, `payload`, `status`, `attempts`, `last_error`, `created_at`, `updated_at`)'
+            . ' VALUES (%d, %s, \'[]\', %s, 0, %s, %s, %s)',
+            self::table(),
+            $idShop,
+            self::quote($eventType),
+            self::quote(self::STATUS_SKIPPED),
+            self::quote(self::error($reason)),
+            $now,
+            $now
+        ));
+    }
+
+    /**
      * Claims up to $limit due rows, oldest first, for one flush.
      *
      * @return list<array<string, string|null>> the claimed rows as stored, status `processing`

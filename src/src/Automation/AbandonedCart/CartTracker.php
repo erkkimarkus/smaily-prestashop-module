@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+
 /**
  * The reminder state of each cart, one row per cart in `smaily_connect_cart`:
  *  - `open`: the cart's reminder is not done. Without `event_id`, a row holds only an address that
@@ -89,6 +91,34 @@ class CartTracker
         ) . ' ON DUPLICATE KEY UPDATE `email` = IF(' . $fresh . ', VALUES(`email`), `email`),'
             . ' `checkout_optin` = IF(' . $fresh . ', VALUES(`checkout_optin`), `checkout_optin`),'
             . ' `last_activity_at` = IF(' . $fresh . ', VALUES(`last_activity_at`), `last_activity_at`)');
+    }
+
+    /**
+     * How many addresses the checkouts of every shop recorded in the last $seconds, counted no
+     * further than $limit in each of its two parts:
+     *  - the recorded addresses of that time that the sweep has not taken yet: capture() stamps
+     *    the row with the time of the capture;
+     *  - the cart reminders queued in that time. The sweep replaces a row's time with the cart's
+     *    last change, so an address that the sweep took counts by its queue row, for $seconds from
+     *    the sweep; the reminders of customers' carts count with them.
+     * An address recorded in the last $seconds is in one of the two, unless its cart was ordered or
+     * the sweep closed it without a queue row.
+     */
+    public function recorded(int $seconds, int $limit): int
+    {
+        return (int) \Db::getInstance()->getValue(sprintf(
+            'SELECT (SELECT COUNT(*) FROM (SELECT 1 FROM %s WHERE `status` = \'%s\' AND `last_activity_at` >= %s'
+            . ' AND `event_id` IS NULL LIMIT %d) `waiting`)'
+            . ' + (SELECT COUNT(*) FROM (SELECT 1 FROM `%s` WHERE `created_at` >= %s AND `event_type` = \'%s\' LIMIT %d) `queued`)',
+            self::table(),
+            self::OPEN,
+            $this->time(-$seconds),
+            $limit,
+            _DB_PREFIX_ . EventQueue::TABLE,
+            self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() - $seconds)),
+            AbandonedCartHandler::EVENT_TYPE,
+            $limit
+        ), false);
     }
 
     /**

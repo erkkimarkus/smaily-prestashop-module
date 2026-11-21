@@ -1162,6 +1162,11 @@
         <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="ea5532fc1cbc64cab09c25f0729963da">
+        <source>Skipped: the store reached its limit of 2000 checkout addresses in one hour. An address typed at checkout after that was not recorded, and gets no abandoned-cart reminder.</source>
+        <target>Vahele jäetud: pood jõudis piirmäärani, milleks on 2000 kassas sisestatud aadressi ühe tunni jooksul. Pärast seda kassas sisestatud aadressi ei salvestatud ja sellele ostukorvi meeldetuletust ei saadeta.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>
