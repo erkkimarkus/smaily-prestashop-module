@@ -209,6 +209,20 @@ final class EventQueue
     }
 
     /**
+     * Replaces the stored payload of the row with that id: what a handler adds to the row before
+     * it sends it (an automation's discount code), so that a retry and the Log's "Send again"
+     * send the same. Nothing else of the row changes.
+     *
+     * @param array<mixed> $payload stored as JSON
+     */
+    public function updatePayload(int $id, array $payload): void
+    {
+        if (!\Db::getInstance()->execute(sprintf('UPDATE %s SET `payload` = %s WHERE `id` = %d', self::table(), self::quote(self::json($payload)), $id))) {
+            throw new \RuntimeException('The event queue refused a payload.');
+        }
+    }
+
+    /**
      * Returns failed rows to `pending` with their attempts to spend anew: the Log's manual retry. A
      * row that is not failed stays as it is.
      *

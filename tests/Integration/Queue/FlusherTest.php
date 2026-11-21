@@ -57,6 +57,25 @@ final class FlusherTest extends IntegrationTestCase
         self::assertSame('2030-01-01 00:00:00', $row['created_at']);
     }
 
+    public function testAPayloadUpdateReplacesThePayloadOfTheNamedRowAndNothingElse(): void
+    {
+        $id = $this->queue->enqueue('test.sync', 2, ['email' => 'shopper@example.test', 'fields' => []], 'shopper@example.test', 'et');
+        $other = $this->queue->enqueue('test.sync', 2, ['email' => 'other@example.test'], 'other@example.test', 'et');
+        $claimed = $this->queue->claim(1)[0];
+        $this->now += 60;
+
+        $this->queue->updatePayload($id, ['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']]);
+
+        $row = $this->row($id);
+        self::assertSame(['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']], json_decode($row['payload'], true));
+        self::assertSame(
+            [EventQueue::STATUS_PROCESSING, $claimed['claim_token'], $claimed['updated_at'], 0],
+            [$row['status'], $row['claim_token'], $row['updated_at'], (int) $row['attempts']],
+            'the claim and the times stay'
+        );
+        self::assertSame(['email' => 'other@example.test'], json_decode($this->row($other)['payload'], true));
+    }
+
     public function testMarksTheRowsAHandlerSentAsSent(): void
     {
         $first = $this->queue->enqueue('test.sync', 1, ['n' => 1]);
