@@ -60,4 +60,29 @@ final class EngineSettings extends Settings
         // kept as it came, so the JSON spells every character that a tag needs as an escape.
         $this->set(self::PREVIOUS_PREFIXES, (string) json_encode($prefixes, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT));
     }
+
+    /**
+     * `1` once the merchant confirmed that the store's cookie banner covers Smaily's browse
+     * tracking and recommendations (ARCHITECTURE section 9). Global, or a shop's own under separate
+     * stores. Nothing stored is off: an install and an upgrade store nothing.
+     */
+    public const CONSENT_CONFIRMED = self::PREFIX . 'CONSENT_CONFIRMED';
+
+    /**
+     * Whether the merchant confirmed the cookie banner for the visitors of a setup.
+     *
+     * @param int $idShop the shop under separate stores, else 0 (Engine\Connections::keyOf())
+     */
+    public function consentConfirmed(int $idShop): bool
+    {
+        return $this->get(self::CONSENT_CONFIRMED, $idShop) === '1';
+    }
+
+    /**
+     * @param int $idShop the shop under separate stores, else 0 (Engine\Connections::keyOf())
+     */
+    public function setConsentConfirmed(bool $confirmed, int $idShop): bool
+    {
+        return $this->set(self::CONSENT_CONFIRMED, $confirmed ? '1' : '0', $idShop);
+    }
 }
