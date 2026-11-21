@@ -558,3 +558,26 @@ abandoned-cart reminder was switched off, and the upgrade never finished).
 - **PrestaShop's own strings.** The module's Log takes ten strings from the core's domains
   (`Admin.Actions`, `Admin.Global`). Without a language pack they show in English in an Estonian back
   office; the images hold no Estonian catalogue, so their Estonian was not seen.
+
+### 6.11 A failed query on 9.2.0 answers `false`; on 8.2.8 it throws
+
+**Observed** on 8.2.8 (PHP 8.0.30) and 9.2.0 (PHP 8.5.12), flashlight images, 2026-11-21, with a
+script that includes `config/config.inc.php` and reads a table that does not exist, once with debug
+mode on and once with `_PS_MODE_DEV_` defined `false` before the include:
+
+| | PDO error mode of `Db`'s link | `Db::getValue()` of the failed query |
+|---|---|---|
+| 8.2.8, debug on and off | 2 (exception) | throws `PrestaShopException` (`DbPDO::_query()`) |
+| 9.2.0, debug on | 0 (silent) | throws `PrestaShopDatabaseException` (`Db::displayError()`) |
+| 9.2.0, debug off | 0 (silent) | answers `false` |
+
+**Read from code:** 9.2.0 builds the PDO options with `array_merge()` (`DbPDO::getPDO()`, lines 44
+to 67), which renumbers integer keys, so the driver options arrive as the keys 0 to 3 and
+`PDO::ATTR_ERRMODE` (3) gets the value of `_PS_ALLOW_MULTI_STATEMENTS_QUERIES_`: `false`, the silent
+mode. 8.2.8 writes the options as one array and keeps PHP 8's default, exceptions.
+
+So on a live 9.2.0 store a failed read looks like an empty one: `new ObjectModel($id)` is not loaded,
+`getValue()` and `getRow()` answer `false`, `executeS()` answers `false` (not `[]`). Code that must
+tell "no row" from "the read failed" asks with `COUNT(*)` (a count always answers a row) or checks
+`executeS()` for an array. The discount codes do (ARCHITECTURE section 7). A test of such code runs
+with debug mode off too: `php -d auto_prepend_file=<a file that defines _PS_MODE_DEV_ false>`.

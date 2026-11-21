@@ -108,11 +108,23 @@ final class TemplateRules
      * The rule, with its names in every language, when a code can be a copy of it for the shop
      * now; null when it is gone, comes from this module's codes, is limited to one customer, is past
      * its end date, has no uses left or is not usable in the shop.
+     *
+     * @throws \RuntimeException when the rule could not be read. PrestaShop 9.2.0 with debug mode
+     *                           off answers a failed read as "no such row" (its PDO link reports
+     *                           no error): that is not a rule that is gone, and the caller tries
+     *                           again later
      */
     public function usable(int $idRule, int $idShop): ?\CartRule
     {
         $rule = new \CartRule($idRule);
-        if (!\Validate::isLoadedObject($rule) || CodeIssuer::isMarked($rule) || (int) $rule->id_customer > 0) {
+        if (!\Validate::isLoadedObject($rule)) {
+            if (self::count('cart_rule', '`id_cart_rule` = ' . $idRule) > 0) {
+                throw new \RuntimeException('The cart rule could not be read.');
+            }
+
+            return null;
+        }
+        if (CodeIssuer::isMarked($rule) || (int) $rule->id_customer > 0) {
             return null;
         }
         $end = self::end($rule);
@@ -122,16 +134,26 @@ final class TemplateRules
         if ($rule->quantity !== null && (int) $rule->quantity <= 0) {
             return null;
         }
-        if ((int) $rule->shop_restriction === 1 && !\Db::getInstance()->getValue(sprintf(
-            'SELECT 1 FROM `%scart_rule_shop` WHERE `id_cart_rule` = %d AND `id_shop` = %d',
-            _DB_PREFIX_,
-            $idRule,
-            $idShop
-        ), false)) {
+        if ((int) $rule->shop_restriction === 1 && self::count('cart_rule_shop', sprintf('`id_cart_rule` = %d AND `id_shop` = %d', $idRule, $idShop)) === 0) {
             return null;
         }
 
         return $rule;
+    }
+
+    /**
+     * The number of the table's rows that the condition selects.
+     *
+     * @throws \RuntimeException when the read failed
+     */
+    private static function count(string $table, string $condition): int
+    {
+        $count = \Db::getInstance()->getValue(sprintf('SELECT COUNT(*) FROM `%s%s` WHERE %s', _DB_PREFIX_, $table, $condition), false);
+        if ($count === false || $count === null) {
+            throw new \RuntimeException('The cart rules could not be read.');
+        }
+
+        return (int) $count;
     }
 
     /**

@@ -244,6 +244,51 @@ final class AutomationDiscountTest extends DiscountTestCase
         self::assertArrayNotHasKey('discount_notice', json_decode((string) self::stored($next)['payload'], true));
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public function tablesTheCodeReads(): array
+    {
+        return ['the cart rule' => ['cart_rule'], 'the rule\'s shops' => ['cart_rule_shop'], 'the customer account' => ['customer']];
+    }
+
+    /**
+     * A read that fails for a moment: the table is away while the queue sends. PrestaShop 8 throws
+     * on the failed query. PrestaShop 9.2.0 throws only with debug mode on; with it off (a live
+     * store) it answers "no row", which read as a deleted rule, a rule of another shop, or an
+     * address without an account. Run this test with debug mode off too (DEV_ENVIRONMENT 4).
+     *
+     * @dataProvider tablesTheCodeReads
+     */
+    public function testAReadThatFailsForAMomentFailsTheRowAndItsRetryCarriesTheCode(string $table): void
+    {
+        $template = $this->template(['shop_restriction' => true]);
+        self::db()->insert('cart_rule_shop', ['id_cart_rule' => $template, 'id_shop' => $this->idShop]);
+        $this->discount(Trigger::WELCOME, $template);
+        $customer = $this->fixture->customer('shopper1@example.test');
+        $id = $this->automationRow(WelcomeTrigger::EVENT_TYPE, 'shopper1@example.test');
+
+        self::db()->execute('RENAME TABLE `' . _DB_PREFIX_ . $table . '` TO `' . _DB_PREFIX_ . $table . '_away`');
+        try {
+            $this->flush();
+        } finally {
+            self::db()->execute('RENAME TABLE `' . _DB_PREFIX_ . $table . '_away` TO `' . _DB_PREFIX_ . $table . '`');
+        }
+
+        $row = self::stored($id);
+        self::assertSame([EventQueue::STATUS_PENDING, 1], [$row['status'], (int) $row['attempts']], 'the row is retried');
+        self::assertArrayNotHasKey('discount_notice', json_decode((string) $row['payload'], true), 'and is not marked as going without a code');
+        self::assertSame([], $this->reminders(), 'nothing was posted');
+        self::assertSame([], self::issuedIds());
+
+        self::db()->update(EventQueue::TABLE, ['next_retry_at' => null], '`id` = ' . $id, 0, true);
+        $this->flush();
+
+        self::assertSame('sent', self::stored($id)['status']);
+        $rule = new \CartRule((int) \CartRule::getIdByCode($this->posted(0)['welcome_coupon_code']));
+        self::assertSame($customer, (int) $rule->id_customer, 'the retry\'s code is the customer\'s own');
+    }
+
     public function testACodeThatPrestaShopRefusesToStoreFailsTheRowAndNothingIsPosted(): void
     {
         $template = $this->template();

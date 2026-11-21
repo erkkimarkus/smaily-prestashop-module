@@ -1683,7 +1683,16 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   as a sentence (section 10.8). A row stored that way makes no code on a retry either; the next
   event does, once the template is fixed. An error while the code is made (PrestaShop refuses the
   copy, or another module's hook on a new cart rule throws) fails the row with nothing posted, and
-  the row takes the retry ladder; the issuer removes a copy that was stored only in part.
+  the row takes the retry ladder; the issuer removes a copy that was stored only in part. A read
+  that fails for a moment (the template, its shops, the address's customer account) is such an
+  error and never a notice: the row keeps no notice, and its retry makes the code. PrestaShop 8
+  throws on a failed query by itself. PrestaShop 9.2.0 with debug mode off answers a failed query
+  as `false`, which its object model and `Db::getValue()` hand on as "no such row" (facts file
+  6.11), so `TemplateRules::usable()` counts the rows (a count always answers a row) and
+  `AutomationDiscount` reads the customer account as a list, and each throws when the read
+  failed. Without that, a failed read stored the notice, and the row, its retry and "Send again"
+  all went without a code; a failed read of the customer account made the code of a customer
+  with an account one that anyone could use.
 - **Clean-up** (`Discount\IssuedCodes`, section 11.3). The daily janitor removes a code that no
   order carries once its end date is more than 30 days past. A used code stays. Used means an
   `order_cart_rule` row, also one that an employee removed from the order. A code that only sits

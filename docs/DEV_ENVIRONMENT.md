@@ -93,6 +93,18 @@ shop, and the integration tests then run against its database. Start PHPUnit fro
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
 
+The dev shop runs with debug mode on, and a live store with it off. PrestaShop 9.2.0 reports a failed
+query differently in the two (facts file 6.11), so a test of code that must notice a failed read runs
+with debug mode off too (verified on 8.2.8 and 9.2.0 with the discount tests):
+
+    docker compose exec -u www-data prestashop sh -c \
+      'echo "<?php define(\"_PS_MODE_DEV_\", false);" > /tmp/no-debug.php'
+    docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
+      php -d auto_prepend_file=/tmp/no-debug.php modules/smailyforprestashop/vendor/bin/phpunit \
+      --configuration /smaily/phpunit.xml.dist --filter Discount
+
+The run builds `var/cache/prod`; remove that folder afterwards.
+
 A test that starts a PHP subprocess (the concurrency workers under `tests/Integration/`) reads the
 subprocess's output. The subprocess prints with `fwrite(STDOUT, …)`, not `echo`: the shop's bootstrap
 can buffer what `echo` prints, and the test then waits for a line that never comes.

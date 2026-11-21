@@ -107,7 +107,8 @@ final class CodeIssuer
      *
      * @return array{id: int, code: string, expires_at: string}|null
      *
-     * @throws \Throwable when PrestaShop does not store the copy; no rule is left behind
+     * @throws \Throwable when the rule could not be read, or PrestaShop does not store the copy;
+     *                    no rule is left behind
      */
     public function issue(int $idRule, int $days, int $idShop, int $idCustomer, string $trigger): ?array
     {

@@ -50,10 +50,14 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * dies between making the code and storing it leaves a code that no row names and nobody was
  * sent: the daily clean-up removes it 30 days after its end date (IssuedCodes).
  *
- * A cart rule that gives no code for the shop now (TemplateRules::usable()) does not hold the
- * email back: it goes without a code, and the row's payload keeps the reason under NOTICE_KEY,
- * which the Log's Details show as a sentence. A row stored that way makes no code on a retry
- * either. An error while the code is made is thrown: nothing was posted, and the row is retried.
+ * A cart rule that gives no code for the shop now (TemplateRules::usable(), CodeIssuer::issue())
+ * does not hold the email back: it goes without a code, and the row's payload keeps the reason
+ * under NOTICE_KEY, which the Log's Details show as a sentence. A row stored that way makes no
+ * code on a retry either. That is for a rule that was read and gives no code. Anything else (the
+ * rule, its shops or the address's customer account could not be read, or the code could not be
+ * made) is thrown: nothing was posted, the row keeps no notice, and its retry makes the code.
+ * PrestaShop 8 throws on a failed query by itself; PrestaShop 9.2.0 with debug mode off answers it
+ * as "no row", so the reads here ask in a way that tells a failure from an absence.
  */
 final class AutomationDiscount
 {
@@ -145,6 +149,9 @@ final class AutomationDiscount
      * The customer account of the address that can sign in to the shop: its own, or one of a shop
      * of its group where the group shares customers. 0 where the address has none; a
      * guest-checkout customer row is no account.
+     *
+     * @throws \RuntimeException when the read failed: a code is not made for nobody in place of
+     *                           the customer whose account could not be read
      */
     private static function customerAccount(string $email, int $idShop): int
     {
@@ -152,16 +159,21 @@ final class AutomationDiscount
             return 0;
         }
 
-        return (int) \Db::getInstance()->getValue(sprintf(
+        $rows = \Db::getInstance()->executeS(sprintf(
             'SELECT cu.`id_customer` FROM `%1$scustomer` cu'
             . ' INNER JOIN `%1$sshop` s ON s.`id_shop` = %2$d'
             . ' INNER JOIN `%1$sshop_group` sg ON sg.`id_shop_group` = s.`id_shop_group`'
             . ' WHERE cu.`email` = \'%3$s\' AND cu.`is_guest` = 0 AND cu.`deleted` = 0'
             . ' AND (cu.`id_shop` = s.`id_shop` OR (sg.`share_customer` = 1 AND cu.`id_shop_group` = s.`id_shop_group`))'
-            . ' ORDER BY cu.`id_customer`',
+            . ' ORDER BY cu.`id_customer` LIMIT 1',
             _DB_PREFIX_,
             $idShop,
             pSQL(trim($email))
-        ), false);
+        ), true, false);
+        if (!is_array($rows)) {
+            throw new \RuntimeException('The customer account of the address could not be read.');
+        }
+
+        return $rows === [] ? 0 : (int) $rows[0]['id_customer'];
     }
 }
