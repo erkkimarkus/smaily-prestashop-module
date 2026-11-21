@@ -10,7 +10,7 @@
  * The mock validates what it is sent as the contract's field references do, so a request that a
  * test records has the contract's shape, and it keeps what the engine would keep, per engine store
  * (`tenant_id`): `catalog` (rows by `sku`, with `recommendable`), `customers` (by lower-case
- * address), `orders` (by `external_order_id`), `visitor_tokens` (the customer each token is bound
+ * address), `orders` (by `external_order_id`), `bound_tokens` (the customer each token is bound
  * to) and `manifests` (the answer to each connection's last list).
  *
  * Switches, beside router.php's:
@@ -525,8 +525,8 @@ if ($ingestRoute === 'orders') {
         // §5 "Store-created visitor token": an unknown, well-formed `vs_` token is bound to the
         // order's customer; a token bound to another customer does not move.
         $token = $order['smaily_visitor_token'] ?? '';
-        if (preg_match('/^vs_[A-Za-z0-9]{22}$/D', $token) === 1 && !isset($state['visitor_tokens'][$tenant][$token])) {
-            $state['visitor_tokens'][$tenant][$token] = $address;
+        if (preg_match('/^vs_[A-Za-z0-9]{22}$/D', $token) === 1 && !isset($state['bound_tokens'][$tenant][$token])) {
+            $state['bound_tokens'][$tenant][$token] = $address;
         }
         ++$processed;
     }
@@ -578,9 +578,9 @@ if (!isset($state['customers'][$tenant][$address])) {
 // `vt_` token or a malformed `vs_` value creates nothing.
 $bound = 0;
 if (is_string($token) && $token !== '') {
-    $holder = $state['visitor_tokens'][$tenant][$token] ?? null;
+    $holder = $state['bound_tokens'][$tenant][$token] ?? null;
     if ($holder === null && preg_match('/^vs_[A-Za-z0-9]{22}$/D', $token) === 1) {
-        $state['visitor_tokens'][$tenant][$token] = $address;
+        $state['bound_tokens'][$tenant][$token] = $address;
         $holder = $address;
     }
     $bound = $holder === $address ? 1 : 0;

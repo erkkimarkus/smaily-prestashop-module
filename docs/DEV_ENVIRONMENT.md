@@ -254,7 +254,7 @@ merge), checks each request against the contract's required fields, limits and k
 answers the contract's errors (per-item `errors[]`, `validation_failed`,
 `connection_prefix_mismatch`, `customer_not_found`) and the nightly list's truncation guard. What
 it took is in the state under `catalog`, `customers`, `orders`,
-`manifests`, `merges`, `visitor_tokens` and `event_ids`, per engine store; `fail` and `delay` take
+`manifests`, `merges`, `bound_tokens` and `event_ids`, per engine store; `fail` and `delay` take
 the names `catalog`, `catalog_remove`, `catalog_manifest`, `customers`, `orders` and
 `identity_merge`. Any token
 that the mock has not seen works once as a setup link
