@@ -213,4 +213,86 @@ class Client
 
         throw new EngineRequestException($code, $status);
     }
+
+    /** The endpoints map keys and the fallback paths of the privacy calls (§8, §9, §10). */
+    public const ENDPOINT_CUSTOMER_EXPORT = 'customer_export';
+    public const PATH_CUSTOMER_EXPORT = '/api/v1/customer/{email}/export';
+    public const ENDPOINT_CUSTOMER_DELETE = 'customer_delete';
+    public const PATH_CUSTOMER_DELETE = '/api/v1/customer/{email}';
+    public const ENDPOINT_CUSTOMER_OPT_OUT = 'customer_opt_out';
+    public const PATH_CUSTOMER_OPT_OUT = '/api/v1/customer/{email}/opt-out';
+
+    /** Seconds a privacy call may take: an export waits for it, and so does a queue flush. */
+    public const PRIVACY_TIMEOUT_SECONDS = 10;
+
+    /**
+     * Everything the engine holds of a shopper (§8). A shopper whom the engine does not know is
+     * an EngineRequestException with the HTTP status 404.
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function customerExport(Connection $connection, string $email): array
+    {
+        return $this->request(
+            'GET',
+            self::customerUrl($connection, self::ENDPOINT_CUSTOMER_EXPORT, self::PATH_CUSTOMER_EXPORT, $email),
+            self::PRIVACY_TIMEOUT_SECONDS,
+            $connection->apiKey()
+        );
+    }
+
+    /**
+     * Asks the engine to delete everything it holds of a shopper (§9). A shopper whom the engine
+     * does not know, or has deleted already, is an EngineRequestException with the HTTP status
+     * 404, which the caller takes as done.
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function customerDelete(Connection $connection, string $email): array
+    {
+        return $this->request(
+            'DELETE',
+            self::customerUrl($connection, self::ENDPOINT_CUSTOMER_DELETE, self::PATH_CUSTOMER_DELETE, $email),
+            self::PRIVACY_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            ['confirm' => true, 'reason' => 'user_request']
+        );
+    }
+
+    /**
+     * Tells the engine a shopper's choice about personalization (§10): an opt-out with its time,
+     * or the opt-in that reverses it. A shopper whom the engine does not know is an
+     * EngineRequestException with the HTTP status 404.
+     *
+     * @param string $optedOutAt the UTC time of an opt-out, `Y-m-d\TH:i:s\Z`; not sent with an opt-in
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function customerOptOut(Connection $connection, string $email, bool $optOut, string $optedOutAt = ''): array
+    {
+        $body = ['opt_out' => $optOut, 'reason' => 'user_preference'];
+        if ($optOut && $optedOutAt !== '') {
+            $body['opted_out_at'] = $optedOutAt;
+        }
+
+        return $this->request(
+            'POST',
+            self::customerUrl($connection, self::ENDPOINT_CUSTOMER_OPT_OUT, self::PATH_CUSTOMER_OPT_OUT, $email),
+            self::PRIVACY_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            $body
+        );
+    }
+
+    /**
+     * The URL of a privacy endpoint for an address: the address stands in the path, trimmed, in
+     * lower case and URL-encoded, where the endpoint names `{email}`. The second of two dots in a
+     * row is encoded too: no address reads as a step up the path.
+     */
+    private static function customerUrl(Connection $connection, string $key, string $fallbackPath, string $email): string
+    {
+        $address = str_replace('..', '.%2E', rawurlencode(strtolower(trim($email))));
+
+        return str_replace('{email}', $address, $connection->endpoint($key, $fallbackPath));
+    }
 }
