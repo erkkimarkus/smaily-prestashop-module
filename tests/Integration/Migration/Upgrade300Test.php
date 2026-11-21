@@ -6,6 +6,7 @@ namespace Tests\Integration\Migration;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
@@ -18,10 +19,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\MigrationProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Tests\Integration\Admin\MenuTest;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/LegacyStore.php';
 require_once __DIR__ . '/../Admin/MenuTest.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * A store that 2.x or 1.6.x left upgrades in place: the plan's settings, accounts, mapping rows and
@@ -599,6 +602,127 @@ final class Upgrade300Test extends IntegrationTestCase
         (new MigrationProvider())->register(Services::instance());
         self::assertTrue(upgrade_module_3_0_0(self::module()));
         self::assertTrue(Schema::isCurrent());
+    }
+
+    /**
+     * The reads of what 2.x left, each failing the way a live PrestaShop 9.2.0 store reports it
+     * (the driver answers `false`, facts file 6.11), and the step that then fails.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public function legacyReads(): array
+    {
+        return [
+            'the legacy settings' => ['/SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `[^`]+configuration`/', 'notices'],
+            'the shops' => ['/SELECT `id_shop`, `id_shop_group` FROM `[^`]+shop`/', 'notices'],
+            'the multistore switch' => ['/`name` = \'PS_MULTISHOP_FEATURE_ACTIVE\'/', 'notices'],
+            'the count of reminded carts' => ['/SELECT COUNT\(\*\) FROM `[^`]+smaily_cart`/', 'notices'],
+        ];
+    }
+
+    /**
+     * A read of the 2.x state that fails is not an empty store. Read as empty, the plan held no
+     * account and no setting, its check passed, and the last step deleted every legacy key: the
+     * merchant's credentials and settings were gone, and the reminded carts were not carried over.
+     *
+     * @dataProvider legacyReads
+     */
+    public function testAFailedReadOfTheLegacyStateKeepsItAndTheNextRunFinishes(string $failing, string $step): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        $plan = $this->plan('2.2.0');
+        self::assertTrue($plan->copySentCarts(), 'the store holds reminded carts');
+        $legacy = $this->legacyRows();
+        require_once _PS_MODULE_DIR_ . 'smailyforprestashop/upgrade/upgrade-3.0.0.php';
+        (new MigrationProvider())->register(Services::instance());
+
+        $failed = FailingQueries::during($failing, static function (): void {
+            self::assertTrue(upgrade_module_3_0_0(self::module()), 'the upgrade script never fails outward');
+        });
+
+        self::assertGreaterThan(0, $failed);
+        self::assertFalse(Schema::isCurrent(), 'the migration stays pending');
+        self::assertSame(['step' => $step, 'error' => SqlException::class], $this->upgrade()->state()['failure']);
+        self::assertSame($legacy, $this->legacyRows(), 'every legacy key is still there');
+        self::assertSame('0', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_connect_account`', false));
+        self::assertSame('0', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_connect_cart`', false));
+
+        self::assertTrue($this->upgrade()->runPending(), 'the next run reads again and finishes');
+        $this->assertPlanApplied($plan);
+        self::assertSame('2.2.0', $this->upgrade()->state()['from']);
+        self::assertSame('done', $this->upgrade()->state()['status']);
+    }
+
+    /**
+     * The upgrade writes a setting only where its scope holds no row. A count that fails is not
+     * zero: read as zero, the upgrade wrote its own value over the one a merchant saved while the
+     * upgrade was not finished.
+     */
+    public function testAFailedCountOfASettingsRowsOverwritesNothing(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        $key = (string) array_key_first($this->plan('2.2.0')->settings()[0]);
+        LegacyStore::insertRows([[null, null, $key, 'saved-by-the-merchant']]);
+
+        $failed = FailingQueries::during('/SELECT COUNT\(\*\) FROM `[^`]+configuration` WHERE `name` = \'' . $key . '\'/', function (): void {
+            self::assertFalse($this->upgrade()->runPending());
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame(['step' => 'settings', 'error' => SqlException::class], $this->upgrade()->state()['failure']);
+        self::assertSame('saved-by-the-merchant', LegacyStore::row($key));
+        self::assertSame(1, LegacyStore::countRows('SMAILY_PASSWORD'));
+
+        self::assertTrue($this->upgrade()->runPending());
+        self::assertSame('saved-by-the-merchant', LegacyStore::row($key));
+        self::assertSame(1, LegacyStore::countRows($key));
+    }
+
+    /**
+     * An empty cron token is replaced in its row. A count of that row that fails is not zero: read
+     * as zero, the upgrade added a second row for the token.
+     */
+    public function testAFailedCountOfATokensRowsAddsNoSecondRow(): void
+    {
+        LegacyStore::loadFixture('1.6.2-configured.sql');
+        self::db()->execute(
+            'UPDATE `' . _DB_PREFIX_ . 'configuration` SET `value` = \'\' WHERE `name` = \'SMAILY_CART_CRON_TOKEN\''
+        );
+        LegacyStore::reloadConfiguration();
+        $this->recordModuleVersion('1.6.2');
+
+        $failed = FailingQueries::during('/SELECT COUNT\(\*\) FROM `[^`]+configuration` WHERE `name` = \'SMAILY_CART_CRON_TOKEN\'/', function (): void {
+            self::assertFalse($this->upgrade()->runPending());
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame(['step' => 'tokens', 'error' => SqlException::class], $this->upgrade()->state()['failure']);
+        self::assertSame(1, LegacyStore::countRows('SMAILY_CART_CRON_TOKEN'));
+        self::assertSame('', (string) LegacyStore::row('SMAILY_CART_CRON_TOKEN'));
+
+        self::assertTrue($this->upgrade()->runPending());
+        self::assertSame(1, LegacyStore::countRows('SMAILY_CART_CRON_TOKEN'));
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/', (string) LegacyStore::row('SMAILY_CART_CRON_TOKEN'));
+    }
+
+    /**
+     * A store that only lost its schema version is told from a store to migrate by reads. When one
+     * fails, the run decides nothing and never throws.
+     */
+    public function testAFailedReadBeforeTheStepsDecidesNothing(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('3.0.0');
+        $before = $this->everything();
+
+        $failed = FailingQueries::during('/SELECT `version` FROM `[^`]+module`/', function (): void {
+            self::assertFalse($this->upgrade()->runPending());
+        });
+
+        self::assertSame(1, $failed);
+        self::assertSame($before, $this->everything());
     }
 
     /**

@@ -29,6 +29,9 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+
 /**
  * Reads the state that 2.x or 1.6.x left from the shop's database, as LegacyState describes it. It
  * reads the tables, not PrestaShop's configuration cache, and writes nothing.
@@ -41,46 +44,43 @@ final class LegacyReader
      */
     public function moduleVersion(): string
     {
-        return (string) \Db::getInstance()->getValue(
-            'SELECT `version` FROM `' . _DB_PREFIX_ . 'module` WHERE `name` = \'smailyforprestashop\'',
-            false
+        return (string) Sql::value(
+            'SELECT `version` FROM `' . _DB_PREFIX_ . 'module` WHERE `name` = \'smailyforprestashop\''
         );
     }
 
+    /**
+     * @throws SqlException when a read failed: what 2.x left is then unknown, not empty
+     */
     public function read(string $previousVersion): LegacyState
     {
-        $db = \Db::getInstance();
         $prefix = _DB_PREFIX_;
 
         $shops = [];
-        foreach ($db->executeS('SELECT `id_shop`, `id_shop_group` FROM `' . $prefix . 'shop` WHERE `deleted` = 0', true, false) ?: [] as $shop) {
+        foreach (Sql::rows('SELECT `id_shop`, `id_shop_group` FROM `' . $prefix . 'shop` WHERE `deleted` = 0') as $shop) {
             $shops[(int) $shop['id_shop']] = (int) $shop['id_shop_group'];
         }
         $sharing = array_map('intval', array_column(
-            $db->executeS('SELECT `id_shop_group` FROM `' . $prefix . 'shop_group` WHERE `share_customer` = 1', true, false) ?: [],
+            Sql::rows('SELECT `id_shop_group` FROM `' . $prefix . 'shop_group` WHERE `share_customer` = 1'),
             'id_shop_group'
         ));
         // As Shop::isFeatureActive() decides it, without its per-request cache.
-        $multishop = (bool) $db->getValue(
-            'SELECT `value` FROM `' . $prefix . 'configuration` WHERE `name` = \'PS_MULTISHOP_FEATURE_ACTIVE\'',
-            false
-        ) && (int) $db->getValue('SELECT COUNT(*) FROM `' . $prefix . 'shop`', false) > 1;
-        $defaultShop = (int) $db->getValue(
+        $multishop = (bool) Sql::value(
+            'SELECT `value` FROM `' . $prefix . 'configuration` WHERE `name` = \'PS_MULTISHOP_FEATURE_ACTIVE\''
+        ) && Sql::count('SELECT COUNT(*) FROM `' . $prefix . 'shop`') > 1;
+        $defaultShop = (int) Sql::value(
             'SELECT `value` FROM `' . $prefix . 'configuration` WHERE `name` = \'PS_SHOP_DEFAULT\''
-            . ' AND `id_shop` IS NULL AND `id_shop_group` IS NULL',
-            false
+            . ' AND `id_shop` IS NULL AND `id_shop_group` IS NULL'
         );
 
-        $rows = $db->executeS(
+        $rows = Sql::rows(
             'SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `' . $prefix . 'configuration`'
-            . ' WHERE `name` IN (\'' . implode('\', \'', LegacyState::KEYS) . '\') ORDER BY `id_configuration`',
-            true,
-            false
-        ) ?: [];
+            . ' WHERE `name` IN (\'' . implode('\', \'', LegacyState::KEYS) . '\') ORDER BY `id_configuration`'
+        );
 
         $sentCarts = 0;
-        if ($db->executeS('SHOW TABLES LIKE \'' . $prefix . 'smaily\\_cart\'', true, false)) {
-            $sentCarts = (int) $db->getValue('SELECT COUNT(*) FROM `' . $prefix . 'smaily_cart`', false);
+        if (Sql::rows('SHOW TABLES LIKE \'' . $prefix . 'smaily\\_cart\'') !== []) {
+            $sentCarts = Sql::count('SELECT COUNT(*) FROM `' . $prefix . 'smaily_cart`');
         }
 
         return new LegacyState($previousVersion, $multishop, $defaultShop, $shops, $sharing, $rows, $sentCarts);

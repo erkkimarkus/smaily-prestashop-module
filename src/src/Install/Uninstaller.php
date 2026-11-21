@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
@@ -149,8 +151,15 @@ final class Uninstaller
             $removed = \Configuration::deleteByName($key) && $removed;
         }
 
-        return Schema::drop()
-            && \Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . self::LEGACY_TABLE . '`')
-            && $removed;
+        if (!Schema::drop()) {
+            return false;
+        }
+        try {
+            Sql::write('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . self::LEGACY_TABLE . '`');
+        } catch (SqlException $error) {
+            return false;
+        }
+
+        return $removed;
     }
 }

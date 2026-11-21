@@ -29,6 +29,9 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+
 /**
  * The module's tables and the schema version that the runtime needs.
  *
@@ -200,10 +203,12 @@ final class Schema
 
     public static function create(): bool
     {
-        foreach (self::createStatements(_DB_PREFIX_, _MYSQL_ENGINE_) as $statement) {
-            if (!\Db::getInstance()->execute($statement)) {
-                return false;
+        try {
+            foreach (self::createStatements(_DB_PREFIX_, _MYSQL_ENGINE_) as $statement) {
+                Sql::write($statement);
             }
+        } catch (SqlException $error) {
+            return false;
         }
 
         return true;
@@ -211,10 +216,12 @@ final class Schema
 
     public static function drop(): bool
     {
-        foreach (self::tables() as $table) {
-            if (!\Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . $table . '`')) {
-                return false;
+        try {
+            foreach (self::tables() as $table) {
+                Sql::write('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . $table . '`');
             }
+        } catch (SqlException $error) {
+            return false;
         }
 
         return true;

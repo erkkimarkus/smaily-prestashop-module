@@ -31,9 +31,12 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Menu;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
+use PrestaShop\Module\SmailyForPrestaShop\Config\Settings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
@@ -50,6 +53,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * the error, never the error's message. The last step deletes the legacy keys and marks the schema
  * current in one transaction; until then the runtime stays inert and every legacy key stays in
  * place. `smaily_cart` stays (a later release drops it).
+ *
+ * A database query that fails is a failed step, never an empty answer (Database\Sql): a read of
+ * what 2.x left that fails makes no plan, so no legacy key is deleted on it, and the next run reads
+ * again.
  *
  * A run never resets a store in use. A store that has nothing to migrate (3.0.0 installed it, or
  * its migration completed) and has lost its schema version gets only its tables, hooks and schema
@@ -144,6 +151,11 @@ final class Upgrade300
             self::reloadConfiguration();
 
             return Schema::isCurrent() || ($this->nothingToMigrate() ? $this->restore() : $this->run());
+        } catch (\Throwable $error) {
+            // What the store holds could not be read. Nothing is decided on it: the next run asks again.
+            Log::failure('the 3.0.0 migration', $error);
+
+            return false;
         } finally {
             $lock->release();
         }
@@ -290,13 +302,11 @@ final class Upgrade300
         self::check((bool) $module->registerHook(HookList::HOOKS));
 
         $wanted = array_map('strtolower', HookList::HOOKS);
-        $registered = \Db::getInstance()->executeS(
+        $registered = Sql::rows(
             'SELECT DISTINCT h.`name` FROM `' . _DB_PREFIX_ . 'hook_module` hm'
             . ' JOIN `' . _DB_PREFIX_ . 'hook` h ON h.`id_hook` = hm.`id_hook`'
-            . ' WHERE hm.`id_module` = ' . (int) $module->id,
-            true,
-            false
-        ) ?: [];
+            . ' WHERE hm.`id_module` = ' . (int) $module->id
+        );
         foreach (array_column($registered, 'name') as $hook) {
             if (!in_array(strtolower($hook), $wanted, true)) {
                 self::check((bool) $module->unregisterHook($hook));
@@ -367,7 +377,7 @@ final class Upgrade300
     private function stepMappings(): void
     {
         foreach ($this->plan()->mappings() as $row) {
-            self::check(\Db::getInstance()->execute(
+            Sql::write(
                 'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping`'
                 . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
                 . ' VALUES (' . $row['id_shop']
@@ -378,7 +388,7 @@ final class Upgrade300
                 . ', ' . $row['optin_trigger']
                 . ', ' . $row['is_default_fallback']
                 . ', NOW())'
-            ));
+            );
         }
     }
 
@@ -388,23 +398,22 @@ final class Upgrade300
      */
     private function stepTokens(): void
     {
-        $db = \Db::getInstance();
         foreach ($this->plan()->tokensToGenerate() as $token) {
             $scope = ' WHERE `name` = \'' . pSQL($token['key']) . '\''
                 . ' AND `id_shop_group` ' . ($token['id_shop_group'] === null ? 'IS NULL' : '= ' . $token['id_shop_group'])
                 . ' AND `id_shop` ' . ($token['id_shop'] === null ? 'IS NULL' : '= ' . $token['id_shop']);
             $value = bin2hex(random_bytes(16));
-            if ((int) $db->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration`' . $scope, false) > 0) {
-                self::check($db->execute(
+            if (Sql::count('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration`' . $scope) > 0) {
+                Sql::write(
                     'UPDATE `' . _DB_PREFIX_ . 'configuration` SET `value` = \'' . $value . '\', `date_upd` = NOW()'
                     . $scope . ' AND (`value` IS NULL OR `value` = \'\')'
-                ));
+                );
             } else {
-                self::check($db->execute(
+                Sql::write(
                     'INSERT INTO `' . _DB_PREFIX_ . 'configuration` (`id_shop_group`, `id_shop`, `name`, `value`, `date_add`, `date_upd`)'
                     . ' VALUES (' . ($token['id_shop_group'] ?? 'NULL') . ', ' . ($token['id_shop'] ?? 'NULL')
                     . ', \'' . pSQL($token['key']) . '\', \'' . $value . '\', NOW(), NOW())'
-                ));
+                );
             }
         }
         self::reloadConfiguration();
@@ -432,7 +441,7 @@ final class Upgrade300
         if (!$this->plan()->copySentCarts()) {
             return;
         }
-        self::check(\Db::getInstance()->execute(
+        Sql::write(
             'INSERT IGNORE INTO `' . _DB_PREFIX_ . 'smaily_connect_cart`'
             . ' (`id_cart`, `id_shop`, `id_customer`, `id_lang`, `status`, `last_activity_at`, `mailed_at`)'
             . ' SELECT sc.`id_cart`, COALESCE(c.`id_shop`, ' . (int) \Configuration::get('PS_SHOP_DEFAULT') . '), sc.`id_customer`,'
@@ -440,7 +449,7 @@ final class Upgrade300
             . ' FROM `' . _DB_PREFIX_ . 'smaily_cart` sc'
             . ' LEFT JOIN `' . _DB_PREFIX_ . 'cart` c ON c.`id_cart` = sc.`id_cart`'
             . ' WHERE sc.`id_cart` IS NOT NULL ORDER BY sc.`date_sent` DESC, sc.`id_smaily_cart` DESC'
-        ));
+        );
     }
 
     private function stepOverride(): void
@@ -455,9 +464,8 @@ final class Upgrade300
      */
     private function stepTab(): void
     {
-        $id = (int) \Db::getInstance()->getValue(
-            'SELECT `id_tab` FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'' . self::LEGACY_TAB . '\'',
-            false
+        $id = (int) Sql::value(
+            'SELECT `id_tab` FROM `' . _DB_PREFIX_ . 'tab` WHERE `class_name` = \'' . self::LEGACY_TAB . '\''
         );
         if ($id > 0) {
             self::check((bool) (new \Tab($id))->delete());
@@ -496,9 +504,8 @@ final class Upgrade300
             ? '`id_shop_group` IS NULL AND `id_shop` IS NULL'
             : '`id_shop_group` = ' . (int) \Shop::getGroupFromShop($idShop) . ' AND `id_shop` = ' . $idShop;
 
-        return (int) \Db::getInstance()->getValue(
-            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($key) . '\' AND ' . $scope,
-            false
+        return Sql::count(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL($key) . '\' AND ' . $scope
         );
     }
 
@@ -509,18 +516,17 @@ final class Upgrade300
     private function stepFinish(): void
     {
         $names = '\'' . implode('\', \'', array_map('pSQL', $this->plan()->legacyKeysToDelete())) . '\'';
-        $db = \Db::getInstance();
-        self::check($db->execute('START TRANSACTION'));
+        Sql::write('START TRANSACTION');
         try {
-            self::check($db->execute(
+            Sql::write(
                 'DELETE c, cl FROM `' . _DB_PREFIX_ . 'configuration` c'
                 . ' LEFT JOIN `' . _DB_PREFIX_ . 'configuration_lang` cl ON cl.`id_configuration` = c.`id_configuration`'
                 . ' WHERE c.`name` IN (' . $names . ')'
-            ));
+            );
             self::check(Schema::markCurrent());
-            self::check($db->execute('COMMIT'));
+            Sql::write('COMMIT');
         } catch (\Throwable $error) {
-            $db->execute('ROLLBACK');
+            Sql::write('ROLLBACK');
             throw $error;
         } finally {
             self::reloadConfiguration();
@@ -536,7 +542,6 @@ final class Upgrade300
 
     private static function reloadConfiguration(): void
     {
-        \Configuration::resetStaticCache();
-        \Configuration::loadConfiguration();
+        Settings::reloadConfiguration();
     }
 }
