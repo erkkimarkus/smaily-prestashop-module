@@ -46,6 +46,7 @@ final class FailureMessageTest extends TestCase
             'no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'capture_limit', 'no_workflow',
             'contact_sync_off', 'not_in_audience', 'no_account', 'no_credentials', 'automation_off', 'unknown_trigger',
             'too_old', 'already_reminded', 'not_tracked', 'payload_failed', 'malformed_payload',
+            'preference_replaced', 'no_connection',
         ];
 
         self::assertSame($codes, array_keys(FailureMessage::REASONS));

@@ -35,6 +35,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\Captu
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\EngineFailure;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsentHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -70,6 +72,8 @@ final class FailureMessage
         AbandonedCartHandler::SKIPPED_NOT_TRACKED => 'Skipped: this cart no longer waits for a reminder. Nothing was sent.',
         AbandonedCartSweeper::SKIPPED_PAYLOAD_FAILED => 'Skipped: the contents of this cart could not be read. Nothing was sent.',
         ContactSyncHandler::FAILED_MALFORMED_PAYLOAD => 'The data stored with this row is incomplete, so it cannot be sent.',
+        ProfilingConsentHandler::SKIPPED_REPLACED => 'Skipped: the shopper has since changed their personalization preference, and the newer preference is sent in its own row. Nothing was sent.',
+        EngineFailure::SKIPPED_NO_CONNECTION => 'Skipped: the Campaign Intelligence connection of this row no longer exists. Nothing was sent.',
     ];
 
     /** The sentence of a reason code of an import job, where it differs from a queue row's. */
