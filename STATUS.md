@@ -21,6 +21,12 @@ structural rules; upgrade hardening (delay cap with notice, re-run safety, multi
 security hardening (capture token bound to the cart, hourly bound, deleted customers, the door, unreachable 2.x
 classes removed); the stale-subscription fix; the scope fixes of the admin.
 
+**Landed after that check** (`75a0a60`): every database read and write goes through `Database\Sql`, which throws on
+a failed query (PrestaShop 9.2.0 in production answers `false`; facts file 6.11, 6.12). Its own runs: in-shop 1482
+tests on 8.2.8 and on 9.2.0 with debug on and off, `validate.sh` 10 of 10 on both images, host 1482 tests. The zip
+content and the uninstall check below were not rerun on it. Open with the owner: a customer save whose
+"consent before" read failed is queued without a consent change, so an unsubscribe made in that save is not sent.
+
 **Verified on `0d4425e`** (2026-11-21, nothing else running; commands in DEV_ENVIRONMENT 2, 4, 6):
 
 - `tests/ci/validate.sh` with the packaged zip: 10 of 10 checks on flashlight 8.2.8 and 9.2.0; in the shop 1415 tests,
