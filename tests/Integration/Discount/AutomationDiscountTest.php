@@ -5,6 +5,7 @@ namespace Tests\Integration\Discount;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\FirstOrder\FirstOrderTrigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
@@ -194,6 +195,21 @@ final class AutomationDiscountTest extends DiscountTestCase
         $this->flush();
 
         self::assertSame(['skipped', 'automation_off'], [self::stored($id)['status'], self::stored($id)['last_error']]);
+        self::assertSame([], self::issuedIds());
+    }
+
+    public function testAShopThatClearedItsWorkflowMakesNoCode(): void
+    {
+        $this->discount(Trigger::WELCOME, $this->template());
+        // The shop's own "no workflow" hides the workflow that all shops share.
+        (new MappingRepository())->setNone($this->idShop, Trigger::WELCOME, '', MappingRepository::ACCOUNT_DEFAULT);
+        $this->services = $this->services();
+        $id = $this->automationRow(WelcomeTrigger::EVENT_TYPE, 'shopper1@example.test');
+
+        $this->flush();
+
+        self::assertSame(['skipped', 'no_workflow'], [self::stored($id)['status'], self::stored($id)['last_error']]);
+        self::assertSame([], $this->reminders());
         self::assertSame([], self::issuedIds());
     }
 
