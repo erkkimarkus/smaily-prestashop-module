@@ -86,8 +86,9 @@ Run the unit and integration tests inside the shop, from the module's own folder
 
 Last verified results, all passing: 1415 tests on 8.2.8 (7251 assertions) and on 9.2.0 (7257
 assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the corrections to the discount codes); 8.0.0 last ran with the
-upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
+the egress guard (2026-11-21, with the corrections to the discount codes; three runs in a row on
+8.2.8, which runs PHP 8.0.30, and one on 9.2.0, which runs PHP 8.5.12, with no crash); 8.0.0 last
+ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
 and skips the integration tests (1415 tests, 2121 assertions, 740 skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -298,9 +299,9 @@ Results on 2026-11-20:
   (the image CI uses for 9.2.0).
 - With the upgrade-safe core: the in-shop tests of that time passed on flashlight 8.0.0, 8.2.8 and
   9.2.0 (8.0.0: 278 tests, 1337 assertions).
-- On 2026-11-21, with the Log page, the upgrade hardening and the Marketplace structural rules on
-  `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0, with 1266 tests and 6101 assertions in the
-  shop on each. Section 4 holds the newer counts of the dev shop.
+- On 2026-11-21, with the admin screens, the three store automations and their discount codes on
+  `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged zip, and 1415 tests in the
+  shop on each (7251 assertions on 8.2.8, 7257 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a

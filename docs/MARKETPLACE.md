@@ -140,7 +140,8 @@ and no operating-system file.
 
 The file counts of this section were taken again on 2026-11-21, after the Automations tab, the
 discount codes and the removal of the 8 classes of the 2.x contact sync and cart reminder, with the
-commands of section 6.4. The counts of rules 14, 15, 24 and 33 were not taken again.
+commands of section 6.4, and once more after the last change of that day, with the same result. The
+count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were not.
 
 ### 6.1 Technical rules that the module meets
 
@@ -156,7 +157,7 @@ commands of section 6.4. The counts of rules 14, 15, 24 and 33 were not taken ag
 | 11 | No `ALTER`; guarded `CREATE` and `DROP` | 0 `ALTER`. 2 of 2 `CREATE TABLE` statements carry `IF NOT EXISTS`, 2 of 2 `DROP TABLE` statements carry `IF EXISTS`. |
 | 12 | No change to core or other modules' files | The module writes no file (0 calls of `file_put_contents`, `fopen`, `fwrite`, `copy`, `rename`, `mkdir`). It deletes one file: the override of `ps_emailsubscription` that 2.x installed, and only when its SHA-256 is that of the 2.x copy. The contact reconcile writes data, not files: `customer.newsletter` and `emailsubscription.active`. |
 | 13 | Overrides | The module ships no `override` folder. |
-| 14 | Uninstall | A console uninstall on 8.2.8 and on 9.2.0 left 0 `SMAILY%` configuration rows (5 before), 0 tables (9), 0 admin tabs (5), 0 hook registrations (32) and 0 tab roles (20). |
+| 14 | Uninstall | A console uninstall on 8.2.8 and on 9.2.0, of a module that was set up with a Smaily account, the welcome automation and a discount rule, left 0 `SMAILY%` configuration rows (24 before), 0 tables (9), 0 admin tabs (5), 0 hook registrations (32) and 0 authorization roles that name the module (24). The 1 discount code that the module had issued stayed in the shop's cart rules, as designed (`docs/ARCHITECTURE.md` section 11.4). |
 | 15 | Debug mode | Both dev shops run with `_PS_MODE_DEV_` on. The suite passes in them with PHPUnit turning warnings and notices into failures. 15 storefront and module requests and the module's 5 admin menu links per shop returned 0 answers with PHP error text; the shop's output held 0 PHP messages that name the module. The admin links were opened before the Initial setup, so each showed the Initial setup page. While the suite ran on 9.2.0, PrestaShop's own log took 5 lines "Cannot register tab … because it already exists"; a plain install and the requests above wrote none. |
 | 16 | English; translations through PrestaShop | 0 source files hold a non-ASCII letter. Texts go through the translator: 200 `trans()` calls in PHP, 386 `trans` filters in Twig, domains `Modules.Smailyforprestashop.Admin` and `.Shop`; 0 literal user texts in JavaScript. Estonian is one XLIFF file in `translations/et-EE/`. |
 | 17 | No obfuscation | 0 calls of `base64_decode`, `gzinflate`, `gzuncompress`, `str_rot13`, `create_function`. No minified script or style: the longest line of the JavaScript and CSS is 181 characters. |
@@ -218,9 +219,8 @@ Forbidden constructs are counted with `grep` over the PHP files that the zip hol
 `grep -nE '(^|[^a-zA-Z_>:])(serialize|unserialize|eval)\('`.
 
 The tests in a shop, the debug-mode requests and the uninstall follow `docs/DEV_ENVIRONMENT.md`
-(sections 4, 4a and 6). Last results, on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0: the suite of 1394 tests
-passes in both shops; `tests/ci/validate.sh` last passed its 10 checks with the zip when the suite
-held 1266 tests.
+(sections 4, 4a and 6). Last results, on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0: the suite of 1415 tests
+passes in both shops, and `tests/ci/validate.sh` passes its 10 checks with the zip on both.
 
 ## 7. What a listing needs outside the code
 
