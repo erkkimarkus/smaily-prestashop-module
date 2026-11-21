@@ -67,6 +67,29 @@ final class MenuTest extends IntegrationTestCase
         self::assertSame($before, self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'tab` WHERE `module` = \'smailyforprestashop\' ORDER BY `id_tab`'));
     }
 
+    public function testAPageGivesTheTabsTheirWordingInTheEmployeesLanguage(): void
+    {
+        Menu::install(self::module()->getTabs());
+        $idLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $asked = [];
+        $estonian = static function (string $wording, string $domain) use (&$asked): string {
+            $asked[] = $domain;
+
+            return ['Dashboard' => 'Töölaud', 'Initial setup' => 'Algseadistus', 'Settings' => 'Seaded', 'Log' => 'Logi'][$wording] ?? $wording;
+        };
+
+        Menu::name(self::module()->getTabs(), $idLang, $estonian);
+
+        self::assertSame(['Smaily Connect', 'Töölaud', 'Algseadistus', 'Seaded', 'Logi'], array_column(self::menu(), 3));
+        self::assertSame(['Modules.Smailyforprestashop.Admin'], array_values(array_unique($asked)));
+
+        Menu::name(self::module()->getTabs(), $idLang, static fn (string $wording): string => $wording);
+        self::assertSame(array_column(self::EXPECTED, 3), array_column(self::menu(), 3), 'and back, for an employee who reads English');
+
+        Menu::name(self::module()->getTabs(), $idLang, static fn (): string => '');
+        self::assertSame(array_column(self::EXPECTED, 3), array_column(self::menu(), 3), 'an empty translation changes nothing');
+    }
+
     /**
      * @return list<array{string, string, string, string}> class, parent class, route and name of each module tab
      */

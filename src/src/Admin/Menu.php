@@ -38,6 +38,10 @@ if (!defined('_PS_VERSION_')) {
  * "<class>_MTR", makes the copy the parent and the original its first child: the menu would show
  * "Smaily Connect" again beside Dashboard. install() removes that copy, and adds the tabs that are
  * missing, which an upgrade needs: PrestaShop installs a module's tabs on install only.
+ *
+ * PrestaShop gives a module's tab the one `name` of $tabs in every language, and translates it
+ * from its `wording` only when a language is installed or updated afterwards. name() puts one
+ * language right; a page calls it for its employee's language.
  */
 final class Menu
 {
@@ -65,6 +69,39 @@ final class Menu
         \Tab::resetStaticCache();
 
         return $done;
+    }
+
+    /**
+     * Gives each tab its wording in the language $idLang, where the stored name differs.
+     *
+     * @param list<array<string, mixed>> $tabs
+     * @param callable(string, string): string $translate a wording of a domain, in that language
+     */
+    public static function name(array $tabs, int $idLang, callable $translate): void
+    {
+        $rows = \Db::getInstance()->executeS(
+            'SELECT t.`id_tab`, t.`class_name`, tl.`name` FROM `' . _DB_PREFIX_ . 'tab` t'
+            . ' JOIN `' . _DB_PREFIX_ . 'tab_lang` tl ON tl.`id_tab` = t.`id_tab` AND tl.`id_lang` = ' . $idLang
+            . ' WHERE t.`module` = \'' . pSQL(self::MODULE) . '\'',
+            true,
+            false
+        );
+        $stored = array_column(is_array($rows) ? $rows : [], null, 'class_name');
+        $changed = false;
+        foreach ($tabs as $definition) {
+            $row = $stored[(string) $definition['class_name']] ?? null;
+            if ($row === null || !isset($definition['wording'], $definition['wording_domain'])) {
+                continue;
+            }
+            $name = $translate((string) $definition['wording'], (string) $definition['wording_domain']);
+            if ($name !== '' && $name !== $row['name']) {
+                \Db::getInstance()->update('tab_lang', ['name' => pSQL($name)], '`id_tab` = ' . (int) $row['id_tab'] . ' AND `id_lang` = ' . $idLang);
+                $changed = true;
+            }
+        }
+        if ($changed) {
+            \Tab::resetStaticCache();
+        }
     }
 
     /**

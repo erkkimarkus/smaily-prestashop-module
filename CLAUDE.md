@@ -169,6 +169,10 @@ ask (Linear discipline below).
   `translator` (facts file 6.6): word through
   `Admin\BaseController::translator()`. Every admin Story's browser proof
   includes 8.2.8.
+- **Menu names.** PrestaShop names a module's tabs with the English `name`
+  in every language until a language is installed or updated; a page of the
+  module puts its employee's language right (`Admin\Menu::name()`). A new
+  tab needs its `wording` and a unit in the XLIFF.
 - **Work after the response.** PrestaShop writes the session of a login
   into its cookie when the request ends, after the shutdown functions.
   Send a response early only through `TrafficTick::finishFunction()`,

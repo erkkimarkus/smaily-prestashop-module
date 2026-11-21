@@ -122,8 +122,14 @@ abstract class BaseController extends FrameworkBundleAdminController
             );
         }
         $module = \Module::getInstanceByName(Menu::MODULE);
-        // A fresh install's menu holds PrestaShop's copy of the parent tab until a page repairs it.
+        // A fresh install's menu holds PrestaShop's copy of the parent tab until a page repairs it,
+        // and its names are not yet in the employee's language.
         Menu::install($module->getTabs());
+        Menu::name(
+            $module->getTabs(),
+            (int) \Context::getContext()->language->id,
+            static fn (string $wording, string $domain): string => self::translator()->trans($wording, [], $domain)
+        );
 
         if (!$this->opens($page)) {
             return $this->redirectToRoute(self::PAGES['setup']['route']);
