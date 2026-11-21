@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+
 /**
  * The rows of the job table (ARCHITECTURE 2.2) that the contact imports keep: a job's type, its
  * shop (0 = every shop), its status, its cursor and its counts. Every write names its row by
@@ -60,9 +62,7 @@ final class JobStore
      */
     public function find(int $id): ?array
     {
-        $row = \Db::getInstance()->getRow('SELECT * FROM ' . self::table() . ' WHERE `id` = ' . $id, false);
-
-        return is_array($row) ? $row : null;
+        return Sql::row('SELECT * FROM ' . self::table() . ' WHERE `id` = ' . $id);
     }
 
     /**
@@ -72,13 +72,10 @@ final class JobStore
      */
     public function latest(string $type, int $idShop): ?array
     {
-        $row = \Db::getInstance()->getRow(
+        return Sql::row(
             'SELECT * FROM ' . self::table() . ' WHERE `type` = \'' . pSQL($type) . '\' AND `id_shop` = ' . $idShop
-            . ' ORDER BY `id` DESC',
-            false
+            . ' ORDER BY `id` DESC'
         );
-
-        return is_array($row) ? $row : null;
     }
 
     /**
@@ -90,14 +87,11 @@ final class JobStore
      */
     public function next(array $types): ?array
     {
-        $row = \Db::getInstance()->getRow(
+        return Sql::row(
             'SELECT * FROM ' . self::table()
             . ' WHERE `status` IN (' . self::quoteAll(self::ACTIVE) . ') AND `type` IN (' . self::quoteAll($types) . ')'
-            . ' ORDER BY `id`',
-            false
+            . ' ORDER BY `id`'
         );
-
-        return is_array($row) ? $row : null;
     }
 
     /**
@@ -107,13 +101,13 @@ final class JobStore
     {
         $now = self::now();
         $finished = in_array($status, self::ACTIVE, true) ? null : $now;
-        \Db::getInstance()->execute(
+        Sql::write(
             'INSERT INTO ' . self::table() . ' (`type`, `id_shop`, `status`, `counts`, `started_at`, `updated_at`, `finished_at`, `last_error`)'
             . ' VALUES (' . self::quote($type) . ', ' . $idShop . ', ' . self::quote($status) . ', ' . self::quote((string) json_encode($counts))
             . ', ' . self::quote($finished) . ', ' . self::quote($now) . ', ' . self::quote($finished) . ', ' . self::quote($lastError) . ')'
         );
 
-        return (int) \Db::getInstance()->Insert_ID();
+        return Sql::insertId();
     }
 
     /**
@@ -132,7 +126,7 @@ final class JobStore
         foreach ($columns as $column => $value) {
             $assignments[] = '`' . $column . '` = ' . self::quote($value === null ? null : (string) $value);
         }
-        \Db::getInstance()->execute(
+        Sql::write(
             'UPDATE ' . self::table() . ' SET ' . implode(', ', $assignments) . ' WHERE `id` = ' . $id
             . ($fromStatuses === [] ? '' : ' AND `status` IN (' . self::quoteAll($fromStatuses) . ')')
         );
@@ -147,21 +141,19 @@ final class JobStore
     {
         $condition = '`status` IN (' . self::quoteAll(self::FINISHED) . ')'
             . ' AND `updated_at` < ' . self::quote(gmdate('Y-m-d H:i:s', time() - $ageSeconds));
-        $rows = \Db::getInstance()->executeS(
-            'SELECT `id` FROM ' . self::table() . ' WHERE ' . $condition . ' ORDER BY `id` LIMIT ' . $limit,
-            true,
-            false
+        $rows = Sql::rows(
+            'SELECT `id` FROM ' . self::table() . ' WHERE ' . $condition . ' ORDER BY `id` LIMIT ' . $limit
         );
-        if (!is_array($rows) || $rows === []) {
+        if ($rows === []) {
             return 0;
         }
 
-        \Db::getInstance()->execute(
+        Sql::write(
             'DELETE FROM ' . self::table() . ' WHERE `id` IN (' . implode(', ', array_map('intval', array_column($rows, 'id'))) . ')'
             . ' AND ' . $condition
         );
 
-        return (int) \Db::getInstance()->Affected_Rows();
+        return Sql::affectedRows();
     }
 
     public static function now(): string

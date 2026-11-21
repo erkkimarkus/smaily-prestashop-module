@@ -19,10 +19,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * A contact sync row carries the consent of the moment it was queued, and a row that failed is sent
@@ -137,6 +139,41 @@ final class StaleSubscriptionTest extends IntegrationTestCase
             'what the Log shows'
         );
         self::assertSame(EventQueue::STATUS_SENT, $this->row($unsubscribe)['status']);
+    }
+
+    /**
+     * The same story, but the read of the contact's later rows fails when the retry comes due, the
+     * way a live PrestaShop 9.2.0 store reports it (facts file 6.11). That is not "no later row":
+     * read so, the subscription went out after the unsubscribe and subscribed the contact again.
+     * The row fails with nothing sent, and its next attempt finds the later row.
+     */
+    public function testAStaleCheckThatFailsSendsNothingAndTheNextAttemptSkipsTheRow(): void
+    {
+        $address = 'shopper1@example.test';
+        $this->mock->failContactWrites(true);
+        $subscribe = $this->capture($address, true);
+        $this->flush();
+        $this->mock->failContactWrites(false);
+        $unsubscribe = $this->capture($address, false);
+        $this->flush();
+        self::assertSame(EventQueue::STATUS_SENT, $this->row($unsubscribe)['status']);
+        $this->makeDue($subscribe);
+
+        $failed = FailingQueries::during('/SELECT `id`, `id_shop`, `entity_id`, `payload` FROM/', function (): void {
+            self::assertSame(1, $this->flush());
+        });
+
+        self::assertSame(1, $failed);
+        $row = $this->row($subscribe);
+        self::assertSame([EventQueue::STATUS_PENDING, 2], [$row['status'], (int) $row['attempts']], 'the row is retried');
+        self::assertStringContainsString('SqlException', (string) $row['last_error']);
+        self::assertSame([[$address, 0], [$address, 1]], $this->statusesSent(), 'nothing was sent in that attempt');
+
+        $this->makeDue($subscribe);
+        self::assertSame(1, $this->flush());
+        $row = $this->row($subscribe);
+        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION], [$row['status'], $row['last_error']]);
+        self::assertSame([[$address, 0], [$address, 1]], $this->statusesSent(), 'and nothing marks the contact subscribed');
     }
 
     /**

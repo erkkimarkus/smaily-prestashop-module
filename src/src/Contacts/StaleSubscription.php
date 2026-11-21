@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -77,18 +78,16 @@ final class StaleSubscription
         }
 
         $quote = static fn (string $value): string => '\'' . pSQL($value, true) . '\'';
-        $later = \Db::getInstance()->executeS(
+        $later = Sql::rows(
             'SELECT `id`, `id_shop`, `entity_id`, `payload` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`'
             . ' WHERE `entity_id` IN (' . implode(', ', array_unique(array_map($quote, array_column($subscribing, 1)))) . ')'
             . ' AND `event_type` = ' . $quote(ContactSyncHandler::EVENT_TYPE)
             . ' AND `status` = ' . $quote(EventQueue::STATUS_SENT)
-            . ' AND `id` > ' . min(array_keys($subscribing)),
-            true,
-            false
+            . ' AND `id` > ' . min(array_keys($subscribing))
         );
 
         $stale = [];
-        foreach (is_array($later) ? $later : [] as $other) {
+        foreach ($later as $other) {
             if ((json_decode((string) $other['payload'], true)['consent_changed'] ?? false) !== true) {
                 continue;
             }

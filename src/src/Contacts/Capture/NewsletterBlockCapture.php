@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 
 /**
  * Records the subscribes and unsubscribes of the newsletter block (`ps_emailsubscription`).
@@ -120,11 +121,10 @@ final class NewsletterBlockCapture
         if ($customer !== null) {
             $this->events->atEnd(function () use ($customer): void {
                 // Read past PrestaShop's object cache: the block writes with plain SQL.
-                $newsletter = \Db::getInstance()->getValue(
-                    'SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . (int) $customer->id,
-                    false
+                $newsletter = Sql::value(
+                    'SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . (int) $customer->id
                 );
-                if ($newsletter !== false && !(int) $newsletter) {
+                if ($newsletter !== null && !(int) $newsletter) {
                     $this->events->add((int) $customer->id_shop, (int) $customer->id_lang, CustomerCapture::payload($customer, (int) $customer->id_lang, false, true, false));
                 }
             });
@@ -168,14 +168,14 @@ final class NewsletterBlockCapture
      */
     private static function newsletterRow(string $email, int $idShop): ?array
     {
-        $row = \Db::getInstance()->getRow(sprintf(
+        $row = Sql::row(sprintf(
             'SELECT `active`, `id_lang` FROM `%semailsubscription` WHERE `email` = \'%s\' AND `id_shop` = %d',
             _DB_PREFIX_,
             pSQL($email),
             $idShop
-        ), false);
+        ));
 
-        return is_array($row) ? ['active' => (bool) (int) $row['active'], 'id_lang' => (int) $row['id_lang']] : null;
+        return $row !== null ? ['active' => (bool) (int) $row['active'], 'id_lang' => (int) $row['id_lang']] : null;
     }
 
     /**
@@ -184,13 +184,13 @@ final class NewsletterBlockCapture
      */
     private static function subscribedCustomer(string $email, int $idShop): ?\Customer
     {
-        $id = (int) \Db::getInstance()->getValue(sprintf(
+        $id = (int) Sql::value(sprintf(
             'SELECT `id_customer` FROM `%scustomer` WHERE `email` = \'%s\' AND `id_shop` = %d AND `newsletter` = 1 AND `deleted` = 0'
             . ' ORDER BY `is_guest` ASC, `id_customer` DESC',
             _DB_PREFIX_,
             pSQL($email),
             $idShop
-        ), false);
+        ));
         if ($id <= 0) {
             return null;
         }

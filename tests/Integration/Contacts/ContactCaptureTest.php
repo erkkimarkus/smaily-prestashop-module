@@ -8,11 +8,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\MultistoreShop;
 
 require_once __DIR__ . '/../MultistoreShop.php';
 require_once __DIR__ . '/ContactRows.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The capture hooks in the shop: each store change reaches the event queue as one `contact.sync`
@@ -129,6 +131,26 @@ final class ContactCaptureTest extends IntegrationTestCase
 
         self::assertSame([[true, false]], $this->flags('subscribed', 'consent_changed'));
         self::assertSame('Otherfirst', $this->rows()[0]['payload']['customer']['firstname']);
+    }
+
+    /**
+     * The consent stored before a save tells whether the save changed it. A read of it that fails
+     * (facts file 6.11) is not "it was off": read so, the save of an unchanged subscriber went out
+     * as a new subscription, which subscribes a contact who unsubscribed in Smaily. The save itself
+     * goes through, and its row carries no consent change.
+     */
+    public function testASaveWhoseConsentBeforeCouldNotBeReadIsNoConsentChange(): void
+    {
+        $customer = $this->customer($this->shop, 'capture1@example.test', true);
+        $customer->firstname = 'Otherfirst';
+
+        $failed = FailingQueries::during('/SELECT `newsletter` FROM `[^`]+customer`/', static function () use ($customer): void {
+            self::assertTrue($customer->update(), 'the shopper\'s save is not broken');
+        });
+        $this->events()->commit();
+
+        self::assertSame(1, $failed);
+        self::assertSame([[true, false]], $this->flags('subscribed', 'consent_changed'));
     }
 
     /**

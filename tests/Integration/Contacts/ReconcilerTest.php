@@ -6,6 +6,7 @@ namespace Tests\Integration\Contacts;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Reconciler;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -15,6 +16,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\MultistoreShop;
@@ -22,6 +24,7 @@ use Tests\Integration\MultistoreShop;
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/../MultistoreShop.php';
 require_once __DIR__ . '/ContactRows.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The reconcile in the shop, against the Smaily mock's action log: in subscribers-only mode a
@@ -450,6 +453,53 @@ final class ReconcilerTest extends IntegrationTestCase
     /**
      * @param bool $onlyShopA whether shop B's account answers an empty log instead of the mock's
      */
+    /**
+     * @return array<string, array{string}>
+     */
+    public function reconcileStatements(): array
+    {
+        return [
+            'the read of the customers' => ['/SELECT `id_customer` AS `id`/'],
+            'the write of the customers' => ['/UPDATE `[^`]+customer` SET `newsletter`/'],
+            'the read of the newsletter block\'s rows' => ['/SELECT `id` AS `id`/'],
+            'the write of the newsletter block\'s rows' => ['/UPDATE `[^`]+emailsubscription` SET `active`/'],
+            'the read of the cursors' => ['/`name` = \'' . Reconciler::CURSORS . '\'/'],
+        ];
+    }
+
+    /**
+     * A read that fails (facts file 6.11) found no contact, and a write that fails changed none,
+     * yet the cursor moved past the change: the unsubscribe never reached the store. A failed
+     * read of the cursors stored this account's cursor alone and dropped every other account's.
+     * Now the run ends there, every cursor stays, and the next run applies the change.
+     *
+     * @dataProvider reconcileStatements
+     */
+    public function testAStatementThatFailsKeepsEveryCursorAndTheNextRunAppliesTheChange(string $failing): void
+    {
+        $this->storeCursors([$this->cursorKeyA() => 10, 'another-account' => 77]);
+        $customer = $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $guest = $this->addNewsletterRow($this->shopA, 'shopper2@example.test', true, $this->idLang);
+        $this->mock->setHistory([
+            ['seq_id' => 11, 'email' => 'shopper1@example.test', 'action' => 'optout'],
+            ['seq_id' => 12, 'email' => 'shopper2@example.test', 'action' => 'delete'],
+        ]);
+
+        try {
+            FailingQueries::during($failing, function (): void {
+                $this->reconciler()->run($this->deadline());
+            });
+            self::fail('The run went on after a statement failed.');
+        } catch (SqlException $error) {
+            self::assertSame([$this->cursorKeyA() => 10, 'another-account' => 77], $this->storedCursors());
+        }
+
+        $this->reconciler()->run($this->deadline());
+
+        self::assertSame([0, 0], [$this->newsletter($customer), $this->active($guest)]);
+        self::assertSame([12, 77], [$this->storedCursors()[$this->cursorKeyA()], $this->storedCursors()['another-account']]);
+    }
+
     private function reconciler(int $pageSize = 10000, bool $onlyShopA = true): Reconciler
     {
         $services = Services::fromProviders(Services::PROVIDERS);

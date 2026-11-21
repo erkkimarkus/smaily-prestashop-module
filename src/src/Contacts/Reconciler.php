@@ -30,6 +30,8 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -61,8 +63,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  *
  * The writes go straight to the tables, so they fire no hook and queue nothing back to Smaily. The
  * cursor of each account is stored under CURSORS after every chunk or page, so a run that the
- * deadline stops goes on from there. A log line names the shop, the language and the failure only,
- * never a contact.
+ * deadline stops goes on from there. A read or a write that fails ends the run (Database\Sql)
+ * before the cursor moves past what was not applied, and the next run reads that part again. A log
+ * line names the shop, the language and the failure only, never a contact.
  */
 final class Reconciler
 {
@@ -263,7 +266,6 @@ final class Reconciler
         if ($subscribed === []) {
             return 0;
         }
-        $db = \Db::getInstance();
         $changed = 0;
 
         $ids = [0 => [], 1 => []];
@@ -275,7 +277,7 @@ final class Reconciler
         }
         foreach ($ids as $wanted => $customers) {
             if ($customers !== []) {
-                $db->execute('UPDATE `' . _DB_PREFIX_ . 'customer` SET `newsletter` = ' . $wanted
+                Sql::write('UPDATE `' . _DB_PREFIX_ . 'customer` SET `newsletter` = ' . $wanted
                     . ' WHERE `id_customer` IN (' . implode(',', $customers) . ')');
                 $changed += count($customers);
             }
@@ -290,7 +292,7 @@ final class Reconciler
                 }
             }
             if ($ids !== []) {
-                $db->execute('UPDATE `' . _DB_PREFIX_ . 'emailsubscription` SET `active` = 0'
+                Sql::write('UPDATE `' . _DB_PREFIX_ . 'emailsubscription` SET `active` = 0'
                     . ' WHERE `id` IN (' . implode(',', $ids) . ')');
                 $changed += count($ids);
             }
@@ -310,17 +312,15 @@ final class Reconciler
      */
     private function rows(string $table, string $idColumn, array $emails, string $key, array $shops, string $consent): array
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `' . $idColumn . '` AS `id`, `id_shop`, `id_lang`, `email`, `' . $consent . '`'
             . ' FROM `' . _DB_PREFIX_ . $table . '`'
             . ' WHERE `email` IN (' . implode(',', array_map(static fn (string $email): string => '\'' . pSQL($email) . '\'', $emails)) . ')'
-            . ' AND `id_shop` IN (' . implode(',', $shops) . ')',
-            true,
-            false
+            . ' AND `id_shop` IN (' . implode(',', $shops) . ')'
         );
 
         return array_values(array_filter(
-            is_array($rows) ? $rows : [],
+            $rows,
             fn (array $row): bool => $this->accountKeyOf((int) $row['id_shop'], (int) $row['id_lang']) === $key
         ));
     }
@@ -371,7 +371,9 @@ final class Reconciler
         } else {
             $cursors[$cursorKey] = $seqId;
         }
-        \Configuration::updateGlobalValue(self::CURSORS, (string) json_encode($cursors));
+        if (!\Configuration::updateGlobalValue(self::CURSORS, (string) json_encode($cursors))) {
+            throw new SqlException();
+        }
     }
 
     /**
@@ -382,12 +384,11 @@ final class Reconciler
      */
     private static function cursors(): array
     {
-        $json = \Db::getInstance()->getValue(
+        $json = Sql::value(
             'SELECT `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . self::CURSORS . '\''
-            . ' AND `id_shop_group` IS NULL AND `id_shop` IS NULL',
-            false
+            . ' AND `id_shop_group` IS NULL AND `id_shop` IS NULL'
         );
-        $cursors = is_string($json) ? json_decode($json, true) : null;
+        $cursors = $json !== null ? json_decode($json, true) : null;
 
         return is_array($cursors) ? $cursors : [];
     }
@@ -397,9 +398,9 @@ final class Reconciler
      */
     private static function shopIds(): array
     {
-        $rows = \Db::getInstance()->executeS('SELECT `id_shop` FROM `' . _DB_PREFIX_ . 'shop` WHERE `deleted` = 0', true, false);
+        $rows = Sql::rows('SELECT `id_shop` FROM `' . _DB_PREFIX_ . 'shop` WHERE `deleted` = 0');
 
-        return array_map('intval', array_column(is_array($rows) ? $rows : [], 'id_shop'));
+        return array_map('intval', array_column($rows, 'id_shop'));
     }
 
     /**
@@ -407,13 +408,13 @@ final class Reconciler
      */
     private static function languageIds(): array
     {
-        $rows = \Db::getInstance()->executeS('SELECT `id_lang` FROM `' . _DB_PREFIX_ . 'lang`', true, false);
+        $rows = Sql::rows('SELECT `id_lang` FROM `' . _DB_PREFIX_ . 'lang`');
 
-        return array_map('intval', array_column(is_array($rows) ? $rows : [], 'id_lang'));
+        return array_map('intval', array_column($rows, 'id_lang'));
     }
 
     private static function hasNewsletterTable(): bool
     {
-        return (bool) \Db::getInstance()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'emailsubscription\'', true, false);
+        return Sql::rows('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'emailsubscription\'') !== [];
     }
 }

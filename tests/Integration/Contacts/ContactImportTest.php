@@ -9,6 +9,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactSource;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -18,6 +19,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\MultistoreShop;
@@ -25,6 +27,7 @@ use Tests\Integration\MultistoreShop;
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/../MultistoreShop.php';
 require_once __DIR__ . '/ContactRows.php';
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * The first import and the daily refresh in the shop, against the Smaily mock: they send the
@@ -215,6 +218,29 @@ final class ContactImportTest extends IntegrationTestCase
         self::assertCount(3000, array_unique($emails));
         self::assertSame(['status' => JobStore::STATUS_DONE, 'total' => 3000, 'sent' => 3000], array_intersect_key($import->progress(), array_flip(['status', 'total', 'sent'])));
         self::assertNotSame($id, $import->start(), 'A start after a finished import imports again from the first contact.');
+    }
+
+    /**
+     * A start leaves an import that is queued or running as it is. A read of the newest import
+     * that fails (facts file 6.11) is not "none ran": read so, a second import started beside
+     * the first.
+     */
+    public function testAStartThatCouldNotReadTheRunningImportStartsNoSecondOne(): void
+    {
+        $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $import = $this->import();
+        $id = $import->start();
+
+        try {
+            FailingQueries::during('/SELECT \* FROM `[^`]+' . JobStore::TABLE . '` WHERE `type`/', static function () use ($import): void {
+                $import->start();
+            });
+            self::fail('The start went on without the read.');
+        } catch (SqlException $error) {
+            self::assertSame('1', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . JobStore::TABLE . '`', false));
+        }
+
+        self::assertSame($id, $import->start());
     }
 
     /**

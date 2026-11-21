@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 
 /**
  * The store's contact records that an import walks, in the order of their primary keys: first the
@@ -77,27 +78,22 @@ final class ContactSource
      */
     public function groups(int $idShop): array
     {
-        $db = \Db::getInstance();
         $groups = [];
-        $rows = $db->executeS(
+        $rows = Sql::rows(
             'SELECT `id_shop`, `newsletter`, `is_guest`, COUNT(*) AS `count` FROM `' . _DB_PREFIX_ . 'customer`'
             . ' WHERE `deleted` = 0' . self::shopFilter($idShop)
-            . ' GROUP BY `id_shop`, `newsletter`, `is_guest`',
-            true,
-            false
+            . ' GROUP BY `id_shop`, `newsletter`, `is_guest`'
         );
-        foreach (is_array($rows) ? $rows : [] as $row) {
+        foreach ($rows as $row) {
             $groups[] = ['source' => ContactAudience::SOURCE_CUSTOMER] + self::ints($row);
         }
         if (self::hasNewsletterTable()) {
-            $rows = $db->executeS(
+            $rows = Sql::rows(
                 'SELECT `id_shop`, 1 AS `newsletter`, 0 AS `is_guest`, COUNT(*) AS `count` FROM `' . _DB_PREFIX_ . self::NEWSLETTER_TABLE . '`'
                 . ' WHERE `active` = 1' . self::shopFilter($idShop)
-                . ' GROUP BY `id_shop`',
-                true,
-                false
+                . ' GROUP BY `id_shop`'
             );
-            foreach (is_array($rows) ? $rows : [] as $row) {
+            foreach ($rows as $row) {
                 $groups[] = ['source' => ContactAudience::SOURCE_NEWSLETTER_BLOCK] + self::ints($row);
             }
         }
@@ -110,13 +106,11 @@ final class ContactSource
      */
     private function customers(int $afterId, int $idShop, int $limit): array
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `id_customer`, `id_shop`, `id_lang`, `email`, `newsletter`, `is_guest`, `firstname`, `lastname`, `birthday`, `website`'
             . ' FROM `' . _DB_PREFIX_ . 'customer`'
             . ' WHERE `id_customer` > ' . $afterId . ' AND `deleted` = 0' . self::shopFilter($idShop)
-            . ' ORDER BY `id_customer` LIMIT ' . $limit,
-            true,
-            false
+            . ' ORDER BY `id_customer` LIMIT ' . $limit
         );
 
         return array_map(static fn (array $row): array => [
@@ -133,7 +127,7 @@ final class ContactSource
                 'birthday' => $row['birthday'],
                 'website' => $row['website'],
             ],
-        ], is_array($rows) ? $rows : []);
+        ], $rows);
     }
 
     /**
@@ -141,12 +135,10 @@ final class ContactSource
      */
     private function newsletterRows(int $afterId, int $idShop, int $limit): array
     {
-        $rows = \Db::getInstance()->executeS(
+        $rows = Sql::rows(
             'SELECT `id`, `id_shop`, `id_lang`, `email` FROM `' . _DB_PREFIX_ . self::NEWSLETTER_TABLE . '`'
             . ' WHERE `id` > ' . $afterId . ' AND `active` = 1' . self::shopFilter($idShop)
-            . ' ORDER BY `id` LIMIT ' . $limit,
-            true,
-            false
+            . ' ORDER BY `id` LIMIT ' . $limit
         );
 
         return array_map(static fn (array $row): array => [
@@ -158,7 +150,7 @@ final class ContactSource
             'newsletter' => 1,
             'is_guest' => 0,
             'customer' => [],
-        ], is_array($rows) ? $rows : []);
+        ], $rows);
     }
 
     /**
@@ -196,6 +188,6 @@ final class ContactSource
 
     private static function hasNewsletterTable(): bool
     {
-        return (bool) \Db::getInstance()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . self::NEWSLETTER_TABLE . '\'', true, false);
+        return Sql::rows('SHOW TABLES LIKE \'' . _DB_PREFIX_ . self::NEWSLETTER_TABLE . '\'') !== [];
     }
 }

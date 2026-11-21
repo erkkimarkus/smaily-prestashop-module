@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -418,9 +419,9 @@ final class ContactImport
      */
     private static function shopIds(): array
     {
-        $rows = \Db::getInstance()->executeS('SELECT `id_shop` FROM `' . _DB_PREFIX_ . 'shop` WHERE `deleted` = 0', true, false);
+        $rows = Sql::rows('SELECT `id_shop` FROM `' . _DB_PREFIX_ . 'shop` WHERE `deleted` = 0');
 
-        return array_map('intval', array_column(is_array($rows) ? $rows : [], 'id_shop'));
+        return array_map('intval', array_column($rows, 'id_shop'));
     }
 
     /**

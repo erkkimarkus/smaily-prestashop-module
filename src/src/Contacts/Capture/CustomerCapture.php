@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 
 /**
  * Records the contact events of a customer row (a guest-checkout customer included): a new
@@ -79,9 +80,8 @@ final class CustomerCapture
         if (!$customer instanceof \Customer || (int) $customer->id <= 0) {
             return;
         }
-        $this->before[(int) $customer->id] = (bool) (int) \Db::getInstance()->getValue(
-            'SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . (int) $customer->id,
-            false
+        $this->before[(int) $customer->id] = (bool) (int) Sql::value(
+            'SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . (int) $customer->id
         );
     }
 
