@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
+use PrestaShop\Module\SmailyForPrestaShop\Log\Resend;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use Tests\Integration\Automation\AbandonedCart\AbandonedCartTestCase;
 
@@ -202,6 +203,90 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
 
         self::assertGreaterThan(0, $capture(self::OTHER));
         self::assertSame(0, $capture('capture3@example.test'));
+    }
+
+    /**
+     * The count is of recorded addresses. A busy store's queue of the last hour (the reminders
+     * of customers' carts, the rows of their skips, a "Send again", the limit's own Log row) does
+     * not use it up.
+     */
+    public function testTheRemindersOfCustomersCartsAndTheLogsOwnRowsDoNotCount(): void
+    {
+        $endpoint = new CaptureEndpoint(new AutomationSettings(), new CartTracker(), new EventQueue(), static fn (): bool => true, 'time', 3);
+        $capture = function (string $address) use ($endpoint): int {
+            $context = $this->context($this->fixture->cart(0, 20));
+
+            return $endpoint->handle($context, 'POST', $this->post($context, $address, '1')) ? (int) $context->cart->id : 0;
+        };
+        // Customers' carts: two reminders, a second cart of one customer (`recently_reminded`), a
+        // cart whose customer is deleted before the send (`customer_deleted`), a failed reminder
+        // and its "Send again", and Log rows that name no cart.
+        $first = $this->fixture->customer('shopper1@example.test');
+        $failed = $this->fixture->cart($first, 20);
+        $this->fixture->cart($first, 21);
+        $this->fixture->cart($this->fixture->customer('shopper2@example.test'), 20);
+        $gone = $this->fixture->customer('shopper3@example.test');
+        $this->fixture->cart($gone, 20);
+        self::assertSame(4, $this->sweep());
+        self::db()->delete('customer', '`id_customer` = ' . $gone);
+        $this->mock->failAutomationPosts(true);
+        $this->flush();
+        $this->mock->failAutomationPosts(false);
+        $row = (int) $this->cartRow($failed)['event_id'];
+        self::db()->update(EventQueue::TABLE, ['status' => 'failed', 'attempts' => 5, 'next_retry_at' => null], '`id` = ' . $row, 0, true);
+        (new Resend(new EventQueue(), new CartTracker()))->resend(self::db()->getRow('SELECT * FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '` WHERE `id` = ' . $row, false), 'Testfirst Testlast');
+        (new EventQueue())->note('automation.abandoned_cart', $this->idShop, CaptureEndpoint::SKIPPED_CAPTURE_LIMIT, 3600);
+        (new EventQueue())->note('automation.abandoned_cart', $this->idShop, 'another_note', 3600);
+        self::assertCount(7, $this->events(), 'seven cart rows of the last hour, none of a recorded address');
+        self::assertSame(0, (new CartTracker())->recorded(3600, 3));
+
+        // The recorded addresses still have the whole limit: one waits, one was taken and sent,
+        // one was taken and closed as a second cart of its address.
+        $sent = $capture(self::TYPED);
+        self::assertSame(1, $this->sweep());
+        $this->flush();
+        self::assertSame(CartTracker::MAILED, $this->cartRow($sent)['status']);
+        $again = $capture(self::TYPED);
+        self::assertSame(1, $this->sweep());
+        self::assertSame([CartTracker::SKIPPED, 'recently_reminded'], [$this->cartRow($again)['status'], $this->cartRow($again)['skip_reason']]);
+        self::assertGreaterThan(0, $capture(self::OTHER));
+        self::assertSame(3, (new CartTracker())->recorded(3600, 3));
+
+        self::assertSame(0, $capture('capture3@example.test'), 'the fourth address of the hour is refused, as before');
+    }
+
+    /**
+     * The limit of the release, with as many recorded addresses as it takes: half of them wait for
+     * the sweep, half were taken by it.
+     */
+    public function testTwoThousandRecordedAddressesAreTheLimit(): void
+    {
+        $queue = new EventQueue();
+        $first = $queue->enqueue('automation.abandoned_cart', $this->idShop, ['id_cart' => 9000001]);
+        for ($number = 2; $number <= 999; ++$number) {
+            $queue->enqueue('automation.abandoned_cart', $this->idShop, ['id_cart' => 9000000 + $number]);
+        }
+        $rows = [];
+        for ($number = 1; $number <= 1999; ++$number) {
+            $rows[] = sprintf(
+                '(%d, %d, \'capture%d@example.test\', 1, \'%s\', \'%s\', %s)',
+                9000000 + $number,
+                $this->idShop,
+                $number,
+                $number <= 999 && $number % 2 === 0 ? CartTracker::MAILED : CartTracker::OPEN,
+                // A taken address carries its cart's last change, which can be a day old.
+                date('Y-m-d H:i:s', time() - ($number <= 999 ? 86000 : 60)),
+                $number <= 999 ? (string) ($first + $number - 1) : 'NULL'
+            );
+        }
+        self::db()->execute('INSERT INTO `' . _DB_PREFIX_ . CartTracker::TABLE . '` (`id_cart`, `id_shop`, `email`, `id_lang`, `status`, `last_activity_at`, `event_id`) VALUES ' . implode(', ', $rows));
+        $context = $this->context($this->fixture->cart(0, 0));
+        $next = $this->context($this->fixture->cart(0, 0));
+
+        self::assertSame(1999, (new CartTracker())->recorded(3600, CaptureEndpoint::HOURLY_LIMIT));
+        self::assertTrue($this->endpoint()->handle($context, 'POST', $this->post($context, self::TYPED, '1')), 'the 2000th address of the hour is recorded');
+        self::assertFalse($this->endpoint()->handle($next, 'POST', $this->post($next, self::OTHER, '1')), 'the next one is refused');
+        self::assertNull($this->cartRow((int) $next->cart->id));
     }
 
     public function testAFailedWriteIsLoggedWithoutTheAddress(): void

@@ -80,7 +80,8 @@ final class AbandonedCartAutomation implements ProviderInterface
             $services->get(TriggerSender::class),
             $services->get(ContactsSettings::class),
             $services->get(Transport::class),
-            $services->get(AutomationDiscount::class)
+            $services->get(AutomationDiscount::class),
+            $services->get(QueueProvider::EVENT_QUEUE)
         ));
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::JOB, self::JOB_INTERVAL_SECONDS, self::JOB_BUDGET_SECONDS, static function (Deadline $deadline) use ($services): void {

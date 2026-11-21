@@ -36,6 +36,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
@@ -65,7 +66,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * a code that cannot be made fails the row with nothing posted, and the row is retried.
  *
  * The payload: {"id_cart": int, "email": string, "fields": {...}}; a row that the sweep closed holds
- * only `id_cart`.
+ * only `id_cart`, and so does a row that is closed here because the cart's customer is gone: its
+ * address leaves the queue row too (EventQueue::forgetContact()).
  */
 class AbandonedCartHandler implements HandlerInterface, ExchangeSource
 {
@@ -99,10 +101,12 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
 
     private AutomationDiscount $discount;
 
+    private EventQueue $queue;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
-    public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport, AutomationDiscount $discount)
+    public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport, AutomationDiscount $discount, EventQueue $queue)
     {
         $this->tracker = $tracker;
         $this->addresses = $addresses;
@@ -110,6 +114,7 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
         $this->sender = $sender;
         $this->consent = new MarketingConsent($contacts, $transport);
         $this->discount = $discount;
+        $this->queue = $queue;
     }
 
     public function handle(array $events): array
@@ -156,6 +161,11 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
         $email = $payload['email'];
         $idShop = (int) $event['id_shop'];
         if ($this->customerDeleted($idCart)) {
+            // The queue row holds the address too: in its payload, as its entity, and in what an
+            // earlier attempt sent. It keeps the cart alone, as the row the sweep queues for a
+            // customer who is gone.
+            $this->queue->forgetContact($event, ['id_cart' => $idCart]);
+
             return new Skipped(self::SKIPPED_CUSTOMER_DELETED);
         }
 
@@ -222,7 +232,8 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
 
     /**
      * Whether the cart's customer is gone, deleted since the reminder was queued; the cart is then
-     * closed, and the address its tracker row holds is removed.
+     * closed, and the address its tracker row holds is removed. The caller removes it from the
+     * queue row.
      */
     private function customerDeleted(int $idCart): bool
     {

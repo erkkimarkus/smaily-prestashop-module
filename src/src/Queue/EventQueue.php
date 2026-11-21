@@ -268,6 +268,26 @@ final class EventQueue
     }
 
     /**
+     * Replaces the stored payload of a claimed row and removes what else of the row names a
+     * contact: its entity, and the request and the answer of an earlier attempt. For a row that is
+     * closed because its contact's data must not be kept. Writes for the claim only, as
+     * updatePayload().
+     *
+     * @param array<string, mixed> $row the row as it was claimed
+     * @param array<mixed> $payload stored as JSON; holds nothing of the contact
+     */
+    public function forgetContact(array $row, array $payload): void
+    {
+        \Db::getInstance()->execute(sprintf(
+            'UPDATE %s SET `payload` = %s, `entity_id` = NULL, `last_request` = NULL, `last_response` = NULL WHERE `id` = %d AND `claim_token` = %s',
+            self::table(),
+            self::quote(self::json($payload)),
+            (int) $row['id'],
+            self::quote((string) $row['claim_token'])
+        ));
+    }
+
+    /**
      * Returns failed rows to `pending` with their attempts to spend anew: the Log's manual retry. A
      * row that is not failed stays as it is.
      *

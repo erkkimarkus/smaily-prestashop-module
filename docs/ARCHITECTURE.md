@@ -942,6 +942,10 @@ holds no tick.
   the Log's "Send again" send the same. It writes by primary key and only for the claim the row was
   read with, as every outcome does: it answers `false`, and writes nothing, when the claim went
   stale and another flush took the row. The handler then stops without a send.
+- **Remove a row's contact.** `EventQueue::forgetContact(array $row, array $payload): void`
+  replaces the payload of a claimed row and clears its entity and the request and answer of an
+  earlier attempt, by primary key and for the claim: for a row that is closed because its
+  contact's data must not be kept (a cart reminder whose customer was deleted, section 7).
 - **Handle.** A Story registers the handler of its event type in its own provider:
   `$services->set(QueueProvider::handlerId('<type>'), fn (Services $s) => new MyHandler(…))`. The
   handler implements `Queue\HandlerInterface::handle(array $events): array` and returns one outcome
@@ -1499,6 +1503,10 @@ address stood in for the deleted customer's. The sweep closes such a cart as `cu
 removes the recorded address from the tracker row (`CartTracker::forget()`) and queues its event
 without the address, so the Log shows the skip with its sentence and no contact. The send asks
 again, for a customer deleted after the reminder was queued, and does the same to the tracker row.
+The queue row of that reminder held the address too, until the queue's own retention 30 days
+later: the send removes it there as well (`EventQueue::forgetContact()`, by primary key and for
+the claim), so the row keeps the cart's id alone, no entity, and nothing of what an earlier failed
+attempt sent or was answered.
 A cart that never had a customer is not meant: its recorded address is the only identity it ever
 had, and it is reminded as before. `actionObjectCustomerDeleteAfter` stays without a listener.
 
@@ -1538,15 +1546,27 @@ checkout request, behind WooCommerce's session nonce):
   installation). Magento counts in its cache, in clock hours; PrestaShop has no shared cache, so
   the count is one query over rows that exist anyway (`CartTracker::recorded()`), over a rolling
   hour: the tracker's recorded addresses of the last hour that the sweep has not taken yet
-  (`status` `open`, no `event_id`: the index on `status`, `last_activity_at`), plus the cart
-  reminders queued in the last hour (the event queue's index on `created_at`). The second part is
-  needed because the sweep replaces a row's `last_activity_at` with the cart's last change: the
-  tracker alone no longer says when a taken address was recorded, and a cart older than an hour
-  would leave the count at once. Each part stops counting at the limit. Every address recorded
-  in the last hour is in one of the two parts, unless its cart was ordered or the sweep could not
-  build its reminder (neither gets one), so no more than 2000 carts get an address in any hour. The count is wider than Magento's on one
-  side: the reminders of customers' carts queued in that hour count too, so a store that queues
-  cart reminders by the thousand an hour records fewer checkout addresses. A capture at the limit
+  (`status` `open`, no `event_id`: the index on `status`, `last_activity_at`), plus the recorded
+  addresses that the sweep took in the last hour. The second part is needed because the sweep
+  replaces a row's `last_activity_at` with the cart's last change: the tracker alone no longer
+  says when a taken address was recorded, and a cart older than an hour would leave the count at
+  once. A taken address counts by the queue row that its tracker row names (`event_id`), for an
+  hour from that row's `created_at`. A tracker row holds a recorded address when its
+  `id_customer` is `NULL`: the capture writes none, and the sweep writes the customer of every
+  cart whose address is a customer's. The query reads the tracker rows of the carts that the
+  sweep can have taken in that hour (changed within 24 hours before it, plus one hour for a
+  change of the clocks) through the index on `status`, `last_activity_at`, and each one's queue
+  row by primary key; it needs no column and no index of its own. Each part stops counting at
+  the limit. Every address recorded in the last hour is in one of the two parts, unless its cart
+  was ordered, the sweep could not build its reminder (neither gets one), or the cart got a
+  customer row of its own before the sweep (the reminder then goes to that customer's address,
+  which PrestaShop's own checkout form took). So no more than 2000 carts get a recorded address
+  in any hour. Only recorded addresses count, as in Magento: not the reminders of customers'
+  carts, not the rows of their skips (`recently_reminded`, `customer_deleted`), not the Log's
+  "Send again" of a customer's reminder and not the limit's own Log row, so a store that queues
+  cart reminders by the thousand after its tick was down still records its guests' addresses. A
+  recorded address that the sweep closed as `recently_reminded` counts, and so does the "Send
+  again" of a recorded address's reminder, for an hour from the new row. A capture at the limit
   is answered as every other request (the empty JSON object, as Magento answers `false` to every
   refusal) and writes nothing, also not a new address on a cart that has one. Two requests that
   count at the same moment can both pass, as in Magento.

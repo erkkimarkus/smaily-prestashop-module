@@ -58,6 +58,9 @@ class CartTracker
     /** One reminder per address in this time, and no reminder for a cart older than it. */
     public const WINDOW_SECONDS = 86400;
 
+    /** The most a change of the clocks moves the shop's time (daylight saving). */
+    private const CLOCK_SHIFT_SECONDS = 3600;
+
     /** @var callable(): int */
     private $clock;
 
@@ -98,26 +101,37 @@ class CartTracker
      * further than $limit in each of its two parts:
      *  - the recorded addresses of that time that the sweep has not taken yet: capture() stamps
      *    the row with the time of the capture;
-     *  - the cart reminders queued in that time. The sweep replaces a row's time with the cart's
-     *    last change, so an address that the sweep took counts by its queue row, for $seconds from
-     *    the sweep; the reminders of customers' carts count with them.
-     * An address recorded in the last $seconds is in one of the two, unless its cart was ordered or
-     * the sweep closed it without a queue row.
+     *  - the recorded addresses that the sweep took in that time. The sweep replaces a row's time
+     *    with the cart's last change, so such an address counts by the queue row that its tracker
+     *    row names (`event_id`), for $seconds from the sweep. A tracker row holds a recorded
+     *    address when it names no customer: the sweep writes the customer of every cart whose
+     *    address is a customer's (CartAddress::of()).
+     * An address recorded in the last $seconds is in one of the two, unless its cart was ordered,
+     * got a customer of its own before the sweep (the reminder then goes to the customer's
+     * address), or the sweep closed it without a queue row. Nothing else counts: not the reminder
+     * of a customer's cart, with or without a skip, and not a row that EventQueue::note() added.
+     *
+     * The second part reads the tracker rows of the carts that can have been swept in that time,
+     * through the index on `status` and `last_activity_at` (the sweep takes a cart within
+     * WINDOW_SECONDS of its last change), and each one's queue row by primary key.
      */
     public function recorded(int $seconds, int $limit): int
     {
         return (int) \Db::getInstance()->getValue(sprintf(
-            'SELECT (SELECT COUNT(*) FROM (SELECT 1 FROM %s WHERE `status` = \'%s\' AND `last_activity_at` >= %s'
-            . ' AND `event_id` IS NULL LIMIT %d) `waiting`)'
-            . ' + (SELECT COUNT(*) FROM (SELECT 1 FROM `%s` WHERE `created_at` >= %s AND `event_type` = \'%s\' LIMIT %d) `queued`)',
+            'SELECT (SELECT COUNT(*) FROM (SELECT 1 FROM %1$s WHERE `status` = \'%2$s\' AND `last_activity_at` >= %3$s'
+            . ' AND `event_id` IS NULL LIMIT %4$d) `waiting`)'
+            . ' + (SELECT COUNT(*) FROM (SELECT 1 FROM %1$s t STRAIGHT_JOIN `%5$s` q ON q.`id` = t.`event_id`'
+            . ' WHERE t.`status` IN (\'%2$s\', \'%6$s\', \'%7$s\') AND t.`last_activity_at` >= %8$s AND t.`id_customer` IS NULL'
+            . ' AND q.`created_at` >= %9$s LIMIT %4$d) `taken`)',
             self::table(),
             self::OPEN,
             $this->time(-$seconds),
             $limit,
             _DB_PREFIX_ . EventQueue::TABLE,
-            self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() - $seconds)),
-            AbandonedCartHandler::EVENT_TYPE,
-            $limit
+            self::MAILED,
+            self::SKIPPED,
+            $this->time(-$seconds - self::WINDOW_SECONDS - self::CLOCK_SHIFT_SECONDS),
+            self::quote(gmdate('Y-m-d H:i:s', ($this->clock)() - $seconds))
         ), false);
     }
 
