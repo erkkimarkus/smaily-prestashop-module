@@ -245,6 +245,64 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertSame(['shop' => 0, 'global' => 6], $this->contactRows($this->shopC));
     }
 
+    /**
+     * The owner's decision of 2026-11-20: the layout change treats the workflow rows as Magento's
+     * promoteToStoreWide() and copyMappingRows() do. The promoted shop's rows join the shared rows
+     * that an upgrade left, its own winning; a row of a language's account is never shared.
+     */
+    public function testSeparateStoresToOneStoreMergesTheWorkflowRowsAsMagentoDoes(): void
+    {
+        $this->oneStoreConfigured();
+        $this->layoutChange()->toSeparateStores();
+        // Shared rows that an upgrade left behind in separate stores.
+        $this->mappings->upsert(0, 'first_order', '', 'default', 50);
+        $this->mappings->upsert(0, 'welcome', '', 'default', 60);
+        $this->mappings->upsert(0, 'welcome', 'en', 'default', 61, false, true);
+        // The promoted shop: its welcome workflow is its default fallback; one row of a language's account.
+        $this->mappings->upsert($this->shopA, 'welcome', '', 'default', 42, false, true);
+        $this->mappings->upsert($this->shopA, 'welcome', 'et', 'et', 70, false, true);
+        $this->mappings->upsert($this->shopB, 'abandoned_cart', '', 'default', 80);
+
+        $this->layoutChange()->toOneStore($this->shopA);
+
+        $shared = array_map(
+            static fn (array $row): string => $row['trigger'] . '|' . $row['language'] . '|' . $row['account_key'] . ' ' . $row['workflow_id'] . ($row['is_default_fallback'] ? ' fallback' : ''),
+            $this->mappings->rows(0)
+        );
+        sort($shared);
+        self::assertSame(
+            ['first_order||default 50', 'welcome|en|default 61', 'welcome||default 42 fallback'],
+            $shared,
+            'the left shared rows stay, the promoted shop\'s row wins and takes over the default fallback, and no other shop\'s row or row of a language\'s account is shared'
+        );
+        foreach ([$this->shopA, $this->shopB, $this->shopC] as $shop) {
+            self::assertSame(0, $this->mappingCount($shop));
+        }
+    }
+
+    /**
+     * One store to separate stores, as Magento's copyStoreWideToWebsite(): a shop gets the shared
+     * rows it holds none for, and a copied default fallback only where it holds none of that kind.
+     */
+    public function testOneStoreToSeparateStoresCopiesTheSharedRowsAShopLacks(): void
+    {
+        $this->oneStoreConfigured();
+        $this->mappings->upsert(0, 'welcome', '', 'default', 42, false, true);
+        $this->mappings->upsert(0, 'first_order', '', 'default', 50);
+        $this->mappings->upsert($this->shopB, 'welcome', '', 'default', 43);
+        $this->mappings->upsert($this->shopB, 'welcome', 'et', 'et', 70, false, true);
+
+        $this->layoutChange()->toSeparateStores();
+
+        $rows = static fn (array $rows): array => array_map(
+            static fn (array $row): string => $row['trigger'] . '|' . $row['language'] . '|' . $row['account_key'] . ' ' . $row['workflow_id'] . ($row['is_default_fallback'] ? ' fallback' : ''),
+            $rows
+        );
+        self::assertEqualsCanonicalizing(['welcome||default 43', 'welcome|et|et 70 fallback', 'first_order||default 50'], $rows($this->mappings->rows($this->shopB)), 'its own rows stay, and the shared row it lacked comes');
+        self::assertEqualsCanonicalizing(['welcome||default 42 fallback', 'first_order||default 50'], $rows($this->mappings->rows($this->shopC)));
+        self::assertSame(0, $this->mappingCount(0));
+    }
+
     public function testSeparateStoresToOneStoreNeverSharesAnAccountPerLanguage(): void
     {
         $this->oneStoreConfigured();

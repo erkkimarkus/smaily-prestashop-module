@@ -216,7 +216,9 @@ final class ShopOverrides extends Settings
      * Separate stores to one store: the shop's values become the values all shops share, as
      * stored, and the shared account is the shop's account of no language (its fallback account),
      * as Magento's promoteToStoreWide() does. The shop's accounts of a language are not shared:
-     * they go with its own values (removeAllOwn()), as Magento's go.
+     * they go with its own values (removeAllOwn()), as Magento's go. Its mapping rows join the
+     * shared rows that an upgrade left, its own winning; a shared row that it holds no row for
+     * stays.
      */
     public function promoteToShared(int $idShop): void
     {
@@ -227,8 +229,7 @@ final class ShopOverrides extends Settings
         }
         \Db::getInstance()->delete(self::ACCOUNT_TABLE, '`id_shop` = 0');
         $this->copyAccountRow($idShop, 0, '');
-        $this->removeMappings(0);
-        $this->copyMappings($idShop, 0);
+        $this->copyMappings($idShop, 0, true);
     }
 
     /**
@@ -308,28 +309,47 @@ final class ShopOverrides extends Settings
     }
 
     /**
-     * Copies the mapping rows of one shop scope to another. A row the target holds for the same
-     * trigger, language and account stays; a copied row is a trigger's default fallback only where
-     * the target holds no fallback for that trigger, so the Router still finds one.
+     * Copies the mapping rows of one shop scope to another (Magento's copyMappingRows()). The
+     * shared scope never takes a row of a language's account: an account per language is a shop's
+     * own. A row the target holds for the same trigger, language and account stays, unless
+     * $replace. A copied row is a trigger's default fallback only where the target holds no
+     * fallback of that kind for the trigger (the rows of the account `default`, or the rows of the
+     * languages' accounts), so the Router still finds one. With $replace the copied rows win: a
+     * fallback among them takes over its kind.
      */
-    private function copyMappings(int $from, int $to): void
+    private function copyMappings(int $from, int $to, bool $replace = false): void
     {
+        $key = static fn (array $row): string => $row['trigger'] . '|' . $row['language'] . '|' . $row['account_key'];
+        $kind = static fn (array $row): string => $row['trigger'] . '|' . ($row['account_key'] === MappingRepository::ACCOUNT_DEFAULT ? 'one' : 'per-language');
+        $source = array_filter(
+            $this->mappings->rows($from),
+            static fn (array $row): bool => $to !== 0 || $row['account_key'] === MappingRepository::ACCOUNT_DEFAULT
+        );
         $held = [];
         $fallbacks = [];
         foreach ($this->mappings->rows($to) as $row) {
-            $held[$row['trigger'] . '|' . $row['language'] . '|' . $row['account_key']] = true;
+            $held[$key($row)] = true;
             if ($row['is_default_fallback']) {
-                $fallbacks[$row['trigger']] = true;
+                $fallbacks[$kind($row)] = $row;
             }
         }
-        foreach ($this->mappings->rows($from) as $row) {
-            if (isset($held[$row['trigger'] . '|' . $row['language'] . '|' . $row['account_key']])) {
+        if ($replace) {
+            foreach ($source as $row) {
+                $loser = $row['is_default_fallback'] ? ($fallbacks[$kind($row)] ?? null) : null;
+                if ($loser !== null) {
+                    $this->mappings->upsert($to, $loser['trigger'], $loser['language'], $loser['account_key'], $loser['workflow_id'], $loser['optin_trigger'], false);
+                    unset($fallbacks[$kind($row)]);
+                }
+            }
+        }
+        foreach ($source as $row) {
+            if (isset($held[$key($row)]) && !$replace) {
                 continue;
             }
-            $fallback = $row['is_default_fallback'] && !isset($fallbacks[$row['trigger']]);
+            $fallback = $row['is_default_fallback'] && !isset($fallbacks[$kind($row)]);
             $this->mappings->upsert($to, $row['trigger'], $row['language'], $row['account_key'], $row['workflow_id'], $row['optin_trigger'], $fallback);
             if ($fallback) {
-                $fallbacks[$row['trigger']] = true;
+                $fallbacks[$kind($row)] = $row;
             }
         }
     }
