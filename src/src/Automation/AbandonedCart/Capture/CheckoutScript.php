@@ -34,12 +34,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 
 /**
  * Puts the checkout capture script (`views/js/front/checkout-capture.js`) on the checkout page
- * (front controller `order`) of a visitor who is no customer yet, while the shop's abandoned-cart
- * automation is on.
+ * (front controller `order`) of a visitor who is no customer yet and has a cart, while the shop's
+ * abandoned-cart automation is on.
  *
- * The script is a static file. The endpoint URL and PrestaShop's static front token reach it as
- * the JavaScript definition JS_DEF (Media::addJsDef()); both are the same for every guest of the
- * shop, so the page stays as cacheable as PrestaShop makes the checkout.
+ * The script is a static file. The endpoint URL and the capture token of the visitor's cart
+ * (CaptureEndpoint::token()) reach it as the JavaScript definition JS_DEF (Media::addJsDef()). The
+ * token differs from cart to cart; the checkout page shows the visitor's own cart, so no cache
+ * serves it to another visitor.
  */
 final class CheckoutScript
 {
@@ -61,13 +62,14 @@ final class CheckoutScript
     {
         $controller = $context->controller;
         if (!$controller instanceof \FrontController || $controller->php_self !== 'order' || (int) $context->customer->id > 0
+            || !$context->cart instanceof \Cart || (int) $context->cart->id <= 0
             || !$this->settings->enabled(Trigger::ABANDONED_CART, (int) $context->shop->id)) {
             return;
         }
 
         \Media::addJsDef([self::JS_DEF => [
             'url' => $context->link->getModuleLink('smailyforprestashop', 'capture'),
-            'token' => \Tools::getToken(false, $context),
+            'token' => CaptureEndpoint::token((int) $context->cart->id),
         ]]);
         $controller->registerJavascript(self::SCRIPT_ID, 'modules/smailyforprestashop/views/js/front/checkout-capture.js', ['position' => 'bottom', 'priority' => 200]);
     }

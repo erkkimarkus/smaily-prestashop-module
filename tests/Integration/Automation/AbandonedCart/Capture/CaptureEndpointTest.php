@@ -54,10 +54,9 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
      */
     public function refusals(): array
     {
-        return array_combine(
-            ['wrong token', 'no token', 'GET', 'invalid address', 'no address', 'address too long', 'no cart', 'empty cart', 'automation off', 'schema not current', 'customer with an address', 'signed-in customer'],
-            array_map(static fn (string $case): array => [$case], ['wrong token', 'no token', 'GET', 'invalid address', 'no address', 'address too long', 'no cart', 'empty cart', 'automation off', 'schema not current', 'customer with an address', 'signed-in customer'])
-        );
+        $cases = ['wrong token', 'the token every guest shares', 'the token of another cart', 'no token', 'GET', 'invalid address', 'no address', 'address too long', 'no cart', 'empty cart', 'automation off', 'schema not current', 'customer with an address', 'signed-in customer'];
+
+        return array_combine($cases, array_map(static fn (string $case): array => [$case], $cases));
     }
 
     /**
@@ -73,6 +72,12 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
         switch ($case) {
             case 'wrong token':
                 $post['token'] = md5('not-the-token');
+                break;
+            case 'the token every guest shares':
+                $post['token'] = \Tools::getToken(false, $context);
+                break;
+            case 'the token of another cart':
+                $post['token'] = CaptureEndpoint::token($this->fixture->cart(0, 0));
                 break;
             case 'no token':
                 unset($post['token']);
@@ -101,7 +106,6 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
                 break;
             case 'signed-in customer':
                 $context->customer = new \Customer($this->fixture->customer(self::OTHER));
-                $post['token'] = \Tools::getToken(false, $context);
                 break;
         }
 
@@ -173,7 +177,7 @@ final class CaptureEndpointTest extends AbandonedCartTestCase
      */
     private function post(\Context $context, string $email, string $newsletter): array
     {
-        return ['token' => \Tools::getToken(false, $context), 'email' => $email, 'newsletter' => $newsletter];
+        return ['token' => CaptureEndpoint::token((int) $context->cart->id), 'email' => $email, 'newsletter' => $newsletter];
     }
 
     private function emptyCart(): int

@@ -41,14 +41,22 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
  *
  * The cart is the one of the visitor's PrestaShop cookie; a cart, shop or customer named in the
  * request is never read. A request is refused, and nothing is written, unless it is a POST with
- * PrestaShop's static front token (Tools::getToken(false), `prestashop.static_token`), within the
- * visitor's limit of LIMIT captures per minute, while the schema is current; and unless the cart
- * has products, no customer with an address (that address serves the reminder) and the visitor is
- * no customer, the address is valid and fits the tracker column, and the shop's abandoned-cart
- * automation is on. The front controller answers every request the same way.
+ * the capture token of that cart (token()), within the visitor's limit of LIMIT captures per
+ * minute, while the schema is current; and unless the cart has products, no customer with an
+ * address (that address serves the reminder) and the visitor is no customer, the address is valid
+ * and fits the tracker column, and the shop's abandoned-cart automation is on. The front
+ * controller answers every request the same way.
+ *
+ * The token is the cart's own: only the checkout page of that cart prints it (CheckoutScript), so
+ * a request must have loaded the page of the cart it writes to, and a token read once opens no
+ * other cart. PrestaShop's static front token would not do: it is one value for every visitor
+ * without an account.
  *
  * The limit is counted in the visitor's PrestaShop cookie (COOKIE_KEY, `<minute>:<count>`), the
- * only server-side state of a visitor. Each cart has one tracker row, so captures never add rows
+ * only server-side state of a visitor: it slows a browser down, and does not hold a caller that
+ * drops its cookie. What bounds such a caller is the reminder's own rule, which lives in the
+ * tracker rows: one address gets at most one reminder per 24 hours, whatever number of carts
+ * carry it (CartTracker::blocking()). Each cart has one tracker row, so captures never add rows
  * beyond one per cart.
  */
 final class CaptureEndpoint
@@ -103,6 +111,15 @@ final class CaptureEndpoint
     }
 
     /**
+     * The capture token of a cart: an HMAC of the cart's id under the shop's cookie key
+     * (`_COOKIE_KEY_`, the secret of PrestaShop's own front tokens), 64 hexadecimal characters.
+     */
+    public static function token(int $idCart): string
+    {
+        return hash_hmac('sha256', 'smaily-connect-capture:' . $idCart, _COOKIE_KEY_);
+    }
+
+    /**
      * The visitor's capture count after one more capture now, from the stored `<minute>:<count>`;
      * null when the visitor has had LIMIT captures in this minute.
      */
@@ -120,8 +137,10 @@ final class CaptureEndpoint
      */
     private function record(\Context $context, string $method, array $post): bool
     {
+        $cart = $context->cart;
         $token = $post['token'] ?? null;
-        if ($method !== 'POST' || !is_string($token) || !hash_equals(\Tools::getToken(false, $context), $token)) {
+        if ($method !== 'POST' || !is_string($token) || !$cart instanceof \Cart || (int) $cart->id <= 0
+            || !hash_equals(self::token((int) $cart->id), $token)) {
             return false;
         }
         $count = self::count((string) $context->cookie->{self::COOKIE_KEY}, (int) ($this->clock)());
@@ -131,8 +150,7 @@ final class CaptureEndpoint
         $context->cookie->{self::COOKIE_KEY} = $count;
         $context->cookie->write();
 
-        $cart = $context->cart;
-        if (!($this->schemaIsCurrent)() || !$cart instanceof \Cart || (int) $cart->id <= 0 || (int) $context->customer->id > 0) {
+        if (!($this->schemaIsCurrent)() || (int) $context->customer->id > 0) {
             return false;
         }
         $email = trim(is_string($post['email'] ?? null) ? $post['email'] : '');

@@ -3,10 +3,12 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Automation\AbandonedCart\Capture;
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartSweeper;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CaptureEndpoint;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CapturedAddress;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
+use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use Tests\Integration\Automation\AbandonedCart\AbandonedCartTestCase;
 
 require_once __DIR__ . '/../AbandonedCartTestCase.php';
@@ -57,6 +59,33 @@ final class CheckoutCaptureFlowTest extends AbandonedCartTestCase
             self::assertSame(CartTracker::SKIPPED, $this->cartRow($idCart)['status']);
         }
         self::assertSame([], array_filter($this->mock->requests(), static fn (array $request): bool => $request['path'] === '/api/contact.php' && $request['method'] === 'POST'), 'the address is not sent as a contact');
+    }
+
+    /**
+     * Fresh carts that record one address get one reminder in 24 hours, whoever recorded it; the
+     * others are closed, the Log says why, and another address is not held back.
+     */
+    public function testCartsThatRecordOneAddressGetOneReminderIn24Hours(): void
+    {
+        $first = $this->capture(true);
+        $second = $this->capture(true, strtoupper(self::TYPED));
+        $other = $this->capture(true, 'capture6@example.test');
+        foreach ([$first, $second, $other] as $i => $idCart) {
+            $this->fixture->age($idCart, 30 - $i);
+        }
+        self::assertSame(3, $this->sweep());
+        $this->flush();
+        $third = $this->capture(true);
+        $this->fixture->age($third, 20);
+        $this->sweep();
+        $this->flush();
+
+        self::assertSame([self::TYPED, 'capture6@example.test'], array_map(static fn (array $reminder): string => $reminder['body']['addresses'][0]['email'], $this->reminders()));
+        foreach ([$second, $third] as $idCart) {
+            self::assertSame([CartTracker::SKIPPED, AbandonedCartSweeper::SKIPPED_RECENTLY_REMINDED], [$this->cartRow($idCart)['status'], $this->cartRow($idCart)['skip_reason']]);
+        }
+        self::assertSame(['sent', 'skipped', 'sent', 'skipped'], array_column($this->events(), 'status'));
+        self::assertStringContainsString('already got an abandoned-cart reminder', FailureMessage::forDisplay($this->events()[3]['last_error'], static fn (string $sentence): string => $sentence));
     }
 
     public function testAnOrderWithTheCapturedAddressWithdrawsTheReminder(): void
@@ -114,7 +143,7 @@ final class CheckoutCaptureFlowTest extends AbandonedCartTestCase
         self::assertNull($addresses->forCart($this->fixture->cart(0, 0)));
     }
 
-    private function capture(bool $ticked): int
+    private function capture(bool $ticked, string $address = self::TYPED): int
     {
         $idCart = $this->fixture->cart(0, 0);
         $context = clone \Context::getContext();
@@ -123,8 +152,8 @@ final class CheckoutCaptureFlowTest extends AbandonedCartTestCase
         $context->cookie = new \Cookie('smaily-capture-test');
         $context->cookie->disallowWriting();
         $recorded = $this->services->get(CaptureEndpoint::class)->handle($context, 'POST', [
-            'token' => \Tools::getToken(false, $context),
-            'email' => self::TYPED,
+            'token' => CaptureEndpoint::token($idCart),
+            'email' => $address,
             'newsletter' => $ticked ? '1' : '0',
         ]);
         self::assertTrue($recorded);

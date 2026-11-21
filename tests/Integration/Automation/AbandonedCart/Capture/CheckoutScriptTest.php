@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Automation\AbandonedCart\Capture;
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CaptureEndpoint;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\CheckoutScript;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
@@ -23,6 +24,9 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
     /** @var mixed */
     private $customer;
 
+    /** @var mixed */
+    private $cart;
+
     /** @var array<string, mixed> */
     private array $jsDef;
 
@@ -31,7 +35,9 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
         parent::setUp();
         $this->controller = \Context::getContext()->controller;
         $this->customer = \Context::getContext()->customer;
+        $this->cart = \Context::getContext()->cart;
         $this->jsDef = \Media::getJsDef();
+        \Context::getContext()->cart = new \Cart($this->fixture->cart(0, 0));
     }
 
     protected function tearDown(): void
@@ -39,6 +45,7 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
         if (defined('_PS_ROOT_DIR_')) {
             \Context::getContext()->controller = $this->controller;
             \Context::getContext()->customer = $this->customer;
+            \Context::getContext()->cart = $this->cart;
             $property = new \ReflectionProperty(\Media::class, 'js_def');
             $property->setAccessible(true);
             $property->setValue(null, $this->jsDef);
@@ -46,7 +53,7 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
         parent::tearDown();
     }
 
-    public function testAGuestsCheckoutGetsTheScriptTheEndpointAndTheToken(): void
+    public function testAGuestsCheckoutGetsTheScriptTheEndpointAndTheTokenOfItsCart(): void
     {
         $controller = $this->page('order');
         \Context::getContext()->customer = new \Customer();
@@ -55,7 +62,9 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
 
         self::assertSame([[CheckoutScript::SCRIPT_ID, 'modules/smailyforprestashop/views/js/front/checkout-capture.js']], $controller->scripts);
         $definition = \Media::getJsDef()[CheckoutScript::JS_DEF];
-        self::assertSame(\Tools::getToken(false), $definition['token']);
+        self::assertSame(CaptureEndpoint::token((int) \Context::getContext()->cart->id), $definition['token']);
+        self::assertNotSame(\Tools::getToken(false), $definition['token'], 'not the token that every guest shares');
+        self::assertNotSame(CaptureEndpoint::token($this->fixture->cart(0, 0)), $definition['token'], 'not the token of another cart');
         self::assertSame(\Context::getContext()->link->getModuleLink('smailyforprestashop', 'capture'), $definition['url']);
     }
 
@@ -64,7 +73,7 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
      */
     public function withoutScript(): array
     {
-        return ['another page' => ['another page'], 'automation off' => ['automation off'], 'customer in the context' => ['customer in the context']];
+        return ['another page' => ['another page'], 'automation off' => ['automation off'], 'customer in the context' => ['customer in the context'], 'no cart' => ['no cart']];
     }
 
     /**
@@ -79,6 +88,9 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
         }
         if ($case === 'customer in the context') {
             \Context::getContext()->customer = new \Customer($this->fixture->customer('capture5@example.test'));
+        }
+        if ($case === 'no cart') {
+            \Context::getContext()->cart = new \Cart();
         }
 
         $this->setMedia();

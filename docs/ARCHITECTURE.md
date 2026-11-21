@@ -1403,12 +1403,34 @@ contact.
 page of a visitor who is no customer yet, in a shop whose abandoned-cart automation is on, the
 script `views/js/front/checkout-capture.js` posts the address typed in the customer form, and
 whether its newsletter box is ticked, to the endpoint. The endpoint records them on the tracker row
-of the cart of the visitor's own cookie; it takes a POST with PrestaShop's static front token only,
-at most 6 captures per visitor per minute, and reads no cart, shop or customer that the request
+of the cart of the visitor's own cookie, and reads no cart, shop or customer that the request
 names. The recorded address serves the cart's reminder only, under the reminder's consent rule: it
 is not sent to Smaily as a contact and not written to a customer. `CartTracker::purge()`, which
 every sweep runs, deletes a recorded address that served no reminder once its cart has not changed
 for 24 hours, and clears the address of a closed cart 48 hours after the cart's last change.
+
+The endpoint is open to visitors without an account, so it is a way to put an address that agreed
+to nothing on a cart. What bounds it (the siblings: Magento's guest-cart route takes the cart's
+masked id and counts requests in its cache; WooCommerce records the address inside its own
+checkout request, behind WooCommerce's session nonce):
+
+- **The token is the cart's own.** The endpoint takes a POST with `CaptureEndpoint::token()` only:
+  an HMAC-SHA256 of the cart's id under the shop's `_COOKIE_KEY_`, compared in constant time. Only
+  the checkout page of that cart prints it, so a caller must load the checkout page of every cart
+  it writes to, and a token opens no other cart. PrestaShop's static front token
+  (`Tools::getToken(false)`) is refused: it is one value for every visitor without an account.
+- **One reminder per address per 24 hours**, whatever number of carts and visitors record the
+  address: the per-address rule of the sweep above, read from the tracker rows
+  (`CartTracker::blocking()`). The later carts are closed as `recently_reminded`, and the Log shows
+  each with its sentence. The rule counts across all shops of the installation.
+- At most 6 captures per visitor per minute, counted in the visitor's cookie. It slows a browser
+  down; a caller that drops its cookie is not held by it.
+
+What stays possible: a caller that loads a checkout page for each cart can have one reminder sent
+to each address it names, once per 24 hours per address, where the shop's consent mode sends a
+reminder to that address ("All customers": any address; the other two modes: with the newsletter
+box, which the caller sets). No limit counts the requests of one network address: the module
+stores no visitor addresses, and PrestaShop has no shared cache to count in.
 
 **[D]** The abandoned-cart payload keeps the 2.x template fields byte-compatible: the 10 product slots
 with `''` for unused slots (the empty values clear the previous cart in Smaily,
