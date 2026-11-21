@@ -48,6 +48,15 @@ final class ContactEntity
             return $email;
         }
 
+        return self::key($email);
+    }
+
+    /**
+     * The keyed hash of an address, whatever its length: what stands for the address where the
+     * address itself is not kept (the privacy record, the entity of a profiling-consent row).
+     */
+    public static function key(string $email): string
+    {
         return hash_hmac('sha256', 'smaily-connect-address|' . strtolower(trim($email)), _NEW_COOKIE_KEY_);
     }
 }
