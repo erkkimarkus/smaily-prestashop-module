@@ -33,7 +33,9 @@ if (!defined('_PS_VERSION_')) {
  * Issues one shopper's discount code as a copy of a template cart rule, the way PrestaShop itself
  * copies a rule (the remainder voucher of PaymentModule): the template's main row, then
  * CartRule::copyConditions() for its shop, carrier, group, country, combination and product
- * restrictions. The discount and every condition are the template's. The copy differs in this:
+ * restrictions, and on PrestaShop 9.2 the discount types it combines with, which
+ * copyConditions() leaves out (copyCompatibleTypes()). The discount and every condition are the
+ * template's. The copy differs in this:
  *  - a new code, unique among the cart rules: CODE_LENGTH letters and digits of ALPHABET;
  *  - the name "Smaily Connect – <the template's name>" in every language, under which Catalog >
  *    Discounts lists it;
@@ -153,6 +155,7 @@ final class CodeIssuer
                 throw new \RuntimeException('PrestaShop did not store the discount code.');
             }
             \CartRule::copyConditions($idRule, (int) $rule->id);
+            self::copyCompatibleTypes($idRule, (int) $rule->id);
         } catch (\Throwable $error) {
             // PrestaShop stores the main row first: its names, or another module's hook on a new
             // cart rule, can still fail. No half-made rule stays, so a retry starts anew.
@@ -227,6 +230,34 @@ final class CodeIssuer
     public static function notMarked(string $alias): string
     {
         return sprintf('(%1$s.`description` IS NULL OR %1$s.`description` NOT LIKE \'%2$s%%\')', $alias, pSQL(self::MARKER));
+    }
+
+    /**
+     * Copies the discount types that the template combines with. PrestaShop 9.2 keeps them in the
+     * table `cart_rule_compatible_types`, which its new Discounts form writes and which
+     * CartRule::copyConditions() does not copy. While the feature flag `discount` is on, a rule
+     * with a type and without these rows combines with no other typed discount: PrestaShop would
+     * take such a discount out of the cart for the code, or refuse the code, where the template
+     * combines with it. PrestaShop 8 has no such table.
+     */
+    private static function copyCompatibleTypes(int $idTemplate, int $idRule): void
+    {
+        $table = _DB_PREFIX_ . 'cart_rule_compatible_types';
+        $tables = \Db::getInstance()->executeS('SHOW TABLES LIKE \'' . str_replace('_', '\\_', pSQL($table)) . '\'', true, false);
+        if (!is_array($tables)) {
+            throw new \RuntimeException('The tables of the cart rules could not be read.');
+        }
+        if ($tables === []) {
+            return;
+        }
+        if (!\Db::getInstance()->execute(sprintf(
+            'INSERT INTO `%1$s` (`id_cart_rule`, `id_cart_rule_type`) SELECT %2$d, `id_cart_rule_type` FROM `%1$s` WHERE `id_cart_rule` = %3$d',
+            $table,
+            $idRule,
+            $idTemplate
+        ))) {
+            throw new \RuntimeException('PrestaShop did not store the discount types of the code.');
+        }
     }
 
     private function newCode(): string

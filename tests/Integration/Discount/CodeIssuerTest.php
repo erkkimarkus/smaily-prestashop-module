@@ -118,6 +118,37 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertSame('The merchant\'s own note', $source->description);
     }
 
+    public function testOnPrestaShop92ACodeCombinesWithTheDiscountTypesOfItsTemplate(): void
+    {
+        $table = _DB_PREFIX_ . 'cart_rule_compatible_types';
+        if (!self::db()->executeS('SHOW TABLES LIKE \'' . str_replace('_', '\\_', $table) . '\'')) {
+            // PrestaShop 8: no discount types. The other tests show that a code is issued there.
+            self::assertFalse(property_exists(\CartRule::class, 'id_cart_rule_type'));
+
+            return;
+        }
+        // An order-level discount (type 3) that combines with free shipping (1) and product-level
+        // discounts (4), as the Discounts form of PrestaShop 9.2 stores it.
+        $template = $this->template(['id_cart_rule_type' => 3]);
+        $plain = $this->template();
+        self::db()->insert('cart_rule_compatible_types', [['id_cart_rule' => $template, 'id_cart_rule_type' => 1], ['id_cart_rule' => $template, 'id_cart_rule_type' => 4]]);
+
+        $typed = $this->rule($this->issuer()->issue($template, 7, $this->idShop, 0, Trigger::WELCOME)['code']);
+        $untyped = $this->rule($this->issuer()->issue($plain, 7, $this->idShop, 0, Trigger::WELCOME)['code']);
+
+        $types = static fn (int $idRule): array => array_map('intval', array_column(
+            self::db()->executeS('SELECT `id_cart_rule_type` FROM `' . $table . '` WHERE `id_cart_rule` = ' . $idRule . ' ORDER BY `id_cart_rule_type`'),
+            'id_cart_rule_type'
+        ));
+        self::assertSame(3, (int) $typed->id_cart_rule_type, 'the code has its template\'s discount type');
+        self::assertSame([1, 4], $types((int) $typed->id), 'and combines with the same discount types');
+        self::assertSame([1, 4], $types($template), 'the template keeps its own');
+        self::assertSame([], $types((int) $untyped->id), 'a template without them gives a code without them');
+
+        $typed->delete();
+        self::assertSame([], $types((int) $typed->id), 'PrestaShop removes them with the code');
+    }
+
     public function testACodeNeverOutlivesItsTemplate(): void
     {
         $now = strtotime(date('Y-m-d 10:30:00'));

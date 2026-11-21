@@ -1616,6 +1616,21 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   template=<id> trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so an untied code
   is never advertised in a cart; `active` 1; `id_customer` (below). On PrestaShop 9 the copy's
   `total_quantity` is 1.
+- **PrestaShop 9.2's discount types.** 9.2.0 gives a cart rule a type (`cart_rule.id_cart_rule_type`,
+  one of the five rows of `cart_rule_type`) and the types it combines with
+  (`cart_rule_compatible_types`); the new Discounts form writes both. They decide only while the
+  feature flag `discount` is on, which it is not by default (`CartRule::checkValidity()` and
+  `Cart::addCartRule()` ask `DiscountApplicationService`): two typed discounts combine when each
+  names the other's type (`DiscountTypeRepository::areDiscountsCompatible()`), else the one of
+  lower priority leaves the cart or the new one is refused. A rule without a type follows the
+  older combination rows, which `copyConditions()` copies. The copy takes the template's type
+  with the main row, but `CartRule::copyConditions()` (`classes/CartRule.php`, lines 288 to 342)
+  does not copy `cart_rule_compatible_types`, as PrestaShop's own remainder voucher shows; its
+  `DiscountDuplicator` does. A code without those rows would be narrower than its template, not
+  wider: with the flag on it took a free-shipping discount out of the cart that its template
+  combines with (observed on 9.2.0). `CodeIssuer` therefore copies the rows itself where the
+  table exists; a copy that fails removes the code and fails the row. PrestaShop 8 has no such
+  table and no type.
 - **The marker.** No column and no table says that a cart rule is one of the module's codes: its
   description does, in two ways that differ on purpose.
   - *A code of the module* (`CodeIssuer::isIssued()`, `issued()`): the description starts with
