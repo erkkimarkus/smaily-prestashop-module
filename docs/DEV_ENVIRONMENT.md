@@ -124,8 +124,12 @@ ran the suite before this holds such processes until its container restarts.
 
 The integration tests call no real outside service: the Smaily calls go to the Smaily mock
 (`tests/Integration/Fixtures/SmailyMockServer.php`), and the GitHub release call goes to the GitHub
-mock (`GithubMockServer.php`). A test that runs the whole tick stubs the update check. Two known
-gaps:
+mock (`GithubMockServer.php`). A test that runs the whole tick stubs the update check. The Campaign
+Intelligence calls go to the engine mock (`EngineMockServer.php` with `mock-engine/router.php`),
+whose transport sends `https://intelligence.smaily.com` to the mock and lets no request to another
+host leave. The tick's health check asks the engine about every stored connection, so a test that
+stores a connection removes it (`tests/Integration/Engine/EngineTestCase.php` does); with an empty
+connection table the check sends nothing. Two known gaps:
 
 - The Smaily mock's transport sends only `https://<subdomain>.sendsmaily.net` to the mock and passes
   any other host on to the real HTTP client. A test that runs the whole tick with that transport
@@ -191,8 +195,11 @@ shop then calls `https://<subdomain>.sendsmaily.net` for real. The egress guard 
 - the Smaily mock of the tests (`tests/Integration/Fixtures/mock-smaily/router.php`) runs inside the
   shop container, behind a TLS front for every `*.sendsmaily.net` name, with a certificate authority
   that the script creates and trusts in that container only;
-- a proxy in the container (`proxy.php`) tunnels a request for a `*.sendsmaily.net` host to that
-  front and refuses every other host;
+- the Campaign Intelligence engine mock of the tests
+  (`tests/Integration/Fixtures/mock-engine/router.php`) runs there too, behind a TLS front for
+  `intelligence.smaily.com`, the one host the module calls the engine at (contract "Base context");
+- a proxy in the container (`proxy.php`) tunnels a request for a `*.sendsmaily.net` host or for
+  `intelligence.smaily.com` to its front and refuses every other host;
 - PHP-FPM gets `https_proxy` and `http_proxy`, so every request that a page makes goes to the proxy.
 
 Start it from the repository root, with the stack's Compose variables set as for `docker compose`
@@ -213,14 +220,28 @@ Check that it is active, at any time:
 
     tests/egress-guard/check.sh        # prints "guard active", or what is missing and exits 1
 
-The check asks three things: a page request runs with the proxy setting, a Smaily host reaches the
-mock, and another host is refused. The proxy writes each decision, host and verdict only, to
+The check asks four things: a page request runs with the proxy setting, a Smaily host reaches the
+mock, the engine host reaches the engine mock, and another host is refused. The proxy writes each decision, host and verdict only, to
 `/tmp/smaily-egress.log` in the container:
 
     docker compose exec -u www-data prestashop sh -c 'cut -d" " -f2- /tmp/smaily-egress.log | sort | uniq -c'
 
-`TUNNEL <host> -> mock` is a Smaily call that the mock answered; `REFUSED CONNECT <host>` is a call
-that did not leave the container (PrestaShop's own calls and the module's update check show here).
+`TUNNEL <host> -> mock` is a Smaily call that the mock answered; `TUNNEL intelligence.smaily.com ->
+engine mock` is a Campaign Intelligence call that the engine mock answered; `REFUSED CONNECT <host>`
+is a call that did not leave the container (PrestaShop's own calls and the module's update check
+show here).
+
+The engine mock's state is `/tmp/smaily-mock/engine-state.json` in the container: the connections
+by the API key it issued (never copy a key into a report), the used setup tokens, every request it
+received, and its switches, which `mock-engine/router.php` lists (`smaily_subdomain`, `tenant_id`,
+`next_prefix`, `prefix_answer`, `require_capability`, `tenant_inactive`, `fail`, `delay`). Any token
+that the mock has not seen works once as a setup link
+(`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
+No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls
+`Services::instance()->get(Engine\Setup::class)->connect($idShop, $link)` from a PHP script that
+boots the shop (`require 'config/config.inc.php'`) and runs with the proxy variables below. The
+health check then runs with the tick. `install.sh` keeps an engine state that exists, so a shop's
+stored connections stay known to the mock when the guard is installed again.
 
 The guard covers page requests. A command that you run with `docker compose exec` (the console,
 PHPUnit) reads its own environment: give it the proxy with

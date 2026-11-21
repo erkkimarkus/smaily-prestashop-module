@@ -255,6 +255,14 @@ ask (Linear discipline below).
   Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
   (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
   10.6).
+- **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
+  called at `https://intelligence.smaily.com` only
+  (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the
+  engine sent it: PrestaShop strips tags in `pSQL()` without its second
+  argument and in every `Configuration` value, so such a value is written
+  with `pSQL($value, true)`. The tick's health check pings every stored
+  connection: a test that stores one removes it
+  (`tests/Integration/Engine/EngineTestCase.php`).
 
 ## Working mode — orchestrated, autonomous with checkpoints
 

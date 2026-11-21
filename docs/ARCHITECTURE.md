@@ -122,6 +122,8 @@ src/
                               CustomerCapture, NewsletterBlockCapture, CheckoutBox,
                               CheckoutBoxSetting; Import/ContactImport, ContactSource, JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
+    Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector;
+                              Exception/ (section 8.9)
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
                               TriggerSender, MarketingConsent, WorkflowResolverInterface;
                               Welcome/, FirstOrder/, AbandonedCart/ (with Capture/)
@@ -169,8 +171,7 @@ Later Stories add these areas:
 src/
   controllers/front/          relay, land, recommendations, personalization
   src/
-    Engine/                   Client, Connections, Setup, Payload/, IngestQueue, History/,
-                              Automations/
+    Engine/                   Payload/, IngestQueue, History/, Automations/
     Storefront/               Relay, Attribution, Recommendations, PageContext
     Privacy/                  Export, Erasure, ProfilingConsent
     Report/                   ReportBuilder, ReportSender, InstallationReport, ConnectionHealth
@@ -436,6 +437,7 @@ writes.
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). Not written yet. |
+| `SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES` | global | JSON object, id_shop of a connection => the connection prefix it held when it was disconnected, exactly as the engine gave it (`Config\EngineSettings`). The next setup exchange of that shop reports it (section 8.9). Written only by a disconnect on request. |
 | `SMAILY_CONNECT_HEALTH`, `_REPORT_STATE` | global | Section 11. Not written yet. |
 | `SMAILY_CONNECT_UPDATE_CHECK` | global | JSON `{"version", "download_url", "release_url", "checked_at", "dismissed"}`: the latest release that the daily check found, and the newest version that the merchant dismissed (section 11.5). |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | as stored | **Kept with their legacy names.** They are the URL contract in merchants' crontabs. A door reads its token at the request's shop, then its shop group, then the global scope, as 2.x did. A token that no scope holds is created at the global scope on its first read. A token stored empty keeps its door closed; the migration replaces it (section 3.4). |
@@ -467,7 +469,7 @@ Column rules of `Install\Schema`:
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
 | `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5; NULL with `optin_trigger=0` at a shop = "no workflow here", which hides the shared row of the same key from that shop, sections 5.2 and 10.9), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
 | `smaily_connect_cart` | Abandoned-cart tracker and reminder state (section 7) | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`, `mailed`, `skipped` are the values that `Automation\AbandonedCart\CartTracker` writes), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
-| `smaily_connect_connection` | Campaign Intelligence connections | `id` PK, `id_shop` INT (0 = installation-wide), `smaily_subdomain` VARCHAR(63), `tenant_id` CHAR(36), `api_key_enc` TEXT NOT NULL, `settings` MEDIUMTEXT NOT NULL JSON (tenant name, base URL, engine version, endpoints map, `config` incl. `history` and `connection.prefix`, `issued_at`, `refused_at`, browse switch), `date_add`, `date_upd` | UNIQUE (`id_shop`) |
+| `smaily_connect_connection` | Campaign Intelligence connections (section 8.9) | `id` PK (a row keeps it when a new setup link replaces its connection), `id_shop` INT (0 = installation-wide), `smaily_subdomain` VARCHAR(63), `tenant_id` CHAR(36), `api_key_enc` TEXT NOT NULL, `settings` MEDIUMTEXT NOT NULL JSON: `tenant_name`, `engine_base_url`, `engine_version`, `endpoints` (the map), `config` (as the engine sent it, with `history` and `connection.prefix`), `issued_at`, `refused_at`, `health` (`status`, `error`, `http_status`, `checked_at`); the browse switch comes with Story 5.3. `date_add`, `date_upd` | UNIQUE (`id_shop`) |
 | `smaily_connect_order_attribution` | Email-click attribution per order | `id_order` INT PK, `rec_id` CHAR(36) NULL, `context` VARCHAR(64) NULL, `visitor_token` VARCHAR(64) NULL, `created_at` | — |
 | `smaily_connect_privacy` | Durable profiling opt-out record (contract §10; `magento:` parity audit R1) | `address_key` CHAR(64) PK (keyed hash of the trimmed lower-case address), `opted_out` TINYINT, `changed_at`, `source` VARCHAR(16) | — |
 
@@ -938,11 +940,13 @@ Registered on `v3` today:
 | `contacts_refresh` | `ContactReconcileProvider` | daily (86 400 s) | 5 s | no | `ContactImport::scheduleRefresh()`: queues the daily refresh as a job row (section 6.5). |
 | `contacts_import` | `ContactReconcileProvider` | 60 s | 15 s | no | `ContactImport::run()`: sends pages of the first import and of the daily refresh (section 6.5). |
 | `abandoned_cart` | `AutomationProvider`, through `Automation\AbandonedCart\AbandonedCartAutomation` | 5 min (300 s) | 10 s | no | `AbandonedCartSweeper::sweep()`: queues the due reminders, which the next queue flush sends (section 7). |
+| `engine_health` | `EngineProvider` | 15 min (900 s) | 5 s | no | `Engine\HealthCheck::run()`: pings every stored Campaign Intelligence connection and records the answer with it; sends nothing while no connection is stored (section 8.9). |
 | `migration` | `MigrationProvider` | 0 (every tick) | 10 s | yes | Calls `Upgrade300::runPending()` while the schema is not current (section 3.7). |
 | `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
 
 The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
-`contacts_refresh`, `contacts_import`, `abandoned_cart`, `migration`, `update_check`. Two integration
+`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `migration`, `update_check`.
+Two integration
 tests pin this full list (section 12).
 
 Planned (the Story that builds each registers it):
@@ -951,7 +955,6 @@ Planned (the Story that builds each registers it):
 |---|---|---|---|---|
 | Ingest queue flush | 1 min | 25 s | `FlushIngestQueue` | 5.2 |
 | Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.2, 5.3 |
-| Health check | 15 min | 5 s | `HealthCheck` | 5.1 |
 | Catalog manifest (§3c) | daily, 03:30 shop time | as import chunks | `SendCatalogManifest` | 5.2 |
 | Installation report | due check every tick | 5 s | `SendInstallationReport` | 6.1 |
 
@@ -1991,7 +1994,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
 
 **[D]** Endpoint URLs come from the stored endpoints map, with the fallback path constants for keys a
 connection lacks, as in both siblings. Retry and timeouts: Magento's `Engine\Client` rules (contract
-"Wire contracts" in `magento:docs/ARCHITECTURE.md`).
+"Wire contracts" in `magento:docs/ARCHITECTURE.md`). The three calls that exist today (§1, §2, §16)
+are one attempt each (section 8.9); the retry of the ingest calls comes with the ingest queue.
 
 ### 8.2 Ids and keys
 
@@ -2112,6 +2116,109 @@ that changes one of them keeps it:
   page joins;
 - privacy export and erasure (section 11.2) read the module's tables through one place that a later
   request table can join.
+
+### 8.9 The connection (as built in Story 5.1)
+
+Story 5.1 built the foundation of this section: a shop exchanges a setup link for a connection, the
+module keeps one connection per separately set-up shop, checks that each is alive, and ends it. It
+has no screen: Story 5.3 calls these services from the Intelligence tab and the setup's Intelligence
+step. Nothing connects a shop but `Engine\Setup::connect()`: an install and an upgrade make no
+connection.
+
+**The engine's address.** `Engine\Client` calls `https://intelligence.smaily.com` (contract "Base
+context") and no other host, as the Magento and WooCommerce connectors: a setup link, a stored
+endpoint or an answer that names another address is refused before any request
+(`Client::isEngineUrl()`: https, that host, the default port, a plain path, no credentials, query or
+fragment), so neither a setup token nor an API key can reach another server. No call follows a
+redirect.
+
+**What each request carries.** No request of Story 5.1 carries customer, order, product or browsing
+data.
+
+| Call | Contract | Leaves the shop |
+|---|---|---|
+| `Setup::connect()` | §1 `POST /api/setup/exchange`, no key | `setup_token`; `plugin_info`: `name` (`smaily-connect-prestashop`), `version` (the module's), `platform` and `ecommerce_platform` (`prestashop`), `platform_version` and `ecommerce_platform_version` (PrestaShop's), `site_url` (the storefront address of the shop that connects, the default shop's for the installation-wide connection); `store_config.customer_account_scope` (`global` or `website`, section 5.3) only while multishop is on; `capabilities: ["connection_prefix"]`; `connection.previous_prefix` on a reconnect. |
+| `HealthCheck` | §2 `GET /api/v1/ingest/ping` | The connection's key as a Bearer token; no body, no query. |
+| `Disconnector` | §16 `POST /api/v1/store/uninstall` | The connection's key as a Bearer token; no body. |
+
+Every request carries the headers `User-Agent: SmailyConnect-PrestaShopModule/<version>` and
+`Accept: application/json`.
+
+**One connection per separately set-up shop** (decision 7). `Engine\Connections` reads and writes
+`smaily_connect_connection`. The connection that serves a shop is the row of
+`Connections::keyOf($idShop)`: 0, the installation-wide connection, in one store; the shop's own id
+in separate stores (the same rule as `Scope::setupShopId()`). In separate stores the installation
+itself cannot connect. A row of another layout is not read for a shop, but the health check and the
+uninstall still cover it, because the engine still takes its key. What a layout change does with the
+connections is not built (Story 5.3).
+
+**Storage.** The API key is encrypted with `Smaily\Crypto`, as the Smaily password is (section 2.3);
+a key that does not decrypt reads as no key, and the connection then needs a new setup link. The
+settings hold what the exchange answered: the tenant name, the base URL, the engine version, the
+endpoints map, the `config` block and the issue time. A row keeps its id when a new setup link
+replaces its connection, so a later Story can name a connection by that id. The row's encrypted key
+names the connection it holds now: a write of the settings and a removal touch the row only while it
+still holds the connection that was read, so a health check that started before a reconnect cannot
+write the old engine store's state over the new one.
+
+**The connection prefix** (section 8.2). `config.connection.prefix` is stored inside the `config`
+block exactly as the engine sent it, byte for byte: any string, never read in parts, derived or
+shown. An answer without the `connection` block (an engine before the prefix existed) stores none,
+and `Connection::prefix()` then answers `''`. An exchange whose `connection` block holds no string
+prefix is refused, because no value could be kept as given. The Magento and WooCommerce connectors
+also refuse a string that is not `c<N>-` or `''`; this module does not, on the owner's rule that the
+prefix is opaque (section 14, row 45). The ping's prefix, when it is a string, replaces the stored
+one. Story 5.1 sends no product or order key, so nothing uses the prefix yet, and the platform
+namespace `ps-` is in no code.
+
+**The setup exchange** (`Engine\Setup`). It takes the engine's setup link
+(`https://intelligence.smaily.com/setup/<token>`) or the token alone. Nothing is stored unless the
+whole answer can be used: an API key and a tenant id, every address in it on the engine's host, a
+prefix that can be kept, and a Smaily account that is one of the shop's own. The account rule is the
+WooCommerce connector's: a link is taken when the engine names no account, when the shop holds no
+Smaily account yet, or when the named account is one of the accounts of the shops that the
+connection serves (every stored account for the installation-wide connection; the shop's own in
+separate stores). A refused link's token is spent; the merchant asks for a new link. A failure is an
+`EngineException` whose code says why: `invalid_link`, `host_not_allowed`, `account_mismatch`,
+`invalid_answer`, or the engine's own code (`setup_token_expired_or_used`, `setup_token_not_found`,
+`plugin_update_required`) with its HTTP status. On a reconnect the request reports the prefix of the
+connection that the row holds, else the prefix that the shop's last disconnected connection held
+(`SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES`); a first connection reports none.
+
+**The health check** (`Engine\HealthCheck`, the tick job `engine_health`, every 15 minutes, 5 s).
+It pings every stored connection, the one checked longest ago first, until its time is up, and
+writes `health` into the connection's settings: `status`, an `error` code, the `http_status` and
+`checked_at`.
+
+| Status | When | Also |
+|---|---|---|
+| `connected` | The engine answered the ping. | `refused_at` is cleared; the ping's `config.history`, `config.connection.prefix` and engine version replace the stored ones. |
+| `refused` | The engine answered and does not take the connection: 401 `unauthorised` (an unknown or revoked key), 403 `tenant_inactive`, 409 `plugin_update_required`, any other 3xx or 4xx; or the stored key does not decrypt (`key_unreadable`, no request). | `refused_at` keeps the time of the first refusal until the engine answers a ping again. The connection stays stored: only a disconnect removes it. |
+| `unreachable` | No answer in 5 s (`network_error`), a 429, a 5xx, or an answer that is not JSON. | A refusal remembered before it stays. |
+
+An engine failure is recorded, never thrown: it cannot fail the tick. `HealthCheck::check()` checks
+one connection, for the "Check again" button of Story 5.3.
+
+**The disconnect** (`Engine\Disconnector`). It tells the engine once, with a limit of 3 seconds and
+no retry, and then removes the stored connection whatever the engine answered. Its outcome says what
+the engine was told: `store_paused`, `connection_removed`, `ended`, `key_refused` (401) or
+`not_told`. A disconnect on request remembers the connection's prefix for the next setup exchange.
+At uninstall, a listener of `Uninstaller::BEFORE_REMOVAL` ends every stored connection, each in its
+own `try`: an engine that fails or does not answer costs 3 seconds per connection and blocks
+nothing (section 11.4).
+
+**Failures.** `Engine\Exception\EngineRequestException` is a refusal that the same request meets
+again (a 3xx or 4xx other than 429, or a request or an answer the module itself does not accept);
+`EngineTransportException` may pass later (no answer, a 429, a 5xx, an answer that is not JSON).
+Each carries the HTTP status and an error code: the engine's `error` when it is a plain code
+(`[a-z0-9_]{1,64}`), else `http_<status>`. The engine's `message` is never read, stored or logged:
+it can name a shopper (`woo:docs/LESSONS.md` §2.32). The client retries nothing and writes no log
+line: the health check comes again in 15 minutes, the exchange is the merchant's click, and the
+disconnect is one attempt.
+
+**Not built here.** The `X-Engine-Version` notice of the contract's "Versioning" (a screen, Story
+5.3); the sending gate for a refused connection, which Story 5.2 reads from `Connection::refusedAt()`;
+what a layout change does with the connections (Story 5.3).
 
 ---
 
@@ -2594,9 +2701,9 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 `parent::uninstall()`. The uninstaller:
 
 1. Runs every listener of `Uninstaller::BEFORE_REMOVAL`, while every key and table still exists. A
-   listener that throws is logged by its error class and stops nothing. Stories 5.1 and 6.1 register
-   the engine disconnect (§16 per connection, one 3 s attempt each) and the `deactivated` report
-   there; no listener exists yet.
+   listener that throws is logged by its error class and stops nothing. The engine disconnect is
+   registered there (`EngineProvider`: §16 per stored connection, one 3 s attempt each, section 8.9).
+   Story 6.1 registers the `deactivated` report there, before it.
 2. Removes the 2.x override file under the rule of section 2.4.
 3. Deletes every key of `Uninstaller::KEYS` at every scope with `deleteByName()`. The list is
    explicit, legacy keys included, because the legacy prefix `SMAILY_` also matches the new one. A
@@ -2661,10 +2768,10 @@ once a day and sends no store data."
 |---|---|---|
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
-| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
-| Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). The suite expects a reset shop: it is not green on a shop that was walked by hand or got a second shop. | `tests/egress-guard/` |
+| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock: `EngineMockServer.php` + `mock-engine/router.php` stand in for `https://intelligence.smaily.com`. It answers the setup exchange (§1), the ping (§2) and the disconnect (§16) in the shapes that the contract's text gives, each answer naming its contract section; it issues a key per exchange, knows which keys it issued and revoked, records every request, and takes switches for a refusal (401, 403 `tenant_inactive`, 409 `plugin_update_required`), an HTTP error and a delay. Its transport sends the engine's address to the mock and lets no request to another host leave. The mock follows the structure of `woo:tests/Integration/Fixtures/RecEngineMockServer.php`, not its answers (`woo:docs/LESSONS.md` §2.4). Later Stories add their routes to it. A test that stores a connection removes it: the tick's health check asks the engine about every stored connection (`tests/Integration/Engine/EngineTestCase.php`). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
+| Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, the engine mock answers `intelligence.smaily.com`, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). The suite expects a reset shop: it is not green on a shop that was walked by hand or got a second shop. | `tests/egress-guard/` |
 | Failed queries | `tests/Integration/Fixtures/FailingQueries.php` stands behind the gateway (`Sql::useConnection()`) and answers `false` for the statements that a pattern selects, as a live 9.2.0 does, so a test of a failed read runs alike on every lane. The tests named "…CouldNotBeRead…" and "…ThatFails…" pin the safe outcome of each caller group of section 1.6. Code that relies on a core API is tested with a real failure (a table that is away, a trigger that refuses a row) and runs with debug mode off too (`docs/DEV_ENVIRONMENT.md` 4). | `tests/Integration/`, `tests/Unit/Database/` |
-| Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
+| Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. The health check of the engine sends nothing while the connection table is empty; the two tests below also give it a client without an engine. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
 | Subprocesses | Concurrency tests start PHP workers next to the test (`Queue/flush-worker.php`, `Migration/migration-worker.php`, `Scheduler/lock-holder.php`). A worker prints with `fwrite(STDOUT, …)`: the shop's bootstrap can buffer what `echo` prints. | `tests/Integration/<Area>/` |
@@ -2715,7 +2822,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | New-version notice on the admin pages (CON-380) | Done (section 10.7) | `admin:` |
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
-| Stages 5 and 6 (Stories 5.1 to 6.3) | Not started | — |
+| 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. It sends no product or order key, so the platform namespace `ps-` (section 8.2) is in no code yet. | `engine:`, `tests:`, `tooling:`, `docs:` |
+| Stage 5 from Story 5.2 on, and stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -3152,7 +3260,7 @@ has one owner:
 ### Story 5.1 — Engine client and connections
 
 - **Goal.** Connect, check and disconnect Campaign Intelligence per connection.
-- **Owns.** `src/src/Engine/{Client,Connections,Connection,Setup,Disconnector,HealthCheck}.php`, `src/src/Config/EngineSettings.php`, `src/src/Runtime/Provider/EngineProvider.php`, `docs/RECENGINE_API_CONTRACT.md` (byte copy; replaced only by a new copy from the engine repository).
+- **Owns.** `src/src/Engine/{Client,Connections,Connection,Setup,Disconnector,HealthCheck}.php`, `src/src/Engine/Exception/`, `src/src/Config/EngineSettings.php`, `src/src/Runtime/Provider/EngineProvider.php`, `tests/Integration/Fixtures/{EngineMockServer.php,mock-engine/}`, `docs/RECENGINE_API_CONTRACT.md` (byte copy; replaced only by a new copy from the engine repository).
 - **Depends on.** 1.4, 1.6, 2.1.
 - **Acceptance.**
   1. A setup link from the mock stores an encrypted key and the endpoints map; a link of another
@@ -3314,6 +3422,7 @@ has one owner:
 | 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. | Owner |
 
 | 44 | A send whose `sent` cannot be written | A row that went out and whose status write fails twice is sent again after 10 minutes (section 4.3, item 7). Core reads that the module does not own (an object model's load, `Configuration`'s writes) still answer a failure as "nothing" on a live 9.2.0, and were not reviewed one by one (section 1.6). | Owner |
+| 45 | The form of the connection prefix | The module stores `config.connection.prefix` exactly as the engine sends it, whatever its form (section 8.9). The Magento and WooCommerce connectors refuse an exchange, and ignore a ping, whose prefix is neither `c<N>-` nor `''`. The owner's rule "one connector never changes a behaviour rule alone" (section 15) asks for one answer for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
