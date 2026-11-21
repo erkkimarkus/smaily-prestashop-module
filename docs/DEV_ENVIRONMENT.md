@@ -130,7 +130,10 @@ Intelligence calls go to the engine mock (`EngineMockServer.php` with `mock-engi
 whose transport sends `https://intelligence.smaily.com` to the mock and lets no request to another
 host leave. The tick's health check asks the engine about every stored connection, so a test that
 stores a connection removes it (`tests/Integration/Engine/EngineTestCase.php` does); with an empty
-connection table the check sends nothing. Two known gaps:
+connection table the check sends nothing. Each mock hands every test the same HTTP client: a
+client keeps its connection open while it lives, PHPUnit keeps every test until the run ends, and
+with a client per test the suite ran out of open files (the limit is 1024) near its 1740th test
+on 8.2.8. Two known gaps:
 
 - The Smaily mock's transport sends only `https://<subdomain>.sendsmaily.net` to the mock and passes
   any other host on to the real HTTP client. A test that runs the whole tick with that transport
@@ -245,7 +248,15 @@ events, each validated on its own, and a shopper's recommendations, which a walk
 `recommendations` as `{"customer:<id>": [{"external_id": "6"}, …]}` or `{"token:<visitor token>":
 […]}` (a shopper without an entry gets the empty answer); `visitor_tokens` lists the tokens that
 count as bound to a customer; their names for `fail` and `delay` are `browse` and
-`recommendations`. Any token
+`recommendations`. It answers the ingest routes too (`mock-engine/ingest.php`, written from the
+contract's text: §3 catalog, §3b removal, §3c nightly list, §4 customers, §5 orders, §7 identity
+merge), checks each request against the contract's required fields, limits and key prefix, and
+answers the contract's errors (per-item `errors[]`, `validation_failed`,
+`connection_prefix_mismatch`, `customer_not_found`) and the nightly list's truncation guard. What
+it took is in the state under `catalog`, `customers`, `orders`,
+`manifests`, `merges`, `visitor_tokens` and `event_ids`, per engine store; `fail` and `delay` take
+the names `catalog`, `catalog_remove`, `catalog_manifest`, `customers`, `orders` and
+`identity_merge`. Any token
 that the mock has not seen works once as a setup link
 (`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
 No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls

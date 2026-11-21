@@ -272,6 +272,13 @@ ask (Linear discipline below).
   `vs_` token needs the setting and the customer's `newsletter`. The cache is files in PrestaShop's
   cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
   process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
+- **Campaign Intelligence keys and prices** (ARCHITECTURE 8.2, 8.3, 8.11). Every product and
+  order key comes from `Engine\Payload\Keys`; the namespace literal is its one constant, and a
+  unit test fails on a second one in `src/`. A catalog price comes from
+  `Product::priceCalculation()` for the visitor group: `Product::getPriceStatic()` needs a cart
+  or an employee in the context and takes the customer group of whoever's request runs the tick.
+  An ingest row is a marker: what goes out is read from the store at the flush. All customer
+  questions go through `Engine\Ingest\CustomerScope`.
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
   (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the

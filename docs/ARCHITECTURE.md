@@ -467,7 +467,7 @@ Column rules of `Install\Schema`:
 | Table | Purpose | Columns (level of detail for review) | Indexes |
 |---|---|---|---|
 | `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.welcome`, `automation.first_order`, `automation.abandoned_cart`; stage 5 adds `engine.identity_merge`, `engine.profiling_consent` and `engine.customer_delete` (section 11.2) | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
-| `smaily_connect_ingest_queue` | Engine ingest: `catalog`, `catalog_remove`, `customers`, `orders` | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (a catalog row is a marker; the payload is built at flush, see `woo:docs/LESSONS.md` §2.24), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
+| `smaily_connect_ingest_queue` | Engine ingest (section 8.11): `catalog`, `catalog_remove`, `customers`, `orders` wait for the flush; `catalog_manifest` is the Log's record of a nightly list | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (every row is a marker: what goes out is built at the flush, see `woo:docs/LESSONS.md` §2.24; the payload holds only what the event alone knew, the removed combinations of a catalog row and the record of a "Send again"), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
 | `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
 | `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5; NULL with `optin_trigger=0` at a shop = "no workflow here", which hides the shared row of the same key from that shop, sections 5.2 and 10.9), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
@@ -505,8 +505,8 @@ Magento's unified Log does (`magento:Controller/Adminhtml/Log/*`).
   earlier attempt. A row for which nothing was sent has neither. The contact's data is stored as it
   was sent (section 15); a value under a key that looks like a secret is stored as `[redacted]`
   (`Log\PayloadRedactor`). A handler tells the flusher what it sent through `Queue\ExchangeSource`,
-  and `EventQueue::recordExchange()` writes it under the row's claim. The same columns of the ingest
-  queue are written by Story 5.2.
+  and `EventQueue::recordExchange()` writes it under the row's claim. The ingest queue writes the
+  same columns by the same rules (`IngestQueue::recordExchange()`, section 8.11).
 - A row that the Log's "Send again" queued carries the record `_resend` in its payload (section
   10.8).
 - `entity_id` of a contact's row (a contact sync or an automation) comes from
@@ -944,13 +944,15 @@ Registered on `v3` today:
 | `contacts_import` | `ContactReconcileProvider` | 60 s | 15 s | no | `ContactImport::run()`: sends pages of the first import and of the daily refresh (section 6.5). |
 | `abandoned_cart` | `AutomationProvider`, through `Automation\AbandonedCart\AbandonedCartAutomation` | 5 min (300 s) | 10 s | no | `AbandonedCartSweeper::sweep()`: queues the due reminders, which the next queue flush sends (section 7). |
 | `engine_health` | `EngineProvider` | 15 min (900 s) | 5 s | no | `Engine\HealthCheck::run()`: pings every stored Campaign Intelligence connection and records the answer with it; sends nothing while no connection is stored (section 8.9). |
+| `ingest_flush` | `EngineIngestProvider` | 60 s | 25 s | no | `Engine\Ingest\IngestFlusher::flush()`: sends the waiting catalog, removal, customer and order rows of every connection that may send (section 8.11). |
+| `catalog_manifest` | `EngineIngestProvider` | 15 min (900 s) | 20 s | no | `Engine\Ingest\CatalogManifest::run()`: sends each connection's nightly product list once, from 03:30 of the shop's day (section 8.11). The job asks every 15 minutes whether a list is due. |
 | `storefront_cache` | `StorefrontProvider` | daily (86 400 s) | 5 s | no | `Storefront\Store::prune()`: deletes the expired files of the storefront's cache (section 8.10). |
 | `migration` | `MigrationProvider` | 0 (every tick) | 10 s | yes | Calls `Upgrade300::runPending()` while the schema is not current (section 3.7). |
 | `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
 
 The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
-`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `storefront_cache`, `migration`,
-`update_check`.
+`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `ingest_flush`,
+`catalog_manifest`, `storefront_cache`, `migration`, `update_check`.
 Two integration
 tests pin this full list (section 12).
 
@@ -958,9 +960,7 @@ Planned (the Story that builds each registers it):
 
 | Job | Interval | Time budget per run | Sibling | Story |
 |---|---|---|---|---|
-| Ingest queue flush | 1 min | 25 s | `FlushIngestQueue` | 5.2 |
-| Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.2, 5.3 |
-| Catalog manifest (§3c) | daily, 03:30 shop time | as import chunks | `SendCatalogManifest` | 5.2 |
+| Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.3 |
 | Installation report | due check every tick | 5 s | `SendInstallationReport` | 6.1 |
 
 ### 4.2 Options
@@ -1275,7 +1275,10 @@ shop, for parity with Magento CON-190 (the admin lists them).
   and each would remove the other's products. **[D]** The module therefore sends no nightly manifest
   for a connection whose `tenant_id` another connection of the installation shares while either holds
   the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. Lifting this needs
-  the engine team's answer (section 14).
+  the engine team's answer (section 14). As built: `Engine\Ingest\CatalogManifest::suppressed()`
+  (section 8.11); the Dashboard's sentence is Story 5.3's, which reads the same method. A
+  connection of the other layout (the installation-wide one in separate stores, a shop's own in one
+  store) serves no shop and sends no list either.
 
 ### 5.4 What the upgrade infers
 
@@ -1624,17 +1627,18 @@ daily refresh are rows of `smaily_connect_job`:
 | Hook | Queue event(s) | Story |
 |---|---|---|
 | `actionCustomerAccountAdd` | `contact.sync`; `automation.welcome` (a storefront registration with `newsletter = 1`); engine customer row; engine `identity_merge` and `vs_` token at registration and guest checkout, where `actionAuthentication` does not fire | 2.3, 4.2, 5.2, 5.5 |
-| `actionObjectCustomerUpdateBefore`, `actionObjectCustomerUpdateAfter`, `actionCustomerAccountUpdate` | `contact.sync` (with status only on change); `automation.welcome` on 0→1 in the storefront | 2.3, 4.2 |
+| `actionObjectCustomerUpdateBefore`, `actionObjectCustomerUpdateAfter`, `actionCustomerAccountUpdate` | `contact.sync` (with status only on change); `automation.welcome` on 0→1 in the storefront; engine customer row from `actionObjectCustomerUpdateAfter`, while the customer scope holds the customer (section 8.11) | 2.3, 4.2, 5.2 |
 | `actionObjectCustomerDeleteAfter` | Not registered (owner, 2026-11-21; section 15). The deleted customer is handled at send time: the cart reminder reads no address of a deleted customer (`CartAddress`), and sends none to a cart whose customer is gone (`customer_deleted`, below). Nothing to Smaily: erasure goes through psgdpr. | — |
 | `actionNewsletterRegistrationBefore` | `contact.sync` for a block unsubscribe (`action = '1'`), after the stored state confirms it (6.3). | 2.3 |
-| `actionNewsletterRegistrationAfter` | `contact.sync` and `automation.welcome` for a block subscribe only, also when it fires from the verification link (6.3) | 2.3, 4.2 |
-| `actionAuthentication` | Fires on login only (facts file part 2). Engine `identity_merge` (§7), customer row (§4 group c), `vs_` token for a shopper who logs in | 5.2, 5.5 |
+| `actionNewsletterRegistrationAfter` | `contact.sync` and `automation.welcome` for a block subscribe only, also when it fires from the verification link (6.3); engine customer row for a customer account of that address (group a) | 2.3, 4.2, 5.2 |
+| `actionAuthentication` | Fires on login only (facts file part 2). One `engine.identity_merge` row: the customer first for a shopper with marketing consent (§4 group c), then the merge (§7) when the storefront has a visitor token (section 8.11); the `vs_` token for a shopper who logs in | 5.2, 5.5 |
 | `actionCartSave` | Not registered (owner, 2026-11-21; section 15). The sweep reads the cart's last change from `cart.date_upd` (below). | — |
 | `actionValidateOrder` | `contact.sync` (profile and consent at order time); every reminder of that address that is not sent yet withdrawn (`skipped`, reason `ordered`); `automation.first_order`; attribution capture; engine order row | 2.3, 4.2, 4.3, 5.2, 5.5 |
 | `actionOrderStatusPostUpdate`, `actionOrderEdited` | Engine order re-send (whole row) | 5.2 |
 | `actionOrderSlipAdd` | Engine order re-send with `items[].returned_at` on fully refunded lines | 5.2 |
 | `actionObjectProductAddAfter`, `actionObjectProductUpdateAfter`, `actionUpdateQuantity`, `actionObjectCombinationUpdateAfter`, `actionObjectSpecificPriceAddAfter` / `UpdateAfter` / `DeleteAfter` | Catalog marker for the product, one per product per request: a v2 product save fires `actionObjectProductUpdateAfter` 7 times, and a combination "Save list" fires `actionObjectCombinationUpdateAfter` for every row of the list (facts file part 2) | 5.2 |
-| `actionObjectProductDeleteAfter`, `actionObjectCombinationDeleteAfter` | `catalog_remove` (§3b) | 5.2 |
+| `actionObjectProductDeleteAfter` | `catalog_remove` (§3b) for the connection of every shop that the product left; a catalog marker instead where another shop of that connection still holds it | 5.2 |
+| `actionObjectCombinationDeleteAfter` | A catalog marker that names the combination: its row goes once more, as `in_stock: false` (a §3b removal names a whole product; the nightly list then leaves the row out) | 5.2 |
 | `actionObjectCategoryUpdateAfter` | Not registered (not in `Install\HookList`). A category rename reaches the engine through the next catalog import ("Run again"), as the nightly manifest does not carry names. | — |
 | `actionObjectShopDeleteAfter` | §16 for a connection anchored on that shop | 5.1 |
 | `actionFrontControllerSetMedia` | Fallback tick; the checkout capture script of the cart reminder (below); the storefront scripts and their definition in a shop with a connection (`Storefront\PageScripts`, section 8.10) | 1.6, 4.3, 5.5 |
@@ -1999,8 +2003,10 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
 
 **[D]** Endpoint URLs come from the stored endpoints map, with the fallback path constants for keys a
 connection lacks, as in both siblings. Retry and timeouts: Magento's `Engine\Client` rules (contract
-"Wire contracts" in `magento:docs/ARCHITECTURE.md`). The three calls that exist today (§1, §2, §16)
-are one attempt each (section 8.9); the retry of the ingest calls comes with the ingest queue.
+"Wire contracts" in `magento:docs/ARCHITECTURE.md`). Every call of `Engine\Client` is one attempt
+(section 8.9): the ingest calls (§3, §3b, §4, §5, §7) are retried by the queue that holds their
+row, on the retry ladder of section 4.3 (section 8.11), and the nightly list (§3c) is not retried
+that night.
 
 ### 8.2 Ids and keys
 
@@ -2017,7 +2023,11 @@ prefix", §3 "Catalog identity"):
   namespaced by source (`shp-<variant_id>`, `woo-<id>`), never the merchant's SKU field. It names no
   PrestaShop namespace, and its fail-loud enforcement checks each sender's declared namespace pattern
   for connections without a prefix (PRO-1223, rolling out). `ps-` is therefore the module's proposal
-  and needs the engine team's agreement before Story 5.2 ships.
+  and needs the engine team's agreement before Story 5.2 ships (Linear INT-306). As built, the
+  literal is in one place of the module, the constant `Engine\Payload\Keys::PLATFORM_NAMESPACE`,
+  and a unit test fails on a second one (`tests/Unit/Engine/Payload/KeysTest`): a change of the
+  agreed namespace is a change of one line. Until the agreement, the keys go to the engine mock
+  only (tests and dev shops); nothing that sends them is released.
 
 **[D]** The module declares `capabilities: ["connection_prefix"]` from the first release and applies
 the prefix everywhere, so the engine's later refusal of connectors without the capability (`409
@@ -2026,7 +2036,7 @@ connection that lost its prefix reads it from the ping.
 
 | Id | 3.0.0 value |
 |---|---|
-| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder in `Engine\Payload` makes the key for every path (contract "Same key from every path"). `ps-` **[O]** needs the engine team's agreement (section 14). |
+| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder, `Engine\Payload\Keys`, makes the key for every path (contract "Same key from every path"). `ps-` **[O]** needs the engine team's agreement (section 14). |
 | `tags.product_id`, §3b `product_ids` | `<prefix><id_product>`: the bare parent id, as Shopify and Woo send it (contract §3 "Parent product id"). |
 | `external_id` (catalog) | `<id_product>` or `<id_product>-<id_product_attribute>`, no prefix. |
 | `external_order_id` | `<prefix><id_order>` |
@@ -2042,13 +2052,15 @@ leaves stale rows that only a manual engine purge removes (contract §3 "Lifecyc
 
 | Field | Source |
 |---|---|
-| Catalog `price` | `Product::getPriceStatic($id, true, $ipa, 6)` at the connection's canonical shop (gross, after reductions). |
+| Catalog `price` | Gross, after reductions, at the connection's canonical shop: what a visitor who is not signed in pays for one unit. As built it is `Product::priceCalculation()`, the calculation behind `Product::getPriceStatic($id, true, $ipa, 6)`, called for the visitor group (`PS_UNIDENTIFIED_GROUP`), the shop's default country and its default currency, rounded to cents. `getPriceStatic()` itself needs a cart or an employee in the context and takes the customer group of whoever's request runs the tick, so a row built during a shopper's request would have carried that shopper's price. With tax unless the shop charges none (`PS_TAX`). |
 | Catalog `compare_price` | The same without reductions, sent only when greater than `price`. |
 | Catalog `currency` | The canonical shop's default currency. |
 | Order `total_amount` | `orders.total_paid_tax_incl`. |
-| `items[].line_total`, `unit_price` | `order_detail.total_price_tax_incl`, `unit_price_tax_incl` (gross, contract §5 "Amount semantics"). |
-| Order `currency` | The order's currency (`orders.id_currency`). |
-| Order `status` | **[D]** `refunded` for `PS_OS_REFUND`; `cancelled` for `PS_OS_CANCELED` and `PS_OS_ERROR`; `completed` when the state has `shipped` or `delivered`; `processing` otherwise. |
+| `items[].unit_price` | `order_detail.unit_price_tax_incl` (gross, contract §5 "Amount semantics"). |
+| `items[].line_total`, `items[].discount_amount` | `order_detail.total_price_tax_incl` less the line's share of the order's vouchers; the share is the line's `discount_amount`. PrestaShop keeps a voucher on the order (`orders.total_discounts_tax_incl`) and not on its lines, where Magento and WooCommerce hold it per line. The share is by the lines' totals, never below zero, the last line taking what rounding left (`OrderPayloadBuilder::shares()`), so that Σ `line_total` + shipping (and gift wrapping) ≈ `total_amount`, the contract's invariant. The order's `discount_amount` is the whole voucher amount. |
+| Order `currency` | The order's own currency (`orders.id_currency`), with the amounts as charged, never converted (owner, 2026-11-21: as Magento and WooCommerce send it; section 15). |
+| Order `status` | **[D]** `refunded` for `PS_OS_REFUND`; `cancelled` for `PS_OS_CANCELED` and `PS_OS_ERROR`; `completed` for a state that is marked shipped (`order_state.shipped`; PrestaShop's states have no "delivered" flag) and for `PS_OS_DELIVERED`; `processing` otherwise. |
+| `items[].returned_at` | The time of the last credit slip of a line whose slips took back its whole quantity (`order_slip_detail`). A line refunded in part stays kept (contract "Return signals"). Read from the order at every send, so a later send does not lose it. No return reason is sent. |
 
 ### 8.4 Front controllers
 
@@ -2179,11 +2191,13 @@ write the old engine store's state over the new one.
 block exactly as the engine sent it, byte for byte: any string, never read in parts, derived or
 shown. An answer without the `connection` block (an engine before the prefix existed) stores none,
 and `Connection::prefix()` then answers `''`. An exchange whose `connection` block holds no string
-prefix is refused, because no value could be kept as given. The Magento and WooCommerce connectors
-also refuse a string that is not `c<N>-` or `''`; this module does not, on the owner's rule that the
-prefix is opaque (section 14, row 45). The ping's prefix, when it is a string, replaces the stored
-one. Story 5.1 sends no product or order key, so nothing uses the prefix yet, and the platform
-namespace `ps-` is in no code.
+prefix is refused, because no value could be kept as given. As the Magento and WooCommerce
+connectors, the module takes a prefix only in the engine's form, `c<N>-` or `''`
+(`Connection::isPrefix()`; owner, 2026-11-21, section 15): an exchange with another string is
+refused before anything is stored (`Setup::read()`), and a ping with another string is ignored, so
+the stored prefix stays (`HealthCheck::withAnswer()`). The form is checked and nothing more: the
+module still reads no part of the prefix. The ping's prefix, when it has that form, replaces the
+stored one. Story 5.2 puts the prefix in front of every key (sections 8.2 and 8.11).
 
 **The setup exchange** (`Engine\Setup`). It takes the engine's setup link
 (`https://intelligence.smaily.com/setup/<token>`) or the token alone. Nothing is stored unless the
@@ -2231,8 +2245,8 @@ line: the health check comes again in 15 minutes, the exchange is the merchant's
 disconnect is one attempt.
 
 **Not built here.** The `X-Engine-Version` notice of the contract's "Versioning" (a screen, Story
-5.3); the sending gate for a refused connection, which Story 5.2 reads from `Connection::refusedAt()`;
-what a layout change does with the connections (Story 5.3).
+5.3); what a layout change does with the connections (Story 5.3). The sending gate for a refused
+connection is built with the ingest (section 8.11).
 
 ### 8.10 The storefront (as built in Story 5.5)
 
@@ -2388,6 +2402,156 @@ once a day (section 4.1).
 identity merge and the order's row to the engine (Story 5.2).
 An order whose validation runs in a payment provider's server call gets no attribution row: that
 request has no cookies (section 14).
+
+### 8.11 Ingest: catalog, customers, orders and the identity merge (as built in Story 5.2)
+
+Story 5.2 sends what changes in the store to Campaign Intelligence: products (contract §3), removed
+products (§3b), the nightly product list (§3c), customers (§4), orders (§5) and the identity merge
+(§7). The history import and the catalog import are Story 5.3; browse events are Story 5.5.
+
+**Gates.** Nothing is noted and nothing is sent for a shop without a stored connection
+(`Connections::forShop()`), and a listener reads nothing of the product, customer or order then. A
+connection exists only after the merchant pasted a setup link (section 8.9), so there is no
+separate on/off switch. While the engine refuses a connection (`Connection::refusedAt()`, section
+8.9) or its key does not read, its rows are still noted and wait as they are
+(`IngestFlusher::maySend()`), as on the Magento connector; they go once a ping is answered again.
+Every request goes through `Engine\Client`, which calls the engine's host only.
+
+**Markers.** A hook writes no payload. `Engine\Capture\IngestMarkers` collects, per request, one
+marker per connection, domain and id, and writes them to `smaily_connect_ingest_queue` when the
+request ends (a shutdown function, as `ContactEvents`). A row names its connection, its domain and
+a product, customer or order id, and holds nothing of them; the flush builds what it sends from the
+store as it is then. A retry, a later change and the Log's "Send again" therefore each send the
+current state, and no row keeps a shopper's data while it waits. One request leaves one row per
+product whatever number of hooks named it: the 7 calls of a product save and the calls of a
+combination "Save list" make one catalog row.
+
+| Capture | Hooks | Notes |
+|---|---|---|
+| `CatalogCapture` | Product add and update, `actionUpdateQuantity`, combination update and delete, specific price add, update and delete, product delete | The product is marked for the connection of every shop that holds it. A deleted product becomes a removal for the connection of each shop it left. |
+| `CustomerCapture` | `actionCustomerAccountAdd`, `actionObjectCustomerUpdateAfter`, `actionValidateOrder`, `actionNewsletterRegistrationAfter` | Only while the customer scope holds the customer (below). |
+| `OrderCapture` | `actionValidateOrder`, `actionOrderStatusPostUpdate`, `actionOrderEdited`, `actionOrderSlipAdd` | The whole order goes again, with its status and its returned lines. An order also marks its products, through the stock change. |
+| `IdentityCapture` | `actionAuthentication`, `actionCustomerAccountAdd` | One `engine.identity_merge` row of the event queue, only in the shopper's own storefront request. |
+
+**Which customers** (`Engine\Ingest\CustomerScope`; contract §4 "Which customers to send"). Exactly
+three groups, asked when the row is noted and again when it is sent:
+
+- (a) a customer whom the shop's contact sync sends to Smaily: the sync is on and confirmed in the
+  customer's shop and `Contacts\ContactAudience` takes the customer. There is no second audience
+  rule.
+- (b) a registered customer with an order in one of the connection's shops inside
+  `config.history.horizon_months` (60 where the connection names none), whatever the marketing
+  consent (section 14, row 43). A guest-checkout customer is not sent as a customer for an order:
+  the order carries the address, as the contract says.
+- (c) a registered customer who signs in or registers with marketing consent. The signal is
+  `customer.newsletter = 1`, PrestaShop's own marketing consent (section 6.1), read at the sign-in
+  and again at the send; `customer.optin` is never read. That customer is sent at that moment,
+  before the merge, by `IdentityMergeHandler`, and by no other path.
+
+No consent value is sent to the engine: the contract's customer row has none. A customer who
+leaves the scope is not sent again; nothing removes a customer whom the engine already has (the
+erasure does, section 11.2).
+
+**What leaves the shop.** Only these fields; a field in brackets goes only when the store has a
+value.
+
+| Call | Fields |
+|---|---|
+| §3 `POST /api/v1/ingest/catalog`, `products[]` | `event_id`, `sku`, `name`, `category_path`, `price`, [`compare_price`], `currency`, `in_stock`, [`description`], [`image_url`], `product_url`, `external_id`, `tags` (`category_path`, `product_id`, [`brand`], [`category_defaulted`]), [`websites`: per shop id `product_url`, for a connection that serves two or more shops], `product_type`, `is_virtual` |
+| §3b `POST /api/v1/ingest/catalog/remove` | `product_ids[]` |
+| §3c `POST /api/v1/ingest/catalog/manifest`, `products[]` | `sku`, `in_stock` |
+| §4 `POST /api/v1/ingest/customers`, `customers[]` | `event_id`, `email`, [`first_name`], [`last_name`], [`country`], [`language`], [`phone`], [`first_seen_at`], `external_id`, [`website`] |
+| §5 `POST /api/v1/ingest/orders`, `orders[]` | `event_id`, `external_order_id`, `customer_email`, `ordered_at`, `total_amount`, [`discount_amount`], [`currency`], `status`, [`smaily_rec_id`], [`smaily_visitor_token`], [`smaily_rec_ctx`], [`website`], `items[]`: `sku`, `qty`, `unit_price`, `line_total`, [`discount_amount`], [`returned_at`] |
+| §7 `POST /api/v1/identity/merge` | `smaily_visitor_token`, `customer_email`, `customer_external_id`, [`merge_ts`], [`merge_reason`] (`user_logged_in`, `email_provided_at_checkout`) |
+
+`country` and `phone` of a customer come from the customer's first active address, as the siblings
+send the billing address's. No street, city, postcode, company, birthday or note leaves the shop.
+The three attribution fields of an order are read from `smaily_connect_order_attribution`, which
+Story 5.5 fills; until then no order carries them. `event_id` is a UUID derived from the
+connection, the row and the item, so a retry repeats it (contract "Idempotency").
+
+Contract fields that the module does not send: `raw_attributes`, `on_sale_until`,
+`is_downloadable` and `tags.merchant_sku` of a product; `group_prices` and `price_group` (no price
+groups in 3.0.0: owner, 2026-11-21, section 15); `anon_session_id` of an identity merge (the
+storefront's seam answers the visitor token only); a return reason.
+
+**The catalog row** (`Engine\Payload\CatalogPayloadBuilder`). One row per combination, and one
+for a product without combinations (section 8.2), built at the connection's canonical shop for
+the product: the connection's own shop, or for the installation-wide connection the default shop
+where it sells the product, else the lowest shop that does. `name`, `description` and
+`product_url` are plain text in a shop of one language and `{language: text}` in a shop of
+several: one row per product, never one per language. A combination's name ends with its
+attributes ("Size: S, Color: White").
+The price is section 8.3's. `category_path` is the slug path of the default category below the
+home category; a product without one gets the contract's placeholder `uncategorized` and
+`tags.category_defaulted`. `in_stock` is per row, from `stock_available` under the shop's stock
+scope, and false for a product that is inactive or not visible, so the engine stops recommending
+it without forgetting it. A product that no shop of the connection holds is not sent (the row is
+skipped, `engine_product_gone`).
+
+**The order row** (`Engine\Payload\OrderPayloadBuilder`). Amounts, currency, status and returned
+lines as section 8.3. An order whose customer is gone is not sent (`engine_order_gone`).
+
+**The flush** (`Engine\Ingest\IngestFlusher`, the job `ingest_flush`). For each connection that
+may send, one batch per domain in turn (catalog, removals, customers, orders), round after round,
+until nothing is due or the job's time is up. The queue's rules are the event queue's (section
+4.3): claims by primary key with a token, stale claims after 10 minutes, the retry ladder, an
+outcome only on a row that still carries its claim. Requests carry at most 100 items (orders 50,
+the route's limit). Outcomes are the Magento connector's:
+
+- the engine's `errors[]` (decision D6) names the items it refused by position: such a row is
+  parked as failed at once (`engine_item_refused`), and the other rows of the request are sent;
+- a request that fails as a whole and may pass later (no answer, a 429, a 5xx) puts its rows on
+  the retry ladder and ends that connection's turn for the run;
+- a request that the engine refuses as a whole parks its rows and ends the domain's turn, unless a
+  ping shows that the engine now refuses the connection itself (401, 403, 409): then the rows go
+  back as they were and wait;
+- a row whose connection is no longer stored is closed as skipped (`no_connection`).
+
+Each row keeps what was sent for it and the answer for it (`last_request`, `last_response`),
+without the engine's `message` at any depth, which can name a shopper; a stored reason is a code.
+
+**The identity merge** (`Engine\Capture\IdentityCapture`, `Engine\Ingest\IdentityMergeHandler`;
+event type `engine.identity_merge`). Queued at a sign-in, and at a registration and a guest
+checkout, where PrestaShop signs the shopper in without `actionAuthentication`. The row names the
+customer by id; its entity is the contact's (`Queue\ContactEntity::of()`), so the privacy erasure
+finds it. The handler sends the customer of group (c) first, in the same run, and then the merge
+when the row has a visitor token; a `404 customer_not_found` sends a customer of group (a) or (b)
+and tries the merge once more (§7 "Retry after 404"), and never again before that. A token that
+the store created (`vs_…`) travels only with marketing consent. A shopper who opted out of
+personalization (section 11.2) gets neither: the row is skipped (`engine_opted_out`), as on the
+Magento connector. A sign-in with neither consent nor a token queues nothing.
+
+**The visitor-token seam.** `Engine\Capture\VisitorToken` is the one seam to the storefront:
+`token(int $idShop, bool $marketingConsent): ?string`. The default, `NoVisitorToken`, answers
+nothing, so until Story 5.5 no merge is sent; a consenting sign-in still sends the customer. Story
+5.5 registers its own under the interface's name in `StorefrontProvider`, which runs after
+`EngineIngestProvider`. Nothing in Story 5.2 creates or reads a cookie.
+
+**The nightly list** (`Engine\Ingest\CatalogManifest`, the job `catalog_manifest`). Once a night,
+from 03:30 of the shop's day, each connection sends the `sku` and `in_stock` of every row of its
+own products in one request; the engine stops recommending what the list leaves out, so a delete
+or a stock change that never arrived heals within a night. The list is built right before it is
+sent and never queued. Nothing is sent while the connection is of the other layout, is refused,
+shares its `tenant_id` with another stored connection while either holds no prefix (section 5.3),
+still has catalog rows or removals waiting, or has no product. More than 50 000 rows cannot use
+the list (contract §3c): none is sent, and the Log gets one failed row a night
+(`engine_manifest_too_many`). A list that fails is not sent again that night.
+
+**The Log.** Every ingest row is a row of the Log (source "Campaign Intelligence", section 10.8),
+also each nightly list (a sample of 20 items and the counts) and each customer that an identity
+merge sent. The janitor sweeps the table with the event queue's periods (section 11.3).
+
+**Profiling opt-out.** A customer or an order that the engine took has its shopper's stored opt-out
+sent again, once, to that connection (`ProfilingConsent::resendOptOuts()`, Magento's
+`OptOutReplay`): the engine keeps an opt-out only for a shopper it holds, and a customer or order
+row carries no consent (section 11.2).
+
+**Not built here.** The catalog and history imports, the pause of the nightly list while an import
+runs, the Dashboard's sentence about a suppressed list, and what a layout change does with the
+rows of a connection (Story 5.3); the visitor token, the attribution rows and browse events (Story
+5.5). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
+the next nightly list leaves it out.
 
 ---
 
@@ -2618,8 +2782,8 @@ group, or all. An event row belongs to its shop, an ingest row to its connection
 job to its shop, and a job of shop 0 (every shop) shows in every selection.
 
 - **Source.** "Smaily" for an event row and for an import job without a connection; "Campaign
-  Intelligence" for an ingest row and for a job that names a connection. No ingest row exists before
-  stage 5, so the list shows "Smaily" only until then.
+  Intelligence" for an ingest row and for a job that names a connection. Ingest rows exist since
+  Story 5.2 (section 8.11).
 - **Status.** The stored status under Magento's names: `pending` → Pending, `processing` → Sending,
   `sent` → Sent, `failed` → Failed, `skipped` → Skipped. An abandoned-cart reminder that was closed
   because the shopper ordered (`skipped` with the reason `ordered`) shows as Withdrawn
@@ -2718,8 +2882,16 @@ mass "Retry" skips it. Its Details name the erasure where the payload and the an
 (`engine.customer_delete`) shows `[erased]` too, and its payload shows `[redacted]` in place of
 the encrypted address.
 
-**Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); sorting by
-another column than Created.
+**Ingest rows** (Story 5.2). "Send again" of a failed ingest row queues a new marker for the same
+connection, domain and id, with the `_resend` record; the flush then sends the product, customer
+or order as it is now. "Retry" returns failed ingest rows to `pending` in place
+(`IngestQueue::retry()`), with the ticked rows or with every failed row that the filter selects.
+The refusals are the guard's own (`ResendGuard::ingestRefusals()`): a row that did not fail, an
+erased row, and a nightly product list, which the next night builds anew ("The product list is
+built afresh each night, so this one is not sent again."). A failed identity merge may always go
+again, as a contact sync: it repeats a state, not a message.
+
+**Not built.** Sorting by another column than Created.
 
 ### 10.9 The Automations panel (as built in Story 4.1)
 
@@ -2844,6 +3016,7 @@ with the account that the request names. `Privacy\PrivacyRequest` runs both requ
 | The module's data | Export | Erasure |
 |---|---|---|
 | Event-queue rows whose entity is the address or its keyed hash | Type, status and creation time; never the message | A `pending` or `processing` row is deleted. A closed row (`sent`, `failed`, `skipped`) stays as the store's record that something was sent: its `payload` becomes `[]`, `last_request` and `last_response` `NULL`, `entity_id` `[erased]`. `last_error` (never a contact's data, section 2.2) and `updated_at` stay, so the row leaves with the queue's retention as before (`EventQueue::erase()`). |
+| Ingest-queue rows (section 8.11): the customer rows of the address's accounts and the order rows of their orders | Type (`engine.customers`, `engine.orders`), status and creation time, in the same list as the event-queue rows; never what was sent | As the event-queue rows: a `pending` or `processing` row is deleted, so nothing more goes out for the shopper; a closed row stays and loses `payload`, `last_request` and `last_response`, and its `entity_key` becomes `[erased]` (`IngestQueue::erase()`). A product's rows hold nothing of a shopper. |
 | Cart tracker rows of the address or of its customer accounts | Cart, status, last change, reminder time | Status `erased`, without address, customer and queue row, whatever the status was. A cart of the accounts that has no order and no row, and that the sweep could still pick up (changed in the last 24 hours), gets such a row too, so that no reminder is queued to the address that was just erased, as Magento marks its tracker rows (`CartTracker::erase()`). The janitor deletes an `erased` row with the closed rows (section 11.3). |
 | Order attribution of the accounts' orders | The row | `visitor_token` becomes `NULL`: it ties the order to a browser. The recommendation id, its context and the time stay with the order, as in Magento. |
 | Discount codes | Code, creation time, last valid time, used or not | An unused code is removed, also one that sits in a cart. A used code stays with its order. |
@@ -2918,11 +3091,15 @@ merchant to run it again after a failure; here the call is queued. (3) Magento k
 choice waiting while the engine refuses the account; here a refusal parks the row, and the Log
 shows it. (4) Magento sends a choice to its primary connection; here it goes to every
 connection, as the export and the erasure do. (5) Magento sends a stored opt-out again when the
-engine confirms a customer or an order of the shopper (`OptOutReplay`); the ingest Story has the
-confirmed items and is where that belongs.
+engine confirms a customer or an order of the shopper (`OptOutReplay`); this module does the same
+since Story 5.2 (`ProfilingConsent::resendOptOuts()`, called by the ingest flush for the
+connection that took the rows; one row per shopper while one waits), so that difference is gone.
+The identity merge of a shopper who opted out is skipped, as on Magento (section 8.11).
 
-**Not covered yet.** The ingest queue (Story 5.2): once it holds customer and order rows, the
-erasure clears those of the shopper the same way.
+**The ingest queue** (Story 5.2). Its customer and order rows are found by the accounts of the
+address and by their orders, and exported and erased as the table above says. An order of an
+account that no longer exists is found only when the request names that account. The identity
+merge is an event-queue row whose entity is the contact's, so it was covered already.
 
 Demonstrated on 8.2.8 (classic theme) and 9.2.0 (Hummingbird) against the engine mock, behind
 the egress guard: a customer's own export from psgdpr's page with two connections and with a
@@ -2947,8 +3124,9 @@ contact import and every daily refresh therefore leaves one row for the life of 
 removes the discount codes of the store automations that no
 order carries, once their end date is more than 30 days past (`Discount\IssuedCodes`, as the
 WooCommerce connector), 200 codes a batch, each through `CartRule::delete()`, until none is left
-or its deadline passes; a used code and every cart rule that the merchant made stay. The Story
-that builds the ingest queue (5.2) adds its table to the sweep.
+or its deadline passes; a used code and every cart rule that the merchant made stay. The ingest
+queue (Story 5.2) is swept with the event queue, by the same periods and batches
+(`IngestQueue::deleteClosed()`): `sent` and `skipped` rows after 30 days, `failed` rows after 90.
 
 **The cart tracker** (owner, 2026-11-21; section 15). The janitor deletes the closed rows of
 `smaily_connect_cart` (`mailed`, `skipped`, `erased`) 30 days after the cart's last change, in batches of
@@ -3114,10 +3292,11 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | New-version notice on the admin pages (CON-380) | Done (section 10.7) | `admin:` |
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
-| 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. It sends no product or order key, so the platform namespace `ps-` (section 8.2) is in no code yet. | `engine:`, `tests:`, `tooling:`, `docs:` |
-| 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows wait for Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
-| 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries no `sku` until Story 5.2's key builder answers the product key seam. | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
-| Stories 5.2, 5.3, 5.4, and stage 6 | Not started | — |
+| 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. | `engine:`, `tests:`, `tooling:`, `docs:` |
+| 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in their own currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and is not agreed with the engine team (section 8.2, Linear INT-306): nothing that sends a key is released before that. The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
+| 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows are covered since Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
+| 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
+| Stories 5.3 and 5.4, and stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -3161,6 +3340,7 @@ has one owner:
 | `ContactReconcileProvider` | 2.4 | `Reconciler`, `ContactImport` and the jobs `contacts_reconcile`, `contacts_refresh`, `contacts_import`. |
 | `AutomationProvider` | 4.1 | Leaves a registration point that 4.2 and 4.3 fill from their own files: `register()` calls the `register(Services)` method of one class per automation, which 4.1 creates empty in `src/src/Automation/Welcome/`, `FirstOrder/` and `AbandonedCart/`, and which 4.2 and 4.3 then own. As built: `AutomationProvider::AUTOMATIONS` lists `WelcomeAutomation`, `FirstOrderAutomation` and `AbandonedCartAutomation`. |
 | `EngineProvider` | 5.1 | |
+| `EngineIngestProvider` | 5.2 | The ingest queue, the payload builders, the customer scope, the capture listeners, the handler of `engine.identity_merge`, the default `VisitorToken` and the jobs `ingest_flush` and `catalog_manifest`. After `EngineProvider`, before `StorefrontProvider`. |
 | `StorefrontProvider` | 5.5 | |
 | `PrivacyProvider` | 5.6 | `PrivacyRequest`, `LocalData`, `GdprHooks`, `ProfilingRecord`, `ProfilingConsent`, `AccountLink`, the handlers of `engine.profiling_consent` and `engine.customer_delete`, the listeners of the two GDPR hooks and of `displayCustomerAccount`, and the profiling consent as a listener of the capture's contact events. `ContactReconcileProvider` hands it the rows that the reconcile changes. |
 | `ReportProvider` | 6.1 | |
@@ -3455,8 +3635,8 @@ has one owner:
   3. Retry of a failed row returns it to `pending` once; mass retry works on a filtered set.
 - **Done.** As built: section 10.8, and the queue columns in section 2.2. The Story also wrote the
   Estonian units of its texts (section 10.4 leaves them to the sweep otherwise).
-- **Left open.** "Send again" and "Retry" of ingest rows wait for the ingest queue (Story 5.2). A
-  reason code that Magento has no sentence for shows as stored.
+- **Left open.** A reason code that Magento has no sentence for shows as stored. ("Send again" and
+  "Retry" of ingest rows came with Story 5.2, section 10.8.)
 
 ### Story 3.5 — Translation sweep (stage 3)
 
@@ -3584,6 +3764,11 @@ has one owner:
      connection while either holds the prefix `""` (section 5.3).
   6. The engine `identity_merge` also runs at registration and at guest checkout, from
      `actionCustomerAccountAdd`, because `actionAuthentication` fires on login only (section 7).
+- **Done.** As built: section 8.11, with the keys of section 8.2 and the money of section 8.3;
+  `src/src/Runtime/Provider/EngineIngestProvider.php`; the Log's ingest rows (section 10.8), the
+  retention sweep (section 11.3) and the privacy coverage of the ingest rows (section 11.2).
+- **Left open.** The imports (Story 5.3) and the visitor token (Story 5.5). `ps-` waits for the
+  engine team (section 14, row 1).
 
 ### Story 5.3 — History import and the Intelligence tab
 
@@ -3694,10 +3879,10 @@ has one owner:
 
 | # | Risk or question | Condition and cost | Who answers |
 |---|---|---|---|
-| 1 | PrestaShop platform key namespace `ps-` (section 8.2) | The contract names no PrestaShop namespace; under the fail-loud enforcement (PRO-1223) an undeclared pattern sends rows to `errors[]`. Per-combination rows (decided) multiply catalog size for stores with many combinations. | Engine team |
+| 1 | PrestaShop platform key namespace `ps-` (section 8.2) | The contract names no PrestaShop namespace; under the fail-loud enforcement (PRO-1223) an undeclared pattern sends rows to `errors[]`. Per-combination rows (decided) multiply catalog size for stores with many combinations. Asked in Linear INT-306. As built, the literal is one constant (`Engine\Payload\Keys::PLATFORM_NAMESPACE`), and nothing that sends a key is released before the answer. | Engine team |
 | 2 | PrestaShop in the §25 sender-rules heading | Answered in part by the contract re-sync of 2026-11-20: the list of synchronized copies names this repository. The §25 heading still reads "one list for WooCommerce, Shopify and Magento". | Engine team |
 | 3 | Registry rows `connect_prestashop`, `prestashop`, and a shop field in the report | Answered by the report contract v1.1.0 (2026-11-20, Linear SUB-28): the registry holds `connect_prestashop` with the platform `prestashop`, and `connections[].website` holds the shop id (section 11.1). v1.2.0 lets the answer carry `latest_version` and `notice`. Story 6.1 adds the copy of the contract. | Subscription team (answered) |
-| 4 | Multi-currency orders | A shop that sells in several currencies sends orders in each; the engine assumes one currency per store. | Engine team |
+| 4 | Multi-currency orders | A shop that sells in several currencies sends orders in each; the engine assumes one currency per store. As built (owner, 2026-11-21): each order goes in its own currency with the amounts as charged, as Magento and WooCommerce send it; what the engine does with a second currency stays its answer. | Engine team |
 | 5 | Which shop context ran the 2.x crons | The migration assumes the default shop; a store whose crontab named another shop's domain gets that shop's values wrong. | Pilot multishop store (spike in 6.3) |
 | 6 | Fallback tick on hosts without `fastcgi_finish_request` | No fallback; the store depends on the cron line. php-fpm has the function (facts file 3.2); LiteSpeed is not verified. | Owner accepts |
 | 7 | A hosted pinger (option D), after 3.0.0 | Removes the cron setup for every merchant; needs Smaily infrastructure. | Owner, later |
@@ -3706,7 +3891,7 @@ has one owner:
 | 10 | `FrameworkBundleAdminController` and the Marketing parent tab on 9.x | Answered: the controller works and is deprecated since 9.0 (section 1.5); no core Marketing tab exists, so the menu sits under Customers (section 10.1). | Story 1.2 (done) |
 | 12 | Merchants who disabled `ps_emailsubscription` emails through 2.x | 3.0.0 cannot restore the `NW_*` values (2.x kept no copy), and `NW_VOUCHER_CODE` is lost. | Accepted; a migration notice says so (2.4), and the upgrade guide of Story 6.2 will |
 | 13 | 1.6.x stores lose the 1.6.x newsletter block | Own signup form is out of 3.0.0. | Accepted; a notice says so, and the upgrade guide of Story 6.2 will |
-| 14 | Prefix assignment while two connections share one engine store (section 5.3) | Until the engine assigns prefixes, two separate-store shops on one Smaily account send no nightly manifest, so lost delete and stock events heal only on the next change. | Engine team |
+| 14 | Prefix assignment while two connections share one engine store (section 5.3) | Until the engine assigns prefixes, two separate-store shops on one Smaily account send no nightly manifest, so lost delete and stock events heal only on the next change. Built as designed (`CatalogManifest::suppressed()`, section 8.11). | Engine team |
 | 15 | Platform facts not verified yet (facts file part 5) | 1. PrestaShop 8.0.x at runtime: verified for the in-shop test suite and for the upgrade walks (genuine 2.2.0 and 1.6.2 stores by upload and console, the FTP walk, the injected failure, the uninstall; section 3.7). The hook probes of the facts file did not run on 8.0.0. 2. MySQL: every run used MariaDB, so the queue's `FORCE INDEX` claim, `GET_LOCK` and the upgrade are untested on MySQL. 3. The official image `prestashop/prestashop:9.2.0-8.1`, which the CI lane uses, passed `validate.sh` with the skeleton and the event queue, not with any later code. 4. LiteSpeed (`litespeed_finish_request()`). 5. The 1.6.x hidden-tab removal: the 1.6.2 walks loaded the tab from the fixture, because 1.6.2 itself does not install in debug mode; no real 1.6.2 install ran it. 6. The hooks not exercised: `actionOrderEdited`, `actionObjectProductAddAfter` on the v2 page, `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter` (`displayCustomerAccount` and the two psgdpr hooks ran in a browser and through psgdpr 1.4.3 on 8.2.8 and 9.2.0, section 11.2). 7. The back office in Estonian was viewed since: `Language::checkAndAddLanguage('et')` adds the language without a language pack, and the module's pages then show the Estonian targets that the XLIFF holds (facts file 6.7). What stays open is the Estonian target of every 3.0.0 string (Story 3.5). 8. Whether an upgraded store keeps the row of the 2.x tab `SmailyForPrestaShopConfiguration` (section 2.4). | The Story that relies on each item verifies it; the matrix (section 12) covers 8.0 |
 | 16 | CI on `v3` | The fork's GitHub Actions are not enabled, so `validate.yaml` has never run; the local runs are the only evidence. | Owner (enable once in the fork's Actions tab) |
 | 17 | A 2.x store after the upgrade | Answered by Stories 2.3 and 4.3: its crontab runs the tick, which covers the work of both 2.x crons (section 3.4). What a merchant must know (fewer reminders than under 2.x, the 24-hour window, the one cron line) waits for the upgrade guide. | Story 6.2 writes the upgrade guide |
@@ -3724,14 +3909,14 @@ has one owner:
 | 37 | A workflow number of another Smaily account | Known limit, accepted for now (owner, 2026-11-21). After a save that puts another Smaily account in a stored one's place (another account in the same mode, or mode `a`'s fallback account), an automation keeps the workflow number that was picked from the first account until the merchant picks a new one (section 5.1). Magento behaves the same. | Cross-connector analysis (Linear CON-397) |
 | 39 | Discount codes: three limits | A guest's code is tied to no account, so it can be passed on. Every email makes a new cart rule, where WooCommerce sends an unused code again. The remainder voucher of a guest's order from a merchant's own rule can still be picked as a template (section 7). | Owner |
 | 40 | The bounds of the checkout capture | One reminder per address in 24 hours, to at most 2000 addresses an hour for the installation, stays possible for whoever posts addresses to the capture URL (section 7). Magento's bound of five writes per cart needs a schema change. | Owner |
-| 41 | Price groups | Contract v1.36.0 adds `group_prices` and `price_group` (Linear CON-385). Not decided: whether 3.0.0 sends them. | Owner |
+| 41 | Price groups | Contract v1.36.0 adds `group_prices` and `price_group` (Linear CON-385). **Decided** (owner, 2026-11-21): 3.0.0 sends none; the catalog price is the visitor's (section 8.3). | Owner |
 | 42 | The product feed | Not decided: whether the RSS feed that 3.0.0 keeps from 2.x is the product feed of the first release, or a second feed is built. | Owner |
-| 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. | Owner |
+| 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. As built (section 8.11): registered customers only; a guest buyer reaches the engine with the order's address alone. Group (c) reads `customer.newsletter`, where the siblings read the cookie banner's marketing consent: PrestaShop has no such signal per shopper (section 9). | Owner |
 
 | 44 | A send whose `sent` cannot be written | A row that went out and whose status write fails twice is sent again after 10 minutes (section 4.3, item 7). Core reads that the module does not own (an object model's load, `Configuration`'s writes) still answer a failure as "nothing" on a live 9.2.0, and were not reviewed one by one (section 1.6). | Owner |
-| 45 | The form of the connection prefix | The module stores `config.connection.prefix` exactly as the engine sends it, whatever its form (section 8.9). The Magento and WooCommerce connectors refuse an exchange, and ignore a ping, whose prefix is neither `c<N>-` nor `''`. The owner's rule "one connector never changes a behaviour rule alone" (section 15) asks for one answer for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
+| 45 | The form of the connection prefix | **Decided** (owner, 2026-11-21): as the Magento and WooCommerce connectors, the module refuses an exchange, and ignores a ping, whose prefix is neither `c<N>-` nor `''`, and stores a prefix of that form exactly as sent (section 8.9). | Owner; cross-connector analysis (Linear CON-397) |
 | 46 | No `source` constant for PrestaShop's browse events | Contract §6 lists `plugin_woo`, `plugin_shopify` and `plugin_magento` and asks a sender to use its listed constant; it lists none for PrestaShop. The relay sends no `source`, so the engine stores `web` (section 8.10). A `plugin_prestashop` needs a contract change. | Engine team |
-| 47 | Browse events without `sku` | The relay has the store's product ids and asks the product key seam for the engine's key (section 8.10). No listener answers until Story 5.2's key builder is wired to it, and that key carries the namespace of row 1. Until then the engine stores product views and cart events without a product. | Story 5.2; engine team (row 1) |
+| 47 | Browse events without `sku` | Answered by Story 5.2: `Engine\Payload\Keys::sku()` listens to the product key seam, so a browse event names its product by the catalog row's key (sections 8.10 and 8.11). That key carries the namespace of row 1, which waits for the engine team. | Engine team (row 1) |
 | 48 | Marketing consent for a store-created visitor token | The contract asks for a shopper's marketing consent (§5, §7). The siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API). PrestaShop has neither, so the module asks for both the merchant's consent setting and the customer's `newsletter` (section 8.10). Confirm, or name another rule for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
 | 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
@@ -3857,3 +4042,12 @@ Decisions of 2026-11-21:
 - The two hooks without a listener, `actionCartSave` and `actionObjectCustomerDeleteAfter`, are
   not registered (owner, 2026-11-21). They left `Install\HookList` and the main class; the
   deleted customer is handled at send time (section 7). The module registers 30 hooks.
+- Orders go to Campaign Intelligence in their own currency (owner, 2026-11-21): the amounts as
+  charged and the order's currency code, never converted, as Magento and WooCommerce send them
+  (sections 8.3 and 8.11; section 14, row 4).
+- The connection prefix has the engine's form, as on the siblings (owner, 2026-11-21): an exchange
+  whose prefix is neither `c<N>-` nor `''` is refused, and such a ping is ignored. The prefix is
+  still stored and used exactly as sent (section 8.9; section 14, row 45).
+- No price groups in 3.0.0 (owner, 2026-11-21): the catalog row carries the price of a visitor who
+  is not signed in, and neither `group_prices` nor `price_group` is sent (section 8.11; section 14,
+  row 41).
