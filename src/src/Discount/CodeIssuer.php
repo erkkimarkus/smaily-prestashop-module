@@ -41,8 +41,8 @@ if (!defined('_PS_VERSION_')) {
  *    module knows its own rules: no column or table holds that;
  *  - it can be used once (quantity 1, once per customer), is never advertised in a cart
  *    (highlight off) and is enabled, also where the template is disabled;
- *  - it is valid from now until 23:59:59 of the day $days days from today, in the shop's time, and
- *    never after the template's own end date;
+ *  - it is valid from now (its start date is a day back, see issue()) until 23:59:59 of the day
+ *    $days days from today, in the shop's time, and never after the template's own end date;
  *  - it is tied to a customer account when the shopper has one (`id_customer`); else anyone who
  *    enters it can use it, once.
  *
@@ -66,6 +66,8 @@ final class CodeIssuer
     private const NAME_LENGTH = 254;
 
     private const CODE_ATTEMPTS = 5;
+
+    private const START_MARGIN_SECONDS = 86400;
 
     private TemplateRules $templates;
 
@@ -121,7 +123,9 @@ final class CodeIssuer
         $rule->quantity_per_user = 1;
         $rule->highlight = false;
         $rule->active = true;
-        $rule->date_from = date('Y-m-d H:i:s', $now);
+        // PrestaShop 8 lists a customer's vouchers by the database server's clock, which can be hours
+        // behind the shop's: a start a day back shows the code at once, and nobody held it before now.
+        $rule->date_from = date('Y-m-d H:i:s', $now - self::START_MARGIN_SECONDS);
         $rule->date_to = date('Y-m-d H:i:s', $end);
         try {
             if (!$rule->add()) {

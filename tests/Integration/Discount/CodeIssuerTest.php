@@ -71,7 +71,7 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertTrue(CodeIssuer::isIssued($rule));
         self::assertFalse(CodeIssuer::isIssued($source));
         self::assertSame(
-            [$customer, 1, 1, 0, 1, date('Y-m-d H:i:s', $now), $code['expires_at'] . ' 23:59:59'],
+            [$customer, 1, 1, 0, 1, date('Y-m-d H:i:s', $now - 86400), $code['expires_at'] . ' 23:59:59'],
             [(int) $rule->id_customer, (int) $rule->quantity, (int) $rule->quantity_per_user, (int) $rule->highlight, (int) $rule->active, $rule->date_from, $rule->date_to]
         );
         self::assertSame(
