@@ -387,4 +387,5 @@ content is written in English.
   trend. Gauge: first-release capabilities demonstrated by exercising the
   real flow, out of 14 (read from the checklist in STATUS.md). Dates: none
   — Erkki 2026-11-20: "no deadline — show progress over time". Values:
-  2026-11-20 (start): 0/14; 2026-11-20 (stage 1 done): 1/14.
+  2026-11-20 (start): 0/14; 2026-11-20 (stage 1 done): 1/14; 2026-11-21
+  (capabilities 3, 4, 6 and 7 walked): 7/14.

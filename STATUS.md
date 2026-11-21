@@ -10,7 +10,7 @@
 
 _Last updated: 2026-11-21 — stages 1 and 2 done; the admin screens built
 (Dashboard, Initial setup, Settings, Log); the three store automations built
-with their Automations tab; gauge 3/14._
+with their Automations tab; capabilities 3, 4, 6 and 7 walked; gauge 7/14._
 
 ## Next session opens with
 
@@ -19,18 +19,17 @@ On `v3`: stages 1 and 2; the admin shell, Initial setup, Dashboard, Settings
 the three store automations; the upgrade hardening; the stale-subscription
 skip; the Marketplace structural rules. Built on the branch
 `worktree-agent-ab0c8477db5c692d3`, not yet on `v3`: discount codes in store
-automations (CON-393, Story 4.4, ARCHITECTURE 7). In flight (2026-11-21): the
-PHP 8.0.30 segfault on the 8.2.8 test lane.
-Last verified: in-shop 1293 tests, 6245 assertions on a fresh 8.2.8 and 9.2.0;
-host 1293 tests, 2012 assertions, 636 skipped; `tests/ci/validate.sh` one
+automations (CON-393, Story 4.4, ARCHITECTURE 7). The PHP 8.0.30 segfault of
+the 8.2.8 test lane did not reproduce; its cause is unknown (CLAUDE.md).
+Last verified: in-shop 1336 tests, 6498 assertions on a fresh 8.2.8 and 9.2.0;
+host 1336 tests, 2037 assertions, 670 skipped; `tests/ci/validate.sh` one
 landing earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
 
 Then, in this order: (1) land discount codes (CON-393; its privacy export and
-erasure wait for Story 5.6, which calls `Discount\IssuedCodes`); (2) walk
-capabilities 3, 4, 6 and 7 through the screens and tick them, and check against
-ARCHITECTURE 6.x and the siblings that a newsletter-block subscriber without an
-account gets the welcome email only with "Include guests" on (an existing
-rule); (3) Estonian targets and an on-screen check for every v3 admin string,
+erasure wait for Story 5.6, which calls `Discount\IssuedCodes`); (2) the
+defects and the owner's points of the walk of capabilities 3, 4, 6 and 7
+(`docs/internal/walks/`; first, a save for one shop can replace the shared
+setup); (3) Estonian targets and an on-screen check for every v3 admin string,
 sentences for the Log's reason codes that still show as codes, a cron line
 without the admin's language prefix; (4) a simplification review of the Log and
 Automations code; (5) stage 5 (group prices, CON-385, contract 1.36.0) only
@@ -40,13 +39,13 @@ after the owner says so.
 
 - **Not verified:** MySQL (queue claim, `GET_LOCK`, upgrade); the official
   9.2.0-8.1 image after the event queue; LiteSpeed; the 1.6.x hidden-tab
-  removal on a real 1.6.2 install; the 2.x admin tab's row after an upgrade.
+  removal on a real 1.6.2 install. The 2.x tab row stays in `tab`, inactive.
 - **The live Smaily API has never been called**; every run used the mock.
 - **Clean-up** (ARCHITECTURE 13): `Upgrade300`; the janitor skips two tables;
   two hooks without a listener; the unwired 2.x classes; screenshots for the
   user guide (five 2.x images are unreferenced); CLAUDE.md rule 4 says v1.35.0.
 
-## First-release checklist (gauge: 3 / 14 demonstrated)
+## First-release checklist (gauge: 7 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; a line names how.
 
@@ -57,14 +56,18 @@ A box is ticked only when the real flow was exercised; a line names how.
 - [x] 2. Smaily account connection, with an invitation for a new store
   - Demonstrated by: the Initial setup walked in a browser on 8.0.0 and 9.2.0
     against the Smaily mock (connect, test, wrong credentials, invitation).
-- [ ] 3. Store mode by language (four modes)
-- [ ] 4. Store mode by shop: one shared setup, or one per shop
+- [x] 3. Store mode by language (four modes)
+  - Demonstrated by: the four modes walked in a browser on 8.2.8 and 9.2.0.
+- [x] 4. Store mode by shop: one shared setup, or one per shop
+  - Demonstrated by: two shops walked on 8.2.8 and 9.2.0; open: walk defect 1.
 - [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only
   - Demonstrated by: the mode chosen in the Initial setup; registration,
     guest checkout, account edit, newsletter block and orders walked over
     HTTP on 8.0.0 and 9.2.0 against the Smaily mock. Not the live Smaily.
-- [ ] 6. Contact sync both ways, first import, and a Log with retry
-- [ ] 7. Store automations: welcome, first order, abandoned cart
+- [x] 6. Contact sync both ways, first import, and a Log with retry
+  - Demonstrated by: the storefront, tick and Log walked on 8.2.8 and 9.2.0.
+- [x] 7. Store automations: welcome, first order, abandoned cart
+  - Demonstrated by: walked on 8.2.8 and 9.2.0, with a genuine 2.2.0 upgrade.
 - [ ] 8. Campaign Intelligence connection with catalog, customer and order
   imports
 - [ ] 9. Campaign Intelligence automations, listed from the engine
@@ -143,4 +146,4 @@ upgrade, with a notice (3.3; the owner may overturn it).
 10. A pilot store: one PrestaShop 8 store on 2.x asked about abandoned cart.
 
 Linear: P-CON-324; CON-373 (upgrade), CON-378 (contacts), CON-379 (Marketplace),
-CON-380, CON-393, CON-385, CON-371, CON-377; INT-306; SUB-28. Gauge: 3/14.
+CON-380, CON-393, CON-385, CON-371, CON-377; INT-306; SUB-28. Gauge: 7/14.
