@@ -2,8 +2,8 @@
 
 This recipe runs a local PrestaShop with the module from `src/`. It was run on 2026-11-20 on macOS
 (Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, first with the 3.0.0
-skeleton and the event queue, later with stage 1 complete and Story 2.1, and last with Stories 1.8,
-2.2 and 2.4 and the new-version check. Each step says whether it was verified, and on which code.
+skeleton and the event queue, and again as the code grew, last on 2026-11-21. Each step says whether
+it was verified, and on which code.
 
 The admin user and password are the demo ones in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
@@ -28,7 +28,7 @@ The tests use PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0. The lock hol
     (cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
 
 On the host, PHPUnit runs the unit tests and skips the integration tests, which need a shop (section
-4). The counts grow with every Story; section 4 gives the last verified counts of the whole suite.
+4). The counts grow with the code; section 4 gives the last verified counts of the whole suite.
 PHP CS Fixer checks `src/` only (its finder starts there), not `tests/`. Set
 `PHP_CS_FIXER_IGNORE_ENV=1` on a PHP newer than PHP CS Fixer supports. PHPStan does not run: its
 config and Composer script exist, but no `phpstan` binary is installed.
@@ -73,7 +73,7 @@ with the PrestaShop console:
     docker compose exec -u www-data prestashop php bin/console prestashop:module install smailyforprestashop
 
 Verified result of a fresh 3.0.0 install: `Install action on module smailyforprestashop succeeded`, the
-`ps_module` row at version 3.0.0, 31 hooks, the 9 `ps_smaily_connect_*` tables and the configuration key
+`ps_module` row at version 3.0.0, 32 hooks, the 9 `ps_smaily_connect_*` tables and the configuration key
 `SMAILY_CONNECT_SCHEMA_VERSION`. A fresh install creates no `smaily_cart` table, no other `SMAILY_*`
 key and no override file. The first page request afterwards runs the fallback tick and writes
 `SMAILY_CONNECT_TICK_STATE`; the first request to a cron or tick URL creates that door's token.
@@ -84,9 +84,9 @@ Run the unit and integration tests inside the shop, from the module's own folder
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
 Last verified results, all passing: 1293 tests, 6245 assertions on 8.2.8 and 9.2.0, each on a fresh
-shop, with the Automations tab (Story 4.1); 8.0.0 last ran at the stage 1 integration commit (278
-tests, 1337 assertions). On the host the same suite runs its unit tests and skips the integration
-tests (1293 tests, 2012 assertions, 636 skipped). `PS_ROOT_DIR` makes the test bootstrap boot the
+shop, with the Automations tab on `v3` (2026-11-21); 8.0.0 last ran with the upgrade-safe core
+only (278 tests, 1337 assertions). On the host the same suite runs its unit tests and skips the
+integration tests (1293 tests, 2012 assertions, 636 skipped). `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
@@ -108,9 +108,13 @@ gaps:
 
 The suite expects a shop that nobody has set up by hand, and these conventions keep it so:
 
-- Run it on a fresh or reset shop (section 8). After a walk of the admin screens that added a second
-  shop, 27 migration tests failed on what the walk left.
-- The abandoned-cart tests expect a shop with no leftover carts; a reset shop is green.
+- Run it on a fresh or reset shop (section 8). The suite is not green on a shop that was walked by
+  hand: after a walk of the admin screens that added a second shop, 27 migration tests failed on
+  what the walk left.
+- The abandoned-cart integration tests (`tests/Integration/Automation/AbandonedCart/`) expect a
+  shop with no leftover carts; a reset shop is green.
+- A storefront with more than one language answers `/` with a 302. A check that expects 200 at `/`
+  (step 6 of the CI script, section 6) holds on a shop with one language.
 - A test that requests the storefront records a fresh tick first, as `RssFeedTest` does. Otherwise the
   request runs the fallback tick, and with it the update check.
 
@@ -146,7 +150,7 @@ the Settings work; removing the folders has not failed.
 
 ## 4a. Keep a walk away from the real Smaily: the egress guard (verified on 8.2.8 and 9.2.0)
 
-The tests use mocks, but a person or an agent who walks the admin screens types credentials, and the
+The tests use mocks, but whoever walks the admin screens types credentials, and the
 shop then calls `https://<subdomain>.sendsmaily.net` for real. The egress guard in
 `tests/egress-guard/` closes that door for a dev shop (the flashlight images of
 `docker-compose.yaml`):
@@ -163,7 +167,10 @@ Start it from the repository root, with the stack's Compose variables set as for
 
     MOCK_USER=walk-user MOCK_PASSWORD=not-a-real-password tests/egress-guard/install.sh
 
-**Load the guard before the first admin request of a walk.** A walk once reached the real Smaily
+**Load the guard before the first request to the module: before the first admin page and before
+the first tick.** A shop that holds an account, also the invented account of a legacy fixture, calls
+that account's `*.sendsmaily.net` host from the tick (the reconcile, the imports, the queue flush),
+and a page request or a cron URL runs the tick. A walk once reached the real Smaily
 host with invented credentials, because its proxy settings sat in a file that PHP-FPM never read: the
 flashlight `php-fpm.conf` does not include `php-fpm.d/`. `install.sh` therefore appends the settings
 to `php-fpm.conf` itself, reloads PHP-FPM, and ends with the check below. Recreating the shop
@@ -186,7 +193,9 @@ The guard covers page requests. A command that you run with `docker compose exec
 PHPUnit) reads its own environment: give it the proxy with
 `-e https_proxy=http://127.0.0.1:3128 -e http_proxy=http://127.0.0.1:3128 -e no_proxy=localhost,127.0.0.1`.
 The mock's state (the requests it received, the workflows it lists) is `/tmp/smaily-mock/state.json`
-in the container. Each recorded request names its `host`, so a walk can tell which Smaily account
+in the container. `install.sh` seeds one workflow in it (id 11, "Welcome", a "form submitted"
+workflow that is switched on); a walk that needs more workflows, or one per account, edits the
+`workflows` list of that file. Each recorded request names its `host`, so a walk can tell which Smaily account
 a call went to; a workflow of the state with a `subdomain` is listed only to that account. The
 console's `prestashop:module upgrade` asks PrestaShop's Distribution API first and fails behind the
 guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the pending migration. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
@@ -233,11 +242,11 @@ Results on 2026-11-20:
 - With the skeleton and the event queue: all 10 checks `ok` on flashlight 8.0.0, 8.2.8 and 9.2.0, and
   on the official image `prestashop/prestashop:9.2.0-8.1` with `PS_COMPOSE=docker-compose.official.yaml`
   (the image CI uses for 9.2.0).
-- With stage 1 complete: the in-shop test counts of that time on flashlight 8.0.0, 8.2.8 and 9.2.0.
-- With Stories 1.8, 2.2 and 2.4 and the new-version check: 10 of 10 checks on flashlight 8.2.8 and
-  9.2.0, as the worker that ran them reported.
-- With Settings (Story 3.3) on `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0, with the in-shop
-  counts of section 4.
+- With the upgrade-safe core: the in-shop tests of that time passed on flashlight 8.0.0, 8.2.8 and
+  9.2.0 (8.0.0: 278 tests, 1337 assertions).
+- On 2026-11-21, with the Log page, the upgrade hardening and the Marketplace structural rules on
+  `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0, with 1266 tests and 6101 assertions in the
+  shop on each. Section 4 holds the newer counts of the dev shop.
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront. The fallback tick
@@ -273,7 +282,7 @@ To start from a legacy state, install the matching release and load a fixture fr
 
 ## 7a. Upgrade walk from a genuine 2.x or 1.6.x release
 
-The stage 1 upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
+The first upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
 commands below follow those walks; they were not run again for this document.
 
 1. **Build the 3.0.0 zip first:** `composer --working-dir src package`. The script deletes all of

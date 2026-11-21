@@ -5,7 +5,7 @@ Marketplace (addons.prestashop.com) requires of a module, as PrestaShop's own pa
 days, and where this module stands against each technical rule. Each claim names the page it comes
 from. Read the pages again before any listing step.
 
-The code follows the Marketplace technical rules from the start (Linear CON-379). The listing itself
+The code follows the Marketplace technical rules from the start. The listing itself
 is a separate business step.
 
 ## 1. Who may list
@@ -137,6 +137,11 @@ The zip holds 330 files: 319 of the module (251 PHP, 37 Twig, 13 YAML, 7 JavaScr
 each of CSS, XML, XLIFF, PNG, PDF, `composer.json`, `composer.lock` and `.htaccess`) and 11 of
 Composer's autoloader in `vendor/`. It holds no test, no development configuration, no Markdown file
 and no operating-system file.
+
+The counts of this section were taken before the Automations tab was added. That change brought 2
+PHP files and 3 Twig templates, so git now tracks 324 module files for the zip (253 PHP, 40 Twig);
+each of the five new files carries the licence notice, and both PHP files the `_PS_VERSION_` check.
+The other counts were not taken again.
 
 ### 6.1 Technical rules that the module meets
 

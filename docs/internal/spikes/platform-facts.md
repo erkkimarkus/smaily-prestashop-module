@@ -337,7 +337,8 @@ second PHP process got `0` while the first held it; `RELEASE_LOCK()` returned `1
 'Modules.Smailyforprestashop.Admin')` returned the Estonian target on both. `isUsingNewTranslationSystem()`
 is `true`. `TranslatorLanguageLoader` loads `<module>/translations/<locale>/` files named
 `<Domain>.<locale>.xlf` for every active module. The Estonian language itself is not installed in either
-demo database, so the back office was not viewed in Estonian.
+demo database, so the back office was not viewed in Estonian then; 6.7 records how it was viewed
+later.
 
 ## 4. Summary of the changes to ARCHITECTURE.md
 
@@ -364,7 +365,8 @@ toggle), the catalog rows of section 7.
   `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter`, `displayCustomerAccount`, psgdpr
   export/erasure hooks. Each needs one admin or front action with the probe module.
 - **`prestashop:module install` on an installed module** taking the upgrade path: read from code, not run.
-- **Back office in Estonian**: needs the `et` language installed (language pack download).
+- **Back office in Estonian**: verified since (6.7). `Language::checkAndAddLanguage('et')` adds the
+  language without a download, and the module's pages then show the Estonian targets of the XLIFF.
 - **LiteSpeed** (`litespeed_finish_request()`): no LiteSpeed image was available.
 
 ## 6. Additions after stage 1
