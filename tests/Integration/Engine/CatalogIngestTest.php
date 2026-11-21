@@ -162,6 +162,44 @@ final class CatalogIngestTest extends IngestTestCase
         self::assertSame('standard', $sent[2]['product_type']);
     }
 
+    public function testThePriceIsGrossWithTheTaxOfTheShopsDefaultCountry(): void
+    {
+        $this->connect();
+        $languages = array_map('intval', \Language::getIDs(false));
+        $tax = new \Tax();
+        $tax->name = array_fill_keys($languages, 'Ingest test VAT');
+        $tax->rate = 20.0;
+        $tax->active = true;
+        self::assertTrue((bool) $tax->add());
+        $this->keep($tax);
+        $group = new \TaxRulesGroup();
+        $group->name = 'Ingest test VAT';
+        $group->active = true;
+        self::assertTrue((bool) $group->add());
+        $this->keep($group);
+        $rule = new \TaxRule();
+        $rule->id_tax_rules_group = (int) $group->id;
+        $rule->id_country = (int) \Configuration::get('PS_COUNTRY_DEFAULT');
+        $rule->id_tax = (int) $tax->id;
+        $rule->zipcode_from = '0';
+        $rule->zipcode_to = '0';
+        $rule->behavior = 0;
+        self::assertTrue((bool) $rule->add());
+        $this->keep($rule);
+        // PrestaShop keeps a group's taxes for the life of a process. The demo products name a tax
+        // group that does not exist, and a fresh shop gives this group that very id.
+        \Cache::clean((int) $rule->id_country . '-0-0-' . (int) $group->id);
+        \TaxManagerFactory::resetStaticCache();
+        $product = $this->product(['price' => 10.0, 'tax' => (int) $group->id]);
+        $this->keep(self::specificPrice((int) $product->id, 0.5));
+        $this->commit();
+
+        $this->flush();
+
+        $sent = $this->sent(self::CATALOG, 'products')[0];
+        self::assertEquals([6.0, 12.0], [$sent['price'], $sent['compare_price']], 'a net price of 10 with 20 % tax: 12 before the reduction, 6 after it');
+    }
+
     public function testADeletedProductBecomesARemovalAndTheEngineTombstonesItsRows(): void
     {
         $this->engine->set('next_prefix', 'c3-');
@@ -343,7 +381,7 @@ final class CatalogIngestTest extends IngestTestCase
         $product->price = (float) ($fields['price'] ?? 10.0);
         $product->id_category_default = (int) \Configuration::get('PS_HOME_CATEGORY');
         $product->active = (bool) ($fields['active'] ?? true);
-        $product->id_tax_rules_group = 0;
+        $product->id_tax_rules_group = (int) ($fields['tax'] ?? 0);
         self::assertTrue($product->add());
         $this->keep($product);
         \StockAvailable::setQuantity((int) $product->id, 0, 5);
