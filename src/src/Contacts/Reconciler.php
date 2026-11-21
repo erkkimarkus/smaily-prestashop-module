@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
@@ -61,7 +62,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * logged before it is on the list, which is read after it. Every run after the first applies both
  * directions.
  *
- * The writes go straight to the tables, so they fire no hook and queue nothing back to Smaily. The
+ * The writes go straight to the tables, so they fire no hook and queue nothing back to Smaily. A
+ * listener of onConsentChange() hears each row that changed: leaving marketing also stops
+ * profiling, whoever recorded it (Privacy\ProfilingConsent, as the Magento connector). The
  * cursor of each account is stored under CURSORS after every chunk or page, so a run that the
  * deadline stops goes on from there. A read or a write that fails ends the run (Database\Sql)
  * before the cursor moves past what was not applied, and the next run reads that part again. A log
@@ -101,12 +104,26 @@ final class Reconciler
     /** @var array<string, string> account key by "<id_shop>:<id_lang>", for one run */
     private array $accountKeys = [];
 
+    /** @var (callable(int, string, bool): mixed)|null */
+    private $consentListener;
+
     public function __construct(ScopeResolver $scopes, ContactsSettings $settings, Transport $transport, int $pageSize = self::PAGE_SIZE)
     {
         $this->scopes = $scopes;
         $this->settings = $settings;
         $this->transport = $transport;
         $this->pageSize = $pageSize;
+    }
+
+    /**
+     * Hands $listener each row whose consent a run changed: $listener($idShop, $email,
+     * $subscribed). A listener that throws is logged and stops nothing.
+     *
+     * @param callable(int, string, bool): mixed $listener
+     */
+    public function onConsentChange(callable $listener): void
+    {
+        $this->consentListener = $listener;
     }
 
     /**
@@ -269,10 +286,12 @@ final class Reconciler
         $changed = 0;
 
         $ids = [0 => [], 1 => []];
+        $changes = [];
         foreach ($this->rows('customer', 'id_customer', array_keys($subscribed), $key, $shops, 'newsletter') as $row) {
             $wanted = (int) ($subscribed[strtolower(trim((string) $row['email']))] ?? $row['newsletter']);
             if ((int) $row['newsletter'] !== $wanted) {
                 $ids[$wanted][] = (int) $row['id'];
+                $changes[] = [(int) $row['id_shop'], (string) $row['email'], $wanted === 1];
             }
         }
         foreach ($ids as $wanted => $customers) {
@@ -289,12 +308,20 @@ final class Reconciler
             foreach ($this->rows('emailsubscription', 'id', $unsubscribed, $key, $shops, 'active') as $row) {
                 if ((int) $row['active'] === 1) {
                     $ids[] = (int) $row['id'];
+                    $changes[] = [(int) $row['id_shop'], (string) $row['email'], false];
                 }
             }
             if ($ids !== []) {
                 Sql::write('UPDATE `' . _DB_PREFIX_ . 'emailsubscription` SET `active` = 0'
                     . ' WHERE `id` IN (' . implode(',', $ids) . ')');
                 $changed += count($ids);
+            }
+        }
+        foreach ($this->consentListener === null ? [] : $changes as [$idShop, $email, $isSubscribed]) {
+            try {
+                ($this->consentListener)($idShop, $email, $isSubscribed);
+            } catch (\Throwable $error) {
+                Log::failure('a listener of the reconcile', $error);
             }
         }
 

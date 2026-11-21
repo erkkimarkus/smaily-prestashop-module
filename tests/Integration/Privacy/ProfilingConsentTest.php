@@ -196,6 +196,29 @@ final class ProfilingConsentTest extends PrivacyTestCase
         self::assertSame([true, 'account'], [$record->find(self::ADDRESS_A)['opted_out'], $record->find(self::ADDRESS_A)['source']]);
     }
 
+    public function testAnUnsubscribeThatTheReconcileTakesFromSmailyStopsProfilingToo(): void
+    {
+        $this->connect();
+        $idCustomer = $this->fixture->customer(self::ADDRESS_A, false, true);
+        \Configuration::updateGlobalValue(\PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings::ENABLED, '1');
+        \Configuration::updateGlobalValue(\PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings::CONFIRMED, '1');
+        $this->mode(\PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode::SUBSCRIBERS);
+        $this->services = $this->services();
+        $this->mock->setUnsubscribers([self::ADDRESS_A]);
+
+        $changed = $this->services->get(\PrestaShop\Module\SmailyForPrestaShop\Contacts\Reconciler::class)
+            ->run(new \PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline(microtime(true) + 15, static fn (): float => microtime(true)));
+
+        self::assertSame(1, $changed);
+        self::assertSame(0, (int) self::db()->getValue('SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . $idCustomer));
+        $record = $this->services->get(ProfilingRecord::class)->find(self::ADDRESS_A);
+        self::assertSame([true, 'unsubscribe'], [$record['opted_out'], $record['source']], 'as the Magento connector, whoever recorded the unsubscribe');
+        $rows = self::table('smaily_connect_event_queue');
+        self::assertSame([ProfilingConsent::EVENT_TYPE], array_column($rows, 'event_type'), 'the engine hears it; nothing goes back to Smaily');
+        self::assertTrue(json_decode((string) $rows[0]['payload'], true)['opt_out']);
+        \Configuration::deleteByName(\PrestaShop\Module\SmailyForPrestaShop\Contacts\Reconciler::CURSORS);
+    }
+
     public function testAnAccountSaveThatUnticksTheNewsletterStopsProfilingThroughTheHooks(): void
     {
         $this->connect();

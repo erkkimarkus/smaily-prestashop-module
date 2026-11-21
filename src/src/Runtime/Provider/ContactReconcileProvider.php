@@ -36,6 +36,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Reconciler;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
@@ -56,11 +57,21 @@ final class ContactReconcileProvider implements ProviderInterface
 {
     public function register(Services $services): void
     {
-        $services->set(Reconciler::class, fn (Services $services): Reconciler => new Reconciler(
-            $services->get(ScopeResolver::class),
-            $services->get(ContactsSettings::class),
-            $services->get(Transport::class)
-        ));
+        $services->set(Reconciler::class, static function (Services $services): Reconciler {
+            $reconciler = new Reconciler(
+                $services->get(ScopeResolver::class),
+                $services->get(ContactsSettings::class),
+                $services->get(Transport::class)
+            );
+            // Leaving marketing also stops profiling, and joining again lifts that (section 11.2).
+            $reconciler->onConsentChange(static fn (int $idShop, string $email, bool $subscribed): int => $services->get(ProfilingConsent::class)->onContactEvent(
+                $idShop,
+                null,
+                ['email' => $email, 'subscribed' => $subscribed, 'consent_changed' => true]
+            ));
+
+            return $reconciler;
+        });
         $services->set(ContactImport::class, fn (Services $services): ContactImport => new ContactImport(
             new JobStore(),
             new ContactSource(),
