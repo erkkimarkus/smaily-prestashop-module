@@ -177,10 +177,13 @@ ask (Linear discipline below).
   into its cookie when the request ends, after the shutdown functions.
   Send a response early only through `TrafficTick::finishFunction()`,
   which writes the cookie first (facts file 6.8).
-- **A failed query on 9.2.0.** With debug mode off, PrestaShop 9.2.0
-  answers `false` to a failed database query instead of throwing (facts
-  file 6.11). A read that treats `false` as "no row" must check for an
-  array, or ask with `COUNT(*)`.
+- **Database access.** Every database read and write goes through the
+  module's gateway, which throws on a failed query; PrestaShop 9 in
+  production answers `false` instead (facts file 6.11). The gateway is
+  `Database\Sql`; a unit test fails on a direct call of `Db`, and a test
+  fails a chosen query with `tests/Integration/Fixtures/FailingQueries.php`
+  (ARCHITECTURE 1.6). A failed load of PrestaShop's own configuration
+  throws through `Config\Settings` (facts file 6.12).
 - **The tick URL's token.** A tick over its URL needs a stored token; the
   Dashboard's "Show the cron line" or the upgrade creates it, and a request
   to the URL never does (ARCHITECTURE 4.3).

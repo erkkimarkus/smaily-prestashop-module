@@ -577,7 +577,83 @@ to 67), which renumbers integer keys, so the driver options arrive as the keys 0
 mode. 8.2.8 writes the options as one array and keeps PHP 8's default, exceptions.
 
 So on a live 9.2.0 store a failed read looks like an empty one: `new ObjectModel($id)` is not loaded,
-`getValue()` and `getRow()` answer `false`, `executeS()` answers `false` (not `[]`). Code that must
-tell "no row" from "the read failed" asks with `COUNT(*)` (a count always answers a row) or checks
-`executeS()` for an array. The discount codes do (ARCHITECTURE section 7). A test of such code runs
-with debug mode off too: `php -d auto_prepend_file=<a file that defines _PS_MODE_DEV_ false>`.
+`getValue()` and `getRow()` answer `false`, `executeS()` answers `false` (not `[]`), and a write
+(`execute()`, `update()`, `delete()`) answers `false`. `getRow()` and `getValue()` answer `false` for
+"no row" too, so their answer does not tell the two apart. **Corrected on 2026-11-21:** this section
+said that a `COUNT(*)` read through `getValue()` is safe, because a count always answers a row. It is
+not once the answer is cast: `(int) false` is 0, so `(int) $db->getValue('SELECT COUNT(*) …')` reads a
+failed count as "no row". The count is safe only where the code compares the answer with `false`
+before the cast. Only `executeS()` tells by itself: it answers an array for every query that ran.
+
+**Observed with a real failed query** (2026-11-21, flashlight 8.2.8 and 9.2.0 with debug mode off,
+behind the egress guard). A statement of a console upgrade or of a tick ran into a table lock of a
+second session and MariaDB answered error 1205, "Lock wait timeout exceeded", after one second
+(`lock_wait_timeout` = 1):
+
+- 9.2.0: the statement answered `false`, nothing was thrown or logged, and the request went on.
+- 8.2.8: the same statement threw `PrestaShopException` at `DbPDO.php:153`.
+- 9.2.0 with the module as it was before its gateway (`v3` at `0d4425e`): the console upgrade of a
+  genuine 2.2.0 store (`2.2.0-configured.sql`) whose reads of `configuration` failed ended with the
+  migration `done`, 15 of its 17 legacy keys deleted (the two cron tokens stay), no account row and
+  no workflow row; a queue flush whose read of a contact's later rows failed sent a subscription
+  after the same contact's unsubscribe had been delivered (the Smaily mock received
+  `is_unsubscribed` 0, 1, 0); a sweep whose read of the recent reminders failed queued a second
+  reminder for an address reminded minutes before, and the next flush sent it.
+
+What follows for the module: every read and write goes through `Database\Sql`, which reads with
+`executeS()` and throws `Database\SqlException` when the query failed, whatever the version and the
+debug mode (ARCHITECTURE section 1.6). With it, the same three failures on 9.2.0 and 8.2.8 left the
+migration pending with every legacy key, the row waiting for its retry, and the sweep's job failed
+with nothing queued; the next run completed each. Core APIs that read on the module's behalf (an
+object model's load, `CartRule::copyConditions()`, `Configuration`, section 6.12) keep PrestaShop's
+behaviour.
+
+**How a failed query is made.** In a test, `tests/Integration/Fixtures/FailingQueries.php` stands
+behind the gateway and answers `false` for the statements that a pattern selects, so the test runs
+alike on every lane. A test of code that relies on a core API fails the query for real (a table
+renamed for the moment, a trigger that refuses a row) and runs with debug mode off too:
+`php -d auto_prepend_file=<a file that defines _PS_MODE_DEV_ false>`. In a real shop, a second
+database session set `SET GLOBAL lock_wait_timeout = 1`, took `LOCK TABLES <table> WRITE` at a
+chosen moment, and freed the table once the chosen statement had timed out. It found the moment in
+`information_schema.PROCESSLIST`: either a value that the request had just stored (the migration's
+progress record), or a statement of the request that runs just before the one to fail and was made
+slow with filler rows (the queue claim's read-back, which reads the whole table; the sweep's last
+purge read). A lock asked for while that statement runs is granted when it ends, so the request's
+next statement meets it.
+
+### 6.12 A configuration load that fails on 9.2.0 leaves no configuration
+
+**Observed** on 8.2.8 (PHP 8.0.30) and 9.2.0 (PHP 8.5.12), flashlight images with debug mode off,
+2026-11-21, with a script that includes `config/config.inc.php`, renames `configuration_lang` (the
+load query joins it), calls `Configuration::resetStaticCache()` and then asks:
+
+| Call after the failed load | 9.2.0, debug off | 8.2.8, debug off |
+|---|---|---|
+| `loadConfiguration()` | returns | throws `PrestaShopException` |
+| `configurationIsLoaded()` | `false` | `false` |
+| `hasKey()` of a stored key | `false` | `false` |
+| `get()`, `getGlobalValue()` of a stored key | `false`, the answer for "not stored" | throws: the call loads again |
+| `updateGlobalValue()` of a stored key | `true`, and the row keeps its old value | throws |
+| `updateGlobalValue()` of a key without a row | `true`, and the row is inserted | throws |
+
+**Read from code** (9.2.0, `classes/Configuration.php`): `loadConfiguration()` sets `$_initialized`
+only when its query answered rows. `get()` loads again on every call while it is not set, and
+answers its default when the load fails again. `updateValue()` takes "not in the cache" for "to
+insert", asks `getIdByName()` with a query of its own, and neither inserts nor updates when that
+finds the row.
+
+What the module made of it before 2026-11-21 (read from code): `Config\Settings::get()` answered null
+for every key, so every switch read as off, the consent mode as "Subscribers only" and
+`Schema::isCurrent()` as false, which makes the runtime inert: nothing more was sent, the narrow
+side. Two reads did not narrow. `TickSettings::token()` took the door's token for missing and handed
+out a new one that no row held, for the Dashboard's cron line. A pending migration read its progress
+record as absent and would have started over, with the module version of now as the version it
+came from.
+
+So `Config\Settings::reloadConfiguration()` checks `configurationIsLoaded()` after the load and
+throws `Database\SqlException` when it is false; every read of a settings class loads through it,
+and so does the migration (ARCHITECTURE section 1.6). **Observed** on 9.2.0 with debug mode off:
+after the failed load `ContactsSettings::syncActive()` and `AutomationSettings::enabled()` throw
+`SqlException`; `Schema::isCurrent()` answers false and `TickSettings::storedToken()` an empty
+token, as both read `Configuration` directly: the runtime stays inert and the door closed.
+`tests/Integration/Config/TickSettingsTest.php` holds the case.

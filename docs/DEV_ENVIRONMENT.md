@@ -84,26 +84,30 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1415 tests on 8.2.8 (7251 assertions) and on 9.2.0 (7257
+Last verified results, all passing: 1482 tests on 8.2.8 (7772 assertions) and on 9.2.0 (7778
 assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the corrections to the discount codes; three runs in a row on
-8.2.8, which runs PHP 8.0.30, and one on 9.2.0, which runs PHP 8.5.12, with no crash); 8.0.0 last
+the egress guard (2026-11-21, with the database gateway; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP
+8.5.12; on 9.2.0 once with debug mode on and once with it off, with the same counts); 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (1415 tests, 2121 assertions, 740 skipped).
+and skips the integration tests (1482 tests, 2158 assertions, 786 skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
 
 The dev shop runs with debug mode on, and a live store with it off. PrestaShop 9.2.0 reports a failed
-query differently in the two (facts file 6.11), so a test of code that must notice a failed read runs
-with debug mode off too (verified on 8.2.8 and 9.2.0 with the discount tests):
+query differently in the two (facts file 6.11): with debug mode off it answers `false` and throws
+nothing. The module's own statements go through its gateway, and a test fails one of them with
+`tests/Integration/Fixtures/FailingQueries.php`, which answers `false` on every lane. A test of code
+that relies on a core API (the copy of a cart rule's restrictions, the load of the configuration)
+fails the query for real and shows the live behaviour only with debug mode off, so the suite runs
+with debug mode off too (verified on 8.2.8 and 9.2.0 with the whole suite):
 
     docker compose exec -u www-data prestashop sh -c \
       'echo "<?php define(\"_PS_MODE_DEV_\", false);" > /tmp/no-debug.php'
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php -d auto_prepend_file=/tmp/no-debug.php modules/smailyforprestashop/vendor/bin/phpunit \
-      --configuration /smaily/phpunit.xml.dist --filter Discount
+      --configuration /smaily/phpunit.xml.dist
 
 The run builds `var/cache/prod`; remove that folder afterwards.
 
@@ -302,6 +306,8 @@ Results on 2026-11-20:
 - On 2026-11-21, with the admin screens, the three store automations and their discount codes on
   `v3`: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged zip, and 1415 tests in the
   shop on each (7251 assertions on 8.2.8, 7257 on 9.2.0).
+- On 2026-11-21, with the database gateway: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the
+  packaged zip, and 1482 tests in the shop on each (7772 assertions on 8.2.8, 7778 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a

@@ -100,6 +100,8 @@ src/
                               + Provider/<Area>Provider.php
     Hook/                     Dispatcher: hook name -> listeners from the providers
     Install/                  Installer, Schema, HookList, Uninstaller
+    Database/                 Sql (the one door to the shop's database: it throws on a failed
+                              query, section 1.6), SqlException
     Config/                   Settings (base: get/set, getJson/setJson, reload, storedValue,
                               removeShopValue), TickSettings, MigrationNotices, ContactsSettings,
                               UpdateSettings, AccountSettings, AutomationSettings, EngineSettings,
@@ -276,8 +278,78 @@ self-contained.
 | Twig | 2/3 | 3 | **[D]** Twig 3 syntax that Twig 2 also parses. |
 | Product page | legacy page (8.0), v2 page optional (8.1+) | v2 page default | **[D]** Catalog capture listens to ObjectModel hooks. Verified: both pages fire them. One save on the v2 page fires `actionObjectProductUpdateAfter` 7 times, and a "Save list" of combinations fires `actionObjectCombinationUpdateAfter` for every row of the list (facts file 1.3 and part 2). Story 5.2 therefore deduplicates catalog events per product per request. |
 | Front theme | Classic (jQuery) | Hummingbird (no jQuery) or Classic | **[D]** Front JS is vanilla. Cart events come from the `prestashop` event emitter that both themes carry. |
-| DB access | Doctrine DBAL 2/3, `Db` | DBAL 3, `Db` | **[D]** `Db::getInstance()` everywhere. |
+| DB access | Doctrine DBAL 2/3, `Db` | DBAL 3, `Db` | **[D]** `Db` through the module's gateway `Database\Sql` only (section 1.6): on 9.2.0 with debug mode off `Db` answers a failed query with `false`, on 8.x it throws. |
 | Translations | new system, XLIFF | same | **[D]** XLIFF in `translations/`, as 2.2.0. |
+
+### 1.6 Database access: one gateway that throws
+
+**The fact** (facts file 6.11). PrestaShop 9.2.0 with debug mode off, a live store, answers a query
+that failed (a lock wait that ran out, a deadlock, a lost connection) with `false` and throws
+nothing. `Db::getRow()` and `Db::getValue()` answer `false` for "no row" too, and a count cast to an
+integer reads a failure as 0. PrestaShop 8.2.8, and 9.2.0 with debug mode on, throw. Until
+2026-11-21 the module called `Db::getInstance()` in 134 places of 33 files, and about 25 of its
+reads took `false` for the answer that lets something go: no later row, no order, no recent
+reminder, no own account, no row at this scope.
+
+**[D]** (2026-11-21) A failed database query is an error everywhere in the module, never "no row".
+`Database\Sql` is the module's one door to the database, a class of static operations, as the code
+it replaces called `Db` statically:
+
+| Operation | Answers | On a failed query |
+|---|---|---|
+| `Sql::rows($sql)` | every row | throws `Database\SqlException` |
+| `Sql::row($sql)` | the first row or null; adds the `LIMIT 1` that `Db::getRow()` adds | throws |
+| `Sql::value($sql)` | the first column of the first row as text, or null | throws |
+| `Sql::count($sql)` | the integer of a `SELECT COUNT(*)`; no row is a failure | throws |
+| `Sql::write($sql)` | nothing | throws |
+| `Sql::update()`, `Sql::delete()` | nothing; the statements that `Db::update()` and `Db::delete()` build | throws |
+| `Sql::affectedRows()`, `Sql::insertId()` | of the last write | |
+
+Every read goes through `Db::executeS()` without the query cache, which answers an array for every
+query that ran; anything else is the failure. An exception of the driver (8.x) is wrapped, so the
+caller sees one error type on every version. The error's message names no statement: an SQL text
+can carry a contact's data, and the logs name an error by its class and place only (`Runtime\Log`).
+The SQL text of every statement is the caller's, unchanged; the rules of section 4.3 for the queue's
+statements hold as before. `tests/Unit/Database/NoDirectDatabaseCallTest.php` fails when a file of
+the module other than `Database/Sql.php` names `Db`; its allow-list for a core API that must be
+handed the `Db` instance is empty.
+
+**What each caller does with the error**: nothing is sent, subscribed, overwritten or deleted on a
+read that failed.
+
+| Caller | On `SqlException` |
+|---|---|
+| A queue handler (contact sync, the automations, the abandoned-cart reminder, the discount step) | The row fails as for any other temporary failure and takes the retry ladder; nothing is posted for it in that attempt. A handler that sends row by row (`AbandonedCartHandler`, `FirstOrderHandler`, `AutomationHandler`) answers the error as that row's outcome, so the rows it sent before keep theirs and are not handled again (section 4.3). |
+| A scheduler job (queue flush, janitor, reconcile, refresh, import, sweep, update check) | The job ends for this tick before it stores a cursor or a state, the tick logs it as any failed job and runs the next job; the job runs again at the next tick. The sweep rethrows a database error of one cart: a cart is closed as `payload_failed` only for an error of its own. |
+| The tick | A tick whose stored state cannot be read ends with the error and writes no state. A lock that could not be asked for is not held (`Scheduler\Lock::acquire()` answers false and logs it), so the tick answers "Busy". |
+| The upgrade | The step fails and the migration stays pending; no legacy key is deleted and nothing is overwritten (section 3.7). The upgrade script still returns `true`. |
+| A hook in a shopper's or an employee's own request (customer save, newsletter block, order, checkout capture) | `Hook\Dispatcher` catches the listener's error and logs it; PrestaShop's request goes on. What the failed read would have decided is not queued: a customer save keeps its row without a consent change, an order queues no first-order email, the capture endpoint records nothing. |
+| An admin JSON endpoint | The envelope's `internal_error` with HTTP 500 (section 10.1). A save throws before it writes over a shop's own value. |
+| An admin page | PrestaShop's error page, as for any uncaught error of a page. |
+
+**The configuration.** PrestaShop's own `Configuration` does not go through the gateway. On 9.2.0
+with debug mode off a load of it that fails leaves no configuration and throws nothing: every key
+reads as not stored (facts file 6.12). `Config\Settings::reloadConfiguration()` therefore checks
+`Configuration::configurationIsLoaded()` after the load and throws `SqlException`; every read of a
+settings class loads through it, and so does the migration.
+
+**Core APIs.** An object model's load and `CartRule::copyConditions()` still answer a failure as
+"nothing" on a live 9.2.0. Where that could widen something, the module asks again through the
+gateway: `Discount\TemplateRules::usable()` counts the rule's row before it calls a rule gone, and
+`Discount\CodeIssuer` counts a new code's restriction rows against its template's (section 7).
+
+**Demonstrated** (2026-11-21, flashlight 8.2.8 and 9.2.0 with debug mode off, behind the egress
+guard; a real failed query each time, MariaDB's error 1205 after a second session locked the table,
+facts file 6.11):
+
+| Case | 9.2.0 before the gateway | 9.2.0 and 8.2.8 with it | The next run |
+|---|---|---|---|
+| A console upgrade from a genuine 2.2.0 whose reads of the legacy settings fail | The upgrade ended `done`: 15 of the 17 legacy keys deleted (the two cron tokens stay), no account, no workflow row. | The migration stops at `notices` with `SqlException`, every legacy key stays, the console still reports success. | A request to the 2.x cron URL completes it: account, 2 workflow rows, 3 reminded carts. |
+| A flush whose stale-subscription read fails (section 6.4) | The subscription was sent after the contact's delivered unsubscribe: Smaily got `is_unsubscribed` 0, 1, 0. | The row waits for its retry with `SqlException`; Smaily got 0 (the first, failed attempt) and 1. | The row is closed as `stale_subscription`. |
+| A sweep whose read of the recent reminders fails (section 7) | A second cart of the address was queued and reminded minutes after the first. | The job `abandoned_cart` fails with `SqlException`; nothing is queued. | The second cart is closed as `recently_reminded`. |
+
+8.2.8 gave the safe outcome before the gateway too, because the failed statement throws there
+(the upgrade stopped at its first write of its progress).
 
 ---
 
@@ -702,7 +774,12 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    `Schema::markCurrent()` in one database transaction. A failure rolls both back.
 6. A failed step stops the run. `SMAILY_CONNECT_MIGRATION` then records `status` `failed` and
    `failure` as the step name and the error class, never the error message (section 2.1). The legacy
-   keys stay, so every run starts from the same input, and the runtime stays inert.
+   keys stay, so every run starts from the same input, and the runtime stays inert. A database
+   query that fails is a failed step (section 1.6): the reads of what 2.x left throw, so a failed
+   read makes no plan and no step deletes or overwrites anything on it; a count that fails is not
+   zero, so no setting is written over a saved one and no cron token gets a second row. A read that
+   fails before the steps start (which store this is) decides nothing: the run logs it and answers
+   `false` without a progress record.
 7. The scheduler job `migration` (interval 0, budget 10 s, runs before the upgrade) calls
    `runPending()` while the schema is not current. Every tick runs it: a cron URL, the tick URL and the
    fallback tick of page traffic, whose two listeners run before the upgrade (section 1.2).
@@ -857,7 +934,9 @@ Planned (the Story that builds each registers it):
    that cannot start before the tick's budget ends waits for the next tick. The tick records a job as
    run **before** the job starts, so a job that kills the request waits its interval like any other. A
    job that throws fails alone; the tick logs its name, error class, file name and line. While the
-   schema is not current, only the jobs registered to run before the upgrade run.
+   schema is not current, only the jobs registered to run before the upgrade run. The tick reads
+   its state from the table and writes it back; when that read fails, the tick ends with the error
+   and writes nothing, so the stored state is never replaced by an empty one (section 1.6).
 3. **Traffic fallback** (`Scheduler\TrafficTick`). Listeners of `actionFrontControllerSetMedia` and
    `actionAdminControllerSetMedia`, registered to run also before the upgrade, read
    `SMAILY_CONNECT_TICK_STATE` from the configuration that the request loaded (no query). When the
@@ -916,10 +995,21 @@ Planned (the Story that builds each registers it):
    claimed rows of one event type to that type's handler as one batch. When the handler throws for
    the batch, the flusher hands each row of that batch to the handler again alone, so only the row
    that throws fails. A handler therefore reports a failure of the wire (an HTTP error, a refusal) as
-   that row's outcome, and throws only on a fault of its own.
-7. **Drain.** The job `queue_flush` calls `Flusher::flush()` in a loop until it returns 0 or the job's
+   that row's outcome, and throws only on a fault of its own. A handler that sends row by row answers
+   a failed database statement of one row as that row's outcome (section 1.6): thrown for the batch,
+   it would hand the rows already sent to the handler a second time.
+7. **A statement of the queue that fails** (section 1.6) ends the flush with the error, which the
+   tick logs. A read that fails claims nothing. The outcomes are written row by row; the rows that
+   went out are recorded as sent also when another row's outcome cannot be written, and the write
+   that closes rows is tried twice. **What stays possible:** a row whose email went out and whose
+   `sent` could not be written in two tries stays `processing`, returns to `pending` after
+   `CLAIM_TIMEOUT_SECONDS` (10 min) and is sent a second time. The module keeps no second record
+   of a send to rule that out. The abandoned-cart reminder has one more write after its send, the
+   cart's `mailed`: when that fails twice, the queue row is still closed as sent, and the cart's
+   row stays `open` under its queue row, which no sweep takes again.
+8. **Drain.** The job `queue_flush` calls `Flusher::flush()` in a loop until it returns 0 or the job's
    deadline passes. One call claims at most `Flusher::BATCH_SIZE` (200) rows.
-8. C and D are not built in 3.0.0. D stays a possible later addition (section 14).
+9. C and D are not built in 3.0.0. D stays a possible later addition (section 14).
 
 **The tick state** (`SMAILY_CONNECT_TICK_STATE`, global, `Scheduler\TickState`) is JSON with Unix
 times:
@@ -1308,7 +1398,9 @@ a row that failed waits on the retry ladder while a later row of the same contac
 Example: the contact subscribes and the row fails; the contact unsubscribes and that row is delivered
 at once; the first row's retry would then mark the contact subscribed again. So the handler asks, at
 every attempt and before anything is sent, which rows of its batch are stale, and closes those as
-`skipped` with `stale_subscription`; the Log shows the reason as a sentence (section 10.8).
+`skipped` with `stale_subscription`; the Log shows the reason as a sentence (section 10.8). When
+that read fails, the batch sends nothing and its rows take the retry ladder (section 1.6): a failed
+read is not "no later row".
 
 - A row is stale when it would mark the contact subscribed (its payload has `consent_changed` and
   `subscribed`) and a later row of the same shop and entity (section 2.2), with a consent change of
@@ -1351,10 +1443,12 @@ the unsubscriber list in pages of 1000.
 
 - A change touches only rows of the shops that take part whose shop and language resolve to the
   account that reported it (`ScopeResolver`), so a shop is never changed by another shop's account.
-- The writes go straight to the `customer` and `emailsubscription` tables with `Db`: they fire no
-  hook and enqueue nothing.
+- The writes go straight to the `customer` and `emailsubscription` tables through `Database\Sql`:
+  they fire no hook and enqueue nothing.
 - The cursor is stored after every chunk of 500 log rows and after every list page, so a run that its
-  deadline stops goes on from there at the next tick.
+  deadline stops goes on from there at the next tick. A read or a write that fails ends the run
+  before the cursor moves past what was not applied (section 1.6), and a failed read of the stored
+  cursors stores none, so no other account's cursor is dropped.
 - An account whose call fails is logged with the shop, the language and the failure reason, never a
   contact; the other accounts go on.
 - **Known limit.** Smaily pages the unsubscriber list by page number. When the list shrinks between
@@ -1485,7 +1579,8 @@ attempts) leaves its tracker row `open`, and that row holds the address back no 
 As in Magento, where a failed reminder counts for 24 hours from its queueing, it is never a block
 for good.
 
-**The send** (`AbandonedCart\AbandonedCartHandler`) checks again when the row's turn comes, in this
+**The send** (`AbandonedCart\AbandonedCartHandler`) checks again when the row's turn comes; a check
+whose database read fails sends nothing, and the row takes the retry ladder (section 1.6). In this
 order: the tracker row (an order withdrew the reminder, or the sweep closed it); the cart's
 customer is gone (`customer_deleted`, below); the cart has an
 order, or its address ordered since the cart's last change (`ordered`); the cart's last change is
@@ -1722,12 +1817,20 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   that fails for a moment (the template, its shops, the address's customer account) is such an
   error and never a notice: the row keeps no notice, and its retry makes the code. PrestaShop 8
   throws on a failed query by itself. PrestaShop 9.2.0 with debug mode off answers a failed query
-  as `false`, which its object model and `Db::getValue()` hand on as "no such row" (facts file
-  6.11), so `TemplateRules::usable()` counts the rows (a count always answers a row) and
-  `AutomationDiscount` reads the customer account as a list, and each throws when the read
-  failed. Without that, a failed read stored the notice, and the row, its retry and "Send again"
-  all went without a code; a failed read of the customer account made the code of a customer
-  with an account one that anyone could use.
+  as `false`, which its object model hands on as "no such row" (facts file 6.11), so
+  `TemplateRules::usable()` counts the rule's rows through the gateway (section 1.6), which throws
+  when the read failed, and `AutomationDiscount` reads the customer account through it. Without
+  that, a failed read stored the notice, and the row, its retry and "Send again" all went without
+  a code; a failed read of the customer account made the code of a customer with an account one
+  that anyone could use.
+- **The restrictions are checked after the copy.** `CartRule::copyConditions()` answers nothing,
+  and on PrestaShop 9.2.0 with debug mode off a statement of it that fails raises no error: the
+  code would be valid in more shops, countries, customer groups, for more carriers or products
+  than its template. After the copy `CodeIssuer` counts, for the code and for the template, the
+  rows of each table that the copy fills (`cart_rule_shop`, `cart_rule_carrier`, `cart_rule_group`,
+  `cart_rule_country`, `cart_rule_combination`, and the three product-rule tables). Where a count
+  differs it removes the code and the row fails with nothing posted, as for any error while the
+  code is made. A rule that PrestaShop's own `delete()` does not remove is deleted by its id.
 - **Clean-up** (`Discount\IssuedCodes`, section 11.3). The daily janitor removes a code that no
   order carries once its end date is more than 30 days past. A used code stays. Used means an
   `order_cart_rule` row, also one that an employee removed from the order. A code that only sits
@@ -2414,6 +2517,7 @@ once a day and sends no store data."
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
 | Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
 | Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). The suite expects a reset shop: it is not green on a shop that was walked by hand or got a second shop. | `tests/egress-guard/` |
+| Failed queries | `tests/Integration/Fixtures/FailingQueries.php` stands behind the gateway (`Sql::useConnection()`) and answers `false` for the statements that a pattern selects, as a live 9.2.0 does, so a test of a failed read runs alike on every lane. The tests named "…CouldNotBeRead…" and "…ThatFails…" pin the safe outcome of each caller group of section 1.6. Code that relies on a core API is tested with a real failure (a table that is away, a trigger that refuses a row) and runs with debug mode off too (`docs/DEV_ENVIRONMENT.md` 4). | `tests/Integration/`, `tests/Unit/Database/` |
 | Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
@@ -2421,7 +2525,7 @@ once a day and sends no store data."
 | JavaScript | Planned with Story 5.5: the IIFE first-statement check for every file in `views/js/front/`, and the logic of `consent.js` tested with Node's built-in test runner (no npm packages), in a folder `tests/js/`. No JavaScript test exists today; `views/js/front/` holds one file, `checkout-capture.js`. | — |
 | Contract check | Planned: CI compares `docs/RECENGINE_API_CONTRACT.md` with the engine repository's copy (the source of truth) and the installation-report contract with the subscription repository's copy (`gh api`, read token), and fails on any difference. Today `validate.yaml` has no such step, the engine contract copy is compared by hand with `cmp`, and no copy of the report contract is in this repository (Story 6.1 adds it). | — |
 | Matrix | PrestaShop 8.0 (PHP 8.0), 8.2 (PHP 8.1), 9.0 and 9.2 (newest PHP each supports), flashlight images as `tests/ci/validate.sh` uses today. `validate.yaml` defines two lanes: 8.2.8 on PHP 8.0 (flashlight) and 9.2.0 on PHP 8.1 (official image); no run exists yet, because the fork's GitHub Actions are not enabled. `tests/ci/validate.sh` installs the release zip, prints 10 checks, and runs the unit and integration tests inside the shop (`docs/DEV_ENVIRONMENT.md`). | CI |
-| Last verified counts | The in-shop suite: 1415 tests on PrestaShop 8.2.8 (7251 assertions) and on 9.2.0 (7257 assertions), each on a fresh shop, with the discount codes on `v3` (2026-11-21). On the host: 1415 tests, 2121 assertions, 740 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
+| Last verified counts | The in-shop suite: 1482 tests on PrestaShop 8.2.8 (7772 assertions) and on 9.2.0 (7778 assertions, with debug mode on and with it off), each on a fresh shop, with the database gateway (2026-11-21). On the host: 1482 tests, 2158 assertions, 786 skipped. `tests/ci/validate.sh` ran on the same code: 10 of 10 checks on both flashlight images, with the same counts in the shop. 8.0.0 last ran at the stage 1 integration commit (278 tests, 1337 assertions). | — |
 | Test runner | PHPUnit 9.6, the newest PHPUnit that runs on PHP 8.0, which the lowest lane needs. | `src/composer.json` |
 | Static | php-cs-fixer (held at 3.52.1 by `src/composer.lock`; its finder covers `src/` only, not `tests/`), PHP 8.0 and 8.5 lint. PHPStan has a config (`src/phpstan.neon`) and a Composer script, but `src/composer.lock` installs no `phpstan` binary and CI does not run it: PHPStan does not run today. | CI |
 | Release | `composer package` (`bin/package.sh`) builds the zip from the files that git tracks under `src/`, minus `src/.zipignore`, with the production `vendor/`; `tests/ci/validate.sh` installs it. `tests/Unit/Install/ConfigXmlTest.php` holds `src/config.xml` equal to the main class. Planned with Story 6.3: a check that the version is equal in the main class and `composer.json`, and an upgrade of the zip on the matrix. | `bin/package.sh`, CI |
@@ -3064,6 +3168,8 @@ has one owner:
 | 42 | The product feed | Not decided: whether the RSS feed that 3.0.0 keeps from 2.x is the product feed of the first release, or a second feed is built. | Owner |
 | 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. | Owner |
 
+| 44 | A send whose `sent` cannot be written | A row that went out and whose status write fails twice is sent again after 10 minutes (section 4.3, item 7). Core reads that the module does not own (an object model's load, `Configuration`'s writes) still answer a failure as "nothing" on a live 9.2.0, and were not reviewed one by one (section 1.6). | Owner |
+
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
 more) on 2026-11-21; they moved to section 15.
@@ -3121,3 +3227,6 @@ Decisions of 2026-11-21:
   `cart_delay_capped` (section 3.3); a legacy delay of 1435 minutes or less is untouched.
 - The checkout capture accepts at most 2000 addresses an hour for the installation, as Magento
   (2026-11-21; section 7, "The checkout capture").
+- A failed database query is an error everywhere in the module, never "no row" (2026-11-21).
+  Every read and write goes through `Database\Sql`, which throws; nothing is sent, subscribed,
+  overwritten or deleted on a read that failed (section 1.6).
