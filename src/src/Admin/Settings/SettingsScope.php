@@ -33,8 +33,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
 /**
- * Which values Settings > Connection and Contacts read and save for the shop of PrestaShop's shop
- * selector, as Magento's Settings decides it for its website selector:
+ * Which values Settings > Connection, Contacts and Automations read and save for the shop of
+ * PrestaShop's shop selector, as Magento's Settings decides it for its website selector:
  *
  * - one shop, or separate stores: the Initial setup's scope (SetupScope), with nothing more;
  * - one store in several versions with "All shops" selected: the values all shops share;
@@ -104,6 +104,16 @@ final class SettingsScope
     public function connectionScope(ShopOverrides $overrides): SetupScope
     {
         return $this->scope($this->own !== null && $overrides->hasOwn(ShopOverrides::CONNECTION, (int) $this->ownShop()));
+    }
+
+    /**
+     * The scope Settings > Automations shows and saves: a selected shop's own automations where
+     * $own (its switch, or the own values it holds), and always for a shop that keeps its own
+     * (ShopOverrides::keepsOwnAutomations(), Magento CON-190); else the shared ones.
+     */
+    public function automationsScope(ShopOverrides $overrides, bool $own): SetupScope
+    {
+        return $this->scope($own || ($this->own !== null && $overrides->keepsOwnAutomations((int) $this->ownShop())));
     }
 
     /**

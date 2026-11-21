@@ -29,7 +29,11 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -81,6 +85,20 @@ final class SetupPanels
             $this->translator,
             static fn (): bool => (bool) \Module::isEnabled('ps_emailsubscription')
         );
+    }
+
+    public function automations(): AutomationsPanel
+    {
+        /** @var AutomationSettings $settings */
+        $settings = $this->services->get(AutomationSettings::class);
+        /** @var MappingRepository $mappings */
+        $mappings = $this->services->get(MappingRepository::class);
+        /** @var Router $router */
+        $router = $this->services->get(Router::class);
+        /** @var WorkflowList $workflows */
+        $workflows = $this->services->get(WorkflowList::class);
+
+        return new AutomationsPanel($settings, $mappings, $this->layout(), $router, $workflows, $this->translator);
     }
 
     public function progress(): SetupProgress

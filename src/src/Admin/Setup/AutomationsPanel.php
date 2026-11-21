@@ -1,0 +1,340 @@
+<?php
+/**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ */
+declare(strict_types=1);
+
+namespace PrestaShop\Module\SmailyForPrestaShop\Admin\Setup;
+
+if (!defined('_PS_VERSION_')) {
+    exit;
+}
+
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+/**
+ * The Automations panel (Initial setup step 3, Settings > Automations): the three store
+ * automations' switches, their Smaily workflows and the abandoned-cart delay of the page's scope
+ * (SetupScope), read and saved by this one class, as Magento's WizardStepSaver::saveAutomations()
+ * and its MappingSaver save them.
+ *
+ * The workflows are rows of the mapping table (ARCHITECTURE 5.2), written at the scope's shop:
+ * - every mode but `a`: each automation's own workflow, the row of no language and the account
+ *   `default`. In mode `a` the page hides it and the save leaves it as it is: it was picked from
+ *   no language's account.
+ * - mode `b` (a workflow per language): one row per language under the account `default`;
+ * - mode `a` (an account per language): one row per language under that language's account.
+ *   In both, at most one language row of an automation is its default fallback. A save replaces
+ *   only the rows of the shop's current mode; the other mode's rows stay for a switch back.
+ *
+ * A workflow is taken only from the live list of the account that sends it (WorkflowList), read
+ * once per account and save. As in Magento (PRO-1286), a stored workflow stays where the page
+ * posts it unchanged, and also where the page posts none while the list does not offer it (it
+ * was deleted in Smaily, or the list could not be loaded): it was never shown as a choice, so the
+ * empty value is no decision to clear it. The 2.x opt-in trigger of an upgraded store (decision 5)
+ * is the value OPTIN: it stays while it is posted unchanged, and no save can newly pick it.
+ *
+ * An automation that is switched on without a workflow is saved, as in Magento: it sends nothing
+ * (the Router skips it as `no_workflow`) until a workflow is picked. Nothing is written while any
+ * field is at fault.
+ */
+final class AutomationsPanel
+{
+    /** The Welcome workflow's value for Smaily's generic opt-in trigger, which 2.x fired. */
+    public const OPTIN = 'optin';
+
+    private const PER_LANGUAGE_MODES = [StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, StoreLayout::MODE_WORKFLOW_PER_LANGUAGE];
+
+    private AutomationSettings $settings;
+
+    private MappingRepository $mappings;
+
+    private StoreLayout $layout;
+
+    private Router $router;
+
+    private WorkflowList $workflows;
+
+    private TranslatorInterface $translator;
+
+    public function __construct(
+        AutomationSettings $settings,
+        MappingRepository $mappings,
+        StoreLayout $layout,
+        Router $router,
+        WorkflowList $workflows,
+        TranslatorInterface $translator
+    ) {
+        $this->settings = $settings;
+        $this->mappings = $mappings;
+        $this->layout = $layout;
+        $this->router = $router;
+        $this->workflows = $workflows;
+        $this->translator = $translator;
+    }
+
+    /**
+     * The panel's values for the scope's target shop; null when the scope saves nothing. A
+     * workflow is its id as a string, '' for none, or OPTIN. `languages` and `fallback` are filled
+     * in the modes `a` and `b` only: each language's workflow, and the language whose row is the
+     * automation's default fallback ('' for none).
+     *
+     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string}>}|null
+     */
+    public function values(SetupScope $scope): ?array
+    {
+        $target = $scope->targetShop();
+        if ($target === null) {
+            return null;
+        }
+        $mode = $this->mode($scope, $target);
+        $rows = $this->rows($target);
+        $triggers = [];
+        foreach (Trigger::ALL as $trigger) {
+            $languages = [];
+            $fallback = '';
+            if (in_array($mode, self::PER_LANGUAGE_MODES, true)) {
+                foreach (array_keys($scope->languages()) as $iso) {
+                    $row = $rows[self::key($trigger, $iso, self::accountKey($mode, $iso))] ?? null;
+                    $languages[$iso] = self::value($row);
+                    if ($row !== null && $row['is_default_fallback']) {
+                        $fallback = $iso;
+                    }
+                }
+            }
+            $triggers[$trigger] = [
+                'enabled' => $this->settings->enabled($trigger, $target),
+                'workflow' => self::value($rows[self::key($trigger, '', MappingRepository::ACCOUNT_DEFAULT)] ?? null),
+                'languages' => $languages,
+                'fallback' => $fallback,
+            ];
+        }
+
+        return ['mode' => $mode, 'cart_delay' => $this->settings->cartDelayMinutes($target), 'triggers' => $triggers];
+    }
+
+    /**
+     * The workflows that the selects of one account offer, asked of Smaily now: `default` is the
+     * scope's account of no language, a language code that language's own account (mode `a`).
+     * Where no such account is stored there is nothing to load, which is no failure: a language
+     * of mode `a` without its own account has an empty list, as in Magento.
+     *
+     * @return array{workflows: list<array{id: int, name: string}>, error: ?string}
+     */
+    public function workflows(SetupScope $scope, string $accountKey): array
+    {
+        $target = $scope->targetShop();
+        $list = $target !== null && preg_match('/^(default|[a-z]{2})$/', $accountKey) === 1
+            ? $this->workflows->of($this->router->accountFor($target, $accountKey))
+            : ['workflows' => [], 'error' => WorkflowList::ERROR_NO_ACCOUNT];
+
+        $failed = $list['error'] !== null && $list['error'] !== WorkflowList::ERROR_NO_ACCOUNT;
+
+        return ['workflows' => $list['workflows'], 'error' => $failed ? $this->listError($list['error']) : null];
+    }
+
+    /**
+     * Checks and saves the posted `triggers` (each automation's `enabled`, `workflow`, and in the
+     * modes `a` and `b` `languages` (ISO code => workflow) and `fallback`) and `cart_delay`.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return list<array{field: string, message: string}>
+     */
+    public function save(SetupScope $scope, array $data): array
+    {
+        $target = $scope->targetShop();
+        if ($target === null) {
+            return [['field' => '', 'message' => $this->trans('These shops are set up as separate stores. Reload the page and set each shop up on its own.')]];
+        }
+        $mode = $this->mode($scope, $target);
+        $cards = [];
+        foreach (Trigger::ALL as $trigger) {
+            $cards[$trigger] = is_array($data['triggers'][$trigger] ?? null) ? $data['triggers'][$trigger] : [];
+        }
+
+        $errors = [];
+        $delay = $data['cart_delay'] ?? null;
+        $delayValid = (is_int($delay) || (is_string($delay) && ctype_digit($delay)))
+            && (int) $delay >= AutomationSettings::MIN_CART_DELAY_MINUTES
+            && (int) $delay <= AutomationSettings::MAX_CART_DELAY_MINUTES;
+        // A switched-off reminder hides the field: its value then blocks nothing and is not saved.
+        if (!$delayValid && !empty($cards[Trigger::ABANDONED_CART]['enabled'])) {
+            $errors[] = ['field' => 'cart_delay', 'message' => $this->trans(
+                'The abandoned-cart wait must be from %min% to %max% minutes. A longer wait would send no reminder.',
+                ['%min%' => AutomationSettings::MIN_CART_DELAY_MINUTES, '%max%' => AutomationSettings::MAX_CART_DELAY_MINUTES]
+            )];
+        }
+
+        $stored = $this->rows($target);
+        $lists = [];
+        $writes = [];
+        $languages = array_keys($scope->languages());
+        foreach ($cards as $trigger => $card) {
+            $selects = [];
+            if ($mode !== StoreLayout::MODE_ACCOUNT_PER_LANGUAGE && array_key_exists('workflow', $card)) {
+                $selects[] = ['', MappingRepository::ACCOUNT_DEFAULT, (string) $card['workflow'], false, $trigger . '.workflow'];
+            }
+            if (in_array($mode, self::PER_LANGUAGE_MODES, true) && is_array($card['languages'] ?? null)) {
+                foreach ($languages as $iso) {
+                    $selects[] = [$iso, self::accountKey($mode, $iso), (string) ($card['languages'][$iso] ?? ''), ($card['fallback'] ?? '') === $iso, $trigger . '.languages.' . $iso];
+                }
+            }
+            foreach ($selects as [$language, $accountKey, $value, $fallback, $field]) {
+                $row = $stored[self::key($trigger, $language, $accountKey)] ?? null;
+                if ($value === self::value($row)) {
+                    // Unchanged: the scope's shop holds the row from now on, with the posted fallback.
+                    if ($row !== null) {
+                        $writes[] = [$trigger, $language, $accountKey, $row['workflow_id'], $row['optin_trigger'], $fallback];
+                    }
+                    continue;
+                }
+                $lists[$accountKey] ??= $this->workflows->of($this->router->accountFor($target, $accountKey));
+                $offered = array_column($lists[$accountKey]['workflows'], 'id');
+                if ($value === '') {
+                    if ($row['optin_trigger'] || in_array($row['workflow_id'], $offered, true)) {
+                        $writes[] = [$trigger, $language, $accountKey, null, false, false];
+                    }
+                } elseif ($lists[$accountKey]['error'] !== null) {
+                    $errors[] = ['field' => $field, 'message' => $this->listError($lists[$accountKey]['error'])];
+                } elseif (!ctype_digit($value) || !in_array((int) $value, $offered, true)) {
+                    $errors[] = ['field' => $field, 'message' => $this->trans('This workflow is not in the list of your Smaily account. Press Refresh workflows and pick a workflow from the list.')];
+                } else {
+                    $writes[] = [$trigger, $language, $accountKey, (int) $value, false, $fallback];
+                }
+            }
+        }
+        if ($errors !== []) {
+            return $errors;
+        }
+
+        foreach ($cards as $trigger => $card) {
+            $this->settings->setEnabled($trigger, !empty($card['enabled']), $target);
+        }
+        if ($delayValid) {
+            $this->settings->setCartDelayMinutes((int) $delay, $target);
+        }
+        foreach ($writes as [$trigger, $language, $accountKey, $workflowId, $optin, $fallback]) {
+            if ($workflowId === null && !$optin) {
+                $this->mappings->delete($target, $trigger, $language, $accountKey);
+            } else {
+                $this->mappings->upsert($target, $trigger, $language, $accountKey, $workflowId, $optin, $fallback);
+            }
+        }
+        if (in_array($mode, self::PER_LANGUAGE_MODES, true)) {
+            $this->removeRowsOfOtherLanguages($target, $mode, $languages);
+        }
+
+        return [];
+    }
+
+    /**
+     * The language mode the panel shows and saves: the shop's stored mode where the scope offers it
+     * (ConnectionPanel's rule), else Single language.
+     */
+    private function mode(SetupScope $scope, int $target): string
+    {
+        $mode = $this->layout->languageMode($target);
+
+        return in_array($mode, $scope->languageModes(), true) ? $mode : StoreLayout::MODE_SINGLE;
+    }
+
+    /**
+     * The mapping rows the shop reads, as the Router reads them: its own row before a shared one,
+     * keyed by trigger, language and account key.
+     *
+     * @return array<string, array{id: int, id_shop: int, trigger: string, language: string, account_key: string, workflow_id: int|null, optin_trigger: bool, is_default_fallback: bool}>
+     */
+    private function rows(int $target): array
+    {
+        $rows = [];
+        foreach ($this->router->rowShops($target) as $shop) {
+            foreach ($this->mappings->rows($shop) as $row) {
+                $rows[self::key($row['trigger'], $row['language'], $row['account_key'])] ??= $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * A per-language mode's rows of a language that the scope no longer has are not on the page:
+     * they go, so that none of them stays an automation's default fallback (Magento's MappingSaver
+     * deletes the rows that the posted state no longer contains).
+     *
+     * @param list<string> $languages
+     */
+    private function removeRowsOfOtherLanguages(int $target, string $mode, array $languages): void
+    {
+        foreach ($this->mappings->rows($target) as $row) {
+            $ofMode = ($row['account_key'] === MappingRepository::ACCOUNT_DEFAULT) === ($mode === StoreLayout::MODE_WORKFLOW_PER_LANGUAGE);
+            if ($ofMode && $row['language'] !== '' && !in_array($row['language'], $languages, true)) {
+                $this->mappings->delete($target, $row['trigger'], $row['language'], $row['account_key']);
+            }
+        }
+    }
+
+    private static function accountKey(string $mode, string $language): string
+    {
+        return $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE ? $language : MappingRepository::ACCOUNT_DEFAULT;
+    }
+
+    private static function key(string $trigger, string $language, string $accountKey): string
+    {
+        return $trigger . '|' . $language . '|' . $accountKey;
+    }
+
+    /**
+     * @param array{workflow_id: int|null, optin_trigger: bool}|null $row
+     */
+    private static function value(?array $row): string
+    {
+        if ($row === null) {
+            return '';
+        }
+
+        return $row['workflow_id'] === null ? ($row['optin_trigger'] ? self::OPTIN : '') : (string) $row['workflow_id'];
+    }
+
+    /**
+     * Magento's sentence with the reason code of WorkflowList, which never carries Smaily's text.
+     */
+    private function listError(string $reason): string
+    {
+        return $this->trans('Could not load the workflow list: %error%', ['%error%' => $reason]);
+    }
+
+    /**
+     * @param array<string, string|int> $parameters
+     */
+    private function trans(string $message, array $parameters = []): string
+    {
+        return $this->translator->trans($message, $parameters, BaseController::DOMAIN);
+    }
+}

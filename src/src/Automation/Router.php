@@ -157,13 +157,23 @@ final class Router implements WorkflowResolverInterface
     }
 
     /**
+     * The shop scopes whose mapping rows the shop reads, its own first: the rule at the top. The
+     * Automations panel shows and checks the rows of the same scopes.
+     *
+     * @return list<int>
+     */
+    public function rowShops(int $idShop): array
+    {
+        return $this->separate($idShop) || $this->usesOtherAccount($idShop) ? [$idShop] : [$idShop, 0];
+    }
+
+    /**
      * @return array{id: int, id_shop: int, trigger: string, language: string, account_key: string, workflow_id: int|null, optin_trigger: bool, is_default_fallback: bool}|null
      */
     private function matchingRow(string $trigger, int $idShop, string $language, string $mode): ?array
     {
-        $shops = $this->separate($idShop) || $this->usesOtherAccount($idShop) ? [$idShop] : [$idShop, 0];
         $rows = [];
-        foreach ($shops as $shop) {
+        foreach ($this->rowShops($idShop) as $shop) {
             foreach ($this->mappings->rows($shop, $trigger) as $row) {
                 $sendable = $row['workflow_id'] !== null || ($row['optin_trigger'] && $trigger === Trigger::WELCOME);
                 $ofMode = $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE

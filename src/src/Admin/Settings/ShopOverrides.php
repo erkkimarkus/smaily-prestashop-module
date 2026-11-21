@@ -151,6 +151,27 @@ final class ShopOverrides extends Settings
     }
 
     /**
+     * Whether the shop always holds its own automations (Magento CON-190, its switch shows ticked
+     * and fixed): its workflows come from its own account per language (mode `a`, a shop's own
+     * setting), or from another Smaily account than the shared one.
+     */
+    public function keepsOwnAutomations(int $idShop): bool
+    {
+        return $this->get(StoreLayout::LANGUAGE_MODE, $idShop) === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE
+            || $this->usesOtherAccount($idShop);
+    }
+
+    /**
+     * Whether Settings tells the merchant to pick the shop's workflows (Magento CON-190): it uses
+     * another Smaily account than the shared one, which starts only its own workflows, and it
+     * holds none.
+     */
+    public function needsOwnWorkflows(int $idShop): bool
+    {
+        return $this->usesOtherAccount($idShop) && $this->mappings->rows($idShop) === [];
+    }
+
+    /**
      * Gives the shop a copy of the shared account of no language, as stored, when it holds none:
      * a shop that takes its own Smaily account starts from the shared one, so an unchanged account
      * keeps its password. Returns whether it copied one.

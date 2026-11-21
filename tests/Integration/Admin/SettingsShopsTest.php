@@ -77,6 +77,10 @@ final class SettingsShopsTest extends IntegrationTestCase
         parent::setUp();
         $mock = SmailyMockServer::start();
         $mock->acceptCredentials(self::USERNAME, self::PASSWORD);
+        $mock->setWorkflows(array_map(
+            static fn (int $id): array => ['id' => $id, 'title' => 'Workflow ' . $id, 'trigger_type' => 'form_submitted', 'is_enabled' => true],
+            [42, 43]
+        ));
         $transport = $mock->transport();
         $this->services = Services::fromProviders(Services::PROVIDERS);
         $this->services->set(Transport::class, static fn (): Transport => $transport);
@@ -180,6 +184,75 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertNull($this->accounts->find($this->shopB, ''));
         self::assertSame(0, $this->mappingCount($this->shopB), 'workflows picked from the other account go');
         self::assertSame('demo', $this->resolver()->for($this->shopB, 'en')->subdomain());
+    }
+
+    public function testAShopUsesItsOwnAutomationsAndGoesBackToTheSharedOnes(): void
+    {
+        $this->oneStoreConfigured();
+        $saver = $this->saver();
+        $context = $this->context($this->shopB);
+        $overrides = $this->overrides();
+        $automations = new AutomationSettings();
+        $data = [
+            'triggers' => ['welcome' => ['enabled' => true, 'workflow' => '42'], 'abandoned_cart' => ['enabled' => true, 'workflow' => '43']],
+            'cart_delay' => '20',
+        ];
+
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $data, true));
+        self::assertTrue($overrides->hasOwn(ShopOverrides::AUTOMATIONS, $this->shopB));
+        self::assertSame(['shop' => 4, 'mappings' => 2], $this->automationRows($this->shopB), 'its own switches and delay, the shared welcome workflow as its own, and its cart workflow');
+        self::assertSame([true, 20], [$automations->enabled('abandoned_cart', $this->shopB), $automations->cartDelayMinutes($this->shopB)]);
+        self::assertSame([false, 30], [$automations->enabled('abandoned_cart', $this->shopC), $automations->cartDelayMinutes($this->shopC)], 'the other shops keep the shared automations');
+        self::assertSame(['shop' => 0, 'mappings' => 1], $this->automationRows(0), 'the shared rows are untouched');
+        $values = $this->setupPanels()->automations()->values($context->automationsScope($overrides, true));
+        self::assertSame(['42', '43', 20], [$values['triggers']['welcome']['workflow'], $values['triggers']['abandoned_cart']['workflow'], $values['cart_delay']]);
+
+        self::assertSame(['errors' => [], 'returned' => true], $saver->saveAutomations($context, $data, false));
+        self::assertFalse($overrides->hasOwn(ShopOverrides::AUTOMATIONS, $this->shopB));
+        self::assertSame(['shop' => 0, 'mappings' => 0], $this->automationRows($this->shopB));
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $this->shopB . ' AND `value` IS NULL', false), 'nothing was written as NULL');
+        self::assertSame([false, 30], [(new AutomationSettings())->enabled('abandoned_cart', $this->shopB), (new AutomationSettings())->cartDelayMinutes($this->shopB)]);
+
+        // Unticked on a shop without own values: the tab saves the shared values it shows.
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $data, false));
+        self::assertSame(['shop' => 0, 'mappings' => 0], $this->automationRows($this->shopB));
+        self::assertSame(['shop' => 0, 'mappings' => 2], $this->automationRows(0));
+        self::assertSame(20, (new AutomationSettings())->cartDelayMinutes($this->shopC));
+    }
+
+    /**
+     * Magento CON-190: a shop on another Smaily account than the shared one always holds its own
+     * automations, starts from no workflow, and never reads or writes the shared ones.
+     */
+    public function testAShopOnAnotherAccountAlwaysSavesItsOwnAutomations(): void
+    {
+        $this->oneStoreConfigured();
+        $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
+        $overrides = $this->overrides();
+        $context = $this->context($this->shopC);
+
+        self::assertTrue($overrides->keepsOwnAutomations($this->shopC));
+        self::assertTrue($overrides->needsOwnWorkflows($this->shopC), 'the page tells the merchant to pick its workflows');
+        self::assertFalse($overrides->keepsOwnAutomations($this->shopB));
+        self::assertFalse($overrides->needsOwnWorkflows($this->shopB));
+        $scope = $context->automationsScope($overrides, false);
+        self::assertSame($this->shopC, $scope->targetShop(), 'its own automations, whatever its switch says');
+        self::assertSame('', $this->setupPanels()->automations()->values($scope)['triggers']['welcome']['workflow'], 'the shared workflow is not its own');
+
+        $saved = $this->saver()->saveAutomations($context, ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '43']], 'cart_delay' => '30'], false);
+
+        self::assertSame(['errors' => [], 'returned' => false], $saved);
+        self::assertSame(['shop' => 4, 'mappings' => 1], $this->automationRows($this->shopC));
+        self::assertSame(['shop' => 0, 'mappings' => 1], $this->automationRows(0));
+        self::assertFalse($overrides->needsOwnWorkflows($this->shopC));
+        $read = $this->whatShopsRead();
+        self::assertSame([[true, 43], [true, 42]], [$read[$this->shopC]['welcome'], $read[$this->shopB]['welcome']]);
+
+        // A shop with its own account per language (mode `a`) keeps its own automations as well.
+        \Configuration::updateValue(StoreLayout::LANGUAGE_MODE, 'a', false, null, $this->shopB);
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+        self::assertTrue($overrides->keepsOwnAutomations($this->shopB));
     }
 
     public function testOneStoreToSeparateStoresKeepsWhatEveryShopReads(): void
@@ -404,6 +477,19 @@ final class SettingsShopsTest extends IntegrationTestCase
         return count($this->mappings->rows($idShop));
     }
 
+    /**
+     * @return array{shop: int, mappings: int} the automation keys stored at exactly the shop's scope, and its mapping rows
+     */
+    private function automationRows(int $idShop): array
+    {
+        $names = "'" . implode("','", ShopOverrides::KEYS[ShopOverrides::AUTOMATIONS]) . "'";
+
+        return [
+            'shop' => $idShop > 0 ? (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` IN (' . $names . ') AND `id_shop` = ' . $idShop, false) : 0,
+            'mappings' => $this->mappingCount($idShop),
+        ];
+    }
+
     private function context(int $selectedShop): SettingsScope
     {
         return SettingsScope::current(new StoreLayout(), $selectedShop);
@@ -411,7 +497,12 @@ final class SettingsShopsTest extends IntegrationTestCase
 
     private function saver(): TabSaver
     {
-        return new TabSaver(new SetupPanels($this->services, \Context::getContext()->getTranslator()), $this->overrides());
+        return new TabSaver($this->setupPanels(), $this->overrides());
+    }
+
+    private function setupPanels(): SetupPanels
+    {
+        return new SetupPanels($this->services, \Context::getContext()->getTranslator());
     }
 
     private function overrides(): ShopOverrides

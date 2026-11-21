@@ -32,8 +32,9 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 
 /**
- * Saves Settings > Connection and Contacts through the Initial setup's panels (one writer for the
- * setup and Settings), at the scope SettingsScope names, with Magento's rules for a tab's switch
+ * Saves Settings > Connection, Contacts and Automations through the Initial setup's panels (one
+ * writer for the setup and Settings), at the scope SettingsScope names, with Magento's rules for a
+ * tab's switch
  * "Use its own … on this shop" (CON-179):
  *
  * - ticked, the tab writes the shop's own values;
@@ -46,6 +47,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
  * shared one, its own automations go, as they do when a shop on another account returns to the
  * shared account: their workflows were picked from the other account (Magento CON-190).
  * `own_account_started` makes the page reload.
+ *
+ * A shop in mode `a`, or on another Smaily account than the shared one, always saves its own
+ * automations, whatever its switch says (SettingsScope::automationsScope()).
  */
 final class TabSaver
 {
@@ -113,5 +117,23 @@ final class TabSaver
         }
 
         return ['errors' => $this->panels->contacts()->save($context->scope($own), $data), 'returned' => false];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return array{errors: list<array{field: string, message: string}>, returned: bool}
+     */
+    public function saveAutomations(SettingsScope $context, array $data, bool $own): array
+    {
+        $shop = $context->ownShop();
+        $scope = $context->automationsScope($this->overrides, $own);
+        if ($shop !== null && $scope === $context->shared() && $this->overrides->hasOwn(ShopOverrides::AUTOMATIONS, $shop)) {
+            $this->overrides->removeOwn(ShopOverrides::AUTOMATIONS, $shop);
+
+            return ['errors' => [], 'returned' => true];
+        }
+
+        return ['errors' => $this->panels->automations()->save($scope, $data), 'returned' => false];
     }
 }
