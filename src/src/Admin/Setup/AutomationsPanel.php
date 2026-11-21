@@ -63,6 +63,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * An automation that is switched on without a workflow is saved, as in Magento: it sends nothing
  * (the Router skips it as `no_workflow`) until a workflow is picked. Nothing is written while any
  * field is at fault.
+ *
+ * Each automation's discount code (Magento's "Send a discount code" block): its switch, the cart
+ * rule that the codes are copies of and the days a code is valid. The picker's list comes from
+ * the shop's cart rules now (Discount\TemplateRules). While the automation and the switch are on,
+ * a save without a rule, or with days outside 1 to 365, is refused; with either off the fields
+ * are hidden, so a value at fault is left unsaved and refuses nothing.
  */
 final class AutomationsPanel
 {
@@ -83,13 +89,22 @@ final class AutomationsPanel
 
     private TranslatorInterface $translator;
 
+    /** @var callable(int): list<array{id: int, name: string}> */
+    private $templateRules;
+
+    /**
+     * @param callable $templateRules `callable(int): list<array{id: int, name: string}>`: the
+     *                                cart rules that a discount code can be a copy of in a shop,
+     *                                or with 0 in every shop
+     */
     public function __construct(
         AutomationSettings $settings,
         MappingRepository $mappings,
         StoreLayout $layout,
         Router $router,
         WorkflowList $workflows,
-        TranslatorInterface $translator
+        TranslatorInterface $translator,
+        callable $templateRules
     ) {
         $this->settings = $settings;
         $this->mappings = $mappings;
@@ -97,15 +112,17 @@ final class AutomationsPanel
         $this->router = $router;
         $this->workflows = $workflows;
         $this->translator = $translator;
+        $this->templateRules = $templateRules;
     }
 
     /**
      * The panel's values for the scope's target shop; null when the scope saves nothing. A
      * workflow is its id as a string, '' for none, or OPTIN. `languages` and `fallback` are filled
      * in the modes `a` and `b` only: each language's workflow, and the language whose row is the
-     * automation's default fallback ('' for none).
+     * automation's default fallback ('' for none). `discount` is the automation's discount code:
+     * its switch, its cart rule (0 for none) and its days.
      *
-     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string}>}|null
+     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string, discount: array{enabled: bool, rule: int, days: int}}>}|null
      */
     public function values(SetupScope $scope): ?array
     {
@@ -133,6 +150,11 @@ final class AutomationsPanel
                 'workflow' => self::value($rows[self::key($trigger, '', MappingRepository::ACCOUNT_DEFAULT)] ?? null),
                 'languages' => $languages,
                 'fallback' => $fallback,
+                'discount' => [
+                    'enabled' => $this->settings->discountEnabled($trigger, $target),
+                    'rule' => $this->settings->discountRule($trigger, $target),
+                    'days' => $this->settings->discountDays($trigger, $target),
+                ],
             ];
         }
 
@@ -160,8 +182,22 @@ final class AutomationsPanel
     }
 
     /**
-     * Checks and saves the posted `triggers` (each automation's `enabled`, `workflow`, and in the
-     * modes `a` and `b` `languages` (ISO code => workflow) and `fallback`) and `cart_delay`.
+     * The cart rules that the discount pickers offer, read now: the ones a code can be a copy of
+     * in the scope's shop, or for the values all shops share in every shop.
+     *
+     * @return array{rules: list<array{id: int, name: string}>}
+     */
+    public function discountRules(SetupScope $scope): array
+    {
+        $target = $scope->targetShop();
+
+        return ['rules' => $target === null ? [] : ($this->templateRules)($target)];
+    }
+
+    /**
+     * Checks and saves the posted `triggers` (each automation's `enabled`, `workflow`, in the
+     * modes `a` and `b` `languages` (ISO code => workflow) and `fallback`, and `discount` with its
+     * `enabled`, `rule` and `days`) and `cart_delay`.
      *
      * @param array<string, mixed> $data
      *
@@ -190,6 +226,32 @@ final class AutomationsPanel
                 'The abandoned-cart wait must be from %min% to %max% minutes. A longer wait would send no reminder.',
                 ['%min%' => AutomationSettings::MIN_CART_DELAY_MINUTES, '%max%' => AutomationSettings::MAX_CART_DELAY_MINUTES]
             )];
+        }
+
+        $discounts = [];
+        foreach ($cards as $trigger => $card) {
+            if (!is_array($card['discount'] ?? null)) {
+                continue;
+            }
+            $on = !empty($card['enabled']) && !empty($card['discount']['enabled']);
+            $rule = self::wholeNumber($card['discount']['rule'] ?? null);
+            $days = self::wholeNumber($card['discount']['days'] ?? null);
+            $daysValid = $days !== null && $days >= AutomationSettings::MIN_DISCOUNT_DAYS && $days <= AutomationSettings::MAX_DISCOUNT_DAYS;
+            if ($on && ($rule === null || $rule <= 0)) {
+                $errors[] = ['field' => $trigger . '.discount.rule', 'message' => $this->trans('Send a discount code is on, but no cart price rule is picked. Pick a rule, or switch the discount code off.')];
+            }
+            if ($on && !$daysValid) {
+                $errors[] = ['field' => $trigger . '.discount.days', 'message' => $this->trans(
+                    'A discount code must be valid for a whole number of days from %min% to %max%.',
+                    ['%min%' => AutomationSettings::MIN_DISCOUNT_DAYS, '%max%' => AutomationSettings::MAX_DISCOUNT_DAYS]
+                )];
+            }
+            // A hidden value at fault is not saved: the stored one stays.
+            $discounts[$trigger] = [
+                !empty($card['discount']['enabled']),
+                $rule ?? $this->settings->discountRule($trigger, $target),
+                $daysValid ? $days : $this->settings->discountDays($trigger, $target),
+            ];
         }
 
         $stored = $this->rows($target);
@@ -239,6 +301,9 @@ final class AutomationsPanel
         }
         if ($delayValid) {
             $this->settings->setCartDelayMinutes((int) $delay, $target);
+        }
+        foreach ($discounts as $trigger => [$enabled, $rule, $days]) {
+            $this->settings->setDiscount($trigger, $enabled, $rule, $days, $target);
         }
         foreach ($writes as [$trigger, $language, $accountKey, $workflowId, $optin, $fallback]) {
             if ($workflowId === null && !$optin) {
@@ -320,6 +385,16 @@ final class AutomationsPanel
         }
 
         return $row['workflow_id'] === null ? ($row['optin_trigger'] ? self::OPTIN : '') : (string) $row['workflow_id'];
+    }
+
+    /**
+     * A posted whole number that is 0 or more, or null for anything else.
+     *
+     * @param mixed $value
+     */
+    private static function wholeNumber($value): ?int
+    {
+        return (is_int($value) && $value >= 0) || (is_string($value) && ctype_digit($value)) ? (int) $value : null;
     }
 
     /**

@@ -42,3 +42,10 @@ smailyforprestashop_api_settings_workflows:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows::execute
     _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_discount_rules:
+  path: /smailyforprestashop/api/settings/discount-rules
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules::execute
+    _legacy_controller: AdminSmailyConnectSettings

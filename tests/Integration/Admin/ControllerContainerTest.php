@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection;
@@ -169,6 +170,7 @@ final class ControllerContainerTest extends IntegrationTestCase
             'save' => [SaveTab::class, 'smailyforprestashop_api_settings_save', ['tab' => 'no-such-tab'], 400, 'unknown_tab', 'Saving failed.'],
             'save automations' => [SaveTab::class, 'smailyforprestashop_api_settings_save', ['tab' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT], 422, 'invalid_fields', 'The abandoned-cart wait must be from 10 to 1435 minutes. A longer wait would send no reminder.'],
             'workflows' => [Workflows::class, 'smailyforprestashop_api_settings_workflows', ['account' => 'no such account'], 200, null, null],
+            'discount-rules' => [DiscountRules::class, 'smailyforprestashop_api_settings_discount_rules', [], 200, null, null],
             'test-connection' => [TestConnection::class, 'smailyforprestashop_api_settings_test', [], 422, 'invalid_fields', 'Please fill in the subdomain, username and password.'],
             'layout' => [ChangeLayout::class, 'smailyforprestashop_api_settings_layout', ['shape' => 'no-such-shape'], 422, 'invalid_fields', 'Pick how your shops are run.'],
             'contact-import' => [ContactImportAction::class, 'smailyforprestashop_api_settings_import', ['action' => 'no-such-action'], 400, 'unknown_action', 'Saving failed.'],
@@ -202,6 +204,11 @@ final class ControllerContainerTest extends IntegrationTestCase
 
         $response = $this->execute(new Workflows(), $this->locator(), ['account' => 'no such account'], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_workflows']);
         self::assertSame(['ok' => true, 'data' => ['workflows' => [], 'error' => null]], json_decode((string) $response->getContent(), true));
+
+        $response = $this->execute(new DiscountRules(), $this->locator(), [], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_discount_rules']);
+        $answer = json_decode((string) $response->getContent(), true);
+        self::assertSame([true, ['rules']], [$answer['ok'], array_keys($answer['data'])]);
+        self::assertIsArray($answer['data']['rules']);
     }
 
     /**
@@ -212,6 +219,7 @@ final class ControllerContainerTest extends IntegrationTestCase
         return [
             'Save Automations' => [SaveTab::class, ['tab' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT]],
             'the workflow lists' => [Workflows::class, ['account' => 'default']],
+            'the discount pickers' => [DiscountRules::class, []],
         ];
     }
 

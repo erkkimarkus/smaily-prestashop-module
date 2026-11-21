@@ -17,3 +17,6 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Workflows
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules

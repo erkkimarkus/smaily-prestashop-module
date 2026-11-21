@@ -1792,6 +1792,21 @@
   width: 6rem;
 }
 
+/* A card's discount code: Magento's block under the card's controls. */
+.smaily-ui .smaily-trigger__discount {
+  margin-top: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-trigger__discount .smaily-trigger__enable {
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-trigger__discount .smaily-trigger__controls {
+  margin: 8px 0;
+}
+
 .smaily-ui .smaily-ml-trigger {
   margin-top: 16px;
 }

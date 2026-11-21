@@ -39,7 +39,18 @@ final class AutomationsPanelTest extends IntegrationTestCase
         AutomationSettings::FIRST_ORDER_ENABLED,
         AutomationSettings::CART_ENABLED,
         AutomationSettings::CART_DELAY_MINUTES,
+        AutomationSettings::WELCOME_DISCOUNT_ENABLED,
+        AutomationSettings::WELCOME_DISCOUNT_RULE,
+        AutomationSettings::WELCOME_DISCOUNT_DAYS,
+        AutomationSettings::FIRST_ORDER_DISCOUNT_ENABLED,
+        AutomationSettings::FIRST_ORDER_DISCOUNT_RULE,
+        AutomationSettings::FIRST_ORDER_DISCOUNT_DAYS,
+        AutomationSettings::CART_DISCOUNT_ENABLED,
+        AutomationSettings::CART_DISCOUNT_RULE,
+        AutomationSettings::CART_DISCOUNT_DAYS,
     ];
+
+    private const NO_DISCOUNT = ['enabled' => false, 'rule' => 0, 'days' => 7];
 
     private const LISTS = [
         'demo' => [11 => 'Welcome', 12 => 'First order', 13 => 'Cart'],
@@ -143,7 +154,7 @@ final class AutomationsPanelTest extends IntegrationTestCase
         $scope = $this->scope(['en' => 'English']);
         $before = $this->panel()->values($scope);
         self::assertSame(['single', 30], [$before['mode'], $before['cart_delay']]);
-        self::assertSame(['enabled' => false, 'workflow' => '', 'languages' => [], 'fallback' => ''], $before['triggers']['welcome']);
+        self::assertSame(['enabled' => false, 'workflow' => '', 'languages' => [], 'fallback' => '', 'discount' => self::NO_DISCOUNT], $before['triggers']['welcome']);
 
         $errors = $this->panel()->save($scope, [
             'triggers' => [
@@ -328,7 +339,7 @@ final class AutomationsPanelTest extends IntegrationTestCase
         self::assertSame(['welcome|en|default 12', 'welcome|et|default 13 fallback', 'welcome|et|et 21', 'welcome||default 11'], $this->rows(0));
         $values = $this->panel()->values($scope);
         self::assertSame('b', $values['mode']);
-        self::assertSame(['enabled' => true, 'workflow' => '11', 'languages' => ['en' => '12', 'et' => '13'], 'fallback' => 'et'], $values['triggers']['welcome']);
+        self::assertSame(['enabled' => true, 'workflow' => '11', 'languages' => ['en' => '12', 'et' => '13'], 'fallback' => 'et', 'discount' => self::NO_DISCOUNT], $values['triggers']['welcome']);
         $router = $this->router();
         self::assertSame([12, 13, 13], [
             $router->resolve('welcome', $shop, 'en')->workflowId(),
@@ -366,6 +377,81 @@ final class AutomationsPanelTest extends IntegrationTestCase
         $match = $this->router()->resolve('welcome', $shop, 'et');
         self::assertSame([21, 'demo-et'], [$match->workflowId(), $match->account()->subdomain()]);
         self::assertSame(['en' => '12', 'et' => '21', 'lv' => ''], $this->panel()->values($scope)['triggers']['welcome']['languages']);
+    }
+
+    public function testAnAutomationsDiscountCodeSavesItsSwitchRuleAndDaysAndReadsBack(): void
+    {
+        $scope = $this->scope(['en' => 'English']);
+        $data = [
+            'triggers' => [
+                'welcome' => ['enabled' => true, 'workflow' => '11', 'discount' => ['enabled' => true, 'rule' => '41', 'days' => '14']],
+                'first_order' => ['enabled' => false, 'discount' => ['enabled' => true, 'rule' => '', 'days' => '0']],
+                'abandoned_cart' => ['enabled' => true, 'discount' => ['enabled' => false, 'rule' => '42', 'days' => '900']],
+            ],
+            'cart_delay' => '30',
+        ];
+
+        self::assertSame([], $this->panel()->save($scope, $data), 'a hidden block (its card or its switch off) refuses nothing');
+
+        $triggers = $this->panel()->values($scope)['triggers'];
+        self::assertSame(['enabled' => true, 'rule' => 41, 'days' => 14], $triggers['welcome']['discount']);
+        self::assertSame(['enabled' => true, 'rule' => 0, 'days' => 7], $triggers['first_order']['discount'], 'the switch is kept; the days at fault are not saved');
+        self::assertSame(['enabled' => false, 'rule' => 42, 'days' => 7], $triggers['abandoned_cart']['discount']);
+
+        // A save that posts no discount block leaves the stored one as it is.
+        self::assertSame([], $this->panel()->save($scope, ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '11']], 'cart_delay' => '30']));
+        self::assertSame(['enabled' => true, 'rule' => 41, 'days' => 14], $this->panel()->values($scope)['triggers']['welcome']['discount']);
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, list<string>}>
+     */
+    public function refusedDiscounts(): array
+    {
+        return [
+            'the switch on without a rule' => [['enabled' => true, 'rule' => '', 'days' => '7'], ['welcome.discount.rule']],
+            'rule 0' => [['enabled' => true, 'rule' => '0', 'days' => '7'], ['welcome.discount.rule']],
+            '0 days' => [['enabled' => true, 'rule' => '41', 'days' => '0'], ['welcome.discount.days']],
+            '366 days' => [['enabled' => true, 'rule' => '41', 'days' => '366'], ['welcome.discount.days']],
+            'no days' => [['enabled' => true, 'rule' => '41', 'days' => ''], ['welcome.discount.days']],
+            'neither' => [['enabled' => true, 'rule' => 'x', 'days' => '1.5'], ['welcome.discount.rule', 'welcome.discount.days']],
+        ];
+    }
+
+    /**
+     * @dataProvider refusedDiscounts
+     *
+     * @param array<string, mixed> $discount
+     * @param list<string> $fields
+     */
+    public function testADiscountCodeThatIsOnWithoutARuleOrWithDaysOutsideOneTo365IsRefused(array $discount, array $fields): void
+    {
+        $scope = $this->scope(['en' => 'English']);
+
+        $errors = $this->panel()->save($scope, ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '11', 'discount' => $discount]], 'cart_delay' => '30']);
+
+        self::assertSame($fields, array_column($errors, 'field'));
+        self::assertNotContains('', array_column($errors, 'message'));
+        $values = $this->panel()->values($scope)['triggers']['welcome'];
+        self::assertSame([false, '', self::NO_DISCOUNT], [$values['enabled'], $values['workflow'], $values['discount']], 'nothing was written');
+    }
+
+    public function testTheDiscountPickerListsTheRulesOfTheScopesShop(): void
+    {
+        $rule = new \CartRule();
+        $rule->name = array_fill_keys(array_map('intval', \Language::getIDs(false)), 'Panel picker rule');
+        $rule->date_from = date('Y-m-d H:i:s', time() - 3600);
+        $rule->date_to = date('Y-m-d H:i:s', time() + 86400);
+        $rule->reduction_percent = 10;
+        $rule->active = false;
+        self::assertTrue($rule->add());
+        try {
+            $listed = $this->panel()->discountRules($this->scope(['en' => 'English']))['rules'];
+            self::assertContains(['id' => (int) $rule->id, 'name' => 'Panel picker rule'], $listed);
+            self::assertSame(['rules' => []], $this->panel()->discountRules(new SetupScope(true, true, true, 0, ['en' => 'English'])), 'separate stores without a shop list nothing');
+        } finally {
+            $rule->delete();
+        }
     }
 
     public function testSeparateStoresWithAllShopsSelectedSaveNothing(): void

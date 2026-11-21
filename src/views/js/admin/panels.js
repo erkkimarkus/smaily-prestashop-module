@@ -25,7 +25,8 @@
  * What the Initial setup (setup.js) and Settings (settings.js) share of the panels in
  * views/templates/admin/panel/: the page's words and endpoints, the field errors, the Connection
  * panel's account blocks with Test connection and the state, what the Connection, Contacts and
- * Automations panels would save, the Automations panel's cards and workflow lists, and the first
+ * Automations panels would save, the Automations panel's cards, workflow lists and discount
+ * pickers, and the first
  * contact import. Plain JavaScript, no build; on the shell of common.js.
  *
  * window.smailyConnect.panels(root, connectedLabel) takes the page's root element, which carries
@@ -252,6 +253,33 @@
       select.value = current;
     }
 
+    /* The discount pickers: the cart rules of the shop, asked with the workflow lists. */
+    function loadDiscountRules(own) {
+      return post('discount-rules', {own: own}).then(function (answer) {
+        return answer.rules;
+      }, function () {
+        return [];
+      }).then(function (rules) {
+        var word = labels(automations);
+        automations.querySelectorAll('[data-smaily-discount-rules]').forEach(function (select) {
+          var current = workflowValue(select);
+          select.textContent = '';
+          select.add(new Option(word('pick-rule'), ''));
+          rules.forEach(function (rule) {
+            select.add(new Option(rule.name + ' (' + rule.id + ')', rule.id));
+          });
+          // A saved rule that the list no longer offers reads as none: the save then asks for one.
+          select.value = current;
+          if (select.selectedIndex === -1) {
+            select.value = '';
+          }
+        });
+        automations.querySelectorAll('[data-smaily-discount-empty]').forEach(function (note) {
+          note.hidden = rules.length > 0;
+        });
+      });
+    }
+
     /* Asks Smaily for each account's list; a list that cannot be loaded says why in `line`. */
     function loadWorkflows(line) {
       if (!automations) {
@@ -266,6 +294,7 @@
         }
       });
       var own = root.querySelector('[data-smaily-own="automations"]');
+      loadDiscountRules(own ? own.checked : false);
       return Promise.all(accounts.map(function (account) {
         return post('workflows', {account: account, own: own ? own.checked : false}).then(function (answer) {
           workflowLists[account] = answer.workflows;
@@ -315,6 +344,11 @@
           });
           item.fallback = checked(table, 'smaily-fallback-' + trigger);
         }
+        item.discount = {
+          enabled: card.querySelector('[data-smaily-field="' + trigger + '.discount.enabled"]').checked,
+          rule: workflowValue(card.querySelector('[data-smaily-field="' + trigger + '.discount.rule"]')),
+          days: value(card, trigger + '.discount.days').trim()
+        };
         data.triggers[trigger] = item;
       });
       return data;
@@ -327,6 +361,9 @@
         if (select.options.length) {
           fillWorkflows(select);
         }
+      });
+      automations.querySelectorAll('[data-smaily-discount-rules]').forEach(function (select) {
+        select.setAttribute('data-saved', workflowValue(select));
       });
     }
 
@@ -445,7 +482,9 @@
       if (hook) {
         hook(input);
       }
-      if (/\.enabled$/.test(input.getAttribute('data-smaily-field') || '') && input.closest('[data-smaily-trigger]')) {
+      if (/\.discount\.enabled$/.test(input.getAttribute('data-smaily-field') || '')) {
+        input.closest('.smaily-trigger__discount').querySelector('[data-smaily-discount-body]').hidden = !input.checked;
+      } else if (/\.enabled$/.test(input.getAttribute('data-smaily-field') || '') && input.closest('[data-smaily-trigger]')) {
         showTrigger(input.closest('[data-smaily-trigger]'));
       }
       if (input.matches('.smaily-choice__input')) {

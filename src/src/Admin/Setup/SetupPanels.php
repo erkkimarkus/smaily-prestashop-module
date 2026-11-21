@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -98,7 +99,21 @@ final class SetupPanels
         /** @var WorkflowList $workflows */
         $workflows = $this->services->get(WorkflowList::class);
 
-        return new AutomationsPanel($settings, $mappings, $this->layout(), $router, $workflows, $this->translator);
+        /** @var TemplateRules $templates */
+        $templates = $this->services->get(TemplateRules::class);
+
+        return new AutomationsPanel(
+            $settings,
+            $mappings,
+            $this->layout(),
+            $router,
+            $workflows,
+            $this->translator,
+            static fn (int $idShop): array => $templates->listFor(
+                $idShop > 0 ? [$idShop] : array_map('intval', \Shop::getShops(true, null, true)),
+                (int) \Context::getContext()->language->id
+            )
+        );
     }
 
     public function progress(): SetupProgress

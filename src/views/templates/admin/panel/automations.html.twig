@@ -26,7 +26,9 @@
  # as "language".
  #
  # Each store automation is a card: its name, the Off/Active pill, its description and the Enabled
- # switch; while it is on, also its Smaily workflow and, for the abandoned cart, the wait. A
+ # switch; while it is on, also its Smaily workflow, for the abandoned cart the wait, and its
+ # discount code (Magento's "Send a discount code" block: the switch, the cart rule that the codes
+ # are copies of and the days a code is valid; the picker's list comes from Admin\Api\DiscountRules). A
  # switched-off card keeps its values in the form, so the save keeps them. The workflow lists come
  # live from Smaily (Admin\Api\Workflows): a select is empty until its list has answered, and
  # `data-saved` holds what it posts until then. `data-smaily-workflows` names the account whose
@@ -54,7 +56,8 @@
      data-label-off="{{ 'Off'|trans }}"
      data-label-not-selected="{{ '-- Not Selected --'|trans }}"
      data-label-kept="{{ 'Workflow #%id% (not in your Smaily list — kept)'|trans }}"
-     data-label-optin="{{ 'Smaily\'s opt-in trigger (from 2.x)'|trans }}">
+     data-label-optin="{{ 'Smaily\'s opt-in trigger (from 2.x)'|trans }}"
+     data-label-pick-rule="{{ 'Pick a rule'|trans }}">
   <div class="smaily-card">
     {% if context|default('setup') == 'settings' %}
       <h2>{{ 'Map store events to Smaily automations'|trans }}</h2>
@@ -76,7 +79,6 @@
             <div class="smaily-trigger__desc">{{ card[1] }}</div>
             <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-field="{{ trigger }}.enabled"{{ saved.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>
           </div>
-          {# A later block of the card (a discount code) goes after the controls, inside the settings. #}
           <div class="smaily-trigger__settings" data-smaily-trigger-settings{% if not saved.enabled %} hidden{% endif %}>
             <div class="smaily-trigger__controls">
               {% if mode != 'a' %}
@@ -91,6 +93,25 @@
                   <input type="number" class="form-control smaily-trigger__delay" data-smaily-field="cart_delay" min="10" max="1435" value="{{ automations.cart_delay }}">
                 </label>
               {% endif %}
+            </div>
+            <div class="smaily-trigger__discount">
+              <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-field="{{ trigger }}.discount.enabled"{{ saved.discount.enabled ? ' checked' : '' }}> {{ 'Send a discount code'|trans }}</label>
+              <div data-smaily-discount-body{% if not saved.discount.enabled %} hidden{% endif %}>
+                <div class="smaily-trigger__controls">
+                  <label class="smaily-trigger__ctrl">
+                    <span>{{ 'Cart price rule'|trans }}</span>
+                    <select class="form-control" data-smaily-field="{{ trigger }}.discount.rule" data-smaily-discount-rules data-saved="{{ saved.discount.rule ?: '' }}"></select>
+                  </label>
+                  <label class="smaily-trigger__ctrl">
+                    <span>{{ 'Valid for (days)'|trans }}</span>
+                    <input type="number" class="form-control smaily-trigger__delay" data-smaily-field="{{ trigger }}.discount.days" min="1" max="365" value="{{ saved.discount.days }}">
+                  </label>
+                </div>
+                <p class="smaily-note">{{ 'The discount\'s percentage or amount, its conditions and its dates come from the cart price rule you pick. The module only makes each shopper\'s own single-use code from it.'|trans }}</p>
+                <p class="smaily-note">{{ 'A code works until the end of the day that many days after the email, and never after the rule\'s own end date.'|trans }}</p>
+                <p class="smaily-note">{{ 'Keep the rule itself disabled, or give it a code that you do not share, so that shoppers cannot use it directly. The codes made from it work either way.'|trans }}</p>
+                <p class="smaily-note" data-smaily-discount-empty hidden>{{ 'No cart price rule can be picked yet. Add one in Catalog > Discounts with the discount you want, then press Refresh workflows: the rule appears in the list.'|trans }}</p>
+              </div>
             </div>
           </div>
         </div>
