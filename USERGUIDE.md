@@ -143,7 +143,7 @@ Every email gets a new code that works once, with the discount and the condition
 
 The codes show in **Catalog -> Discounts** with a name that starts with "Smaily Connect". A code that nobody used is removed 30 days after its last valid day; a used code stays with its order. When the cart rule was deleted, has ended, has no uses left, starts only after the code would end, is limited to a single customer or is not for the shop, the email still goes, without a code, and the **Details** of its row in the **Log** say so. Uninstalling the module leaves the codes in place.
 
-A store that handles its languages with **One account, per-language workflows** or **Per-language Smaily accounts** also sees **Per-language workflows**: pick a workflow for each language, and a **Default fallback** for contacts whose language has none. With per-language Smaily accounts, each language lists the workflows of its own account.
+A store that handles its languages with **One account, per-language workflows** or **Per-language Smaily accounts** also sees **Per-language workflows**: pick a workflow for each language, and a **Default fallback** for contacts whose language has none. With per-language Smaily accounts, each language lists the workflows of its own account, and a contact whose language has no workflow gets the **Default fallback**, else the workflow of the default fallback account's language; where none of them is picked, no email is sent and the **Log** shows the event as skipped.
 
 After an upgrade from version 2.x, a store whose opt-in automation had no workflow chosen keeps working as before: the Welcome automation shows **Smaily's opt-in trigger (from 2.x)**. It stays until you pick another workflow and save.
 

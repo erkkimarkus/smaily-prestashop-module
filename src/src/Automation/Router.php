@@ -44,8 +44,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
  *    Smaily account than the shared one reads only its own rows (Magento CON-190), because the
  *    shared workflows were picked from the shared account;
  *  - of those, only the rows of the accounts the shop's language mode sends through (Magento
- *    CON-184): in mode `a` the rows of a language account and the rows of no language, in every
- *    other mode the rows of the account `default`.
+ *    CON-184): in mode `a` the rows of a language's account, in every other mode the rows of the
+ *    account `default`.
  *
  * A shop's own row hides the shared row of the same language and account key, also where the
  * shop's row holds no workflow (MappingRepository::setNone()): a shop that cleared a workflow on
@@ -57,7 +57,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
  *  - `b`: the row of the contact's language, else the default-fallback row, else the row of no
  *    language;
  *  - `a`: the row of the contact's language, else the default-fallback row, else the row of the
- *    shop's fallback language, else the row of no language.
+ *    shop's fallback language. It ends there, as Magento's mode A (CON-188): the row of no
+ *    language was picked from no language's account, and the Automations panel hides it.
  *
  * A row's `account_key` names the account that sends its workflow, never the contact's: `default`
  * is the account of no language, a language code that language's account, each the shop's own
@@ -186,9 +187,7 @@ final class Router implements WorkflowResolverInterface
         $rows = [];
         foreach ($read as $row) {
             $sendable = $row['workflow_id'] !== null || ($row['optin_trigger'] && $trigger === Trigger::WELCOME);
-            $ofMode = $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE
-                ? $row['account_key'] !== MappingRepository::ACCOUNT_DEFAULT || $row['language'] === ''
-                : $row['account_key'] === MappingRepository::ACCOUNT_DEFAULT;
+            $ofMode = ($mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE) !== ($row['account_key'] === MappingRepository::ACCOUNT_DEFAULT);
             if ($sendable && $ofMode) {
                 $rows[] = $row;
             }
@@ -203,7 +202,9 @@ final class Router implements WorkflowResolverInterface
                 static fn (array $row): bool => $fallback !== '' && $row['language'] === $fallback,
             ];
         }
-        $steps[] = static fn (array $row): bool => $row['language'] === '';
+        if ($mode !== StoreLayout::MODE_ACCOUNT_PER_LANGUAGE) {
+            $steps[] = static fn (array $row): bool => $row['language'] === '';
+        }
 
         foreach ($steps as $step) {
             foreach ($rows as $row) {

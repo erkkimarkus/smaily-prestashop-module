@@ -1162,7 +1162,7 @@ taken out the same day: no connector changes this alone (section 14, row 37; Lin
 | Scope of an event | `Scope\ScopeResolver::forRecord($record)` reads `id_shop` and `id_lang` of a Customer, Order or Cart object or a row of their tables or of `emailsubscription`; `resolve($idShop, $idLang)` takes them directly. It never reads the context of the request that processes the event later, such as a cron. The answer is a `Scope\Scope`: the shop, the language's two-letter ISO code (`''` when none), the account, and `setupShopId()`. |
 | Setup shop of an event | `Scope::setupShopId()` is the shop itself in separate stores, else 0. It names the shop whose setup serves the event, which is the `id_shop` of the Campaign Intelligence connection that serves the event (0 = the installation-wide connection). |
 | Customer account scope | `StoreLayout::customerAccountScope()`: `global` when every shop is in one shop group that shares customers, else `website` (section 5.3). |
-| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: at each step the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the `is_default_fallback` row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row, else the default row; `single`/`c` the default row (the row of no language). Only the rows of the mode's accounts are read. A shop's own row hides the shared row of the same language and account key, also where it says "no workflow" (`MappingRepository::setNone()`, Magento's stored `0` at a website's scope). No match is a terminal skip with a reason. As built, mode `a` also ends at the default row, which Magento's mode A never starts (section 14). The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
+| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: at each step the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the `is_default_fallback` row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row, else the default row; `single`/`c` the default row (the row of no language). Only the rows of the mode's accounts are read. A shop's own row hides the shared row of the same language and account key, also where it says "no workflow" (`MappingRepository::setNone()`, Magento's stored `0` at a website's scope). Mode `a` ends at the row of the fallback language and never reads a row of the account `default`, as Magento's mode A (owner, 2026-11-21): a language without its own workflow, without a default fallback and without a workflow of the fallback language sends nothing, also where a workflow of no language or the 2.x opt-in trigger is stored from before the store took an account per language. No match is a terminal skip with the reason `no_workflow`, which the Log words ("Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent."). The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
 
 **[D]** A single-shop install keeps its mode-`a` account rows at `id_shop` 0: the Initial setup and
 Settings write a single shop's values at the global scope (`Admin\Setup\SetupScope::targetShop()`).
@@ -2943,9 +2943,9 @@ has one owner:
   moves the mapping rows as Magento does (section 5.1), and "Test connection" asks Smaily with
   Magento's call, `GET workflows.php?trigger_type=form_submitted`. Walked in a browser on 8.2.8 and
   9.2.0 against the Smaily mock, behind the egress guard.
-- **Left open.** In mode `a` the Router ends at the row of no language, which the panel hides and
-  Magento never starts (section 14). The Initial setup reaches step 4 only in the browser: a
-  reload of an unfinished setup opens the rail up to step 3.
+- **Left open.** The Initial setup reaches step 4 only in the browser: a reload of an unfinished
+  setup opens the rail up to step 3. (In mode `a` the Router once ended at the row of no
+  language; since 2026-11-21 it stops where Magento stops, section 5.2.)
 
 ### Story 4.2 — Welcome and first-order automations
 
@@ -3150,7 +3150,6 @@ has one owner:
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
 | 23 | A late unsubscribe after a newer subscription | A contact sync that unsubscribes is sent whenever its retry comes due, also after a later subscription of the same contact was delivered (section 6.4). The contact then ends unsubscribed in Smaily although the store's latest choice is subscribed, and in "Subscribers only" the reconcile takes that back to the store. The siblings send it the same way. Skipping such a row as stale would leave more contacts subscribed than today, so it is not done without a decision. | Owner |
-| 24 | Mode `a` and the workflow of no language | In mode `a` the Router's last step is the row of no language under the account `default` (section 5.2). Magento's mode A never starts that workflow, and the Automations panel hides it in mode `a` (section 10.9), so a workflow that was picked before the store took an account per language can still start for a contact whose language has no row, through the fallback account. Removing the step sends fewer automations, which is a change of who receives one. | Owner |
 | 25 | A newsletter-block subscriber without an account | Such a subscriber is synced, and gets the welcome email, only while "Include guests" is on (sections 6.2 and 7). A fresh install has it off; an upgraded store has it on. Magento syncs and welcomes a newsletter-form subscription whatever its guest setting says. | Owner |
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
 | 27 | Two Log rules beyond Magento | The Log refuses a "Send again" or "Retry" that would mark a contact subscribed after a later consent change of that contact, and it adds no second entry for an event that already waits in the queue (`Log\ResendGuard`, section 10.8). Magento's Log has neither rule. | Owner confirms |
@@ -3175,7 +3174,7 @@ has one owner:
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
-more) on 2026-11-21; they moved to section 15.
+more) and row 24 (mode `a` and the workflow of no language) on 2026-11-21; they moved to section 15.
 
 ## 15. Decisions
 
@@ -3240,3 +3239,7 @@ Decisions of 2026-11-21:
   2026-11-21): the page asks only before a saved mode `a` or `b` is left, with Magento's text; a
   save that leaves mode `a` removes the languages' accounts; no save removes a workflow, and none
   says that workflows were removed (section 5.1; section 14, row 37).
+- In the mode "an account per language" the Router stops where Magento stops (owner,
+  2026-11-21): after the language's own row, the default fallback row and the row of the fallback
+  language it sends nothing, and the Log says why (`no_workflow`). The last step, the workflow of
+  no language, is removed (section 5.2).

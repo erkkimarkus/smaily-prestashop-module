@@ -227,7 +227,9 @@ final class RouterTest extends TestCase
 
     /**
      * ARCHITECTURE 5.2, mode `a`: the row of the contact's language, else the default-fallback row,
-     * else the row of the shop's fallback language; with none of them, a skip.
+     * else the row of the shop's fallback language; with none of them, a skip. As Magento's mode A,
+     * it never ends at the row of no language: neither at a workflow that was picked before the
+     * store took an account per language, nor at the 2.x opt-in trigger.
      */
     public function testInModeATheDefaultFallbackRowComesBeforeTheFallbackLanguagesRow(): void
     {
@@ -244,6 +246,14 @@ final class RouterTest extends TestCase
 
         $router = $this->router([[0, Trigger::WELCOME, 'et', 'et', 102]], $accounts, $layout);
         self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 1, 'fi'), 'no row of the language, no default fallback, none of the fallback language');
+
+        foreach ([[0, Trigger::WELCOME, '', 'default', 101], [0, Trigger::WELCOME, '', 'default', null, true]] as $ofNoLanguage) {
+            $router = $this->router([[0, Trigger::WELCOME, 'et', 'et', 102], $ofNoLanguage], $accounts, $layout);
+            foreach (['fi', 'en', ''] as $language) {
+                self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 1, $language), 'the row of no language is not a last step');
+            }
+            self::assertSame(102, $router->resolve(Trigger::WELCOME, 1, 'et')->workflowId());
+        }
     }
 
     /**
