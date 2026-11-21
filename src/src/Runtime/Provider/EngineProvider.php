@@ -32,9 +32,11 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
@@ -47,7 +49,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
  *
  * Nothing here connects a shop: a connection exists only after Engine\Setup::connect() exchanged a
  * setup link that the merchant pasted. The health check asks the engine about the stored
- * connections every 15 minutes and sends nothing while there is none.
+ * connections every 15 minutes and sends nothing while there is none; an uninstall ends every
+ * stored connection before the module's data goes.
  */
 final class EngineProvider implements ProviderInterface
 {
@@ -77,9 +80,17 @@ final class EngineProvider implements ProviderInterface
             $services->get(Connections::class),
             'time'
         ));
+        $services->set(Disconnector::class, fn (Services $services): Disconnector => new Disconnector(
+            $services->get(Client::class),
+            $services->get(Connections::class),
+            $services->get(EngineSettings::class)
+        ));
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::HEALTH_JOB, 900, 5, static function (Deadline $deadline) use ($services): void {
             $services->get(HealthCheck::class)->run($deadline);
         }));
+        $services->listen(Uninstaller::BEFORE_REMOVAL, static function () use ($services): void {
+            $services->get(Disconnector::class)->disconnectAll();
+        });
     }
 }
