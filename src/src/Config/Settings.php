@@ -29,6 +29,9 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+
 /**
  * The base of every settings section.
  *
@@ -95,8 +98,29 @@ abstract class Settings
      */
     protected function reload(): void
     {
+        self::reloadConfiguration();
+    }
+
+    /**
+     * Makes PrestaShop load its configuration again from the database, dropping what this request
+     * loaded before.
+     *
+     * @throws SqlException when the load failed. PrestaShop 9.2.0 with debug mode off then holds no
+     *                      configuration and throws nothing: every key reads as not stored, which
+     *                      this module would take for its defaults and a missing token (facts
+     *                      file 6.12)
+     */
+    public static function reloadConfiguration(): void
+    {
         \Configuration::resetStaticCache();
-        \Configuration::loadConfiguration();
+        try {
+            \Configuration::loadConfiguration();
+        } catch (\Exception $error) {
+            throw new SqlException($error);
+        }
+        if (!\Configuration::configurationIsLoaded()) {
+            throw new SqlException();
+        }
     }
 
     /**
@@ -109,14 +133,13 @@ abstract class Settings
         $scope = $idShop !== null && $idShop > 0
             ? sprintf('`id_shop` = %d', $idShop)
             : '`id_shop_group` IS NULL AND `id_shop` IS NULL';
-        $value = \Db::getInstance()->getValue(sprintf(
+
+        return Sql::value(sprintf(
             'SELECT `value` FROM `%sconfiguration` WHERE `name` = \'%s\' AND %s',
             _DB_PREFIX_,
             pSQL($key),
             $scope
-        ), false);
-
-        return is_string($value) ? $value : null;
+        ));
     }
 
     /**

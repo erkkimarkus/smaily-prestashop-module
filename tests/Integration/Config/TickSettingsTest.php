@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Config;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 use Tests\Integration\IntegrationTestCase;
 
@@ -43,6 +44,47 @@ final class TickSettingsTest extends IntegrationTestCase
             }
         }
         parent::tearDown();
+    }
+
+    /**
+     * PrestaShop 9.2.0 with debug mode off holds no configuration after a load that failed, and
+     * throws nothing: every key then reads as not stored (facts file 6.12). That is not a store
+     * without a token: taken as one, the Dashboard's cron line got a new token that no stored row
+     * holds. The load fails for real here: its query joins a table that is away for the moment.
+     */
+    public function testAConfigurationThatCouldNotBeLoadedMakesNoNewToken(): void
+    {
+        $settings = new TickSettings();
+        $token = $settings->token(TickSettings::TICK_TOKEN, 1);
+        $settings->saveState(TickState::fromJson(null)->withTick('tick', 1893456000));
+
+        $errors = [];
+        self::db()->execute('RENAME TABLE `' . _DB_PREFIX_ . 'configuration_lang` TO `' . _DB_PREFIX_ . 'configuration_lang_away`');
+        try {
+            \Configuration::resetStaticCache();
+            foreach ([
+                'the token' => static fn () => $settings->token(TickSettings::TICK_TOKEN, 1),
+                'the tick state' => static fn () => $settings->state(),
+            ] as $what => $read) {
+                try {
+                    $read();
+                    $errors[$what] = null;
+                } catch (\Exception $error) {
+                    $errors[$what] = get_class($error);
+                }
+            }
+        } finally {
+            self::db()->execute('RENAME TABLE `' . _DB_PREFIX_ . 'configuration_lang_away` TO `' . _DB_PREFIX_ . 'configuration_lang`');
+            \Configuration::resetStaticCache();
+            \Configuration::loadConfiguration();
+        }
+
+        // PrestaShop 8 throws on the failed load by itself, before the module asks.
+        self::assertContains($errors['the token'], [SqlException::class, \PrestaShopException::class, \PrestaShopDatabaseException::class]);
+        self::assertSame(SqlException::class, $errors['the tick state'], 'a read through Config\\Settings throws the module\'s error on every version');
+        self::assertSame($token, $this->storedGlobal(TickSettings::TICK_TOKEN), 'the stored token is the one before');
+        self::assertSame($token, $settings->token(TickSettings::TICK_TOKEN, 1));
+        self::assertSame(1893456000, $settings->state()->lastTickAt());
     }
 
     public function testCreatesAndKeepsTheTokenOfADoorThatHasNone(): void
