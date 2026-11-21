@@ -35,7 +35,7 @@
         "lint": "php-cs-fixer fix --dry-run",
         "fix": "php-cs-fixer fix",
         "phpstan": "_PS_ROOT_DIR_=/var/www/html phpstan analyse .",
-        "autoindex": "php vendor/bin/autoindex prestashop:add:index .",
+        "autoindex": "php vendor/bin/autoindex prestashop:add:index . --exclude=vendor",
         "header-stamp": "php vendor/bin/header-stamp --license=../bin/license-header.txt --exclude=vendor --extensions=php,html.twig --header-discrimination-string=\"NOTICE OF LICENSE\"",
         "test": "phpunit --configuration ../phpunit.xml.dist",
         "package": "sh ../bin/package.sh"
