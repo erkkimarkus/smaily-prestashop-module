@@ -64,6 +64,12 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * (the Router skips it as `no_workflow`) until a workflow is picked. Nothing is written while any
  * field is at fault.
  *
+ * A shop that saves its own automations (Settings, one store) holds every row its page shows as
+ * its own: an unchanged workflow of the shared rows is copied to the shop, and a workflow that the
+ * shop clears is stored at the shop as "no workflow" (MappingRepository::setNone()) where a shared
+ * row of that key exists, which the Router then no longer reads for the shop. A shop sends what
+ * its page shows, as a Magento website with its own automations does.
+ *
  * Each automation's discount code (Magento's "Send a discount code" block): its switch, the cart
  * rule that the codes are copies of and the days a code is valid. The picker's list comes from
  * the shop's cart rules now (Discount\TemplateRules). While the automation and the switch are on,
@@ -305,9 +311,15 @@ final class AutomationsPanel
         foreach ($discounts as $trigger => [$enabled, $rule, $days]) {
             $this->settings->setDiscount($trigger, $enabled, $rule, $days, $target);
         }
+        $shared = $this->sharedRows($target);
         foreach ($writes as [$trigger, $language, $accountKey, $workflowId, $optin, $fallback]) {
             if ($workflowId === null && !$optin) {
-                $this->mappings->delete($target, $trigger, $language, $accountKey);
+                if (isset($shared[self::key($trigger, $language, $accountKey)])) {
+                    // The shop reads a shared row of this key: its own row says "no workflow".
+                    $this->mappings->setNone($target, $trigger, $language, $accountKey);
+                } else {
+                    $this->mappings->delete($target, $trigger, $language, $accountKey);
+                }
             } else {
                 $this->mappings->upsert($target, $trigger, $language, $accountKey, $workflowId, $optin, $fallback);
             }
@@ -342,6 +354,24 @@ final class AutomationsPanel
         foreach ($this->router->rowShops($target) as $shop) {
             foreach ($this->mappings->rows($shop) as $row) {
                 $rows[self::key($row['trigger'], $row['language'], $row['account_key'])] ??= $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * The rows all shops share that a shop reads beside its own (the Router's rule), keyed as
+     * rows(); none for the shared scope itself, and for a shop that reads only its own rows.
+     *
+     * @return array<string, array{id: int, id_shop: int, trigger: string, language: string, account_key: string, workflow_id: int|null, optin_trigger: bool, is_default_fallback: bool}>
+     */
+    private function sharedRows(int $target): array
+    {
+        $rows = [];
+        if ($target > 0 && in_array(0, $this->router->rowShops($target), true)) {
+            foreach ($this->mappings->rows(0) as $row) {
+                $rows[self::key($row['trigger'], $row['language'], $row['account_key'])] = $row;
             }
         }
 

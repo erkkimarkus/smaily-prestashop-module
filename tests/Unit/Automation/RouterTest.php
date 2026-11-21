@@ -156,6 +156,38 @@ final class RouterTest extends TestCase
         self::assertSame(101, $router->resolve(Trigger::WELCOME, 1, '')->workflowId());
     }
 
+    /**
+     * A shop that cleared a workflow on its own Automations page holds a row of "no workflow": it
+     * hides the shared row of the same language and account, and no other row.
+     */
+    public function testAShopsOwnRowOfNoWorkflowHidesTheSharedRowOfTheSameKey(): void
+    {
+        $accounts = [0 => ['' => 'shared']];
+        $router = $this->router([
+            [0, Trigger::WELCOME, '', 'default', 101],
+            [0, Trigger::FIRST_ORDER, '', 'default', 111],
+            [2, Trigger::WELCOME, '', 'default', null],
+        ], $accounts);
+
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 2, 'et'), 'the shop starts nothing where its page shows none');
+        self::assertSame(111, $router->resolve(Trigger::FIRST_ORDER, 2, 'et')->workflowId(), 'its other automations still read the shared rows');
+        self::assertSame(101, $router->resolve(Trigger::WELCOME, 1, 'et')->workflowId(), 'a shop on the shared setup still sends');
+
+        // A language's row of "no workflow" (mode b) falls back as the page's "None" does.
+        $layout = [0 => [StoreLayout::LANGUAGE_MODE => StoreLayout::MODE_WORKFLOW_PER_LANGUAGE]];
+        $rows = [
+            [0, Trigger::WELCOME, 'et', 'default', 102],
+            [0, Trigger::WELCOME, '', 'default', 101],
+            [2, Trigger::WELCOME, 'et', 'default', null],
+        ];
+        $router = $this->router($rows, $accounts, $layout);
+        self::assertSame(101, $router->resolve(Trigger::WELCOME, 2, 'et')->workflowId(), 'the automation\'s default workflow, not the shared Estonian one');
+        self::assertSame(102, $router->resolve(Trigger::WELCOME, 1, 'et')->workflowId());
+
+        $router = $this->router(array_merge($rows, [[2, Trigger::WELCOME, '', 'default', null]]), $accounts, $layout);
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route(Trigger::WELCOME, 2, 'et'));
+    }
+
     public function testInModeBTheDefaultFallbackRowComesBeforeTheRowOfNoLanguage(): void
     {
         $layout = [0 => [StoreLayout::LANGUAGE_MODE => StoreLayout::MODE_WORKFLOW_PER_LANGUAGE]];

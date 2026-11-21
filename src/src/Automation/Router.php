@@ -47,6 +47,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
  *    CON-184): in mode `a` the rows of a language account and the rows of no language, in every
  *    other mode the rows of the account `default`.
  *
+ * A shop's own row hides the shared row of the same language and account key, also where the
+ * shop's row holds no workflow (MappingRepository::setNone()): a shop that cleared a workflow on
+ * its own Automations page starts nothing through the shared one.
+ *
  * Which row matches, a shop's own row before a shared one at each step:
  *  - `single` and `c`: the row of no language; in `c` the workflow branches on the contact's
  *    `language` field, which the sender adds;
@@ -172,16 +176,21 @@ final class Router implements WorkflowResolverInterface
      */
     private function matchingRow(string $trigger, int $idShop, string $language, string $mode): ?array
     {
-        $rows = [];
+        $read = [];
         foreach ($this->rowShops($idShop) as $shop) {
             foreach ($this->mappings->rows($shop, $trigger) as $row) {
-                $sendable = $row['workflow_id'] !== null || ($row['optin_trigger'] && $trigger === Trigger::WELCOME);
-                $ofMode = $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE
-                    ? $row['account_key'] !== MappingRepository::ACCOUNT_DEFAULT || $row['language'] === ''
-                    : $row['account_key'] === MappingRepository::ACCOUNT_DEFAULT;
-                if ($sendable && $ofMode) {
-                    $rows[] = $row;
-                }
+                // The shop's own row of a language and account hides the shared one.
+                $read[$row['language'] . '|' . $row['account_key']] ??= $row;
+            }
+        }
+        $rows = [];
+        foreach ($read as $row) {
+            $sendable = $row['workflow_id'] !== null || ($row['optin_trigger'] && $trigger === Trigger::WELCOME);
+            $ofMode = $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE
+                ? $row['account_key'] !== MappingRepository::ACCOUNT_DEFAULT || $row['language'] === ''
+                : $row['account_key'] === MappingRepository::ACCOUNT_DEFAULT;
+            if ($sendable && $ofMode) {
+                $rows[] = $row;
             }
         }
 

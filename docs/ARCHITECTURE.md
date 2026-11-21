@@ -393,7 +393,7 @@ Column rules of `Install\Schema`:
 | `smaily_connect_ingest_queue` | Engine ingest: `catalog`, `catalog_remove`, `customers`, `orders` | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (a catalog row is a marker; the payload is built at flush, see `woo:docs/LESSONS.md` §2.24), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
 | `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
-| `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
+| `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5; NULL with `optin_trigger=0` at a shop = "no workflow here", which hides the shared row of the same key from that shop, sections 5.2 and 10.9), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
 | `smaily_connect_cart` | Abandoned-cart tracker and reminder state (section 7) | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`, `mailed`, `skipped` are the values that `Automation\AbandonedCart\CartTracker` writes), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
 | `smaily_connect_connection` | Campaign Intelligence connections | `id` PK, `id_shop` INT (0 = installation-wide), `smaily_subdomain` VARCHAR(63), `tenant_id` CHAR(36), `api_key_enc` TEXT NOT NULL, `settings` MEDIUMTEXT NOT NULL JSON (tenant name, base URL, engine version, endpoints map, `config` incl. `history` and `connection.prefix`, `issued_at`, `refused_at`, browse switch), `date_add`, `date_upd` | UNIQUE (`id_shop`) |
 | `smaily_connect_order_attribution` | Email-click attribution per order | `id_order` INT PK, `rec_id` CHAR(36) NULL, `context` VARCHAR(64) NULL, `visitor_token` VARCHAR(64) NULL, `created_at` | — |
@@ -1013,6 +1013,8 @@ mapping rows).
   never shared, as that account is not. In both directions a copied row is a trigger's default
   fallback only where the target holds none of that kind (the rows of the account `default`, or the
   rows of the languages' accounts); to one store, a copied default fallback takes that place over.
+  A shop's row of "no workflow" (section 10.9) is never copied: to one store, the promoted shop's
+  "no workflow" removes the shared row of that key.
 - **The contacts confirmation** (`SMAILY_CONNECT_CONTACTS_CONFIRMED`) is not an own value. Neither
   direction copies or removes it, as in Magento, so a shop that synced keeps syncing.
 - Removing a value deletes its row through `Config\Settings`; no step writes `NULL` (section 2.1).
@@ -1033,7 +1035,7 @@ multishop install does not offer it.
 | Scope of an event | `Scope\ScopeResolver::forRecord($record)` reads `id_shop` and `id_lang` of a Customer, Order or Cart object or a row of their tables or of `emailsubscription`; `resolve($idShop, $idLang)` takes them directly. It never reads the context of the request that processes the event later, such as a cron. The answer is a `Scope\Scope`: the shop, the language's two-letter ISO code (`''` when none), the account, and `setupShopId()`. |
 | Setup shop of an event | `Scope::setupShopId()` is the shop itself in separate stores, else 0. It names the shop whose setup serves the event, which is the `id_shop` of the Campaign Intelligence connection that serves the event (0 = the installation-wide connection). |
 | Customer account scope | `StoreLayout::customerAccountScope()`: `global` when every shop is in one shop group that shares customers, else `website` (section 5.3). |
-| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: at each step the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the `is_default_fallback` row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row, else the default row; `single`/`c` the default row (the row of no language). Only the rows of the mode's accounts are read. No match is a terminal skip with a reason. As built, mode `a` also ends at the default row, which Magento's mode A never starts (section 14). The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
+| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: at each step the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the `is_default_fallback` row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row, else the default row; `single`/`c` the default row (the row of no language). Only the rows of the mode's accounts are read. A shop's own row hides the shared row of the same language and account key, also where it says "no workflow" (`MappingRepository::setNone()`, Magento's stored `0` at a website's scope). No match is a terminal skip with a reason. As built, mode `a` also ends at the default row, which Magento's mode A never starts (section 14). The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
 
 **[D]** A single-shop install keeps its mode-`a` account rows at `id_shop` 0: the Initial setup and
 Settings write a single shop's values at the global scope (`Admin\Setup\SetupScope::targetShop()`).
@@ -2096,15 +2098,21 @@ keeps sending. Once another workflow is saved, the option is gone; no save can p
 **A shop's own automations** (multishop, one store). The switch "Use its own automations on this
 shop" follows the Connection and Contacts switches (`ShopOverrides`, section 5.1): ticked, the save
 writes the four keys and the rows the page shows at the shop; unticked on a shop that holds own
-values, the save only removes them. A shop in mode `a`, or on another Smaily account than the
+values, the save only removes them. A shop with its own automations sends what its page shows: a
+shared workflow that the page posts unchanged becomes the shop's own row, and a workflow cleared to
+"-- Not Selected --" is stored at the shop as a row of "no workflow" where a shared row of that key
+exists (`MappingRepository::setNone()`: `workflow_id` NULL, `optin_trigger` 0). The Router reads
+that row in place of the shared one, so the shop starts nothing for it (`no_workflow` in the Log),
+while the shops on the shared setup still send. It is Magento's rule: a website's own workflow
+value `0` hides the store-wide one. The rows inherit key by key, so a shop that an upgrade gave one
+own value keeps reading the shared workflows it never replaced. The shared scope holds no such row:
+there a cleared workflow is removed. A shop in mode `a`, or on another Smaily account than the
 shared one, always keeps its own automations (`SettingsScope::automationsScope()`, Magento CON-190):
 its switch shows ticked and fixed, and while it holds no workflow of its own, the page shows "Pick
 this shop's workflows". In separate stores the switch is absent and every shop saves its own.
 
-**Not built.** Magento's notice of the languages without a workflow in mode `a`; a shop's own "no
-workflow" over a shared workflow (the table holds no such row: switch the automation off at the
-shop instead); "Edit design", transactional emails and the Campaign Intelligence card (out of
-3.0.0, or Story 5.4).
+**Not built.** Magento's notice of the languages without a workflow in mode `a`; "Edit design",
+transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 5.4).
 
 ---
 

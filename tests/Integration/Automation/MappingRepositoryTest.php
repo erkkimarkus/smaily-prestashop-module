@@ -62,6 +62,24 @@ final class MappingRepositoryTest extends IntegrationTestCase
         self::assertTrue($row['optin_trigger']);
     }
 
+    public function testAShopsRowOfNoWorkflowReplacesItsWorkflowAndOnlyAShopHoldsOne(): void
+    {
+        $this->repository->upsert(2, Trigger::WELCOME, '', 'default', 103, false, true);
+
+        self::assertTrue($this->repository->setNone(2, Trigger::WELCOME, '', 'default'));
+
+        self::assertSame(
+            ['id_shop' => 2, 'trigger' => 'welcome', 'language' => '', 'account_key' => 'default', 'workflow_id' => null, 'optin_trigger' => false, 'is_default_fallback' => false],
+            array_diff_key($this->repository->rows(2)[0], ['id' => true])
+        );
+        self::assertCount(1, $this->repository->rows(2));
+        $this->repository->upsert(2, Trigger::WELCOME, '', 'default', 104);
+        self::assertSame([104], array_column($this->repository->rows(2), 'workflow_id'), 'a picked workflow takes its place');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->repository->setNone(0, Trigger::WELCOME, '', 'default');
+    }
+
     public function testDeletesOnlyTheRowOfItsKey(): void
     {
         $this->repository->upsert(0, Trigger::WELCOME, '', 'default', 101);

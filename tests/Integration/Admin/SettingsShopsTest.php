@@ -10,9 +10,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\TabSaver;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -267,6 +269,79 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertSame($own, $read[$this->shopB], 'and shop B keeps its own values');
         self::assertSame('subscribers', \Configuration::getGlobalValue(ContactsSettings::MODE));
         self::assertSame('0', (string) \Configuration::getGlobalValue(ContactsSettings::GUESTS));
+    }
+
+    /**
+     * A shop with its own automations sends what its page shows. Cleared to "-- Not Selected --",
+     * an inherited workflow once kept starting: the shop held no row to remove, and the Router
+     * still read the shared one.
+     */
+    public function testAShopThatClearsAnInheritedWorkflowStartsNothingUntilItReturnsToTheSharedOnes(): void
+    {
+        $this->oneStoreConfigured();
+        $saver = $this->saver();
+        $context = $this->context($this->shopB);
+        $overrides = $this->overrides();
+        /** @var Router $router */
+        $router = $this->services->get(Router::class);
+        $cleared = ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '']], 'cart_delay' => '30'];
+        $shown = fn (): string => $this->setupPanels()->automations()->values($context->automationsScope($overrides, true))['triggers']['welcome']['workflow'];
+
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $cleared, true));
+
+        self::assertSame('', $shown(), 'the page shows no workflow');
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $this->shopB, ''), 'and the shop starts none');
+        self::assertSame(42, $router->resolve('welcome', $this->shopC, '')->workflowId(), 'a shop on the shared setup still sends');
+        self::assertSame(['shop' => 0, 'mappings' => 1], $this->automationRows(0), 'the shared row is untouched');
+        self::assertSame([null, false, false], array_values(array_intersect_key($this->mappings->rows($this->shopB)[0], ['workflow_id' => 0, 'optin_trigger' => 0, 'is_default_fallback' => 0])), 'the shop\'s own row says "no workflow"');
+
+        // Saved again unchanged, the shop still starts nothing.
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $cleared, true));
+        self::assertSame(['shop' => 4, 'mappings' => 1], $this->automationRows($this->shopB));
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $this->shopB, ''));
+
+        // A workflow of its own takes the row's place.
+        $picked = ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '43']], 'cart_delay' => '30'];
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $picked, true));
+        self::assertSame([43, 1], [$router->resolve('welcome', $this->shopB, '')->workflowId(), $this->mappingCount($this->shopB)]);
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($context, $cleared, true));
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $this->shopB, ''));
+
+        // The switch off: the shop reads the shared workflows again.
+        self::assertSame(['errors' => [], 'returned' => true], $saver->saveAutomations($context, $cleared, false));
+        self::assertSame(['shop' => 0, 'mappings' => 0], $this->automationRows($this->shopB));
+        self::assertSame(42, $router->resolve('welcome', $this->shopB, '')->workflowId());
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $this->shopB . ' AND `value` IS NULL', false), 'nothing was written as NULL');
+
+        // The shared scope holds no such row: a cleared shared workflow is removed.
+        self::assertSame(['errors' => [], 'returned' => false], $saver->saveAutomations($this->context(0), $cleared, false));
+        self::assertSame(0, $this->mappingCount(0));
+    }
+
+    /**
+     * To one store, the promoted shop's "no workflow" wins as its workflows do: the shared row of
+     * that key goes, and no shared row says "no workflow".
+     */
+    public function testAPromotedShopsRowOfNoWorkflowRemovesTheSharedRow(): void
+    {
+        $this->oneStoreConfigured();
+        (new AutomationSettings())->setEnabled('first_order', true, 0);
+        $this->mappings->upsert(0, 'first_order', '', 'default', 43);
+        $this->layoutChange()->toSeparateStores();
+        $this->mappings->setNone($this->shopA, 'welcome', '', 'default');
+        // A shared row that an upgrade left behind.
+        $this->mappings->upsert(0, 'welcome', '', 'default', 42);
+        /** @var Router $router */
+        $router = $this->services->get(Router::class);
+
+        $this->layoutChange()->toOneStore($this->shopA);
+
+        self::assertSame([['first_order', 43]], array_map(static fn (array $row): array => [$row['trigger'], $row['workflow_id']], $this->mappings->rows(0)));
+        self::assertSame(0, $this->mappingCount($this->shopA));
+        foreach ([$this->shopA, $this->shopB] as $shop) {
+            self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $shop, ''));
+            self::assertSame(43, $router->resolve('first_order', $shop, '')->workflowId());
+        }
     }
 
     /**

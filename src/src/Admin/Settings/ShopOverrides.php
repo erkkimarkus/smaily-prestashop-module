@@ -342,7 +342,8 @@ final class ShopOverrides extends Settings
      * Copies the mapping rows of one shop scope to another (Magento's copyMappingRows()). The
      * shared scope never takes a row of a language's account: an account per language is a shop's
      * own. A row the target holds for the same trigger, language and account stays, unless
-     * $replace. A copied row is a trigger's default fallback only where the target holds no
+     * $replace. A shop's row of "no workflow" is never copied: where it wins, the target's row of
+     * that key goes. A copied row is a trigger's default fallback only where the target holds no
      * fallback of that kind for the trigger (the rows of the account `default`, or the rows of the
      * languages' accounts), so the Router still finds one. With $replace the copied rows win: a
      * fallback among them takes over its kind.
@@ -374,6 +375,11 @@ final class ShopOverrides extends Settings
         }
         foreach ($source as $row) {
             if (isset($held[$key($row)]) && !$replace) {
+                continue;
+            }
+            if ($row['workflow_id'] === null && !$row['optin_trigger']) {
+                // A shop's "no workflow" (MappingRepository::setNone()): shared, the row is absent.
+                $this->mappings->delete($to, $row['trigger'], $row['language'], $row['account_key']);
                 continue;
             }
             $fallback = $row['is_default_fallback'] && !isset($fallbacks[$kind($row)]);

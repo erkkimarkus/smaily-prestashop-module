@@ -36,8 +36,11 @@ if (!defined('_PS_VERSION_')) {
  * writes the table.
  *
  * A row's workflow id is NULL with `optin_trigger` 1 where the welcome keeps 2.x's generic opt-in
- * trigger (no workflow chosen; Smaily starts every "subscriber opted in" workflow). A write names
- * its row by the table's unique key (id_shop, trigger, language, account_key).
+ * trigger (no workflow chosen; Smaily starts every "subscriber opted in" workflow). A shop's row
+ * with a NULL workflow id and `optin_trigger` 0 says "no workflow here": it hides the shared row of
+ * the same trigger, language and account key from that shop (setNone()), as a website's stored "0"
+ * hides the store-wide workflow in the Magento connector. A write names its row by the table's
+ * unique key (id_shop, trigger, language, account_key).
  *
  * Not final: the unit tests stand in for the table.
  */
@@ -108,6 +111,33 @@ class MappingRepository
             . ', NOW())'
             . ' ON DUPLICATE KEY UPDATE `workflow_id` = VALUES(`workflow_id`), `optin_trigger` = VALUES(`optin_trigger`),'
             . ' `is_default_fallback` = VALUES(`is_default_fallback`), `date_upd` = VALUES(`date_upd`)'
+        );
+    }
+
+    /**
+     * Writes a shop's row of (trigger, language, account key) as "no workflow": the shop then starts
+     * nothing through the shared row of that key. Only a shop holds such a row; the rows all shops
+     * share (0) have nothing to hide.
+     */
+    public function setNone(int $idShop, string $trigger, string $language, string $accountKey): bool
+    {
+        if ($idShop <= 0
+            || !in_array($trigger, Trigger::ALL, true)
+            || preg_match('/^([a-z]{2})?$/', $language) !== 1
+            || preg_match('/^(default|[a-z]{2})$/', $accountKey) !== 1
+        ) {
+            throw new \InvalidArgumentException('Not a valid automation mapping row.');
+        }
+
+        return \Db::getInstance()->execute(
+            'INSERT INTO `' . _DB_PREFIX_ . self::TABLE . '`'
+            . ' (`id_shop`, `trigger`, `language`, `account_key`, `workflow_id`, `optin_trigger`, `is_default_fallback`, `date_upd`)'
+            . ' VALUES (' . $idShop
+            . ', \'' . pSQL($trigger) . '\''
+            . ', \'' . pSQL($language) . '\''
+            . ', \'' . pSQL($accountKey) . '\''
+            . ', NULL, 0, 0, NOW())'
+            . ' ON DUPLICATE KEY UPDATE `workflow_id` = NULL, `optin_trigger` = 0, `is_default_fallback` = 0, `date_upd` = VALUES(`date_upd`)'
         );
     }
 
