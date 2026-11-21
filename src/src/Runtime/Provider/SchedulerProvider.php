@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
@@ -82,6 +83,7 @@ final class SchedulerProvider implements ProviderInterface
         ));
         $services->set(QueueJanitor::class, fn (Services $services): QueueJanitor => new QueueJanitor(
             $services->get(QueueProvider::EVENT_QUEUE),
+            $services->get(CartTracker::class),
             $services->get(IssuedCodes::class)
         ));
 

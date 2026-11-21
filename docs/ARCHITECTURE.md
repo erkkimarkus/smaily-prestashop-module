@@ -709,8 +709,13 @@ the sweep queues the due reminders, and the queue flush sends them (section 7). 
 ### 3.5 Already-reminded state
 
 **[D]** Every `smaily_cart` row that names a cart becomes a `smaily_connect_cart` row with
-`status = mailed`, `mailed_at = date_sent` (section 2.2). A cart that has a legacy row is never
-reminded again. A customer whose legacy reminder is younger than 24 hours is not reminded for another
+`status = mailed`, `mailed_at = date_sent` (section 2.2). A cart that has a legacy row is not
+reminded again while that row is kept. The migrated row follows the tracker's retention (owner,
+2026-11-21; section 11.3): the janitor deletes it 30 days after the reminder that 2.x sent, and a
+cart that its shopper changes after that is reminded again, as on Magento. A reminder of 2.x that
+is older than 30 days at the upgrade is therefore carried over and deleted by the first run of
+the janitor. The legacy table `smaily_cart` itself is never touched. A customer whose legacy
+reminder is younger than 24 hours is not reminded for another
 cart in that time: the sweep's rule of one reminder per address per 24 hours counts a 2.x row by its
 customer, because the row names no address (section 7, "The abandoned-cart sweep"). This keeps
 "nobody gets a duplicate reminder because of the upgrade" (Magento UPGRADING "What is cleaned up").
@@ -1621,8 +1626,10 @@ reminder when all of these hold:
   which is why no delay of a day or more is stored and why the upgrade caps a longer 2.x delay
   (section 3.3). The window is Magento's; 2.x looked back 10 days;
 - it has no reminder state yet: no tracker row (`smaily_connect_cart`), or an `open` row that holds
-  only a recorded address. A cart with a `mailed` or `skipped` row is never reminded; the reminders
-  that 2.x sent are `mailed` rows (section 3.5).
+  only a recorded address. A cart with a `mailed` or `skipped` row is not reminded; the reminders
+  that 2.x sent are `mailed` rows (section 3.5). The row is the only sign that the cart was
+  reminded, and the janitor deletes it 30 days after the cart's last change (section 11.3): a cart
+  that its shopper changes after that is due again, as on Magento (owner, 2026-11-21).
 
 For a due cart the sweep writes the tracker row first, then queues one `automation.abandoned_cart`
 event with the address, the template fields (below) and the marker field. One address gets at most
@@ -2493,14 +2500,37 @@ WooCommerce connector), 200 codes a batch, each through `CartRule::delete()`, un
 or its deadline passes; a used code and every cart rule that the merchant made stay. The Story
 that builds the ingest queue (5.2) adds its table to the sweep.
 
-The cart tracker (Story 4.3) is written and not swept: its closed rows stay until uninstall. The
-30 days above are not applied to it yet, because they meet another rule: the sweep knows that a
-cart was reminded from its tracker row alone (section 7), so a cart whose row is gone is due again
-when the shopper changes it, and section 3.5 says that a cart that 2.x reminded is never reminded
-again. Magento deletes a closed row after 30 days and reminds such a cart again. Which rule holds
-is the owner's decision (section 13, "Queued clean-up"). The tracker's own `CartTracker::purge()`
-removes only the addresses: it deletes a recorded address that served no reminder, and clears the
-address of a closed cart and of a cart whose queued reminder did not go (section 7). The janitor never reads 2.x's `smaily_cart`.
+**The cart tracker** (owner, 2026-11-21; section 15). The janitor deletes the closed rows of
+`smaily_connect_cart` (`mailed`, `skipped`) 30 days after the cart's last change, in batches of
+1000 by primary key (`CartTracker::deleteClosed()`), until none is left or its deadline passes.
+The rule is Magento's (`magento:Cron/QueueJanitor.php` lines 26 and 67 to 71: the 30 days of sent
+rows; `magento:Model/AbandonedCart/StateManager.php` lines 39 to 45 and 428 to 458,
+`pruneTerminal()`: the statuses `mailed`, `completed`, `expired`, `erased`, `skipped`, older than
+the cutoff by `updated_at`, 1000 ids a chunk, deleted by primary key):
+
+- **Which rows.** Magento's closed statuses; this tracker has two of them, `mailed` and `skipped`.
+  An `open` row stays whatever its age, as Magento's `open` rows do: it holds a recorded address
+  that `CartTracker::purge()` removes after 24 hours, or it is the state of a reminder that waits
+  or that failed and was parked.
+- **From which time.** Magento counts from the row's `updated_at`. This table has no such column,
+  so the age counts from `last_activity_at`, the cart's last change that the row records. A row is
+  closed within 24 hours of that time (section 7), so it goes up to a day earlier than Magento's.
+  A row that the upgrade carried over from 2.x holds the time of the 2.x reminder there
+  (section 3.5) and follows the same rule.
+- **What is kept.** Magento keeps the marker of an erased address (`erased`) while its cart is
+  active (the same lines, PRO-4008). This tracker has no such marker yet: the Story that builds
+  the erasure (5.6) keeps its marker the same way if it adds one. A cart whose customer was
+  deleted needs none: the sweep and the send read the customer each time (section 7).
+- **Not mirrored.** Magento also deletes the rows whose cart is gone, whatever their status and
+  age (`pruneOrphans()`, lines 460 to 479). PrestaShop deletes no cart by itself, and such a row
+  goes by the 30 days.
+
+The consequence, which the owner accepts: the tracker row is the only sign that a cart was
+reminded (section 7), so a cart whose row is gone is due again when its shopper changes it, also a
+cart that 2.x reminded. The tracker's own `CartTracker::purge()` removes the addresses much
+earlier: it deletes a recorded address that served no reminder, and clears the address of a closed
+cart and of a cart whose queued reminder did not go (section 7). The janitor never reads or
+writes 2.x's `smaily_cart`.
 
 ### 11.4 Uninstall
 
@@ -2640,8 +2670,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 1. The deferred part of Story 1.8 (below).
 2. The Smaily mock's transport refuses every host other than `*.sendsmaily.net` (section 12).
 3. The integration test that leaves other cron tokens behind restores the tokens it found (section 12).
-4. The queue janitor also sweeps closed rows of `smaily_connect_cart`, once the owner has decided
-   whether a cart may be reminded again after its row is gone (section 11.3).
+4. Done (owner, 2026-11-21): the queue janitor deletes the closed rows of `smaily_connect_cart`
+   after 30 days, and a cart that changes after that is reminded again (section 11.3).
 5. Done (owner, 2026-11-21): `actionCartSave` and `actionObjectCustomerDeleteAfter`, which had no
    listener, left `Install\HookList` and the main class (section 7).
 
@@ -3031,14 +3061,16 @@ has one owner:
 
 ### Story 4.3 — Abandoned cart
 
-- **Goal.** Reminders with the 2.x template fields, never twice for one cart.
+- **Goal.** Reminders with the 2.x template fields, once for a cart while its tracker row is kept.
 - **Owns.** `src/src/Automation/AbandonedCart/`.
 - **Depends on.** 4.1, 1.6.
 - **Acceptance.**
   1. The payload of a cart equals, field by field, the payload that 2.2.0 sends with every box of its
      field picker ticked, with the 10 slots and `over_10_products`; a cart whose shopper's names are
      not known carries no name field (section 7).
-  2. A cart with a migrated `smaily_cart` row is never reminded.
+  2. A cart with a migrated `smaily_cart` row is not reminded while its tracker row is kept, 30
+     days from the reminder that 2.x sent; once the janitor deleted the row, a cart that its
+     shopper changes is reminded again, as on Magento (owner, 2026-11-21; section 11.3).
   3. An order withdraws a pending reminder for that address.
   4. The consent gate of decision 3 skips with a reason that the Log shows.
 - **Decided (owner, 2026-11-20).** The reminder applies no separate guest rule: who is reminded
@@ -3218,7 +3250,7 @@ has one owner:
 | 29 | Two shops on one Smaily account with different consent modes | Established on 2026-11-21, not changed. Smaily records a contact that the API creates as an opt-in (owner). So when a shop in "All customers" creates a contact, the reconcile of a "Subscribers only" shop on the same account reads that opt-in and sets `newsletter = 1` for a customer of its own shop with the same address, also one who never subscribed there (section 6.5). The first reconcile run of an account marks nobody subscribed; the later runs do. Neither sibling prevents it: Magento's and WooCommerce's reconcile apply every opt-in of the account's log to the address and never ask which website or site caused it. Magento reaches fewer people, because it changes only an address that has a newsletter-subscriber row in the consent website. | The cross-connector analysis (Linear CON-397) |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
 | 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
-| 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
+| 33 | Abandoned-cart tracker rows are never deleted | **Closed (owner, 2026-11-21):** the janitor deletes a closed tracker row 30 days after the cart's last change, as Magento, and a cart that changes after that is reminded again (section 11.3). | — |
 | 34 | Two hooks without a listener | **Closed (owner, 2026-11-21):** `actionCartSave` and `actionObjectCustomerDeleteAfter` are no longer registered; `Install\HookList` holds 30 hooks (section 7). | — |
 | 35 | The first-import card after 90 days | **Closed (owner, 2026-11-21):** the janitor does not delete import jobs, as Magento's does not, so the card keeps the last import (section 11.3). | — |
 | 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
@@ -3333,6 +3365,10 @@ Decisions of 2026-11-21:
   through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
   the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
   29).
+- Abandoned-cart tracker rows are deleted after 30 days, as on Magento (owner, 2026-11-21). The
+  janitor deletes a `mailed` or `skipped` row 30 days after the cart's last change; a cart that
+  its shopper changes after that can be reminded again. Rows migrated from 2.x follow the same
+  rule, and the legacy table `smaily_cart` is never touched (sections 3.5, 7 and 11.3).
 - Finished import jobs are not deleted, as on Magento (owner, 2026-11-21). The janitor's sweep of
   the job table, one day old, is taken out again: the card of the first import reads the newest
   import job (section 11.3).

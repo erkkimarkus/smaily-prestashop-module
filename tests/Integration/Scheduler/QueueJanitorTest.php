@@ -17,14 +17,17 @@ use Tests\Integration\Migration\LegacyStore;
 require_once __DIR__ . '/../Migration/LegacyStore.php';
 
 /**
- * The janitor deletes sent and skipped event queue rows after 30 days and failed ones after 90
- * days, and no other rows: no import job, no cart of the tracker, and none of 2.x's `smaily_cart`.
+ * The janitor deletes sent and skipped event queue rows after 30 days, failed ones after 90 days
+ * and the closed carts of the tracker 30 days after the cart's last change, and no other rows: no
+ * import job, no open cart, and none of 2.x's `smaily_cart`.
  */
 final class QueueJanitorTest extends IntegrationTestCase
 {
     private const START = 1893456000; // 2030-01-01 00:00:00 UTC
 
     private const DAY = 86400;
+
+    private const FIRST_CART = 990001;
 
     private int $now = self::START;
 
@@ -35,6 +38,7 @@ final class QueueJanitorTest extends IntegrationTestCase
         parent::setUp();
         self::clearQueue();
         self::clearJobs();
+        self::clearCarts();
         $this->queue = new EventQueue(fn (): int => $this->now);
     }
 
@@ -43,7 +47,7 @@ final class QueueJanitorTest extends IntegrationTestCase
         if (defined('_PS_ROOT_DIR_')) {
             self::clearQueue();
             self::clearJobs();
-            self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '` WHERE `id_cart` BETWEEN 990001 AND 990003');
+            self::clearCarts();
             self::db()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'smaily_cart`');
         }
         parent::tearDown();
@@ -108,29 +112,58 @@ final class QueueJanitorTest extends IntegrationTestCase
         self::assertSame([$jobs[2], JobStore::STATUS_DONE], [$card['id'], $card['status']]);
     }
 
-    public function testLeavesTheCartTrackerAndTheLegacyCartTableAlone(): void
+    /**
+     * Magento's rule for its tracker (Cron\QueueJanitor, StateManager::pruneTerminal()): a closed
+     * row goes 30 days after its last touch, and an open one stays. Here the age counts from the
+     * cart's last change, which the row records. A row that the upgrade carried over from 2.x
+     * (no address, only a customer) follows the same rule, and 2.x's own table is never touched.
+     */
+    public function testDeletesTheClosedCartsPast30DaysAndNoOthers(): void
     {
-        $longAgo = date('Y-m-d H:i:s', time() - 400 * self::DAY);
-        foreach ([CartTracker::MAILED, CartTracker::SKIPPED, CartTracker::OPEN] as $index => $status) {
-            self::db()->insert(CartTracker::TABLE, [
-                'id_cart' => 990001 + $index,
-                'id_shop' => 1,
-                'id_lang' => 1,
-                'status' => $status,
-                'last_activity_at' => $longAgo,
-            ]);
-        }
+        $kept = [
+            $this->cart(CartTracker::MAILED, 30 * self::DAY - 60),
+            $this->cart(CartTracker::SKIPPED, 29 * self::DAY),
+            $this->cart(CartTracker::MAILED, self::DAY, ['id_customer' => 7]),
+            $this->cart(CartTracker::OPEN, 400 * self::DAY, ['event_id' => 12345]),
+            $this->cart(CartTracker::OPEN, 400 * self::DAY),
+        ];
+        $this->cart(CartTracker::MAILED, 30 * self::DAY + 60);
+        $this->cart(CartTracker::SKIPPED, 31 * self::DAY, ['skip_reason' => 'ordered']);
+        $this->cart(CartTracker::MAILED, 400 * self::DAY, ['id_customer' => 7]);
         LegacyStore::createSentCarts(3);
+        $legacy = self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_cart` ORDER BY `id_smaily_cart`');
 
-        self::assertSame(0, $this->janitor()->run($this->deadline(false)));
+        self::assertSame(3, $this->janitor()->run($this->deadline(false)));
 
-        self::assertSame('3', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '`', false));
-        self::assertSame('3', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_cart`', false));
+        self::assertSame($kept, $this->cartIds());
+        self::assertSame($legacy, self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_cart` ORDER BY `id_smaily_cart`'));
+    }
+
+    public function testDeletesTheClosedCartsInBatchesUntilNoneIsLeft(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->cart(CartTracker::MAILED, 40 * self::DAY);
+        }
+
+        self::assertSame(5, $this->janitor(2)->run($this->deadline(false)));
+        self::assertSame([], $this->cartIds());
+    }
+
+    public function testStopsTheCartsAfterABatchOnceItsDeadlinePassed(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->cart(CartTracker::SKIPPED, 40 * self::DAY);
+        }
+        // The deadline passes once the first batch of carts is gone.
+        $deadline = new Deadline(10.0, fn (): float => count($this->cartIds()) < 5 ? 10.0 : 0.0);
+
+        self::assertSame(2, $this->janitor(2)->run($deadline));
+        self::assertCount(3, $this->cartIds());
     }
 
     private function janitor(int $batch = QueueJanitor::BATCH_SIZE): QueueJanitor
     {
-        return new QueueJanitor($this->queue, new IssuedCodes(), $batch);
+        return new QueueJanitor($this->queue, new CartTracker(), new IssuedCodes(), $batch);
     }
 
     private function deadline(bool $passed): Deadline
@@ -190,6 +223,40 @@ final class QueueJanitorTest extends IntegrationTestCase
         $rows = self::db()->executeS('SELECT `id` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` ORDER BY `id`', true, false);
 
         return array_map(static fn (array $row): int => (int) $row['id'], is_array($rows) ? $rows : []);
+    }
+
+    /**
+     * A tracker row in $status whose cart last changed $secondsAgo seconds ago.
+     *
+     * @param array<string, int|string> $columns
+     */
+    private function cart(string $status, int $secondsAgo, array $columns = []): int
+    {
+        $idCart = self::FIRST_CART + count($this->cartIds());
+        self::db()->insert(CartTracker::TABLE, $columns + [
+            'id_cart' => $idCart,
+            'id_shop' => 1,
+            'id_lang' => 1,
+            'status' => $status,
+            'last_activity_at' => date('Y-m-d H:i:s', time() - $secondsAgo),
+        ]);
+
+        return $idCart;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function cartIds(): array
+    {
+        $rows = self::db()->executeS('SELECT `id_cart` FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '` ORDER BY `id_cart`', true, false);
+
+        return array_map(static fn (array $row): int => (int) $row['id_cart'], is_array($rows) ? $rows : []);
+    }
+
+    private static function clearCarts(): void
+    {
+        self::db()->execute('DELETE FROM `' . _DB_PREFIX_ . CartTracker::TABLE . '`');
     }
 
     private static function clearQueue(): void

@@ -41,7 +41,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  *  - `mailed`: Smaily took the reminder at `mailed_at` (also every reminder that 2.x sent, which
  *    the upgrade carried over with `email` NULL).
  *  - `skipped`: no reminder goes for the cart; `skip_reason` says why.
- * A cart that has a `mailed` or `skipped` row is never reminded.
+ * A cart that has a `mailed` or `skipped` row is not reminded. Such a row is deleted
+ * RETENTION_SECONDS after the cart's last change (deleteClosed()); a cart that its shopper changes
+ * after that has no row, and is reminded again.
  *
  * Times are the shop's local time, as PrestaShop writes `cart.date_upd` and as the upgrade carried
  * 2.x's `date_sent` over. Every write names its rows by primary key.
@@ -58,6 +60,9 @@ class CartTracker
 
     /** One reminder per address in this time, and no reminder for a cart older than it. */
     public const WINDOW_SECONDS = 86400;
+
+    /** A `mailed` or `skipped` row is kept this long after its cart's last change: 30 days, as Magento. */
+    public const RETENTION_SECONDS = 30 * 86400;
 
     /** The most a change of the clocks moves the shop's time (daylight saving). */
     private const CLOCK_SHIFT_SECONDS = 3600;
@@ -343,6 +348,31 @@ class CartTracker
         }
 
         return count($stale) + count($cleared);
+    }
+
+    /**
+     * Deletes up to $limit closed rows (`mailed`, `skipped`) whose cart last changed more than
+     * RETENTION_SECONDS ago, by primary key: the retention of Magento's janitor for its closed
+     * rows. An `open` row stays whatever its age: it is the state of a reminder that waits, or
+     * that failed and was parked.
+     *
+     * @return int the number of rows deleted
+     */
+    public function deleteClosed(int $limit): int
+    {
+        $condition = sprintf(
+            '`status` IN (\'%s\', \'%s\') AND `last_activity_at` < %s',
+            self::MAILED,
+            self::SKIPPED,
+            $this->time(-self::RETENTION_SECONDS)
+        );
+        $ids = $this->ids($condition . ' LIMIT ' . $limit);
+        if ($ids === []) {
+            return 0;
+        }
+        Sql::write(sprintf('DELETE FROM %s WHERE `id_cart` IN (%s) AND %s', self::table(), implode(', ', $ids), $condition));
+
+        return Sql::affectedRows();
     }
 
     /**

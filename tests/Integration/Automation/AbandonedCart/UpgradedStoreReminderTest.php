@@ -8,6 +8,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use Tests\Integration\Migration\LegacyStore;
 
 require_once __DIR__ . '/AbandonedCartTestCase.php';
@@ -15,8 +17,8 @@ require_once __DIR__ . '/AbandonedCartTestCase.php';
 /**
  * A store that 2.2.0 left (tests/fixtures/legacy/2.2.0-configured.sql: reminder on, workflow 102,
  * delay 45 minutes; here with no box of the 2.x field picker ticked) reminds after the upgrade with
- * its own workflow and delay and with every template field, and never reminds a cart that 2.x
- * reminded.
+ * its own workflow and delay and with every template field, and does not remind a cart that 2.x
+ * reminded while the cart's row is kept: 30 days, as every closed row of the tracker.
  */
 final class UpgradedStoreReminderTest extends AbandonedCartTestCase
 {
@@ -62,7 +64,7 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
      * Proof 5 and acceptance 2: the migrated `mailed` row keeps its cart from a reminder, also
      * once the cart changes again and is due.
      */
-    public function testACartThat2xRemindedIsNeverRemindedAgain(): void
+    public function testACartThat2xRemindedIsNotRemindedAgainWhileItsRowIsKept(): void
     {
         self::assertSame([CartTracker::MAILED, null], [$this->cartRow($this->legacyCart)['status'], $this->cartRow($this->legacyCart)['email']]);
         $this->fixture->age($this->legacyCart, 50);
@@ -72,6 +74,32 @@ final class UpgradedStoreReminderTest extends AbandonedCartTestCase
 
         self::assertSame([], $this->reminders());
         self::assertSame(CartTracker::MAILED, $this->cartRow($this->legacyCart)['status']);
+    }
+
+    /**
+     * The janitor deletes the migrated row 30 days after the reminder that 2.x sent, as any other
+     * closed row. The cart then has no reminder state: when its shopper changes it again, it is
+     * reminded once more, and once only. 2.x's own table keeps its row.
+     */
+    public function testACartWhoseMigratedRowIsGoneIsRemindedOnceMoreWhenItChanges(): void
+    {
+        $sent = date('Y-m-d H:i:s', time() - 31 * 86400);
+        self::db()->update('smaily_connect_cart', ['mailed_at' => $sent, 'last_activity_at' => $sent], '`id_cart` = ' . $this->legacyCart);
+
+        self::assertSame(1, $this->services->get(QueueJanitor::class)->run(new Deadline(microtime(true) + 10, static fn (): float => microtime(true))));
+        self::assertNull($this->cartRow($this->legacyCart));
+        self::assertSame('1', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_cart` WHERE `id_cart` = ' . $this->legacyCart, false));
+        self::assertSame(0, $this->sweep(), 'the cart did not change: it is older than a day');
+
+        $this->fixture->age($this->legacyCart, 50);
+        self::assertSame(1, $this->sweep());
+        $this->flush();
+
+        self::assertCount(1, $this->reminders());
+        self::assertSame(CartTracker::MAILED, $this->cartRow($this->legacyCart)['status']);
+        self::assertSame(0, $this->sweep());
+        self::assertSame(0, $this->flush());
+        self::assertCount(1, $this->reminders());
     }
 
     /**

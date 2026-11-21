@@ -47,7 +47,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
  * address (CartAddress), no order, its last change (`cart.date_upd`) lies between the shop's delay
  * and CartTracker::WINDOW_SECONDS (24 hours) ago, and it has no reminder state yet: no tracker row,
  * or an open one that only holds a recorded address. A cart of 2.x's reminders (`mailed`) is
- * never due.
+ * not due while its row is kept (CartTracker::RETENTION_SECONDS).
  *
  * One address gets at most one reminder per 24 hours, whatever number of carts carry it: a cart
  * whose address had a reminder sent in that time, or has one in the queue that can still go

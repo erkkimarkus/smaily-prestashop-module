@@ -29,15 +29,18 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
  * The retention sweep of the event queue, as on the sibling connectors: a sent or skipped row is
  * kept 30 days and a failed row 90 days after its last change. Pending and processing rows are
- * never deleted. The job table is not swept, as on Magento: the card of the first import reads
- * the newest import job. Last, it removes the discount codes of the store automations that nobody
- * used, 30 days after their end date (Discount\IssuedCodes).
+ * never deleted. It then deletes the closed rows of the abandoned-cart tracker 30 days after the
+ * cart's last change (CartTracker::deleteClosed()); it never reads 2.x's `smaily_cart`. The job
+ * table is not swept, as on Magento: the card of the first import reads the newest import job.
+ * Last, it removes the discount codes of the store automations that nobody used, 30 days after
+ * their end date (Discount\IssuedCodes).
  */
 final class QueueJanitor
 {
@@ -54,13 +57,16 @@ final class QueueJanitor
 
     private EventQueue $queue;
 
+    private CartTracker $carts;
+
     private IssuedCodes $codes;
 
     private int $batchSize;
 
-    public function __construct(EventQueue $queue, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE)
+    public function __construct(EventQueue $queue, CartTracker $carts, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE)
     {
         $this->queue = $queue;
+        $this->carts = $carts;
         $this->codes = $codes;
         $this->batchSize = $batchSize;
     }
@@ -68,7 +74,7 @@ final class QueueJanitor
     /**
      * Deletes batches of rows past retention until none is left or the deadline passes.
      *
-     * @return int the number of rows and discount codes deleted
+     * @return int the number of rows, carts and discount codes deleted
      */
     public function run(Deadline $deadline): int
     {
@@ -83,7 +89,22 @@ final class QueueJanitor
             } while ($batch === $this->batchSize);
         }
 
-        return $deleted + $this->unusedDiscountCodes($deadline);
+        return $deleted + $this->closedCarts($deadline) + $this->unusedDiscountCodes($deadline);
+    }
+
+    /**
+     * Deletes batches of the tracker's closed rows past their keeping time (CartTracker) until
+     * none is left or the deadline passes.
+     */
+    private function closedCarts(Deadline $deadline): int
+    {
+        $deleted = 0;
+        do {
+            $batch = $deadline->passed() ? 0 : $this->carts->deleteClosed($this->batchSize);
+            $deleted += $batch;
+        } while ($batch === $this->batchSize);
+
+        return $deleted;
     }
 
     /**

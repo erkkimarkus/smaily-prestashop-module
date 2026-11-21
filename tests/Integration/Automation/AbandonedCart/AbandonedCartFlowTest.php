@@ -7,6 +7,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCart
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartSweeper;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use Tests\Integration\Migration\LegacyStore;
 
@@ -51,6 +53,37 @@ final class AbandonedCartFlowTest extends AbandonedCartTestCase
         self::assertSame(0, $this->sweep());
         self::assertSame(0, $this->flush());
         self::assertCount(1, $this->reminders());
+    }
+
+    /**
+     * A closed row is kept 30 days after the cart's last change. Before that the cart is not
+     * reminded again, however it changes; once the janitor deleted the row, a change of the cart
+     * brings one more reminder.
+     */
+    public function testACartIsRemindedOnceMoreAfterItsRowWasDeleted(): void
+    {
+        $idCart = $this->fixture->cart($this->fixture->customer(self::ADDRESS), 20);
+        self::assertSame(1, $this->sweep());
+        $this->flush();
+        self::assertCount(1, $this->reminders());
+        $janitor = $this->services->get(QueueJanitor::class);
+        $deadline = new Deadline(microtime(true) + 10, static fn (): float => microtime(true));
+
+        $closed = date('Y-m-d H:i:s', time() - 29 * 86400);
+        self::db()->update(CartTracker::TABLE, ['last_activity_at' => $closed, 'mailed_at' => $closed], '`id_cart` = ' . $idCart);
+        self::assertSame(0, $janitor->run($deadline));
+        $this->fixture->age($idCart, 20);
+        self::assertSame(0, $this->sweep(), 'the row is kept, so the changed cart is not due');
+
+        $closed = date('Y-m-d H:i:s', time() - 31 * 86400);
+        self::db()->update(CartTracker::TABLE, ['last_activity_at' => $closed, 'mailed_at' => $closed], '`id_cart` = ' . $idCart);
+        self::assertSame(1, $janitor->run($deadline));
+        self::assertNull($this->cartRow($idCart));
+        self::assertSame(1, $this->sweep());
+        $this->flush();
+
+        self::assertCount(2, $this->reminders());
+        self::assertSame(CartTracker::MAILED, $this->cartRow($idCart)['status']);
     }
 
     public function testACartBeforeItsDelayOrWithoutProductsOrAddressWaits(): void
