@@ -1386,8 +1386,13 @@ reminder when all of these hold:
 For a due cart the sweep writes the tracker row first, then queues one `automation.abandoned_cart`
 event with the address, the template fields (below) and the marker field. One address gets at most
 one reminder per 24 hours, whatever number of carts carry it: a cart whose address had a reminder
-sent in that time, or has one waiting in the queue, is closed as `recently_reminded` (a 2.x row
-blocks by its customer). Its event is still queued, so the Log shows the skip.
+sent in that time, or has one in the queue that can still go, is closed as `recently_reminded` (a
+2.x row blocks by its customer). Its event is still queued, so the Log shows the skip. A queued
+reminder can go until 24 hours after its cart's last change (the send's `too_old` below), and it
+blocks its address for that long: a reminder that failed and was parked (a refusal, or five failed
+attempts) leaves its tracker row `open`, and that row holds the address back no longer than this.
+As in Magento, where a failed reminder counts for 24 hours from its queueing, it is never a block
+for good.
 
 **The send** (`AbandonedCart\AbandonedCartHandler`) checks again when the row's turn comes, in this
 order: the tracker row (an order withdrew the reminder, or the sweep closed it); the cart has an
@@ -1407,7 +1412,12 @@ of the cart of the visitor's own cookie, and reads no cart, shop or customer tha
 names. The recorded address serves the cart's reminder only, under the reminder's consent rule: it
 is not sent to Smaily as a contact and not written to a customer. `CartTracker::purge()`, which
 every sweep runs, deletes a recorded address that served no reminder once its cart has not changed
-for 24 hours, and clears the address of a closed cart 48 hours after the cart's last change.
+for 24 hours, and clears the address of a closed cart 48 hours after the cart's last change. A cart
+whose queued reminder did not go within those 24 hours (it failed and was parked, or it still
+waits) loses its address then too; its tracker row stays, as the state of the queue row. The Log's
+"Send again" of such a row needs no address from the tracker: the queue row's payload holds the
+address and the fields, and the tracker row follows the new queue row. Within the 24 hours it
+delivers the reminder; later the send closes it as `too_old`, as before.
 
 The endpoint is open to visitors without an account, so it is a way to put an address that agreed
 to nothing on a cart. What bounds it (the siblings: Magento's guest-cart route takes the cart's
@@ -2047,7 +2057,7 @@ when the shopper changes it, and section 3.5 says that a cart that 2.x reminded 
 again. Magento deletes a closed row after 30 days and reminds such a cart again. Which rule holds
 is the owner's decision (section 13, "Queued clean-up"). The tracker's own `CartTracker::purge()`
 removes only the addresses: it deletes a recorded address that served no reminder, and clears the
-address of a closed cart (section 7). The janitor never reads 2.x's `smaily_cart`.
+address of a closed cart and of a cart whose queued reminder did not go (section 7). The janitor never reads 2.x's `smaily_cart`.
 
 ### 11.4 Uninstall
 

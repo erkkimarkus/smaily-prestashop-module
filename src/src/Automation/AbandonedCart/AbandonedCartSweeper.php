@@ -48,8 +48,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
  * never due.
  *
  * One address gets at most one reminder per 24 hours, whatever number of carts carry it: a cart
- * whose address had a reminder sent in that time, or has one waiting in the queue, is closed as
- * `recently_reminded`. Its event is still queued, so the Log shows the skip; the handler closes it.
+ * whose address had a reminder sent in that time, or has one in the queue that can still go
+ * (CartTracker::blocking()), is closed as `recently_reminded`. Its event is still queued, so the
+ * Log shows the skip; the handler closes it.
  *
  * The cart's tracker row is written before its event, so a sweep that dies in between leaves an
  * open row without an event that the next sweep takes again. The payload holds the address and the

@@ -32,7 +32,9 @@ if (!defined('_PS_VERSION_')) {
 /**
  * The reminder state of each cart, one row per cart in `smaily_connect_cart`:
  *  - `open`: the cart's reminder is not done. Without `event_id`, a row holds only an address that
- *    a checkout recorded (capture()); with it, the reminder waits in the event queue.
+ *    a checkout recorded (capture()); with it, the reminder waits in the event queue, or it failed
+ *    there and was parked: the row then stays `open`, as the state that the Log's "Send again" of
+ *    that queue row moves on.
  *  - `mailed`: Smaily took the reminder at `mailed_at` (also every reminder that 2.x sent, which
  *    the upgrade carried over with `email` NULL).
  *  - `skipped`: no reminder goes for the cart; `skip_reason` says why.
@@ -201,22 +203,27 @@ class CartTracker
 
     /**
      * What blocks a new reminder now: the addresses (lower case) and the customers (2.x rows name
-     * only a customer) of the reminders sent in the last WINDOW_SECONDS, and the addresses of the
-     * reminders that wait in the queue.
+     * only a customer) of the reminders sent in the last WINDOW_SECONDS, and of the reminders in
+     * the queue that can still go. A reminder goes within WINDOW_SECONDS of its cart's last change
+     * or never (the handler's `too_old`), so a queued reminder whose cart changed longer ago blocks
+     * nothing: one that failed and was parked does not hold its address back for good.
      *
      * @return array{emails: array<string, true>, customers: array<int, true>}
      */
     public function blocking(): array
     {
         // A reminder goes within WINDOW_SECONDS of the cart's last change, so the status index
-        // finds every reminder of the last window among the carts changed in the last two.
+        // finds every reminder that can still go among the carts changed in the last window, and
+        // every reminder of the last window among the carts changed in the last two.
         $rows = \Db::getInstance()->executeS(
             sprintf(
-                'SELECT `email`, `id_customer`, `status`, `mailed_at`, `event_id` FROM %s WHERE `status` = \'%s\''
+                'SELECT `email`, `id_customer`, `status`, `mailed_at`, `event_id` FROM %s'
+                . ' WHERE `status` = \'%s\' AND `last_activity_at` >= %s'
                 . ' UNION ALL SELECT `email`, `id_customer`, `status`, `mailed_at`, `event_id` FROM %s'
                 . ' WHERE `status` = \'%s\' AND `last_activity_at` >= %s',
                 self::table(),
                 self::OPEN,
+                $this->time(-self::WINDOW_SECONDS),
                 self::table(),
                 self::MAILED,
                 $this->time(-2 * self::WINDOW_SECONDS)
@@ -241,9 +248,13 @@ class CartTracker
     }
 
     /**
-     * Deletes the recorded addresses that served no reminder and whose cart did not change for
-     * WINDOW_SECONDS, and clears the address of a closed cart once the per-address rule no longer
-     * reads it, so no address outlives its use.
+     * Removes the addresses that have no use left, so no address outlives its use:
+     *  - deletes the recorded addresses that served no reminder and whose cart did not change for
+     *    WINDOW_SECONDS;
+     *  - clears the address of a cart whose queued reminder did not go in that time, because it
+     *    failed and was parked or still waits: it can no longer go. The row stays, as the state of
+     *    its queue row, whose payload holds what the Log's "Send again" sends;
+     *  - clears the address of a closed cart once the per-address rule no longer reads it.
      *
      * @return int the number of rows deleted or cleared
      */
@@ -263,17 +274,23 @@ class CartTracker
                 self::OPEN
             ));
         }
+        $unsent = $this->ids(sprintf(
+            '`status` = \'%s\' AND `last_activity_at` < %s AND `event_id` IS NOT NULL AND `email` IS NOT NULL',
+            self::OPEN,
+            $this->time(-self::WINDOW_SECONDS)
+        ));
         $closed = $this->ids(sprintf(
             '`status` IN (\'%s\', \'%s\') AND `last_activity_at` < %s AND `email` IS NOT NULL',
             self::MAILED,
             self::SKIPPED,
             $this->time(-2 * self::WINDOW_SECONDS)
         ));
-        if ($closed !== []) {
-            $db->execute(sprintf('UPDATE %s SET `email` = NULL WHERE `id_cart` IN (%s)', self::table(), implode(', ', $closed)));
+        $cleared = array_merge($unsent, $closed);
+        if ($cleared !== []) {
+            $db->execute(sprintf('UPDATE %s SET `email` = NULL WHERE `id_cart` IN (%s)', self::table(), implode(', ', $cleared)));
         }
 
-        return count($stale) + count($closed);
+        return count($stale) + count($cleared);
     }
 
     /**
