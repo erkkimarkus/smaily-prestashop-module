@@ -84,10 +84,10 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1363 tests, 6680 assertions on 8.2.8 and 9.2.0, each on a reset
-shop behind the egress guard (2026-11-21, with the upgrade of a store whose multistore is off); 8.0.0
+Last verified results, all passing: 1394 tests, 7058 assertions on 8.2.8 and 9.2.0, each on a reset
+shop behind the egress guard (2026-11-21, with the Estonian round of the admin screens); 8.0.0
 last ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite
-runs its unit tests and skips the integration tests (1363 tests, 2060 assertions, 692 skipped).
+runs its unit tests and skips the integration tests (1394 tests, 2121 assertions, 719 skipped).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
@@ -120,8 +120,9 @@ The suite expects a shop that nobody has set up by hand, and these conventions k
   what the walk left.
 - The abandoned-cart integration tests (`tests/Integration/Automation/AbandonedCart/`) expect a
   shop with no leftover carts; a reset shop is green.
-- A storefront with more than one language answers `/` with a 302. A check that expects 200 at `/`
-  (step 6 of the CI script, section 6) holds on a shop with one language.
+- A storefront with more than one language can answer `/` with a 302 (flashlight 8.2.8 does; 9.2.0
+  answered 200 with two languages). A check that expects 200 at `/` (step 6 of the CI script,
+  section 6) holds on a shop with one language.
 - A test that requests the storefront records a fresh tick first, as `RssFeedTest` does. Otherwise the
   request runs the fallback tick, and with it the update check.
 
@@ -134,9 +135,9 @@ Page traffic in the dev shop runs the fallback tick, and with it the daily updat
 real GitHub (`api.github.com`, no store data). Two tests pin the tick's full job list
 (`SchedulerProviderTest`, `PendingMigrationTest`): a change that registers a scheduler job edits both.
 
-A shop with two or more active languages answers 302 at `/` (to `/en/`), and a redirect runs no
-fallback tick (verified on 8.2.8). A walk or a script that opens the storefront to run the tick
-follows the redirect: `curl -L`. The module's own front controllers (the cron and tick URLs, the RSS
+A shop with two or more active languages may answer 302 at `/` (to `/en/`; flashlight 8.2.8 does,
+9.2.0 answered 200), and a redirect runs no fallback tick (verified on 8.2.8). A walk or a script
+that opens the storefront to run the tick follows redirects: `curl -L`. The module's own front controllers (the cron and tick URLs, the RSS
 feed) answer without a redirect.
 
 `composer test` does not work inside the dev shop. It runs `phpunit --configuration

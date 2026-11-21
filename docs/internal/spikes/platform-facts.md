@@ -535,3 +535,26 @@ What follows for the module: with multistore off the upgrade plans and writes th
 setting that differed, the write landed on the global row, and the check of that row at the shop's
 scope failed on every run (observed on both versions with a genuine 2.2.0 store: the store's
 abandoned-cart reminder was switched off, and the upgrade never finished).
+
+### 6.10 A module's menu tabs, the tick URL and the home page with two languages
+
+**Observed** on 8.2.8 and 9.2.0 (flashlight), with English and Estonian active.
+
+- **Tab names.** PrestaShop's tab register gives a module's tab the one `name` of `$tabs` in every
+  language (`ModuleTabRegister::getTabNames()`), and a language added later copies those rows. The
+  tab's `wording` and `wording_domain` are used only when a language is installed or updated
+  (`Language::updateMultilangTable()`, `TabTranslator`). After an install in a shop that already had
+  Estonian, and with the units in the module's XLIFF, `tab_lang` held "Dashboard", "Initial setup",
+  "Settings" and "Log" for Estonian, so the menu, the breadcrumb and the tab bar of the module's pages
+  read English. `Admin\Menu::name()` writes the wording in the employee's language when a page of the
+  module is opened.
+- **The tick URL without a language.** `Link::getModuleLink()` puts the language prefix of the
+  context between the base address and the dispatcher's route (`/et/module/…` for an Estonian
+  employee on 8.2.8). The base address plus `Dispatcher::createUrl('module', …)`,
+  `/module/smailyforprestashop/tick?token=…`, answered 200 without a redirect on both versions, and
+  so did `index.php?fc=module&module=smailyforprestashop&controller=tick&token=…`; a wrong token
+  answered 403 on each form.
+- **The home page.** With two active languages, `/` answered 302 to `/en/` on 8.2.8 and 200 on 9.2.0.
+- **PrestaShop's own strings.** The module's Log takes ten strings from the core's domains
+  (`Admin.Actions`, `Admin.Global`). Without a language pack they show in English in an Estonian back
+  office; the images hold no Estonian catalogue, so their Estonian was not seen.

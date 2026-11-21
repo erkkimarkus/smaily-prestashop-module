@@ -318,7 +318,8 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
   the upgrade, the re-run, the tick and the admin pages ran 22 to 42 times
   each without a crash; the cause is unknown. On a next crash keep
   `/var/www/html/core` and the tree (`docs/DEV_ENVIRONMENT.md` 5). A
-  multilanguage storefront answers 302 at `/` and runs no tick: follow it.
+  multilanguage storefront may redirect at `/` (8.2.8 does), and a
+  redirect runs no tick: follow redirects.
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.

@@ -21,19 +21,18 @@ skip; the Marketplace structural rules. Built on the branch
 `worktree-agent-ab0c8477db5c692d3`, not yet on `v3`: discount codes in store
 automations (CON-393, Story 4.4, ARCHITECTURE 7). The PHP 8.0.30 segfault of
 the 8.2.8 test lane did not reproduce; its cause is unknown (CLAUDE.md).
-Last verified: in-shop 1336 tests, 6498 assertions on a fresh 8.2.8 and 9.2.0;
-host 1336 tests, 2037 assertions, 670 skipped; `tests/ci/validate.sh` one
-landing earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
+Last verified: in-shop 1394 tests, 7058 assertions on a reset 8.2.8 and 9.2.0;
+host 1394 tests, 2121 assertions, 719 skipped; `tests/ci/validate.sh` several
+landings earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
 
 Then, in this order: (1) land discount codes (CON-393; its privacy export and
 erasure wait for Story 5.6, which calls `Discount\IssuedCodes`); (2) the
 defects and the owner's points of the walk of capabilities 3, 4, 6 and 7
 (`docs/internal/walks/`; first, a save for one shop can replace the shared
-setup); (3) Estonian targets and an on-screen check for every v3 admin string,
-sentences for the Log's reason codes that still show as codes, a cron line
-without the admin's language prefix; (4) a simplification review of the Log and
-Automations code; (5) stage 5 (group prices, CON-385, contract 1.36.0) only
-after the owner says so.
+setup); (3) what the Estonian round left: the Smaily client's own failure
+messages show in English in the Log, and its Last Error column is narrow for a
+sentence; (4) a simplification review of the Log and Automations code; (5)
+stage 5 (group prices, CON-385, contract 1.36.0) only after the owner says so.
 
 ## Queue (technical, for the orchestrator)
 
@@ -42,8 +41,8 @@ after the owner says so.
   removal on a real 1.6.2 install. The 2.x tab row stays in `tab`, inactive.
 - **The live Smaily API has never been called**; every run used the mock.
 - **Clean-up** (ARCHITECTURE 13): `Upgrade300`; the janitor skips two tables;
-  two hooks without a listener; the unwired 2.x classes; screenshots for the
-  user guide (five 2.x images are unreferenced); CLAUDE.md rule 4 says v1.35.0.
+  two hooks without a listener; screenshots for the user guide (five 2.x
+  images are unreferenced).
 
 ## First-release checklist (gauge: 7 / 14 demonstrated)
 
@@ -76,13 +75,14 @@ A box is ticked only when the real flow was exercised; a line names how.
 - [ ] 12. Installation report (phone-home)
 - [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out
 - [ ] 14. Administration screens in English and Estonian
+  - All strings in Estonian, walked on 8.2.8 and 9.2.0; waits: stage 5 screens.
 
 ## Staged work order
 
 0. **Foundation** — _Done (CON-370)._
 1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
 2. **Contacts and modes** — _Done (2.1–2.4)._
-3. **Admin screens** — _Dashboard, setup, Settings, Log done; no ET sweep._
+3. **Admin screens** — _Dashboard, setup, Settings, Log done, in EN and ET._
 4. **Store automations and language routing** — _Built, with discount codes._
 5. **Intelligence, tracking, recommendations, privacy.**
 6. **Release** — installation report, upgrade guide, rc1, upgrade walk.

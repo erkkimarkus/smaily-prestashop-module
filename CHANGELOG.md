@@ -27,6 +27,9 @@
 - The abandoned-cart waiting time is from 10 to 1435 minutes (2.x: at least 15), and 30 minutes on a new store. A cart older than 24 hours is never reminded. An upgraded store keeps its waiting time; a 2.x waiting time longer than 1435 minutes becomes 1435 minutes on upgrade, and a notice on the Smaily Connect pages says so.
 - The abandoned-cart reminder follows the consent mode by the same rule as the first order email, where 2.x reminded every customer with a cart. An upgraded store starts in subscribers only, so it may send fewer reminders than 2.x did; the Log shows each cart that got none as skipped.
 - Keeps the email address that a visitor types at checkout, before an account or an order exists, for that cart's reminder only: it is not sent to Smaily as a contact. A cart whose customer was deleted in the store gets no reminder, and its typed address is removed. The address is deleted once the cart has not changed for 24 hours, also when its reminder failed, or 48 hours after the cart's last change when a reminder was sent or skipped. A store keeps at most 2000 such addresses an hour, all its shops together; when that limit is reached, the Log says so once an hour.
+- The administration pages are in English and Estonian: every text of the Dashboard, the Initial setup, Settings, the Log and the upgrade notices has an Estonian translation, and the menu follows the employee's language.
+- The Log words every reason of a skipped or refused row as a sentence, where it showed a code such as `too_old`.
+- The cron line of the Background tasks card has no language prefix in its address, so it is the same line for every employee of a store with several languages.
 - Keeps the product RSS feed at its 2.x address with its 2.x parameters (`category_id`, `limit`, `sort_by`, `sort_order`), so feed URLs in existing Smaily templates keep working.
 
 ### 2.2.0
