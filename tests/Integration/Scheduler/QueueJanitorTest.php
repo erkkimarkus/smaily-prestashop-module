@@ -12,6 +12,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\Migration\LegacyStore;
 
+require_once __DIR__ . '/../Migration/LegacyStore.php';
+
 /**
  * The janitor deletes sent and skipped event queue rows after 30 days, failed ones after 90 days
  * and finished jobs after 90 days, and no other rows: no cart of the tracker, and none of 2.x's
