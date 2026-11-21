@@ -431,7 +431,7 @@ final class EventQueue
      * `processing` under a flush) is deleted: nothing more goes out for the contact. A closed row
      * stays, as the store's record that something was sent, and loses what names the contact: its
      * payload, the request and the answer of its attempts, and its entity, which becomes $entity.
-     * `updated_at` stays, so the row leaves with the queue's retention as before.
+     * `updated_at` is not written, so the row leaves with the queue's retention as before.
      *
      * @param list<int> $ids
      * @param string $entity the entity of an erased row (Log\ResendGuard::ERASED_ENTITY)
@@ -454,8 +454,7 @@ final class EventQueue
         $removed = Sql::affectedRows();
         // Every row that is left, also one that a flush closed since it was read.
         Sql::write(sprintf(
-            'UPDATE %s FORCE INDEX (PRIMARY) SET `payload` = \'[]\', `last_request` = NULL, `last_response` = NULL, `entity_id` = %s, `updated_at` = `updated_at`'
-            . ' WHERE `id` IN (%s)',
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `payload` = \'[]\', `last_request` = NULL, `last_response` = NULL, `entity_id` = %s WHERE `id` IN (%s)',
             self::table(),
             self::quote($entity),
             $in

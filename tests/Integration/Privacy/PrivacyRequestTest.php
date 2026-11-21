@@ -307,6 +307,21 @@ final class PrivacyRequestTest extends PrivacyTestCase
         self::assertSame('true', \Hook::exec('actionDeleteGDPRCustomer', ['phone' => '5550100'], (int) $module->id));
     }
 
+    public function testAnAddressWithACapitalOutsideAsciiIsFoundUnderTheHashOfItsWriters(): void
+    {
+        // The writers take the keyed hash of the address as given; it lowers ASCII letters only.
+        $given = 'Ärni.Shopper@example.test';
+        $this->services->get(ProfilingRecord::class)->write($given, true, ProfilingRecord::SOURCE_ACCOUNT);
+        $choice = $this->row($given, ['event_type' => 'engine.profiling_consent', 'entity_id' => ContactEntity::key($given), 'payload' => '{"connection":1,"opt_out":true}']);
+
+        $export = $this->services->get(PrivacyRequest::class)->export($given, 0);
+        self::assertTrue($export['store']['preference']['opted_out']);
+        self::assertSame(['engine.profiling_consent'], array_column($export['store']['queue'], 'type'));
+
+        $this->services->get(PrivacyRequest::class)->erase($given, 0, $this->idShop);
+        self::assertSame('[erased]', self::stored($choice)['entity_id']);
+    }
+
     public function testAnErasedCartRowLeavesWithTheRetentionOfTheClosedRows(): void
     {
         $customer = $this->fixture->customer(self::SHOPPER);

@@ -110,7 +110,7 @@ class LocalData
                 'type' => (string) $row['event_type'],
                 'status' => (string) $row['status'],
                 'created_at' => (string) $row['created_at'],
-            ], $this->queueRows($address)),
+            ], $this->queueRows($email)),
             'carts' => array_map(static fn (array $row): array => [
                 'cart' => (int) $row['id_cart'],
                 'status' => (string) $row['status'],
@@ -130,7 +130,7 @@ class LocalData
                 'expires_at' => $code['expires_at'],
                 'used' => $code['used'],
             ], $this->codes($address, $customers)),
-            'preference' => $this->record->find($address),
+            'preference' => $this->record->find($email),
         ];
     }
 
@@ -152,7 +152,7 @@ class LocalData
         // Before the queue: the erasure takes the address off the rows that tie the codes to it.
         $codes = $this->codes->removeUnused(array_map(static fn (array $code): int => $code['id'], $this->codes($address, $customers)));
         $queue = $this->queue->erase(
-            array_map(static fn (array $row): int => (int) $row['id'], $this->queueRows($address)),
+            array_map(static fn (array $row): int => (int) $row['id'], $this->queueRows($email)),
             ResendGuard::ERASED_ENTITY
         );
         $carts = $this->tracker->erase($address, $customers);
@@ -201,12 +201,14 @@ class LocalData
 
     /**
      * The event-queue rows of the address: the rows whose entity is the address or its keyed hash.
+     * The hash is taken from the address as given, as every writer of a row takes it.
      *
      * @return list<array<string, string|null>>
      */
-    private function queueRows(string $address): array
+    private function queueRows(string $email): array
     {
-        $key = ContactEntity::key($address);
+        $address = self::address($email);
+        $key = ContactEntity::key($email);
 
         return array_values(array_filter(
             $this->queue->ofEntities([$address, $key]),
