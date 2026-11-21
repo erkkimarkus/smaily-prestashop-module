@@ -46,8 +46,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * and Details show the class beside it. A skip, and a handler's own verdict that a row can never
  * be sent, is stored as a reason code; every code that a handler or an import can store shows as a
  * sentence, in the admin's language: Magento's sentence where Magento has the reason, else one of
- * the same form. Any other text (the Smaily client's own message) shows as stored. Magento has no
- * stale contact sync; that sentence follows its sentence for a replaced profiling choice.
+ * the same form. Any other text (the Smaily client's own message) shows as stored.
  * Magento tells its merchant nothing of its capture limit; that sentence is this module's own.
  */
 final class FailureMessage
@@ -60,7 +59,6 @@ final class FailureMessage
         AbandonedCartHandler::SKIPPED_CUSTOMER_DELETED => 'Skipped: this shopper\'s customer account was deleted in the store. Nothing was sent.',
         CaptureEndpoint::SKIPPED_CAPTURE_LIMIT => 'Skipped: the store reached its limit of 2000 checkout addresses in one hour. An address typed at checkout after that was not recorded, and gets no abandoned-cart reminder.',
         Router::SKIPPED_NO_WORKFLOW => 'Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.',
-        ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION => 'Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
         ContactSyncHandler::SKIPPED_SYNC_OFF => 'Skipped: contact synchronization is off for this shop. Nothing was sent.',
         ContactSyncHandler::SKIPPED_NOT_IN_AUDIENCE => 'Skipped: the Contacts settings of this shop do not sync this contact. Nothing was sent.',
         ContactSyncHandler::SKIPPED_NO_ACCOUNT => 'Skipped: no Smaily account is saved for this shop and language. Nothing was sent.',

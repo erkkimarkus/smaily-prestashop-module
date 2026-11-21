@@ -118,7 +118,7 @@ src/
                               DoorFrontController, TrafficTick, QueueJanitor
     Scope/                    StoreLayout, AccountResolver, Scope, ScopeResolver
     Contacts/                 ContactSyncMode, ContactAudience, SubscriberPayloadBuilder,
-                              StaleSubscription, Reconciler; Capture/ContactEvents,
+                              Reconciler; Capture/ContactEvents,
                               CustomerCapture, NewsletterBlockCapture, CheckoutBox,
                               CheckoutBoxSetting; Import/ContactImport, ContactSource, JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
@@ -345,7 +345,7 @@ facts file 6.11):
 | Case | 9.2.0 before the gateway | 9.2.0 and 8.2.8 with it | The next run |
 |---|---|---|---|
 | A console upgrade from a genuine 2.2.0 whose reads of the legacy settings fail | The upgrade ended `done`: 15 of the 17 legacy keys deleted (the two cron tokens stay), no account, no workflow row. | The migration stops at `notices` with `SqlException`, every legacy key stays, the console still reports success. | A request to the 2.x cron URL completes it: account, 2 workflow rows, 3 reminded carts. |
-| A flush whose stale-subscription read fails (section 6.4) | The subscription was sent after the contact's delivered unsubscribe: Smaily got `is_unsubscribed` 0, 1, 0. | The row waits for its retry with `SqlException`; Smaily got 0 (the first, failed attempt) and 1. | The row is closed as `stale_subscription`. |
+| A flush whose stale-subscription read fails (a check that left the module on 2026-11-21, section 15) | The subscription was sent after the contact's delivered unsubscribe: Smaily got `is_unsubscribed` 0, 1, 0. | The row waits for its retry with `SqlException`; Smaily got 0 (the first, failed attempt) and 1. | The row is closed as `stale_subscription`. |
 | A sweep whose read of the recent reminders fails (section 7) | A second cart of the address was queued and reminded minutes after the first. | The job `abandoned_cart` fails with `SqlException`; nothing is queued. | The second cart is closed as `recently_reminded`. |
 
 8.2.8 gave the safe outcome before the gateway too, because the failed statement throws there
@@ -990,8 +990,8 @@ Planned (the Story that builds each registers it):
    returns to `pending` (the process died). **[D]** SQL on the queue tables names its rows by primary
    key; no statement locks rows through a secondary index. A read through a secondary index takes no
    lock: the claim's read of due ids, and the read of a contact's later rows (`Log\ResendGuard`,
-   `Contacts\StaleSubscription`, section 6.4), which is a plain `SELECT` through
-   (`entity_id`, `event_type`, `status`) and changes nothing.
+   section 10.8), which is a plain `SELECT` through (`entity_id`, `event_type`, `status`) and
+   changes nothing.
 6. **One poison row never owns the pass** (`woo:docs/LESSONS.md` §2.18). `Queue\Flusher` hands the
    claimed rows of one event type to that type's handler as one batch. When the handler throws for
    the batch, the flusher hands each row of that batch to the handler again alone, so only the row
@@ -1396,7 +1396,6 @@ the contact:
 |---|---|
 | `contact_sync_off` | The shop's contact sync is not active. |
 | `not_in_audience` | The contact is outside the shop's audience (`syncs()` is false). |
-| `stale_subscription` | The row would put a stale subscription into Smaily (below). |
 | `no_account` | No account serves the row's shop and language. |
 | `no_credentials` | The account's password does not decrypt or is empty. |
 
@@ -1405,41 +1404,28 @@ data (code 203), the handler sends each contact of the group again in a request 
 the refused contact fails (Magento PRO-3753). Any other failure of the wire is the outcome of every row
 of the group, and `Queue\Failure::of()` classifies it (section 4.3).
 
-**A stale subscription is never sent** (`Contacts\StaleSubscription`). A row carries the consent
-that the store saw when the row was queued, and rows do not always go in the order they were queued:
-a row that failed waits on the retry ladder while a later row of the same contact is delivered.
-Example: the contact subscribes and the row fails; the contact unsubscribes and that row is delivered
-at once; the first row's retry would then mark the contact subscribed again. So the handler asks, at
-every attempt and before anything is sent, which rows of its batch are stale, and closes those as
-`skipped` with `stale_subscription`; the Log shows the reason as a sentence (section 10.8). When
-that read fails, the batch sends nothing and its rows take the retry ladder (section 1.6): a failed
-read is not "no later row".
+**A row goes as stored, in any order** (owner, 2026-11-21, as the siblings). A row carries the
+consent that the store saw when the row was queued, and rows do not always go in the order they
+were queued: a row that failed waits on the retry ladder while a later row of the same contact is
+delivered. The handler compares no row with another. Example: the contact subscribes and the row
+fails; the contact unsubscribes and that row is delivered at once; the first row's retry then
+sends `is_unsubscribed = 0`, and the contact ends subscribed in Smaily. The opposite order ends
+unsubscribed. In "Subscribers only" the reconcile (section 6.5) then takes Smaily's state back to
+the store.
 
-- A row is stale when it would mark the contact subscribed (its payload has `consent_changed` and
-  `subscribed`) and a later row of the same shop and entity (section 2.2), with a consent change of
-  its own, is `sent`. The later row may subscribe or unsubscribe: it is the contact's newer choice,
-  and it was delivered.
-- Rows match by shop and entity, whatever their source. A guest-checkout customer, a customer and a
-  newsletter-block subscriber with one address are one Smaily contact, so a guest's ticked box is
-  stale after a later delivered consent change of that address.
-- A later row that is not delivered (`pending`, `processing`, `failed` or `skipped`) makes nothing
-  stale. Two changes of one contact that wait together are claimed in id order and go in one
-  request in that order, as before.
-- **A row that unsubscribes is never stale** (the opposite order: an unsubscribe fails, a later
-  subscription is delivered, the unsubscribe's retry goes and the contact ends unsubscribed in
-  Smaily). Sent late it can only narrow who is subscribed, and the shopper subscribes again in the
-  store. Skipping it would leave more contacts subscribed than today; that is the owner's call
-  (section 14).
-- The check is one `SELECT` per batch, only when the batch holds a row that subscribes, for all such
-  rows together (section 4.3, item 5).
-- **Siblings.** Neither sibling has this check for a contact sync: Magento and WooCommerce store
-  `is_unsubscribed` in the row when it is queued and send the row as stored, in either order.
-  Magento has the pattern for another consent row: its handler of a shopper's profiling choice
-  closes a row that the shopper has since replaced as skipped, with a reason, so that an older
-  answer never undoes a newer one (`magento:Model/Queue/Handler/ProfilingConsentHandler.php`). The
-  check here follows that pattern for the direction that subscribes.
-- The Log's "Send again" and "Retry" ask the same class (`Log\ResendGuard`, section 10.8), so a row
-  that the Log offers to send again is not skipped as stale when it is sent.
+- **Siblings.** Magento and WooCommerce store `is_unsubscribed` in the row when it is queued and
+  send the row as stored, in either order (`magento:Model/Queue/Handler/ContactSyncHandler.php`,
+  `handle()`: the handler posts each row's stored contact and reads no other row).
+- Two changes of one contact that wait together are claimed in id order and go in one request in
+  that order.
+- **What left.** Until this decision the handler closed a row that would
+  re-subscribe a contact after a later delivered consent change of the same shop and contact
+  (`Contacts\StaleSubscription`, the skip reason `stale_subscription`), and the Log's resend guard
+  asked the same check. Only this module had that rule. Whether the connectors should protect a
+  newer choice from an older row is part of the cross-connector analysis (Linear CON-397); they
+  change together or not at all.
+- The Log's "Send again" and "Retry" let a failed contact sync go again (`Log\ResendGuard`,
+  section 10.8).
 
 ### 6.5 Reconcile, daily refresh and first import (as built in Story 2.4)
 
@@ -2246,8 +2232,8 @@ job to its shop, and a job of shop 0 (every shop) shows in every selection.
   words (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`), and
   a sentence of the same form for the others (`contact_sync_off`, `not_in_audience`, `no_account`,
   `no_credentials`, `automation_off`, `unknown_trigger`, `too_old`, `already_reminded`,
-  `not_tracked`, `payload_failed`, `customer_deleted` of section 7, and `stale_subscription` of
-  section 6.4, which Magento does not have). The checkout capture's hourly limit (`capture_limit`,
+  `not_tracked`, `payload_failed`, and `customer_deleted` of section 7). The checkout capture's
+  hourly limit (`capture_limit`,
   section 7), whose row stands for no event and was never pending, has a sentence of its own. A
   row with `malformed_payload` failed, and its sentence says so without "Skipped". An import job
   that left contacts out for `no_account` or `no_credentials` has a sentence of its own, as the job
@@ -2288,19 +2274,26 @@ the queue stores an exchange and again when Details show a payload (section 2.2)
   retry finds the row pending and changes nothing. The answer names the rows queued and the rows
   left alone.
 
-`Log\ResendGuard` decides both, and the list shows "Send again" only on a row that it clears. It
-refuses a row that did not fail; a withdrawn reminder; a row whose entity is `[erased]` (section
-11.2); a row that a later delivered row of the same event type, shop and contact superseded; and a
-row whose event already waits in the queue again as a later `pending` or `processing` row. The
-first four answer Magento's sentences. The last one has no sentence: "Send again" then queues
-nothing and answers as the first request did, so a second click has no effect. A contact sync
-repeats a state and is not superseded by a later sync, with one exception that Magento does not
-have: a row that would put a stale subscription into Smaily is held back, with a sentence of its
-own ("A later change of this contact's newsletter subscription already reached Smaily; sending this
-one again would undo it."). `Contacts\StaleSubscription`
-decides that for the guard and for the queue's handler alike (section 6.4), so the automatic retry
-and the two manual actions follow one rule. A row that unsubscribes is never held back. A row
-without an entity is not compared with later rows; a contact's row always has one (section 2.2).
+`Log\ResendGuard` decides both, and the list shows "Send again" only on a row that it clears.
+Its refusals are Magento's (`magento:Model/Log/ResendGuard.php`), and no other (owner,
+2026-11-21): a row that did not fail; a withdrawn reminder; a row whose entity is `[erased]`
+(section 11.2); and an automation row that a later delivered row of the same event type, shop and
+contact superseded. Each answers Magento's sentence. A contact sync repeats a state, not a
+message: a failed contact sync may always go again, with the consent it stores, whatever later
+row of that contact was delivered (section 6.4). An automation row without an entity is not
+compared with later rows; a contact's row always has one (section 2.2).
+
+As in Magento, each "Send again" that the guard lets through queues a row. A second "Send again"
+of a failed row whose first copy is not delivered yet queues a second copy: for a welcome or a
+first-order email the contact then gets the email twice; for an abandoned-cart reminder only the
+copy that the cart's tracker row names sends (section 7). Once a copy of an automation is
+delivered, the failed row is superseded. "Retry" changes a row in place, so a second "Retry" finds
+it pending and changes nothing.
+
+**What left on 2026-11-21.** Two refusals that only this module had: a contact sync that would
+re-subscribe a contact after a later delivered consent change (`stale_subscription`, with a
+sentence of its own), and a row whose event already waited in the queue again as a later
+`pending` or `processing` row (`queued`, without a sentence: "Send again" then queued nothing).
 
 **Rights.** The page needs the right to read the Log's menu tab. Details need the same right; "Send
 again" and "Retry" need the right to change it. Each endpoint also needs the page's token and the
@@ -2573,7 +2566,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 3.1 Admin shell | Done: the menu, the four pages' shell, the upgrade banner with "Finish upgrade", the notices (section 3.6), the logos and colours, the 8.2.8 translator (section 10.1) | `admin:`, `module:`, `migration:`, `runtime:`, `install:`, `tests:` |
 | 3.2 Initial setup and Dashboard | Done for the steps Connect, Contacts and Overview and for the Dashboard. Story 4.1 built the Automations step; the Intelligence step waits for Story 5.3. | `admin:`, `scope:`, `config:`, `module:`, `tests:` |
 | 3.3 Settings: Connection, Contacts, RSS, shop switches | Done, with the owner's decisions of 2026-11-20 on the layout change and the confirmations (sections 5.1 and 15). The RSS feed stays the 2.x classes; no `src/src/Rss/` was created (below). | `admin:`, `rss-feed:`, `module:`, `tests:` |
-| 3.4 Log | Done (section 10.8), with the stale-subscription rule that the queue's handler shares (section 6.4) | `log:`, `queue:`, `admin:`, `customer-sync:`, `translations:` |
+| 3.4 Log | Done (section 10.8). Its two refusals beyond Magento's left on 2026-11-21 (section 15). | `log:`, `queue:`, `admin:`, `customer-sync:`, `translations:` |
 | 3.5 Translation sweep | Not started. The XLIFF holds 220 units: the 2.x units and the units that single commits added, among them the texts of the Log and of the Automations screens. | — |
 | 4.1 Automation routing, mapping and the Automations tab | Done (section 10.9) | `automations:`, `automation:`, `admin:`, `tests:`, `docs:` |
 | 4.2 Welcome and first order | Done (section 7); the Automations tab of Story 4.1 switches them on and picks their workflows. | `automation:`, `tests:` |
@@ -3159,11 +3152,8 @@ has one owner:
 | 18 | The guest gates of the live sync | Answered by Story 2.3: the capture sets the payload's `guest` field, so the live sync applies the decision of 2026-11-20 as the imports do (section 6.2). | Story 2.3 (done) |
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
-| 23 | A late unsubscribe after a newer subscription | A contact sync that unsubscribes is sent whenever its retry comes due, also after a later subscription of the same contact was delivered (section 6.4). The contact then ends unsubscribed in Smaily although the store's latest choice is subscribed, and in "Subscribers only" the reconcile takes that back to the store. The siblings send it the same way. Skipping such a row as stale would leave more contacts subscribed than today, so it is not done without a decision. | Owner |
 | 25 | A newsletter-block subscriber without an account | Such a subscriber is synced, and gets the welcome email, only while "Include guests" is on (sections 6.2 and 7). A fresh install has it off; an upgraded store has it on. Magento syncs and welcomes a newsletter-form subscription whatever its guest setting says. | Owner |
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
-| 27 | Two Log rules beyond Magento | The Log refuses a "Send again" or "Retry" that would mark a contact subscribed after a later consent change of that contact, and it adds no second entry for an event that already waits in the queue (`Log\ResendGuard`, section 10.8). Magento's Log has neither rule. | Owner confirms |
-| 28 | The stale-subscription check covers one shop | `Contacts\StaleSubscription` matches rows by shop and entity (section 6.4). Two shops on one Smaily account are one contact there, so a subscription that waits in one shop is still sent after the other shop delivered that contact's unsubscribe. Matching by Smaily account would close it. | Owner |
 | 29 | Two shops on one Smaily account with different consent modes | Not known: whether the reconcile of the "Subscribers only" shop can mark a customer subscribed because the "All customers" shop created the contact in Smaily (section 6.5). It depends on how Smaily's action log records a contact that the API creates, which no run against the live service has shown. | Owner, with a live Smaily account |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
 | 31 | The welcome email repeats | Every storefront subscribe starts the welcome, a re-subscribe too: no once-per-contact record exists (section 7). Magento and WooCommerce do the same; Shopify sends it once per contact. | Owner |
@@ -3184,7 +3174,9 @@ has one owner:
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
 more), row 24 (mode `a` and the workflow of no language) and row 38 (the cron line on the Background
-tasks card) on 2026-11-21; they moved to section 15.
+tasks card) on 2026-11-21; they moved to section 15. So did rows 23 (a late unsubscribe after a newer
+subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription check covers one
+shop), answered together on 2026-11-21.
 
 ## 15. Decisions
 
@@ -3258,3 +3250,9 @@ Decisions of 2026-11-21:
   settings; behind "Show the cron line" in the green state. The page never carries the token: the
   card asks for the line (section 4.3). This replaces "in every state behind the button" of
   2026-11-20.
+- Late or retried contact changes behave as in the sibling connectors (owner, 2026-11-21). A
+  contact sync is sent with the consent it stores, in any order; the stale-subscription check
+  (`Contacts\StaleSubscription`, the reason `stale_subscription`) is removed. The Log's resend guard
+  keeps Magento's refusals only (not failed, withdrawn, erased, superseded): a failed contact sync
+  may go again, and a row whose event waits in the queue again is not refused (sections 6.4 and
+  10.8).

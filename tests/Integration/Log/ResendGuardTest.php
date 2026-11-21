@@ -9,8 +9,9 @@ require_once __DIR__ . '/LogTestCase.php';
 
 /**
  * The resend guard reads the queue as stored: only a failed row may be sent again, and not a
- * withdrawn reminder, an erased contact's row, a row that a later delivery superseded, or a row
- * whose event already waits in the queue again.
+ * withdrawn reminder, an erased contact's row or an automation that a later delivery superseded.
+ * These are Magento's refusals; a contact sync, and a row whose event waits in the queue again,
+ * may go again (owner, 2026-11-21).
  */
 final class ResendGuardTest extends LogTestCase
 {
@@ -55,23 +56,29 @@ final class ResendGuardTest extends LogTestCase
         );
     }
 
-    public function testARowWhoseEventWaitsInTheQueueAgainIsNotQueuedOnceMore(): void
+    /**
+     * As in Magento, where each "Send again" queues a row: a row whose event waits in the queue
+     * again, as a pending or a processing copy, is not refused.
+     */
+    public function testARowWhoseEventWaitsInTheQueueAgainMayStillGoAgain(): void
     {
         $failed = self::event(self::FAILED);
-        $other = self::event(['entity_id' => 'shopper2@example.test'] + self::FAILED);
-        self::assertSame([], $this->refusals($failed, $other));
+        $welcome = self::event(['event_type' => 'automation.welcome'] + self::FAILED);
+        self::assertSame([], $this->refusals($failed, $welcome));
 
         $copy = self::event(['status' => 'pending']);
-        self::assertSame([$failed => ResendGuard::REASON_QUEUED], $this->refusals($failed, $other));
+        $welcomeCopy = self::event(['event_type' => 'automation.welcome', 'status' => 'pending']);
+        self::assertSame([], $this->refusals($failed, $welcome));
 
-        self::db()->update('smaily_connect_event_queue', ['status' => 'processing'], '`id` = ' . $copy);
-        self::assertSame([$failed => ResendGuard::REASON_QUEUED], $this->refusals($failed, $other));
-
-        self::db()->update('smaily_connect_event_queue', ['status' => 'failed'], '`id` = ' . $copy);
-        self::assertSame([], $this->refusals($failed, $other), 'after the copy failed too, the row may go again');
+        self::db()->update('smaily_connect_event_queue', ['status' => 'processing'], '`id` IN (' . $copy . ', ' . $welcomeCopy . ')');
+        self::assertSame([], $this->refusals($failed, $welcome));
     }
 
-    public function testAContactSyncGoesAgainUnlessItWouldPutAStaleSubscriptionIntoSmaily(): void
+    /**
+     * A contact sync repeats a state, not a message: a failed one may go again as stored, also one
+     * that subscribes after a later delivered unsubscribe of the same contact, as in Magento.
+     */
+    public function testAContactSyncGoesAgainWhateverLaterSyncOfTheContactWasDelivered(): void
     {
         $payload = static fn (bool $subscribed, bool $changed): string => (string) json_encode(
             ['email' => 'shopper1@example.test', 'source' => 'customer', 'subscribed' => $subscribed, 'consent_changed' => $changed]
@@ -81,14 +88,9 @@ final class ResendGuardTest extends LogTestCase
         $profile = self::event(['payload' => $payload(true, false)] + self::FAILED);
 
         self::event(['payload' => $payload(true, false)]);
-        self::assertSame([], $this->refusals($subscribe, $unsubscribe, $profile), 'a later sync without a consent change supersedes nothing');
-
         self::event(['payload' => $payload(false, true)]);
-        self::assertSame(
-            [$subscribe => ResendGuard::REASON_STALE],
-            $this->refusals($subscribe, $unsubscribe, $profile),
-            'after a later consent change only the row that would subscribe is held back'
-        );
+
+        self::assertSame([], $this->refusals($subscribe, $unsubscribe, $profile));
     }
 
     /**

@@ -35,10 +35,6 @@ final class FailureMessageTest extends TestCase
             FailureMessage::forDisplay('no_marketing_consent', $estonian)
         );
         self::assertSame('ET: Skipped: this shopper unsubscribed in Smaily. Nothing was sent.', FailureMessage::forDisplay('unsubscribed_in_smaily', $estonian));
-        self::assertSame(
-            'ET: Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
-            FailureMessage::forDisplay('stale_subscription', $estonian)
-        );
         self::assertSame('ET: Skipped: contact synchronization is off for this shop. Nothing was sent.', FailureMessage::forDisplay('contact_sync_off', $estonian));
         self::assertSame('ET: The data stored with this row is incomplete, so it cannot be sent.', FailureMessage::forDisplay('malformed_payload', $estonian));
         self::assertSame('some_new_code', FailureMessage::forDisplay('some_new_code', $estonian), 'a code without a sentence shows as stored');
@@ -47,7 +43,7 @@ final class FailureMessageTest extends TestCase
     public function testEveryReasonCodeOfAQueueRowHasASentence(): void
     {
         $codes = [
-            'no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'capture_limit', 'no_workflow', 'stale_subscription',
+            'no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'capture_limit', 'no_workflow',
             'contact_sync_off', 'not_in_audience', 'no_account', 'no_credentials', 'automation_off', 'unknown_trigger',
             'too_old', 'already_reminded', 'not_tracked', 'payload_failed', 'malformed_payload',
         ];

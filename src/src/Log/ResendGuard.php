@@ -29,7 +29,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Contacts\StaleSubscription;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
@@ -40,22 +39,18 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * (refuse a stale page) and for the mass retry (skip the row and count it). Ported from the Magento
  * connector's Model\Log\ResendGuard.
  *
- * Only a failed row is sent again, and not when sending again would be wrong:
+ * Only a failed row is sent again, and not when sending again would be wrong. The refusals are
+ * Magento's, and no other (owner, 2026-11-21):
  *  - `withdrawn`: the reminder was closed because the shopper ordered;
  *  - `erased`: the contact's data was erased; the erasure leaves ERASED_ENTITY as the row's entity
  *    (the privacy Story writes it, ARCHITECTURE 11.2);
- *  - `superseded`: a later row of the same event type for the same contact in the same shop was
- *    delivered. For an automation that is a later message of the same kind. A contact sync repeats
- *    a state and may go again, with one exception;
- *  - `stale_subscription`: a contact sync that would put a stale subscription into Smaily, because
- *    a later consent change of the same contact was delivered. Contacts\StaleSubscription decides
- *    that, for this guard and for the queue's handler alike, so a row that the guard clears is not
- *    skipped as stale when it is sent;
- *  - `queued`: such a later row waits in the queue, for example the one a "Send again" of this row
- *    added. The contact gets that row, so this one is not queued a second time. It has no sentence
- *    of its own.
- * A row without an entity cannot be compared with later rows and gets neither of the last two
- * refusals; a contact's row always has one (Queue\ContactEntity).
+ *  - `superseded`: a later row of the same automation for the same contact in the same shop was
+ *    delivered, so the contact has a later message of the same kind.
+ * A contact sync repeats a state, not a message: a failed one may always go again, as stored,
+ * whatever later row of the contact was delivered. A row whose event waits in the queue again (a
+ * "Send again" of it, not sent yet) may go again too. An automation row without an entity cannot be
+ * compared with later rows and is never superseded; a contact's row always has one
+ * (Queue\ContactEntity).
  */
 final class ResendGuard
 {
@@ -63,25 +58,17 @@ final class ResendGuard
 
     public const REASON_SUPERSEDED = 'superseded';
 
-    public const REASON_STALE = 'stale_subscription';
-
     public const REASON_ERASED = 'erased';
 
     public const REASON_NOT_FAILED = 'not_failed';
 
-    public const REASON_QUEUED = 'queued';
-
     /** The entity of a row whose contact was erased. */
     public const ERASED_ENTITY = '[erased]';
 
-    /**
-     * The merchant's sentence of each refusal that has one, in Magento's words; Magento has no
-     * stale contact sync, and that sentence follows the one before it.
-     */
+    /** The merchant's sentence of each refusal, in Magento's words. */
     private const MESSAGES = [
         self::REASON_WITHDRAWN => 'This reminder was withdrawn because the shopper completed the purchase; it cannot be re-sent.',
         self::REASON_SUPERSEDED => 'A later message of this kind already reached this contact; sending again would deliver it twice.',
-        self::REASON_STALE => 'A later change of this contact\'s newsletter subscription already reached Smaily; sending this one again would undo it.',
         self::REASON_ERASED => 'This contact\'s data was erased; the event cannot be re-sent.',
         self::REASON_NOT_FAILED => 'Only a failed event can be sent again.',
     ];
@@ -90,8 +77,8 @@ final class ResendGuard
      * Why each row may not be sent again; a row that may is not in the answer.
      *
      * @param array<int, array<string, mixed>> $rows event-queue rows by id, with `id_shop`,
-     *                                               `event_type`, `entity_id`, `status`,
-     *                                               `last_error` and `payload` as stored
+     *                                               `event_type`, `entity_id`, `status` and
+     *                                               `last_error` as stored
      *
      * @return array<int, string> the reason by row id
      */
@@ -107,16 +94,16 @@ final class ResendGuard
                 $refused[$id] = self::REASON_ERASED;
             } elseif ((string) $row['status'] !== EventQueue::STATUS_FAILED) {
                 $refused[$id] = self::REASON_NOT_FAILED;
-            } elseif ($entity !== '') {
+            } elseif ($entity !== '' && (string) $row['event_type'] !== ContactSyncHandler::EVENT_TYPE) {
                 $candidates[$id] = $row;
             }
         }
 
-        return $refused + $this->laterRows($candidates);
+        return $refused + $this->superseded($candidates);
     }
 
     /**
-     * The EN source of the merchant's sentence for a refusal, or '' when it has none.
+     * The EN source of the merchant's sentence for a refusal, or '' for an unknown reason.
      */
     public static function message(string $reason): string
     {
@@ -124,47 +111,37 @@ final class ResendGuard
     }
 
     /**
-     * The failed rows that a later row of their kind stands in the way of: one read of the queue's
-     * (`entity_id`, `event_type`, `status`) index for all of them, and StaleSubscription's read for
-     * the contact syncs.
+     * The failed automation rows that a later delivered row of their kind superseded: one read of
+     * the queue's (`entity_id`, `event_type`, `status`) index for all of them.
      *
      * @param array<int, array<string, mixed>> $rows
      *
      * @return array<int, string>
      */
-    private function laterRows(array $rows): array
+    private function superseded(array $rows): array
     {
         if ($rows === []) {
             return [];
         }
         $quote = static fn ($value): string => '\'' . pSQL((string) $value, true) . '\'';
         $later = Sql::rows(
-            'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `payload` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`'
+            'SELECT `id`, `id_shop`, `event_type`, `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`'
             . ' WHERE `entity_id` IN (' . implode(', ', array_unique(array_map($quote, array_column($rows, 'entity_id')))) . ')'
             . ' AND `event_type` IN (' . implode(', ', array_unique(array_map($quote, array_column($rows, 'event_type')))) . ')'
-            . ' AND `status` IN (' . implode(', ', array_map($quote, [EventQueue::STATUS_SENT, EventQueue::STATUS_PENDING, EventQueue::STATUS_PROCESSING])) . ')'
+            . ' AND `status` = ' . $quote(EventQueue::STATUS_SENT)
         );
 
         $refused = [];
         foreach ($later as $other) {
             foreach ($rows as $id => $row) {
-                if ((int) $other['id'] <= $id
-                    || (int) $other['id_shop'] !== (int) $row['id_shop']
-                    || $other['event_type'] !== $row['event_type']
-                    || mb_strtolower((string) $other['entity_id']) !== mb_strtolower((string) $row['entity_id'])
+                if ((int) $other['id'] > $id
+                    && (int) $other['id_shop'] === (int) $row['id_shop']
+                    && $other['event_type'] === $row['event_type']
+                    && mb_strtolower((string) $other['entity_id']) === mb_strtolower((string) $row['entity_id'])
                 ) {
-                    continue;
-                }
-                if ($other['status'] !== EventQueue::STATUS_SENT) {
-                    $refused[$id] ??= self::REASON_QUEUED;
-                } elseif ($row['event_type'] !== ContactSyncHandler::EVENT_TYPE) {
                     $refused[$id] = self::REASON_SUPERSEDED;
                 }
             }
-        }
-        $contactSyncs = array_filter($rows, static fn (array $row): bool => $row['event_type'] === ContactSyncHandler::EVENT_TYPE);
-        foreach (StaleSubscription::among($contactSyncs) as $id) {
-            $refused[$id] = self::REASON_STALE;
         }
 
         return $refused;

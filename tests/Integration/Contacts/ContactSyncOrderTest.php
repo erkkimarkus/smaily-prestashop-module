@@ -6,34 +6,29 @@ namespace Tests\Integration\Contacts;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
-use PrestaShop\Module\SmailyForPrestaShop\Contacts\StaleSubscription;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
-use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
-use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
-use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
-require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 
 /**
  * A contact sync row carries the consent of the moment it was queued, and a row that failed is sent
  * again later. End to end in the shop, with the capture's rows, the runtime's flusher and the Smaily
- * mock: the retry of a subscription that a later delivered consent change of the same contact
- * replaced is closed as skipped and marks nobody subscribed; a late unsubscribe still goes; rows in
- * their order go as before.
+ * mock: a row goes as stored whenever its turn comes, also after a later row of the same contact
+ * was delivered, in either direction, as the Magento and WooCommerce connectors send theirs (owner,
+ * 2026-11-21). Rows that wait together go in their order.
  */
-final class StaleSubscriptionTest extends IntegrationTestCase
+final class ContactSyncOrderTest extends IntegrationTestCase
 {
     private const PASSWORD = 'not-a-real-password';
 
@@ -109,7 +104,7 @@ final class StaleSubscriptionTest extends IntegrationTestCase
      *
      * @dataProvider addresses
      */
-    public function testTheRetryOfASubscriptionIsSkippedAfterALaterUnsubscribeWasDelivered(string $address): void
+    public function testTheRetryOfASubscriptionGoesAsStoredAfterALaterUnsubscribeWasDelivered(string $address): void
     {
         $this->mock->failContactWrites(true);
         $subscribe = $this->capture($address, true);
@@ -126,59 +121,17 @@ final class StaleSubscriptionTest extends IntegrationTestCase
         $this->makeDue($subscribe);
         self::assertSame(1, $this->flush(), 'the retry runs');
 
-        $row = $this->row($subscribe);
-        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION, 1], [$row['status'], $row['last_error'], (int) $row['attempts']]);
+        self::assertSame(EventQueue::STATUS_SENT, $this->row($subscribe)['status']);
         self::assertSame(
-            [[$address, 0], [$address, 1]],
+            [[$address, 0], [$address, 1], [$address, 0]],
             $this->statusesSent(),
-            'the failed first attempt, then the unsubscribe: nothing marks the contact subscribed after it'
-        );
-        self::assertSame(
-            'Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
-            FailureMessage::forDisplay($row['last_error'], static fn (string $text): string => $text),
-            'what the Log shows'
+            'the failed first attempt, the unsubscribe, then the older row as stored'
         );
         self::assertSame(EventQueue::STATUS_SENT, $this->row($unsubscribe)['status']);
     }
 
     /**
-     * The same story, but the read of the contact's later rows fails when the retry comes due, the
-     * way a live PrestaShop 9.2.0 store reports it (facts file 6.11). That is not "no later row":
-     * read so, the subscription went out after the unsubscribe and subscribed the contact again.
-     * The row fails with nothing sent, and its next attempt finds the later row.
-     */
-    public function testAStaleCheckThatFailsSendsNothingAndTheNextAttemptSkipsTheRow(): void
-    {
-        $address = 'shopper1@example.test';
-        $this->mock->failContactWrites(true);
-        $subscribe = $this->capture($address, true);
-        $this->flush();
-        $this->mock->failContactWrites(false);
-        $unsubscribe = $this->capture($address, false);
-        $this->flush();
-        self::assertSame(EventQueue::STATUS_SENT, $this->row($unsubscribe)['status']);
-        $this->makeDue($subscribe);
-
-        $failed = FailingQueries::during('/SELECT `id`, `id_shop`, `entity_id`, `payload` FROM/', function (): void {
-            self::assertSame(1, $this->flush());
-        });
-
-        self::assertSame(1, $failed);
-        $row = $this->row($subscribe);
-        self::assertSame([EventQueue::STATUS_PENDING, 2], [$row['status'], (int) $row['attempts']], 'the row is retried');
-        self::assertStringContainsString('SqlException', (string) $row['last_error']);
-        self::assertSame([[$address, 0], [$address, 1]], $this->statusesSent(), 'nothing was sent in that attempt');
-
-        $this->makeDue($subscribe);
-        self::assertSame(1, $this->flush());
-        $row = $this->row($subscribe);
-        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION], [$row['status'], $row['last_error']]);
-        self::assertSame([[$address, 0], [$address, 1]], $this->statusesSent(), 'and nothing marks the contact subscribed');
-    }
-
-    /**
-     * The opposite order, as the sibling connectors deliver it: a row that unsubscribes is never
-     * stale. Sent late, it narrows who is subscribed; it never widens it.
+     * The opposite order: an unsubscribe that failed goes after a later delivered subscription.
      */
     public function testALateUnsubscribeStillGoesAfterALaterSubscriptionWasDelivered(): void
     {
@@ -197,11 +150,11 @@ final class StaleSubscriptionTest extends IntegrationTestCase
     }
 
     /**
-     * A guest-checkout customer's ticked box is a subscription like any other: its retry is skipped
-     * after a later delivered consent change of the address, here an unsubscribe through the
-     * newsletter block. The address is the contact, whatever the source of a row.
+     * A guest-checkout customer's ticked box is a subscription like any other: its retry goes as
+     * stored after a later delivered consent change of the address, here an unsubscribe through
+     * the newsletter block.
      */
-    public function testTheRetryOfAGuestsSubscriptionIsSkippedAfterALaterConsentChangeOfTheAddress(): void
+    public function testTheRetryOfAGuestsSubscriptionGoesAfterALaterConsentChangeOfTheAddress(): void
     {
         $this->mock->failContactWrites(true);
         $guest = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true]);
@@ -213,33 +166,12 @@ final class StaleSubscriptionTest extends IntegrationTestCase
         $this->makeDue($guest);
         $this->flush();
 
-        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_STALE_SUBSCRIPTION], [$this->row($guest)['status'], $this->row($guest)['last_error']]);
-        self::assertSame(EventQueue::STATUS_SENT, $this->row($block)['status']);
-        self::assertSame([['guest1@example.test', 0], ['guest1@example.test', 1]], $this->statusesSent());
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($guest)['status'], $this->row($block)['status']]);
+        self::assertSame([['guest1@example.test', 0], ['guest1@example.test', 1], ['guest1@example.test', 0]], $this->statusesSent());
     }
 
     /**
-     * A later row that changed no consent (a profile save, an order) replaces nothing: the guest's
-     * subscription is delivered by its retry.
-     */
-    public function testTheRetryOfAGuestsSubscriptionGoesAfterALaterRowWithoutAConsentChange(): void
-    {
-        $this->mock->failContactWrites(true);
-        $guest = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true]);
-        $this->flush();
-
-        $this->mock->failContactWrites(false);
-        $order = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true, 'consent_changed' => false]);
-        $this->flush();
-        $this->makeDue($guest);
-        $this->flush();
-
-        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($guest)['status'], $this->row($order)['status']]);
-        self::assertSame([['guest1@example.test', 0], ['guest1@example.test', null], ['guest1@example.test', 0]], $this->statusesSent());
-    }
-
-    /**
-     * Two changes of one contact that wait together go in their order, in one request, as before.
+     * Two changes of one contact that wait together go in their order, in one request.
      */
     public function testTwoChangesInTheirOrderBothReachSmaily(): void
     {
@@ -251,38 +183,6 @@ final class StaleSubscriptionTest extends IntegrationTestCase
         self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($subscribe)['status'], $this->row($unsubscribe)['status']]);
         self::assertCount(1, $this->mock->requests());
         self::assertSame([['shopper1@example.test', 0], ['shopper1@example.test', 1]], $this->statusesSent());
-    }
-
-    /**
-     * What makes a row stale, on rows as the queue stores them: only a later delivered row of the
-     * same contact in the same shop with a consent change, and only for a row that subscribes.
-     */
-    public function testOnlyALaterDeliveredConsentChangeOfTheSameContactInTheSameShopMakesASubscriptionStale(): void
-    {
-        self::stored('sent', false, true);
-        $afterAnEarlierChange = self::stored('pending', true, true);
-        self::stored('sent', true, false);
-        self::stored('pending', false, true);
-        self::stored('failed', false, true);
-        self::stored('skipped', false, true);
-        self::stored('sent', false, true, ['id_shop' => 2]);
-        self::stored('sent', false, true, ['entity_id' => 'shopper2@example.test']);
-        self::stored('sent', false, true, ['event_type' => 'automation.welcome']);
-        self::assertSame([], $this->stale($afterAnEarlierChange), 'no later delivered consent change of this contact in this shop');
-
-        $unsubscribe = self::stored('pending', false, true);
-        $profile = self::stored('pending', true, false);
-        $withoutEntity = self::stored('pending', true, true, ['entity_id' => null]);
-        $otherShop = self::stored('pending', true, true, ['id_shop' => 2]);
-        $stale = self::stored('pending', true, true);
-        self::stored('sent', true, true, ['entity_id' => 'Shopper1@Example.TEST']);
-        $afterTheChange = self::stored('pending', true, true);
-
-        self::assertSame(
-            [$afterAnEarlierChange, $stale],
-            $this->stale($afterAnEarlierChange, $unsubscribe, $profile, $withoutEntity, $otherShop, $stale, $afterTheChange),
-            'a later subscription makes an earlier one stale too; the newest row carries the choice'
-        );
     }
 
     /**
@@ -354,44 +254,6 @@ final class StaleSubscriptionTest extends IntegrationTestCase
         }
 
         return $sent;
-    }
-
-    /**
-     * A `contact.sync` row of shopper1 in shop 1, written as stored.
-     *
-     * @param array<string, mixed> $columns
-     */
-    private static function stored(string $status, bool $subscribed, bool $consentChanged, array $columns = []): int
-    {
-        $columns += [
-            'id_shop' => 1,
-            'event_type' => ContactSyncHandler::EVENT_TYPE,
-            'entity_id' => 'shopper1@example.test',
-            'payload' => (string) json_encode(['email' => 'shopper1@example.test', 'source' => 'customer', 'subscribed' => $subscribed, 'consent_changed' => $consentChanged]),
-            'status' => $status,
-            'attempts' => 0,
-            'created_at' => '2026-11-20 10:00:00',
-            'updated_at' => '2026-11-20 10:00:00',
-        ];
-        $values = array_map(static fn ($value) => $value === null ? null : pSQL((string) $value, true), $columns);
-        self::assertTrue(self::db()->insert(EventQueue::TABLE, $values, true), self::db()->getMsgError());
-
-        return (int) self::db()->Insert_ID();
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function stale(int ...$ids): array
-    {
-        $rows = [];
-        foreach ($ids as $id) {
-            $rows[$id] = $this->row($id);
-        }
-        $stale = StaleSubscription::among($rows);
-        sort($stale);
-
-        return $stale;
     }
 
     /**

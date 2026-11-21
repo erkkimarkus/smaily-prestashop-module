@@ -807,11 +807,6 @@
         <target>Vahele jäetud: selle automaatika päästikuga pole seotud ühtegi Smaily töövoogu. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="ae5915c5d013dd3fe19f25d1a7be33f0">
-        <source>Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.</source>
-        <target>Vahele jäetud: ostja on vahepeal oma uudiskirja tellimust muutnud ja uuem valik on juba Smailysse jõudnud. Midagi ei saadetud.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="2203894efc305c09dfddad35841ca76e">
         <source>Only a failed event can be sent again.</source>
         <target>Uuesti saata saab ainult ebaõnnestunud sündmust.</target>
@@ -1175,11 +1170,6 @@
       <trans-unit id="5328159c8de0f2baeae94d148e1b8bb9">
         <source>Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used (per-language credentials are removed on save). Continue?</source>
         <target>Mitmekeelse režiimi vahetamine muudab kontaktide ja automaatikate suunamist. Keelepõhised kontod ja töövoovastendused, mis enam ei kehti, jäävad kasutusest välja (keelepõhised kasutajaandmed eemaldatakse salvestamisel). Kas jätkata?</target>
-        <note>Line: </note>
-      </trans-unit>
-      <trans-unit id="5d4b56d5c31cb003dc27c419a8f11a99">
-        <source>A later change of this contact's newsletter subscription already reached Smaily; sending this one again would undo it.</source>
-        <target>Selle kontakti uudiskirja tellimuse hilisem muudatus on juba Smailysse jõudnud; selle rea uuesti saatmine tühistaks muudatuse.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="fffc9248d7be3014d01ff15289ab5e7f">

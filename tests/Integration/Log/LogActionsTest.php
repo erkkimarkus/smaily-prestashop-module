@@ -109,7 +109,7 @@ final class LogActionsTest extends AbandonedCartTestCase
         self::assertSame('{"http_status":200,"body":null}', $stored['last_response'], 'an answer too long for the column keeps its status');
     }
 
-    public function testSendAgainQueuesTheEventOnceAndTheNextFlushDeliversIt(): void
+    public function testSendAgainQueuesTheEventAndTheNextFlushDeliversIt(): void
     {
         $this->mock->acceptCredentials('api-user', 'changed-in-smaily');
         $failed = $this->welcome('shopper1@example.test');
@@ -132,7 +132,7 @@ final class LogActionsTest extends AbandonedCartTestCase
         self::assertMatchesRegularExpression('/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/', $payload['_resend']['at']);
         unset($payload['_resend']);
         self::assertSame(json_decode((string) $before['payload'], true), $payload);
-        self::assertSame([$failed => ResendGuard::REASON_QUEUED], $this->refusal($failed), 'a second Send again queues nothing');
+        self::assertSame([], $this->refusal($failed), 'as in Magento, a second Send again is let through while the first copy waits');
 
         $posts = count($this->posts('/api/autoresponder.php'));
         self::assertSame(1, $this->flush());
@@ -204,17 +204,18 @@ final class LogActionsTest extends AbandonedCartTestCase
     public function guardReads(): array
     {
         return [
-            'the rows the guard reads' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error`, `payload` FROM/'],
-            'the later rows of the contacts' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `payload` FROM/'],
-            'the later consent changes' => ['/^SELECT `id`, `id_shop`, `entity_id`, `payload` FROM/'],
+            'the rows the guard reads' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error` FROM/'],
+            'the later rows of the contacts' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id` FROM/'],
         ];
     }
 
     /**
      * "Retry" returns only the rows that the guard lets through. A read of the guard that fails
      * (facts file 6.11) refuses nothing by itself: read as "no row stands in the way", every failed
-     * row went back to the queue, the superseded, erased and stale ones too. The retry stops, no
-     * row changes, and "Send again" of one such row is not answered as allowed.
+     * row went back to the queue, the superseded and erased ones too. The retry stops, no row
+     * changes, and "Send again" of one such row is not answered as allowed. With its reads the
+     * guard refuses those two and lets the contact sync through, also one that subscribes after a
+     * later delivered unsubscribe (owner, 2026-11-21).
      *
      * @dataProvider guardReads
      */
@@ -224,7 +225,7 @@ final class LogActionsTest extends AbandonedCartTestCase
         $superseded = $this->welcome('shopper3@example.test', $failed);
         $this->welcome('shopper3@example.test', ['status' => 'sent']);
         $erased = $this->sync('shopper4@example.test', ['entity_id' => ResendGuard::ERASED_ENTITY] + $failed);
-        $stale = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
+        $sync = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
         $this->sync('shopper5@example.test', ['status' => 'sent', 'payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":false,"consent_changed":true}']);
         $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
         $retry = new Retry($rows, new ResendGuard(), $this->queue());
@@ -235,10 +236,11 @@ final class LogActionsTest extends AbandonedCartTestCase
             });
             self::fail('The retry went on without its guard.');
         } catch (SqlException $error) {
-            self::assertSame(['failed', 'failed', 'failed'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($stale)['status']]);
+            self::assertSame(['failed', 'failed', 'failed'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($sync)['status']]);
         }
 
-        self::assertSame([0, 3], $retry->retry(new LogFilter(), null), 'with its reads the guard refuses the three');
+        self::assertSame([1, 2], $retry->retry(new LogFilter(), null), 'with its reads the guard refuses the two and lets the contact sync through');
+        self::assertSame(['failed', 'failed', 'pending'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($sync)['status']]);
     }
 
     /**

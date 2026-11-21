@@ -140,14 +140,6 @@ final class LogViewTest extends TestCase
         $superseded = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '1', 'last_error' => 'x']), ResendGuard::REASON_SUPERSEDED);
         self::assertSame('A later message of this kind already reached this contact; sending again would deliver it twice.', $superseded['outcome']['text']);
         self::assertFalse($superseded['resend']);
-
-        $stale = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '1', 'last_error' => 'x']), ResendGuard::REASON_STALE);
-        self::assertSame('A later change of this contact\'s newsletter subscription already reached Smaily; sending this one again would undo it.', $stale['outcome']['text']);
-        self::assertFalse($stale['resend']);
-
-        $queued = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '5', 'last_error' => 'x']), ResendGuard::REASON_QUEUED);
-        self::assertStringStartsWith('All 5 automatic attempts are used up', $queued['outcome']['text']);
-        self::assertFalse($queued['resend']);
     }
 
     public function testTheDetailsOfWaitingSkippedAndWithdrawnRows(): void

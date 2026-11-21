@@ -215,7 +215,7 @@ final class LogRows
             return [];
         }
         $rows = Sql::rows(
-            'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error`, `payload` FROM ' . self::table(EventQueue::TABLE)
+            'SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error` FROM ' . self::table(EventQueue::TABLE)
             . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')'
         );
 

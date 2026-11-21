@@ -45,8 +45,8 @@ use Symfony\Component\HttpFoundation\Request;
  * A new pending row carries the same event (Log\Resend); the failed row stays as history.
  *
  * The resend guard has the last word, also over a stale page: a row it refuses answers its
- * sentence with HTTP 409. A row whose event already waits in the queue again (a second click)
- * queues nothing more and answers as the first click did.
+ * sentence with HTTP 409. Each request that the guard lets through queues a row, as in Magento: a
+ * second "Send again" of a row whose first copy is not delivered yet queues a second copy.
  */
 final class SendAgain extends AbstractJsonAction
 {
@@ -59,19 +59,17 @@ final class SendAgain extends AbstractJsonAction
         $reason = $row['kind'] === LogRows::SMAILY
             ? (new ResendGuard())->refusals([(int) $row['id'] => $row])[(int) $row['id']] ?? null
             : ResendGuard::REASON_NOT_FAILED;
-        if ($reason !== null && $reason !== ResendGuard::REASON_QUEUED) {
+        if ($reason !== null) {
             return $this->error('refused', $this->trans(ResendGuard::message($reason), BaseController::DOMAIN), 409);
         }
-        if ($reason === null) {
-            $employee = \Context::getContext()->employee;
-            try {
-                $services = Services::instance();
-                (new Resend($services->get(QueueProvider::EVENT_QUEUE), $services->get(CartTracker::class)))->resend($row, $employee === null ? '' : trim($employee->firstname . ' ' . $employee->lastname));
-            } catch (\RuntimeException $error) {
-                Log::failure('the Log\'s Send again', $error);
+        $employee = \Context::getContext()->employee;
+        try {
+            $services = Services::instance();
+            (new Resend($services->get(QueueProvider::EVENT_QUEUE), $services->get(CartTracker::class)))->resend($row, $employee === null ? '' : trim($employee->firstname . ' ' . $employee->lastname));
+        } catch (\RuntimeException $error) {
+            Log::failure('the Log\'s Send again', $error);
 
-                return $this->error('not_queued', $this->trans('The event could not be queued again — please try again.', BaseController::DOMAIN), 500);
-            }
+            return $this->error('not_queued', $this->trans('The event could not be queued again — please try again.', BaseController::DOMAIN), 500);
         }
 
         return ['message' => $this->trans('Event queued to be sent again.', BaseController::DOMAIN)];

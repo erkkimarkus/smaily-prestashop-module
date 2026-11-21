@@ -30,7 +30,6 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
-use PrestaShop\Module\SmailyForPrestaShop\Contacts\StaleSubscription;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
@@ -39,7 +38,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\ScopeResolver;
 
 /**
  * Registers the Contacts settings, the contact payload builder and the handler of `contact.sync`
- * rows, which asks Contacts\StaleSubscription which rows are stale.
+ * rows.
  */
 final class ContactSyncProvider implements ProviderInterface
 {
@@ -53,8 +52,7 @@ final class ContactSyncProvider implements ProviderInterface
             $services->get(ScopeResolver::class),
             $services->get(ContactsSettings::class),
             $services->get(SubscriberPayloadBuilder::class),
-            $services->get(Transport::class),
-            [StaleSubscription::class, 'among']
+            $services->get(Transport::class)
         ));
     }
 }
