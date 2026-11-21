@@ -1,8 +1,10 @@
 <?php
 // A CONNECT-only egress proxy for a dev shop container (install.sh): a tunnel to any
-// *.sendsmaily.net:443 goes to the local TLS front of the Smaily mock (127.0.0.1:8443); every other
-// destination is refused with 403, so no request of the shop leaves the container. Plain HTTP is
-// refused too. Each decision is appended to /tmp/smaily-egress.log (host and verdict only).
+// *.sendsmaily.net:443 goes to the local TLS front of the Smaily mock (127.0.0.1:8443), and a
+// tunnel to intelligence.smaily.com:443, the Campaign Intelligence engine, to the front of the
+// engine mock (127.0.0.1:8444); every other destination is refused with 403, so no request of the
+// shop leaves the container. Plain HTTP is refused too. Each decision is appended to
+// /tmp/smaily-egress.log (host and verdict only).
 declare(strict_types=1);
 
 $server = stream_socket_server('tcp://127.0.0.1:3128', $errno, $errstr);
@@ -34,15 +36,22 @@ while (true) {
             while (!str_contains($head, "\r\n\r\n") && ($chunk = fread($client, 4096)) !== false && $chunk !== '') {
                 $head .= $chunk;
             }
-            if (preg_match('~^CONNECT ([A-Za-z0-9.-]+):(\d+) ~', $head, $m) === 1
-                && preg_match('~(^|\.)sendsmaily\.net$~i', $m[1]) === 1 && $m[2] === '443') {
-                $upstream = @stream_socket_client('tcp://127.0.0.1:8443', $e, $s, 5);
+            $front = null;
+            if (preg_match('~^CONNECT ([A-Za-z0-9.-]+):(\d+) ~', $head, $m) === 1 && $m[2] === '443') {
+                if (preg_match('~(^|\.)sendsmaily\.net$~i', $m[1]) === 1) {
+                    $front = ['tcp://127.0.0.1:8443', 'mock'];
+                } elseif (strtolower($m[1]) === 'intelligence.smaily.com') {
+                    $front = ['tcp://127.0.0.1:8444', 'engine mock'];
+                }
+            }
+            if ($front !== null) {
+                $upstream = @stream_socket_client($front[0], $e, $s, 5);
                 if ($upstream === false) {
                     fwrite($client, "HTTP/1.1 502 Bad Gateway\r\n\r\n");
                     fclose($client);
                     continue;
                 }
-                $log('TUNNEL ' . strtolower($m[1]) . ' -> mock');
+                $log('TUNNEL ' . strtolower($m[1]) . ' -> ' . $front[1]);
                 fwrite($client, "HTTP/1.1 200 Connection established\r\n\r\n");
                 $pairs[] = [$client, $upstream];
             } else {

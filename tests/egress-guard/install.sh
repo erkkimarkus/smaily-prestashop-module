@@ -4,8 +4,11 @@
 #  - the Smaily mock (tests/Integration/Fixtures/mock-smaily/router.php) on 127.0.0.1:8099, behind
 #    a TLS front for *.sendsmaily.net on 127.0.0.1:8443 (nginx, with a CA this script makes and
 #    trusts in the container only);
-#  - a CONNECT proxy on 127.0.0.1:3128 (proxy.php) that tunnels any *.sendsmaily.net:443 to that
-#    front and refuses every other destination;
+#  - the Campaign Intelligence engine mock (tests/Integration/Fixtures/mock-engine/router.php) on
+#    127.0.0.1:8098, behind a TLS front for intelligence.smaily.com on 127.0.0.1:8444 (the same
+#    nginx and CA);
+#  - a CONNECT proxy on 127.0.0.1:3128 (proxy.php) that tunnels any *.sendsmaily.net:443 and
+#    intelligence.smaily.com:443 to those fronts and refuses every other destination;
 #  - PHP-FPM's https_proxy and http_proxy pointing at the proxy.
 #
 # Run it from the repository root, with the stack's Compose variables set, BEFORE the first admin
@@ -29,6 +32,12 @@ if [ ! -f ca.pem ]; then
   cp ca.pem /usr/local/share/ca-certificates/smaily-egress-guard-ca.crt
   update-ca-certificates >/dev/null 2>&1 || true
 fi
+if [ ! -f engine.pem ]; then
+  openssl req -newkey rsa:2048 -nodes -keyout engine.key -out engine.csr -subj "/CN=intelligence.smaily.com" 2>/dev/null
+  printf "subjectAltName=DNS:intelligence.smaily.com\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n" > engine.ext
+  openssl x509 -req -in engine.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out engine.pem -days 30 -extfile engine.ext 2>/dev/null
+fi
+[ -f engine-state.json ] || printf "{}" > engine-state.json
 # Some images do not rebuild the bundle: the CA goes into it directly.
 grep -q "$(sed -n 2p ca.pem)" /etc/ssl/certs/ca-certificates.crt || cat ca.pem >> /etc/ssl/certs/ca-certificates.crt
 chown -R www-data /tmp/smaily-mock
@@ -38,13 +47,20 @@ grep -q "smaily-egress" /usr/local/etc/php-fpm.conf || printf "\n[www]\n; smaily
 '
 $dc exec -T -u www-data -e MOCK_USER="$MOCK_USER" -e MOCK_PASSWORD="$MOCK_PASSWORD" prestashop sh -c '
   php -r "file_put_contents(\"/tmp/smaily-mock/state.json\", json_encode([\"credentials\" => [\"username\" => getenv(\"MOCK_USER\"), \"password\" => getenv(\"MOCK_PASSWORD\")], \"workflows\" => [[\"id\" => 11, \"title\" => \"Welcome\", \"trigger_type\" => \"form_submitted\", \"is_enabled\" => true, \"name\" => \"Welcome\", \"status\" => \"active\"]]]));"
-  [ -f /tmp/smaily-mock/nginx.pid ] && kill -0 $(cat /tmp/smaily-mock/nginx.pid) 2>/dev/null || nginx -c /tmp/smaily-mock/nginx.conf
+  if [ -f /tmp/smaily-mock/nginx.pid ] && kill -0 $(cat /tmp/smaily-mock/nginx.pid) 2>/dev/null; then
+    nginx -c /tmp/smaily-mock/nginx.conf -s reload
+  else
+    nginx -c /tmp/smaily-mock/nginx.conf
+  fi
   kill -USR2 $(pgrep -f "[p]hp-fpm: master")
 '
 # Long-running helpers: detached, so they outlive this exec.
 $dc exec -T -u www-data prestashop sh -c "pgrep -f '[p]hp -S 127.0.0.1:8099'" >/dev/null \
   || $dc exec -d -u www-data -e SMAILY_MOCK_STATE=/tmp/smaily-mock/state.json prestashop php -S 127.0.0.1:8099 /smaily/tests/Integration/Fixtures/mock-smaily/router.php
-$dc exec -T -u www-data prestashop sh -c "pgrep -f '[s]maily-egress-proxy'" >/dev/null \
-  || $dc exec -d -u www-data prestashop php /tmp/smaily-egress-proxy.php
+$dc exec -T -u www-data prestashop sh -c "pgrep -f '[p]hp -S 127.0.0.1:8098'" >/dev/null \
+  || $dc exec -d -u www-data -e ENGINE_MOCK_STATE=/tmp/smaily-mock/engine-state.json -e PHP_CLI_SERVER_WORKERS=4 prestashop php -S 127.0.0.1:8098 /smaily/tests/Integration/Fixtures/mock-engine/router.php
+# A proxy of an earlier install does not know the engine host: it is replaced.
+$dc exec -T -u www-data prestashop sh -c "pkill -f '[s]maily-egress-proxy' || true"
+$dc exec -d -u www-data prestashop php /tmp/smaily-egress-proxy.php
 sleep 2
 "$here/check.sh"
