@@ -60,9 +60,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  *
  * A run never resets a store in use. A store that has nothing to migrate (3.0.0 installed it, or
  * its migration completed) and has lost its schema version gets only its tables, hooks and schema
- * version back. Where the plan is applied, a setting and a mapping row are written only where the
- * store holds none, a cron token only where it is empty or missing, and a reminded cart only where
- * the cart has no row; the legacy account is saved again while its legacy keys exist.
+ * version back. Where the plan is applied, a setting, a mapping row and an account are written
+ * only where the store holds none, a cron token only where it is empty or missing, and a reminded
+ * cart only where the cart has no row.
  */
 final class Upgrade300
 {
@@ -356,17 +356,35 @@ final class Upgrade300
         }
     }
 
+    /**
+     * Saves each account of the plan at a shop and language that hold none. An account that the
+     * store holds there stays as it is: a merchant saved it while the upgrade was not finished, and
+     * the 2.x account of that scope is then not migrated. An account that this step writes must
+     * read back as the legacy one, password included, or it is removed again and the step fails.
+     */
     private function stepAccounts(): void
     {
         $plan = $this->plan();
         foreach ($plan->accounts() as $account) {
+            if ($this->accounts->find($account['id_shop'], $account['language']) !== null) {
+                continue;
+            }
+            $password = $plan->passwordToEncrypt($account['id_shop']);
             self::check($this->accounts->save(new Account(
                 $account['id_shop'],
                 $account['language'],
                 $account['subdomain'],
                 $account['username'],
-                $plan->passwordToEncrypt($account['id_shop'])
+                $password
             )));
+            $stored = $this->accounts->find($account['id_shop'], $account['language']);
+            if ($stored === null
+                || $stored->subdomain() !== $account['subdomain']
+                || $stored->username() !== $account['username']
+                || !hash_equals($password, $stored->password())) {
+                $this->accounts->delete($account['id_shop'], $account['language']);
+                self::check(false);
+            }
         }
     }
 
@@ -473,19 +491,18 @@ final class Upgrade300
     }
 
     /**
-     * Every account row decrypts to its legacy password and every setting holds one row in the
-     * table at its scope, before the legacy keys go. The row's value is the plan's, or the one the
-     * store held before (stepSettings()).
+     * Every shop and language of a legacy account holds an account whose password decrypts, and
+     * every setting holds one row in the table at its scope, before the legacy keys go. The account
+     * is the legacy one, which stepAccounts() compared with the plan when it wrote it, or the one
+     * the store holds in its place; the setting's value is the plan's, or the one the store held
+     * before (stepSettings()).
      */
     private function stepVerify(): void
     {
         $plan = $this->plan();
         foreach ($plan->accounts() as $account) {
             $stored = $this->accounts->find($account['id_shop'], $account['language']);
-            self::check($stored !== null
-                && $stored->subdomain() === $account['subdomain']
-                && $stored->username() === $account['username']
-                && hash_equals($plan->passwordToEncrypt($account['id_shop']), $stored->password()));
+            self::check($stored !== null && $stored->password() !== '');
         }
         foreach ($plan->settings() as $idShop => $settings) {
             foreach (array_keys($settings) as $key) {

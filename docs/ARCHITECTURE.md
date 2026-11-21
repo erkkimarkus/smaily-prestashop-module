@@ -542,8 +542,8 @@ regenerates it) breaks decryption.
 
 | Legacy item | 3.0.0 |
 |---|---|
-| `SMAILY_SUBDOMAIN`, `SMAILY_USERNAME` | Migrated into `smaily_connect_account`, then deleted. |
-| `SMAILY_PASSWORD` | Encrypted into `smaily_connect_account`. Deleted only after a read-back decrypts to the same value. |
+| `SMAILY_SUBDOMAIN`, `SMAILY_USERNAME` | Migrated into `smaily_connect_account`, unless the store holds an account at that shop and language (section 3.7), then deleted. |
+| `SMAILY_PASSWORD` | Encrypted into `smaily_connect_account`, where the shop and language hold no account yet; the row is read back, and must decrypt to the same value, when it is written. Deleted once every scope of a legacy account holds an account whose password decrypts (section 3.7). |
 | `SMAILY_ENABLE_CUSTOMER_SYNC`, `SMAILY_ENABLE_CRON` (1.6.x), `SMAILY_SYNCRONIZE_ADDITIONAL`, `SMAILY_OPTIN_ENABLED`, `SMAILY_OPTIN_AUTORESPONDER`, `SMAILY_ENABLE_ABANDONED_CART`, `SMAILY_CART_AUTORESPONDER`, `SMAILY_ABANDONED_CART_TIME` | Migrated (section 3), then deleted. |
 | `SMAILY_CART_SYNCRONIZE_ADDITIONAL` | Read once for the rule of section 3.3 (2.x stopped on a list that is not JSON), then deleted. Its selection is not migrated: the reminder always carries every field (section 7). |
 | `SMAILY_RSS_CATEGORY_ID`, `_LIMIT`, `_SORT_BY`, `_SORT_ORDER` | Migrated to `SMAILY_CONNECT_RSS_*`, then deleted. |
@@ -772,8 +772,11 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    call. Every other step is skipped once it succeeded. `tick_token` creates the tick URL's token
    unless one is stored, so the Dashboard has the cron line of an upgraded store at once (section
    4.3); it changes no legacy token.
-4. `verify` checks that every account row decrypts to its legacy password and that every setting holds
-   one row in the table at its scope. `settings` writes a shop's row only while multistore is on,
+4. `accounts` writes a legacy account only at a shop and language that hold none, and reads each
+   row that it wrote back: the row must hold the legacy subdomain, username and password, or the
+   step removes it again and fails. `verify` checks that every shop and language of a legacy
+   account holds an account whose password decrypts, and that every setting holds one row in the
+   table at its scope. `settings` writes a shop's row only while multistore is on,
    and stops otherwise: PrestaShop would write the global row in its place (section 2.1, item 5).
 5. `finish` deletes the legacy keys (not the two tokens) at every scope and calls
    `Schema::markCurrent()` in one database transaction. A failure rolls both back.
@@ -807,11 +810,15 @@ version is missing, also on a store that is set up, so it is safe to run at any 
   was not finished stays, and `verify` does not compare a setting's value with the plan. `tokens`
   changes only an empty or missing token; `tick_token` creates a token only where none is stored;
   `carts` adds a row only for a cart that has none; `notices` stores a notice once per code and
-  parameters; `tables`, `hooks`, `menu`, `override` and `tab` are idempotent. `accounts` is the
-  exception: it saves the legacy account again, and `verify` insists on the legacy password before
-  `finish` deletes its plain-text copy. The legacy keys exist only until the first `finish`, so no
-  account of a store in use is written; an account that a merchant saves while the upgrade is not
-  finished is replaced, or stops the run at `verify`.
+  parameters; `tables`, `hooks`, `menu`, `override` and `tab` are idempotent. `accounts` follows
+  the same rule (owner, 2026-11-21; section 15): it writes a legacy account only where the shop
+  and language hold none, so an account that a merchant saves in Settings while the upgrade is
+  not finished stays, and the 2.x account of that scope is not migrated. `verify` then passes on
+  the account that the store holds, whether the merchant saved it before the `accounts` step ran
+  or replaced the migrated account after it, and `finish` deletes the plain-text copy of the 2.x
+  password as on any upgrade. The settings and the mapping rows of the plan are still written by
+  their own rule, so the workflows that 2.x had chosen stay in the mapping beside the saved
+  account. A first run on a store with no account writes the legacy account as before.
 
 **[D]** The schema-version guard. `Install\Schema::isCurrent()` compares the stored global
 `SMAILY_CONNECT_SCHEMA_VERSION` with `Install\Schema::VERSION`, not with the module version.
@@ -3249,7 +3256,7 @@ has one owner:
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
 | 29 | Two shops on one Smaily account with different consent modes | Established on 2026-11-21, not changed. Smaily records a contact that the API creates as an opt-in (owner). So when a shop in "All customers" creates a contact, the reconcile of a "Subscribers only" shop on the same account reads that opt-in and sets `newsletter = 1` for a customer of its own shop with the same address, also one who never subscribed there (section 6.5). The first reconcile run of an account marks nobody subscribed; the later runs do. Neither sibling prevents it: Magento's and WooCommerce's reconcile apply every opt-in of the account's log to the address and never ask which website or site caused it. Magento reaches fewer people, because it changes only an address that has a newsletter-subscriber row in the consent website. | The cross-connector analysis (Linear CON-397) |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
-| 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
+| 32 | A Smaily account saved while an upgrade is unfinished | **Closed (owner, 2026-11-21):** the saved account stays. The upgrade writes a legacy account only where the shop and language hold none, the 2.x account of that scope is not migrated, and the upgrade finishes (section 3.7). | — |
 | 33 | Abandoned-cart tracker rows are never deleted | **Closed (owner, 2026-11-21):** the janitor deletes a closed tracker row 30 days after the cart's last change, as Magento, and a cart that changes after that is reminded again (section 11.3). | — |
 | 34 | Two hooks without a listener | **Closed (owner, 2026-11-21):** `actionCartSave` and `actionObjectCustomerDeleteAfter` are no longer registered; `Install\HookList` holds 30 hooks (section 7). | — |
 | 35 | The first-import card after 90 days | **Closed (owner, 2026-11-21):** the janitor does not delete import jobs, as Magento's does not, so the card keeps the last import (section 11.3). | — |
@@ -3365,6 +3372,11 @@ Decisions of 2026-11-21:
   through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
   the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
   29).
+- A Smaily account saved while an upgrade is unfinished stays (owner, 2026-11-21). The upgrade
+  never writes over an account that the store holds at a shop and language, by the rule of the
+  settings and the mapping rows; the 2.x account of that scope is then not migrated, the upgrade
+  finishes, and `verify` checks that the scope holds an account whose password decrypts (section
+  3.7).
 - Abandoned-cart tracker rows are deleted after 30 days, as on Magento (owner, 2026-11-21). The
   janitor deletes a `mailed` or `skipped` row 30 days after the cart's last change; a cart that
   its shopper changes after that can be reminded again. Rows migrated from 2.x follow the same

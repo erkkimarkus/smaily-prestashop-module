@@ -4,9 +4,15 @@ declare(strict_types=1);
 namespace Tests\Integration\Migration;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsScope;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\TabSaver;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
@@ -17,14 +23,17 @@ use PrestaShop\Module\SmailyForPrestaShop\Migration\MigrationPlan;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\MigrationProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Tests\Integration\Admin\MenuTest;
 use Tests\Integration\Fixtures\FailingQueries;
+use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
 require_once __DIR__ . '/LegacyStore.php';
 require_once __DIR__ . '/../Admin/MenuTest.php';
 require_once __DIR__ . '/../Fixtures/FailingQueries.php';
+require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 
 /**
  * A store that 2.x or 1.6.x left upgrades in place: the plan's settings, accounts, mapping rows and
@@ -38,6 +47,8 @@ final class Upgrade300Test extends IntegrationTestCase
     private const PASSWORD = 'not-a-real-password';
 
     private const TOKENS = ['SMAILY_CUSTOMER_CRON_TOKEN', 'SMAILY_CART_CRON_TOKEN'];
+
+    private const SAVED_PASSWORD = 'another-invented-password';
 
     protected function setUp(): void
     {
@@ -385,6 +396,95 @@ final class Upgrade300Test extends IntegrationTestCase
                 'SELECT `trigger`, `workflow_id` FROM `' . _DB_PREFIX_ . 'smaily_connect_automation_mapping` ORDER BY `trigger`'
             ) ?: [])
         );
+    }
+
+    /**
+     * Where the upgrade stopped before the merchant saved an account in Settings > Connection:
+     * before the accounts step (the 2.x account is not written yet), or after it (the 2.x account
+     * is written, and the save replaces it).
+     *
+     * @return array<string, array{string}>
+     */
+    public function stops(): array
+    {
+        return [
+            'stopped before the accounts step' => ['accounts'],
+            'stopped after the accounts step' => ['carts'],
+        ];
+    }
+
+    /**
+     * A Smaily account that a merchant saves while the upgrade is not finished stays: the next run
+     * does not write the 2.x account over it, `verify` passes on the account the store holds, and
+     * the upgrade completes. The plain-text password of 2.x goes as on any upgrade.
+     *
+     * @dataProvider stops
+     */
+    public function testAnAccountSavedWhileTheUpgradeIsUnfinishedStays(string $stoppedAt): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        $failing = $this->upgrade(static function (string $step) use ($stoppedAt): void {
+            if ($step === $stoppedAt) {
+                throw new \LogicException('injected');
+            }
+        });
+        self::assertFalse($failing->runPending());
+        self::assertSame($stoppedAt, $this->upgrade()->state()['failure']['step']);
+
+        $mock = SmailyMockServer::start();
+        $mock->acceptCredentials('merchant-user', self::SAVED_PASSWORD);
+        $transport = $mock->transport();
+        $services = Services::fromProviders(Services::PROVIDERS);
+        $services->set(Transport::class, static fn (): Transport => $transport);
+        $saver = new TabSaver(
+            new SetupPanels($services, \Context::getContext()->getTranslator()),
+            new ShopOverrides($services->get(AccountStore::class), $services->get(MappingRepository::class))
+        );
+        $saved = $saver->saveConnection(
+            SettingsScope::current(new StoreLayout(), 0),
+            ['subdomain' => 'merchant-store', 'username' => 'merchant-user', 'password' => self::SAVED_PASSWORD, 'language_mode' => 'single'],
+            false
+        );
+        self::assertSame([[], true], [$saved['errors'], $saved['connected']]);
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        $state = $this->upgrade()->state();
+        self::assertSame(['done', null], [$state['status'], $state['failure']]);
+        self::assertContains('verify', $state['done']);
+        self::assertTrue(Schema::isCurrent());
+        $stored = Services::instance()->get(AccountStore::class)->find(0, '');
+        self::assertNotNull($stored);
+        self::assertSame(['merchant-store', 'merchant-user'], [$stored->subdomain(), $stored->username()]);
+        self::assertTrue(hash_equals(self::SAVED_PASSWORD, $stored->password()), 'the saved password stays');
+        self::assertSame('1', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_connect_account`', false));
+        self::assertSame(0, LegacyStore::countRows('SMAILY_PASSWORD'), 'the plain-text password of 2.x is gone');
+    }
+
+    /**
+     * An account that the accounts step wrote must read back as the legacy one. A 2.x username
+     * longer than the column does not (the database cuts it, or refuses the row): the step fails
+     * on every run and leaves no account row, so no later run takes a faulty row for an account
+     * that the store held, and the legacy keys stay.
+     */
+    public function testAnAccountThatDoesNotReadBackAsWrittenFailsTheStepAndLeavesNoRow(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        self::db()->execute(
+            'UPDATE `' . _DB_PREFIX_ . 'configuration` SET `value` = \'' . str_repeat('u', 150) . '\' WHERE `name` = \'SMAILY_USERNAME\''
+        );
+        LegacyStore::reloadConfiguration();
+        $this->recordModuleVersion('2.2.0');
+
+        foreach ([1, 2] as $run) {
+            self::assertFalse($this->upgrade()->runPending(), 'run ' . $run);
+
+            self::assertSame('accounts', $this->upgrade()->state()['failure']['step']);
+            self::assertSame('0', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_connect_account`', false));
+            self::assertSame(1, LegacyStore::countRows('SMAILY_PASSWORD'));
+            self::assertFalse(Schema::isCurrent());
+        }
     }
 
     public function testOfTwoConcurrentRunsOneMigratesAndTheOtherReturnsAtOnce(): void

@@ -2,7 +2,7 @@
 
 ### Unreleased — 3.0.0
 
-- Upgrades a 2.x store in place: the Smaily account, contact synchronization, the automations with their workflows, the RSS defaults and the record of reminded carts are carried over. Notices on the Smaily Connect pages tell what the upgrade changed or left switched off. An interrupted upgrade finishes with "Finish upgrade" on those pages, or on its own with the next run of a cron URL.
+- Upgrades a 2.x store in place: the Smaily account, contact synchronization, the automations with their workflows, the RSS defaults and the record of reminded carts are carried over. Notices on the Smaily Connect pages tell what the upgrade changed or left switched off. An interrupted upgrade finishes with "Finish upgrade" on those pages, or on its own with the next run of a cron URL. A Smaily account that you save in Settings while the upgrade is not finished stays: the upgrade does not put the 2.x account back in its place.
 - Stores the Smaily API password encrypted. The upgrade encrypts the stored password and removes the plain-text copy.
 - Refuses a cron URL request whose token is empty or wrong. On upgrade, an empty cron token is replaced with a new random token, so the cron URL of those stores changes.
 - Runs every background task from one cron line. The Dashboard's Background tasks card shows it while the tasks do not run from a cron line, and under "Show the cron line" while they do; it replaces the two crontab lines of 2.x, which keep working with their tokens.
