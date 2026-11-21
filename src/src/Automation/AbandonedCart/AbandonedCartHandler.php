@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
@@ -57,7 +58,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  *     `no_marketing_consent`.
  * Steps 5 and 6 are Automation\MarketingConsent, which the first-order email shares.
  * Then TriggerSender posts the reminder through the account the router matched, and the tracker
- * row records the outcome. A reason never names the contact.
+ * row records the outcome. A reason never names the contact. A reminder whose "Send a discount
+ * code" is on gets its code just before the post, after these checks (Discount\AutomationDiscount);
+ * a code that cannot be made fails the row with nothing posted, and the row is retried.
  *
  * The payload: {"id_cart": int, "email": string, "fields": {...}}; a row that the sweep closed holds
  * only `id_cart`.
@@ -90,16 +93,19 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
 
     private MarketingConsent $consent;
 
+    private AutomationDiscount $discount;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
-    public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport)
+    public function __construct(CartTracker $tracker, CartAddress $addresses, Router $router, TriggerSender $sender, ContactsSettings $contacts, Transport $transport, AutomationDiscount $discount)
     {
         $this->tracker = $tracker;
         $this->addresses = $addresses;
         $this->router = $router;
         $this->sender = $sender;
         $this->consent = new MarketingConsent($contacts, $transport);
+        $this->discount = $discount;
     }
 
     public function handle(array $events): array
@@ -174,7 +180,19 @@ class AbandonedCartHandler implements HandlerInterface, ExchangeSource
             return $this->skip($idCart, $refusal);
         }
 
-        $outcome = $this->sender->send(Trigger::ABANDONED_CART, $idShop, (string) $event['language'], $email, $payload['fields']);
+        try {
+            $outcome = $this->sender->send(
+                Trigger::ABANDONED_CART,
+                $idShop,
+                (string) $event['language'],
+                $email,
+                $payload['fields'],
+                fn (array $fields): array => $this->discount->fields($event, Trigger::ABANDONED_CART, $fields)
+            );
+        } catch (\Throwable $error) {
+            // The discount code could not be made: nothing was posted, and the row is retried.
+            return Failure::of($error);
+        }
         $exchange = $this->sender->lastExchange();
         if ($exchange !== null) {
             $this->exchanges[(int) $event['id']] = $exchange;

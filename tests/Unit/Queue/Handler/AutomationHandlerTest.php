@@ -8,8 +8,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
@@ -28,7 +32,8 @@ require_once __DIR__ . '/../../Scope/FakeStoreLayout.php';
  * through the trigger sender, in the row's shop and language, and gives back the sender's outcome.
  *
  * Shop 1 reads the shared setup: welcome workflow 101 and first-order workflow 103 through the
- * shared account. Shop 2 has the welcome on and no workflow; shop 3 has the welcome off.
+ * shared account. Shop 2 has the welcome on and no workflow; shop 3 has the welcome off. Shops 3
+ * and 4 send a discount code with the welcome; shop 4 has the welcome workflow 105.
  */
 final class AutomationHandlerTest extends TestCase
 {
@@ -178,19 +183,40 @@ final class AutomationHandlerTest extends TestCase
         return ($this->answer)();
     }
 
+    public function testARowThatIsSkippedAsksForNoDiscountCode(): void
+    {
+        $outcomes = $this->handler(Trigger::WELCOME)->handle([self::row(7, 3, 'et', ['email' => 'handler7@example.test', 'fields' => []])]);
+
+        self::assertInstanceOf(Skipped::class, $outcomes[7], 'the router skips before a code is made');
+        self::assertSame([], $this->requests);
+    }
+
+    public function testARowThatCarriesItsDiscountCodeSendsItAgainAndAsksForNoOther(): void
+    {
+        $fields = ['welcome_coupon_code' => 'ABCDEFGH23', 'welcome_coupon_expires_at' => '2026-11-27'];
+
+        $outcomes = $this->handler(Trigger::WELCOME)->handle([self::row(7, 4, 'et', ['email' => 'handler8@example.test', 'fields' => $fields])]);
+
+        self::assertSame([7 => true], $outcomes);
+        self::assertSame([['email' => 'handler8@example.test'] + $fields], $this->requests[0]['body']['addresses']);
+    }
+
     private function handler(string $trigger): AutomationHandler
     {
         $accounts = [0 => new Account(0, '', 'shared', 'shared-user', 'not-a-real-password')];
+        $settings = new FakeAutomationSettings([
+            0 => [AutomationSettings::WELCOME_ENABLED => '1', AutomationSettings::FIRST_ORDER_ENABLED => '1'],
+            3 => [AutomationSettings::WELCOME_ENABLED => '0', AutomationSettings::WELCOME_DISCOUNT_ENABLED => '1', AutomationSettings::WELCOME_DISCOUNT_RULE => '5'],
+            4 => [AutomationSettings::WELCOME_DISCOUNT_ENABLED => '1', AutomationSettings::WELCOME_DISCOUNT_RULE => '5'],
+        ]);
         $router = new Router(
-            new FakeAutomationSettings([
-                0 => [AutomationSettings::WELCOME_ENABLED => '1', AutomationSettings::FIRST_ORDER_ENABLED => '1'],
-                3 => [AutomationSettings::WELCOME_ENABLED => '0'],
-            ]),
+            $settings,
             new FakeStoreLayout($this->layout),
             new FakeMappingRepository([
                 [0, Trigger::WELCOME, '', 'default', 101],
                 [0, Trigger::FIRST_ORDER, '', 'default', 103],
                 [2, Trigger::FIRST_ORDER, '', 'default', 104],
+                [4, Trigger::WELCOME, '', 'default', 105],
             ]),
             static fn (int $idShop, string $language): ?Account => $language === '' ? $accounts[$idShop] ?? null : null
         );
@@ -209,7 +235,7 @@ final class AutomationHandlerTest extends TestCase
             }
         };
 
-        return new AutomationHandler($trigger, new TriggerSender($router, $transport));
+        return new AutomationHandler($trigger, new TriggerSender($router, $transport), new AutomationDiscount($settings, new CodeIssuer(new TemplateRules()), new EventQueue()));
     }
 
     /**

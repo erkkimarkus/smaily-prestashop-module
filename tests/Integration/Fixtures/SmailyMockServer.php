@@ -137,6 +137,14 @@ final class SmailyMockServer
     }
 
     /**
+     * Whether automation posts (`POST autoresponder.php`) answer HTTP 500.
+     */
+    public function failAutomationPosts(bool $fail): void
+    {
+        $this->writeState(['automation_posts_fail' => $fail] + $this->state());
+    }
+
+    /**
      * The rows of the action log that history.php answers from.
      *
      * @param list<array{seq_id: int, email: string, action: string}> $rows

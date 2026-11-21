@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
@@ -45,6 +46,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
  * The payload is {"email": <address>, "fields": {<name>: <value>, …}}: the fields go into the
  * address as they are, the automation's `*_automation_at` marker among them (stamped when the event
  * was queued). A payload of another shape fails for good with `malformed_payload`.
+ *
+ * An automation whose "Send a discount code" is on gets its code once the router found the
+ * workflow, just before the post (Discount\AutomationDiscount): a skipped row makes no code, and a
+ * retried row sends the code that its first attempt made. A code that cannot be made fails the
+ * row, with nothing posted, and the row is retried.
  */
 final class AutomationHandler implements HandlerInterface, ExchangeSource
 {
@@ -54,16 +60,19 @@ final class AutomationHandler implements HandlerInterface, ExchangeSource
 
     private TriggerSender $sender;
 
+    private AutomationDiscount $discount;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
     /**
      * @param string $trigger the automation of the rows (Automation\Trigger)
      */
-    public function __construct(string $trigger, TriggerSender $sender)
+    public function __construct(string $trigger, TriggerSender $sender, AutomationDiscount $discount)
     {
         $this->trigger = $trigger;
         $this->sender = $sender;
+        $this->discount = $discount;
     }
 
     public function handle(array $events): array
@@ -77,7 +86,19 @@ final class AutomationHandler implements HandlerInterface, ExchangeSource
                 $outcomes[$id] = Failure::permanent(self::FAILED_MALFORMED_PAYLOAD);
                 continue;
             }
-            $outcomes[$id] = $this->sender->send($this->trigger, (int) $event['id_shop'], (string) ($event['language'] ?? ''), $payload['email'], $payload['fields']);
+            try {
+                $outcomes[$id] = $this->sender->send(
+                    $this->trigger,
+                    (int) $event['id_shop'],
+                    (string) ($event['language'] ?? ''),
+                    $payload['email'],
+                    $payload['fields'],
+                    fn (array $fields): array => $this->discount->fields($event, $this->trigger, $fields)
+                );
+            } catch (\Throwable $error) {
+                // The discount code could not be made: nothing was posted, and the row is retried.
+                $outcomes[$id] = $error;
+            }
             $exchange = $this->sender->lastExchange();
             if ($exchange !== null) {
                 $this->exchanges[$id] = $exchange;

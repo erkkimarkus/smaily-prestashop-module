@@ -38,6 +38,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeAutomation;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowResolverInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -75,6 +78,12 @@ final class AutomationProvider implements ProviderInterface
             $services->get(Transport::class)
         ));
         $services->set(WorkflowList::class, fn (Services $services): WorkflowList => new WorkflowList($services->get(Transport::class)));
+        $services->set(TemplateRules::class, fn (): TemplateRules => new TemplateRules());
+        $services->set(AutomationDiscount::class, fn (Services $services): AutomationDiscount => new AutomationDiscount(
+            $services->get(AutomationSettings::class),
+            new CodeIssuer($services->get(TemplateRules::class)),
+            $services->get(QueueProvider::EVENT_QUEUE)
+        ));
 
         foreach (self::AUTOMATIONS as $automation) {
             (new $automation())->register($services);

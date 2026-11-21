@@ -24,7 +24,8 @@
  * - POST /api/contact.php      one contact or a list; each needs an email, else code 203; while
  *                               contact writes fail, HTTP 500.
  * - POST /api/autoresponder.php `addresses`, each with an email, else code 203; `autoresponder` is
- *                               optional (without it Smaily starts its "opted in" workflows).
+ *                               optional (without it Smaily starts its "opted in" workflows);
+ *                               while automation posts fail, HTTP 500.
  * - Anything else: HTTP 404.
  */
 declare(strict_types=1);
@@ -153,6 +154,11 @@ if ($method === 'POST' && $path === '/api/contact.php') {
 }
 
 if ($method === 'POST' && $path === '/api/autoresponder.php') {
+    if (!empty($state['automation_posts_fail'])) {
+        $answer(500, ['message' => 'Internal Server Error']);
+
+        return true;
+    }
     $valid = is_array($body) && $hasEmails($body['addresses'] ?? null);
     $answer(200, $valid ? ['code' => 101, 'message' => 'OK'] : ['code' => 203, 'message' => 'Invalid data']);
 

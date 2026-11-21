@@ -37,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
@@ -60,7 +61,7 @@ final class FirstOrderAutomation implements ProviderInterface
             $services->get(ScopeResolver::class)
         ));
         $services->set(QueueProvider::handlerId(FirstOrderTrigger::EVENT_TYPE), fn (Services $services): FirstOrderHandler => new FirstOrderHandler(
-            new AutomationHandler(Trigger::FIRST_ORDER, $services->get(TriggerSender::class)),
+            new AutomationHandler(Trigger::FIRST_ORDER, $services->get(TriggerSender::class), $services->get(AutomationDiscount::class)),
             $services->get(Router::class),
             new CartAddress(),
             new MarketingConsent($services->get(ContactsSettings::class), $services->get(Transport::class))

@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\AutomationHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
@@ -63,7 +64,8 @@ final class WelcomeAutomation implements ProviderInterface
         ));
         $services->set(QueueProvider::handlerId(WelcomeTrigger::EVENT_TYPE), fn (Services $services): AutomationHandler => new AutomationHandler(
             Trigger::WELCOME,
-            $services->get(TriggerSender::class)
+            $services->get(TriggerSender::class),
+            $services->get(AutomationDiscount::class)
         ));
 
         $attached = false;

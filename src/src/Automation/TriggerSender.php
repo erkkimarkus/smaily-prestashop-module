@@ -47,7 +47,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * Smaily connector). The address is `email` and the caller's fields as
  * they are; where the shop's workflow branches on the contact's language (mode `c`), it also
  * carries `language`. The caller adds the trigger's marker field (Trigger::marker()) when the event
- * is queued, as the sibling connectors do.
+ * is queued, as the sibling connectors do. What can be added only once a workflow is found (an
+ * automation's discount code) comes from the caller's $beforeSend.
  *
  * lastExchange() holds the request body of the last send() and the answer to it, for the Log's
  * Details; null when that send posted nothing.
@@ -71,16 +72,23 @@ final class TriggerSender
      * @param int $idShop the shop of the contact's record (Scope::idShop())
      * @param string $language the contact's two-letter ISO code (Scope::language()), '' when unknown
      * @param array<string, mixed> $fields the address fields besides `email`
+     * @param callable|null $beforeSend `callable(array<string, mixed>): array<string, mixed>`: takes
+     *                                  $fields and answers the fields to send; called once a
+     *                                  workflow is found, before the post; what it throws reaches
+     *                                  the caller
      *
      * @return true|Skipped|Failure true when Smaily took the trigger; a skip with the router's reason
      *                              when nothing is sent; else the queue's failure of the send
      */
-    public function send(string $trigger, int $idShop, string $language, string $email, array $fields)
+    public function send(string $trigger, int $idShop, string $language, string $email, array $fields, ?callable $beforeSend = null)
     {
         $this->lastExchange = null;
         $match = $this->router->route($trigger, $idShop, $language);
         if ($match instanceof Skipped) {
             return $match;
+        }
+        if ($beforeSend !== null) {
+            $fields = $beforeSend($fields);
         }
 
         $address = ['email' => $email] + $fields;

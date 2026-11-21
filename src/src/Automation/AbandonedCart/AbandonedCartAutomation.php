@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\TriggerSender;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\ProviderInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
@@ -78,7 +79,8 @@ final class AbandonedCartAutomation implements ProviderInterface
             $services->get(Router::class),
             $services->get(TriggerSender::class),
             $services->get(ContactsSettings::class),
-            $services->get(Transport::class)
+            $services->get(Transport::class),
+            $services->get(AutomationDiscount::class)
         ));
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::JOB, self::JOB_INTERVAL_SECONDS, self::JOB_BUDGET_SECONDS, static function (Deadline $deadline) use ($services): void {
