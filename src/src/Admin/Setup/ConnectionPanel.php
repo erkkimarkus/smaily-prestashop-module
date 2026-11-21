@@ -103,7 +103,7 @@ final class ConnectionPanel
             return null;
         }
         $account = $this->accounts->find($target, '');
-        $mode = $this->layout->languageMode($scope->readShop());
+        $mode = $this->layout->languageMode($target);
         if (!in_array($mode, $scope->languageModes(), true)) {
             $mode = StoreLayout::MODE_SINGLE;
         }
@@ -122,7 +122,7 @@ final class ConnectionPanel
             'username' => $account !== null ? $account->username() : '',
             'has_password' => $account !== null && $account->password() !== '',
             'language_mode' => $mode,
-            'fallback_language' => $this->layout->fallbackLanguage($scope->readShop()),
+            'fallback_language' => $this->layout->fallbackLanguage($target),
             'accounts' => $perLanguage,
         ];
     }

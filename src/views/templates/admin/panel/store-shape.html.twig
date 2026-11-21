@@ -29,7 +29,9 @@
  # wait for it. Otherwise the bar names the layout; in separate stores PrestaShop's own shop
  # selector in the header picks the shop that the page sets up (`shop_name`, empty for "All shops").
  #
- # Takes `shape` (StoreShapePanel::values()) and `shop_name`. Settings also passes `changeable`
+ # Takes `shape` (StoreShapePanel::values()) and `shop_name`. The Initial setup passes `setup`: in
+ # one store it shows and saves the settings of all shops, and the bar says so (Magento's wizard
+ # sets the whole store up, CON-179). Settings also passes `changeable`
  # (the bar's Change, which opens the choice of a layout change, Admin\Settings\LayoutChange) and
  # `promoted_shop` (the shop whose values all shops use after a change to one store).
  #}
@@ -46,6 +48,9 @@
         <strong class="smaily-store-shape__name">{{ shapes[shape.shape][0] }}</strong>
         {% if changeable|default(false) %}
           <button type="button" class="smaily-store-shape__change" data-smaily-action="shape-change">{{ 'Change'|trans }}</button>
+        {% endif %}
+        {% if shape.shape == 'one' and setup|default(false) %}
+          <span class="smaily-store-shape__shop">{{ 'The initial setup sets up all shops: it shows and saves the settings saved for all shops, whichever shop is selected. A shop that holds its own settings keeps them; change them under Settings.'|trans }}</span>
         {% endif %}
         {% if shape.shape == 'separate' %}
           <span class="smaily-store-shape__shop">

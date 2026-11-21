@@ -64,7 +64,6 @@ final class SetupScopeTest extends TestCase
         $scope = new SetupScope(true, false, true, 3, ['en' => 'English', 'et' => 'Eesti']);
 
         self::assertSame(0, $scope->targetShop(), 'whatever shop the selector names');
-        self::assertSame(3, $scope->readShop());
         self::assertSame(['single', 'b', 'c'], $scope->languageModes());
     }
 

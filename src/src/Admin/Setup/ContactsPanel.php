@@ -72,10 +72,10 @@ final class ContactsPanel
      */
     public function values(SetupScope $scope): ?array
     {
-        if ($scope->targetShop() === null) {
+        $shop = $scope->targetShop();
+        if ($shop === null) {
             return null;
         }
-        $shop = $scope->readShop();
         $stored = $this->settings->isStored($shop);
         $mode = $this->settings->mode($shop);
 

@@ -36,7 +36,7 @@ A new store opens in the **Initial setup**, a guided setup in five steps. **Back
 4. **Intelligence**: optional.
 5. **Overview**: a summary of what you set up, each line with **Edit** to go back to its step, and links to **Settings** and the **Log**.
 
-You can open the Initial setup again at any time under **Customers -> Smaily Connect -> Initial setup**; your settings are kept. Every setting is also in **Settings**.
+You can open the Initial setup again at any time under **Customers -> Smaily Connect -> Initial setup**; your settings are kept. Every setting is also in **Settings**. In a store whose shops are run as one store, the Initial setup shows and saves the settings of all shops, whichever shop is selected; a shop's own settings are changed in **Settings**.
 
 ## Dashboard
 

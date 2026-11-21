@@ -72,7 +72,7 @@ final class SetupProgress
             return 1;
         }
 
-        return $this->contacts->isStored($scope->readShop()) && $this->contacts->syncActive($scope->readShop()) ? 3 : 2;
+        return $this->contacts->isStored($target) && $this->contacts->syncActive($target) ? 3 : 2;
     }
 
     /** "Finish": the setup is done, and the module's Configure button opens the Dashboard. */

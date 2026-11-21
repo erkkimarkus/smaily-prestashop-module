@@ -1172,6 +1172,11 @@
         <target>Lehe ülaosas valitud pood on pärast selle lehe avamist muutunud. Laadi leht uuesti ja proovi siis uuesti.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="0a2bf06679c2c314604ff3b5b544f30a">
+        <source>The initial setup sets up all shops: it shows and saves the settings saved for all shops, whichever shop is selected. A shop that holds its own settings keeps them; change them under Settings.</source>
+        <target>Algseadistus seadistab kõik poed: see näitab ja salvestab kõigi poodide jaoks salvestatud seadeid, olenemata sellest, milline pood on valitud. Pood, millel on oma seaded, jääb nende juurde; muuda neid lehel Seaded.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -1039,6 +1039,14 @@ multishop install does not offer it.
 Settings write a single shop's values at the global scope (`Admin\Setup\SetupScope::targetShop()`).
 `AccountResolver` reads both scopes.
 
+**[D]** A panel reads the scope it writes (`SetupScope::targetShop()`). In one store the Initial
+setup shows and saves the values all shops share, whichever shop PrestaShop's selector names, as
+Magento's wizard sets the whole store up (CON-179); its first step says so. A shop's own values are
+read and saved under Settings only (`Admin\Settings\SettingsScope`). The setup once read the
+selected shop and wrote the shared scope: Continue on the Contacts step then saved a shop's own
+"All customers" as the mode of every shop. Magento's wizard also lists the websites that hold own
+values and offers to return them to the shared ones; that list is not built.
+
 **Wanted later:** `AccountStore::languages(int $idShop)`, the languages that hold an own account in a
 shop, for parity with Magento CON-190 (the admin lists them).
 

@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsScope;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\TabSaver;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
@@ -218,6 +219,54 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertSame(['shop' => 0, 'mappings' => 0], $this->automationRows($this->shopB));
         self::assertSame(['shop' => 0, 'mappings' => 2], $this->automationRows(0));
         self::assertSame(20, (new AutomationSettings())->cartDelayMinutes($this->shopC));
+    }
+
+    /**
+     * In one store the Initial setup sets up all shops (Magento's wizard, CON-179). With a shop
+     * selected that holds its own values, it once showed that shop's values and saved them as the
+     * shared ones, which widened the audience of every shop without its own.
+     */
+    public function testTheInitialSetupWithAShopSelectedShowsAndSavesTheSharedValues(): void
+    {
+        $this->oneStoreConfigured();
+        $layout = new StoreLayout();
+        $layout->setLanguageMode('b', 0);
+        // Shop B's own values: every customer and guests, sync switched off, another language mode.
+        $contacts = new ContactsSettings();
+        $contacts->setMode(new \PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode('all_customers', true), $this->shopB);
+        $contacts->setFields(['first_name'], $this->shopB);
+        $contacts->setEnabled(false, $this->shopB);
+        $layout->setLanguageMode('c', $this->shopB);
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+        $shared = $this->whatShopsRead()[$this->shopC];
+        $own = $this->whatShopsRead()[$this->shopB];
+
+        self::assertSame(0, SetupScope::current($layout, $this->shopB)->targetShop(), 'the setup page of shop B saves for all shops');
+        $scope = new SetupScope(true, false, true, $this->shopB, ['en' => 'English', 'et' => 'Eesti']);
+        $panels = $this->setupPanels();
+
+        $shown = $panels->contacts()->values($scope);
+        self::assertSame(
+            ['subscribers', false, ['first_name', 'last_name'], true],
+            [$shown['mode'], $shown['guests'], $shown['fields'], $shown['active']],
+            'the values all shops share, not shop B\'s own'
+        );
+        self::assertSame('b', $panels->connection()->values($scope)['language_mode']);
+
+        // Continue saves what the step shows.
+        self::assertSame([], $panels->contacts()->save($scope, [
+            'mode' => $shown['mode'],
+            'fields' => $shown['fields'],
+            'guests' => $shown['guests'],
+            'checkout_checkbox' => $shown['checkout_checkbox'],
+        ]));
+
+        $read = $this->whatShopsRead();
+        self::assertSame($shared, $read[$this->shopC], 'the shared audience is as it was');
+        self::assertSame($own, $read[$this->shopB], 'and shop B keeps its own values');
+        self::assertSame('subscribers', \Configuration::getGlobalValue(ContactsSettings::MODE));
+        self::assertSame('0', (string) \Configuration::getGlobalValue(ContactsSettings::GUESTS));
     }
 
     /**

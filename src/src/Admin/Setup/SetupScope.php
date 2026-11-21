@@ -127,7 +127,10 @@ final class SetupScope
 
     /**
      * The shop whose values the page reads and saves: 0 for the global values, the selected shop
-     * in separate stores, and null in separate stores while no shop is selected.
+     * in separate stores, and null in separate stores while no shop is selected. A panel reads the
+     * scope it writes: in one store the Initial setup shows and saves the values all shops share,
+     * whichever shop the selector names, as Magento's wizard does (CON-179); a shop's own values
+     * are read and saved under Settings (Settings\SettingsScope).
      */
     public function targetShop(): ?int
     {
@@ -136,20 +139,6 @@ final class SetupScope
         }
 
         return $this->selectedShop > 0 ? $this->selectedShop : null;
-    }
-
-    /**
-     * The shop that the page's settings are read for: the target shop, and for the global values
-     * the selected shop, else the default shop (both read the global values where they hold none).
-     */
-    public function readShop(): int
-    {
-        $target = $this->targetShop();
-        if ($target !== null && $target > 0) {
-            return $target;
-        }
-
-        return $this->selectedShop;
     }
 
     /**
