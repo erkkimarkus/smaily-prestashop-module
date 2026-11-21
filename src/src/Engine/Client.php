@@ -295,4 +295,57 @@ class Client
 
         return str_replace('{email}', $address, $connection->endpoint($key, $fallbackPath));
     }
+
+    // The storefront calls (Story 5.5): browse events (§6) and a shopper's recommendations (§15).
+
+    /** The endpoints map key and the fallback path of the browse events (§6). */
+    public const ENDPOINT_BROWSE = 'ingest_browse';
+    public const PATH_BROWSE = '/api/v1/ingest/browse';
+
+    /** The endpoints map key and the fallback path of a shopper's recommendations (§15). */
+    public const ENDPOINT_RECOMMENDATIONS = 'recommendations_customer';
+    public const PATH_RECOMMENDATIONS = '/api/v1/recommendations/customer';
+
+    /** Seconds the browse relay may take: a storefront request waits for it. */
+    public const RELAY_TIMEOUT_SECONDS = 3;
+
+    /** Seconds the recommendations may take (§15 "Timeouts": at most 10). */
+    public const RECOMMENDATIONS_TIMEOUT_SECONDS = 10;
+
+    /**
+     * Forwards browse events (§6), one attempt.
+     *
+     * @param list<array<string, mixed>> $events 1 to 100 events in the contract's shape
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function relayBrowse(Connection $connection, array $events): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_BROWSE, self::PATH_BROWSE),
+            self::RELAY_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            ['events' => $events]
+        );
+    }
+
+    /**
+     * Asks for one shopper's current recommendations (§15), one attempt. The request names the
+     * shopper by the store's customer id or by the visitor token only, never by a contact detail.
+     *
+     * @param array{customer_external_id: string}|array{smaily_visitor_token: string} $identifier
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function recommendations(Connection $connection, array $identifier, int $limit): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_RECOMMENDATIONS, self::PATH_RECOMMENDATIONS),
+            self::RECOMMENDATIONS_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            $identifier + ['limit' => $limit]
+        );
+    }
 }
