@@ -936,10 +936,12 @@ holds no tick.
 - **Enqueue.** `EventQueue::enqueue(string $eventType, int $idShop, array $payload, ?string $entityId
   = null, ?string $language = null): int` stores a `pending` row (the payload as JSON) and returns its
   id. The service id is `QueueProvider::EVENT_QUEUE`.
-- **Change a row's payload.** `EventQueue::updatePayload(int $id, array $payload): void` replaces
-  the stored payload of the row with that id and changes nothing else of it. A handler uses it to
+- **Change a row's payload.** `EventQueue::updatePayload(array $row, array $payload): bool`
+  replaces the stored payload of a claimed row and changes nothing else of it. A handler uses it to
   keep what it made for the row before the send (a discount code, section 7), so that a retry and
-  the Log's "Send again" send the same.
+  the Log's "Send again" send the same. It writes by primary key and only for the claim the row was
+  read with, as every outcome does: it answers `false`, and writes nothing, when the claim went
+  stale and another flush took the row. The handler then stops without a send.
 - **Handle.** A Story registers the handler of its event type in its own provider:
   `$services->set(QueueProvider::handlerId('<type>'), fn (Services $s) => new MyHandler(…))`. The
   handler implements `Queue\HandlerInterface::handle(array $events): array` and returns one outcome
@@ -1662,7 +1664,14 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
 - **Once per queue row.** The code and its last valid day go into the row's stored `fields`
   before the post (`EventQueue::updatePayload()`, section 4.3). An automatic retry and the Log's
   "Retry" find them there, and "Send again" copies the payload, so each sends the same code and
-  makes no second rule.
+  makes no second rule. The same holds when a flush is so slow that its claim goes stale and a
+  second flush takes the row (`EventQueue::requeueStale()`): the payload write belongs to the
+  claim, so the flush that lost the row stores nothing, removes the code it made
+  (`CodeIssuer::discard()`) and posts nothing, and the row gets the one code of the flush that
+  holds it. A code whose payload write fails is removed the same way. What stays possible: a
+  process that dies between making the code and storing it leaves one cart rule that no row names
+  and nobody was sent. Nothing finds it earlier; the clean-up below removes it 30 days after its
+  end date.
 - **The contact fields** are the siblings': `welcome_coupon_code` and `welcome_coupon_expires_at`,
   `first_order_coupon_code` and `first_order_coupon_expires_at`, `abandoned_cart_coupon_code` and
   `abandoned_cart_coupon_expires_at` (`Automation\Trigger::COUPON_FIELDS`). No amount is sent.

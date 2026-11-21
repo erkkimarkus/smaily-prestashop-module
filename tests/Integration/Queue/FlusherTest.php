@@ -64,7 +64,8 @@ final class FlusherTest extends IntegrationTestCase
         $claimed = $this->queue->claim(1)[0];
         $this->now += 60;
 
-        $this->queue->updatePayload($id, ['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']]);
+        self::assertTrue($this->queue->updatePayload($claimed, ['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']]));
+        self::assertTrue($this->queue->updatePayload($claimed, ['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']]), 'the same payload again: the claim still holds');
 
         $row = $this->row($id);
         self::assertSame(['email' => 'shopper@example.test', 'fields' => ['code' => 'ÕÄ23']], json_decode($row['payload'], true));
@@ -74,6 +75,23 @@ final class FlusherTest extends IntegrationTestCase
             'the claim and the times stay'
         );
         self::assertSame(['email' => 'other@example.test'], json_decode($this->row($other)['payload'], true));
+    }
+
+    public function testAPayloadUpdateOfARowThatAnotherFlushTookOverWritesNothing(): void
+    {
+        $id = $this->queue->enqueue('test.sync', 2, ['fields' => []]);
+        $slow = $this->queue->claim(1)[0];
+        $this->now += EventQueue::CLAIM_TIMEOUT_SECONDS;
+        $this->queue->requeueStale();
+
+        self::assertFalse($this->queue->updatePayload($slow, ['fields' => ['code' => 'SLOW']]), 'the stale claim was taken back');
+        $second = $this->queue->claim(1)[0];
+        self::assertFalse($this->queue->updatePayload($slow, ['fields' => ['code' => 'SLOW']]), 'the row is another flush\'s');
+        self::assertSame(['fields' => []], json_decode($this->row($id)['payload'], true));
+
+        self::assertTrue($this->queue->updatePayload($second, ['fields' => ['code' => 'SECOND']]));
+        self::assertSame(['fields' => ['code' => 'SECOND']], json_decode($this->row($id)['payload'], true));
+        self::assertSame($second['claim_token'], $this->row($id)['claim_token']);
     }
 
     public function testMarksTheRowsAHandlerSentAsSent(): void

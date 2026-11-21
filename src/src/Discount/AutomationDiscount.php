@@ -43,7 +43,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  *
  * Once per queue row: the code and its last valid day go into the row's stored fields before the
  * row is posted (EventQueue::updatePayload()), so an automatic retry and the Log's "Send again"
- * and "Retry" post the same code and make no second one.
+ * and "Retry" post the same code and make no second one. The write is the claim's: when a slow
+ * flush lost the row to another one (EventQueue::requeueStale()), it stores nothing, removes the
+ * code it made and throws, so it posts nothing; the flush that holds the row makes the row's one
+ * code. A code whose row could not be written at all is removed the same way. Only a process that
+ * dies between making the code and storing it leaves a code that no row names and nobody was
+ * sent: the daily clean-up removes it 30 days after its end date (IssuedCodes).
  *
  * A cart rule that gives no code for the shop now (TemplateRules::usable()) does not hold the
  * email back: it goes without a code, and the row's payload keeps the reason under NOTICE_KEY,
@@ -80,7 +85,7 @@ final class AutomationDiscount
      *
      * @return array<string, mixed>
      *
-     * @throws \Throwable when the code cannot be made or stored
+     * @throws \Throwable when the code cannot be made or stored, or the row is another flush's now
      */
     public function fields(array $event, string $trigger, array $fields): array
     {
@@ -102,7 +107,7 @@ final class AutomationDiscount
             : null;
         if ($code === null) {
             $payload[self::NOTICE_KEY] = ['reason' => self::NOTICE_RULE_UNAVAILABLE, 'rule' => $idRule];
-            $this->queue->updatePayload((int) $event['id'], $payload);
+            $this->store($event, $payload);
 
             return $fields;
         }
@@ -110,9 +115,30 @@ final class AutomationDiscount
         $fields[$names[0]] = $code['code'];
         $fields[$names[1]] = $code['expires_at'];
         $payload['fields'] = $fields;
-        $this->queue->updatePayload((int) $event['id'], $payload);
+        try {
+            $this->store($event, $payload);
+        } catch (\Throwable $error) {
+            // No row names the code: it goes, and the flush that holds the row makes the row's own.
+            $this->issuer->discard($code['id']);
+            throw $error;
+        }
 
         return $fields;
+    }
+
+    /**
+     * Stores the payload on the claimed row.
+     *
+     * @param array<string, mixed> $event
+     * @param array<mixed> $payload
+     *
+     * @throws \RuntimeException when another flush holds the row now
+     */
+    private function store(array $event, array $payload): void
+    {
+        if (!$this->queue->updatePayload($event, $payload)) {
+            throw new \RuntimeException('Another flush took the row over.');
+        }
     }
 
     /**

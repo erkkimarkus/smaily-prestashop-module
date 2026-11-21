@@ -10,6 +10,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Log\Resend;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use Tests\Integration\Migration\LegacyStore;
 
 require_once __DIR__ . '/DiscountTestCase.php';
@@ -134,6 +136,51 @@ final class AutomationDiscountTest extends DiscountTestCase
         $posts = $this->reminders();
         self::assertSame($code, end($posts)['body']['addresses'][0]['abandoned_cart_coupon_code']);
         self::assertCount(1, self::issuedIds());
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public function whichFlushGoesFirst(): array
+    {
+        return ['the slow flush wakes first' => [true], 'the second flush sends first' => [false]];
+    }
+
+    /**
+     * @dataProvider whichFlushGoesFirst
+     */
+    public function testARowThatASecondFlushTookOverGetsOneCodeAndOneEmail(bool $slowFirst): void
+    {
+        $this->discount(Trigger::WELCOME, $this->template());
+        $id = $this->automationRow(WelcomeTrigger::EVENT_TYPE, 'shopper1@example.test');
+        $slow = $this->queue()->claim(1);
+        // The slow flush's claim goes stale, and the next flush takes its row.
+        self::db()->update(EventQueue::TABLE, ['updated_at' => gmdate('Y-m-d H:i:s', time() - EventQueue::CLAIM_TIMEOUT_SECONDS - 1)], '`id` = ' . $id, 0, true);
+        $this->queue()->requeueStale();
+        $second = $this->queue()->claim(1);
+        self::assertNotSame($slow[0]['claim_token'], $second[0]['claim_token']);
+        $handler = $this->services->get(QueueProvider::handlerId(WelcomeTrigger::EVENT_TYPE));
+
+        $outcomes = [];
+        foreach ($slowFirst ? [$slow, $second] : [$second, $slow] as $rows) {
+            $outcome = $handler->handle($rows)[$id];
+            $outcomes[$rows[0]['claim_token']] = $outcome;
+            // As the flusher records it.
+            if ($outcome === true) {
+                $this->queue()->markSent($rows);
+            } else {
+                $this->queue()->markFailed($rows[0], Failure::of($outcome));
+            }
+        }
+
+        self::assertTrue($outcomes[$second[0]['claim_token']], 'the flush that holds the row sends it');
+        self::assertInstanceOf(\Throwable::class, $outcomes[$slow[0]['claim_token']], 'the flush that lost the row stops');
+        self::assertCount(1, $this->reminders(), 'one email');
+        self::assertCount(1, self::issuedIds(), 'one rule');
+        $row = self::stored($id);
+        self::assertSame($this->posted(0)['welcome_coupon_code'], json_decode((string) $row['payload'], true)['fields']['welcome_coupon_code']);
+        self::assertSame((new \CartRule(self::issuedIds()[0]))->code, $this->posted(0)['welcome_coupon_code']);
+        self::assertSame(['sent', 0], [$row['status'], (int) $row['attempts']], 'the loser\'s outcome does not reach the row');
     }
 
     public function testARowThatIsSkippedMakesNoCode(): void

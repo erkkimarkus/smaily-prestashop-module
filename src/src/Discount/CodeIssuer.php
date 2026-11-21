@@ -97,14 +97,15 @@ final class CodeIssuer
     }
 
     /**
-     * A new code as a copy of the rule, and its last valid day (`Y-m-d`, the shop's time); null
+     * A new code as a copy of the rule, its cart rule's id and its last valid day (`Y-m-d`, the
+     * shop's time); null
      * when no code can be a copy of the rule for the shop now (TemplateRules::usable()), or when
      * the rule starts only after the code would end.
      *
      * @param int $idCustomer the shopper's customer account, 0 for a shopper without one
      * @param string $trigger the automation that sends the code (Automation\Trigger)
      *
-     * @return array{code: string, expires_at: string}|null
+     * @return array{id: int, code: string, expires_at: string}|null
      *
      * @throws \Throwable when PrestaShop does not store the copy; no rule is left behind
      */
@@ -166,7 +167,19 @@ final class CodeIssuer
         }
 
         // An end at 00:00:00 (a template's) leaves the day before as the last valid day.
-        return ['code' => (string) $rule->code, 'expires_at' => date('Y-m-d', $end - 1)];
+        return ['id' => (int) $rule->id, 'code' => (string) $rule->code, 'expires_at' => date('Y-m-d', $end - 1)];
+    }
+
+    /**
+     * Removes a code that issue() just made and that nobody was sent. A cart rule that is not a
+     * code of this module is left alone.
+     */
+    public function discard(int $idRule): void
+    {
+        $rule = new \CartRule($idRule);
+        if (\Validate::isLoadedObject($rule) && self::isIssued($rule)) {
+            $rule->delete();
+        }
     }
 
     /**

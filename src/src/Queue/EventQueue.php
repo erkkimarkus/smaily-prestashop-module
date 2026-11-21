@@ -243,17 +243,28 @@ final class EventQueue
     }
 
     /**
-     * Replaces the stored payload of the row with that id: what a handler adds to the row before
-     * it sends it (an automation's discount code), so that a retry and the Log's "Send again"
-     * send the same. Nothing else of the row changes.
+     * Replaces the stored payload of a claimed row: what a handler adds to the row before it sends
+     * it (an automation's discount code), so that a retry and the Log's "Send again" send the
+     * same. Nothing else of the row changes. Only the flush that still holds the row's claim
+     * writes: a flush whose claim went stale, and whose row another flush took over
+     * (requeueStale()), writes nothing.
      *
+     * @param array<string, mixed> $row the row as it was claimed
      * @param array<mixed> $payload stored as JSON
+     *
+     * @return bool whether the row still carries the claim it was read with, so the payload is
+     *              stored; false when the row is another flush's now
      */
-    public function updatePayload(int $id, array $payload): void
+    public function updatePayload(array $row, array $payload): bool
     {
-        if (!\Db::getInstance()->execute(sprintf('UPDATE %s SET `payload` = %s WHERE `id` = %d', self::table(), self::quote(self::json($payload)), $id))) {
+        $claimed = sprintf('`id` = %d AND `claim_token` = %s', (int) $row['id'], self::quote((string) $row['claim_token']));
+        if (!\Db::getInstance()->execute(sprintf('UPDATE %s SET `payload` = %s WHERE %s', self::table(), self::quote(self::json($payload)), $claimed))) {
             throw new \RuntimeException('The event queue refused a payload.');
         }
+
+        // The database counts no row whose payload was that already: then the claim itself answers.
+        return \Db::getInstance()->Affected_Rows() > 0
+            || (bool) \Db::getInstance()->getValue(sprintf('SELECT 1 FROM %s WHERE %s', self::table(), $claimed), false);
     }
 
     /**
