@@ -8,142 +8,131 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-21 — stages 1 and 2 done; the admin screens built
-(Dashboard, Initial setup, Settings, Log); the three store automations built
-with their Automations tab; capabilities 3, 4, 6 and 7 walked; gauge 7/14._
+_Last updated: 2026-11-21 (unattended night run). Gauge 7/14. Nothing is in flight._
 
 ## Next session opens with
 
-On `v3`: stages 1 and 2; the admin shell, Initial setup, Dashboard, Settings
-(Connection, Contacts, Automations, RSS, shop switches, layout change) and Log;
-the three store automations; the upgrade hardening; the stale-subscription
-skip; the Marketplace structural rules. Built on the branch
-`worktree-agent-ab0c8477db5c692d3`, not yet on `v3`: discount codes in store
-automations (CON-393, Story 4.4, ARCHITECTURE 7). The PHP 8.0.30 segfault of
-the 8.2.8 test lane did not reproduce; its cause is unknown (CLAUDE.md).
-Last verified: in-shop 1394 tests, 7058 assertions on a reset 8.2.8 and 9.2.0;
-host 1394 tests, 2121 assertions, 719 skipped; `tests/ci/validate.sh` several
-landings earlier, 10 of 10 on both. Egress guard first, suite on a reset shop.
+**On `v3`, landed and pushed to the fork** (`0d4425e`, 298 commits ahead of the official `master`): the Dashboard with
+its corrections; Settings (Connection, Contacts, Automations, RSS) with the shop switches and the layout change as
+Magento; the Log page with "Send again" and "Retry"; the Initial setup steps Connect, Contacts, Automations, Overview
+(the Intelligence step waits for stage 5); discount codes in store automations (CON-393: nine of ten criteria met, the
+privacy criterion waits for Story 5.6); the Estonian round (all 513 strings hold an Estonian target); the Marketplace
+structural rules; upgrade hardening (delay cap with notice, re-run safety, multistore off with several shop rows);
+security hardening (capture token bound to the cart, hourly bound, deleted customers, the door, unreachable 2.x
+classes removed); the stale-subscription fix; the scope fixes of the admin.
 
-Then, in this order: (1) land discount codes (CON-393; its privacy export and
-erasure wait for Story 5.6, which calls `Discount\IssuedCodes`); (2) the
-defects and the owner's points of the walk of capabilities 3, 4, 6 and 7
-(`docs/internal/walks/`; first, a save for one shop can replace the shared
-setup); (3) what the Estonian round left: the Smaily client's own failure
-messages show in English in the Log, and its Last Error column is narrow for a
-sentence; (4) a simplification review of the Log and Automations code; (5)
-stage 5 (group prices, CON-385, contract 1.36.0) only after the owner says so.
+**Verified on `0d4425e`** (2026-11-21, nothing else running; commands in DEV_ENVIRONMENT 2, 4, 6):
+
+- `tests/ci/validate.sh` with the packaged zip: 10 of 10 checks on flashlight 8.2.8 and 9.2.0; in the shop 1415 tests,
+  7251 assertions (8.2.8) and 7257 (9.2.0).
+- The in-shop suite on reset dev shops behind the egress guard: 8.2.8 (PHP 8.0.30) three runs in a row, each 1415
+  tests, 7251 assertions, no segfault, no `core` file; 9.2.0: 1415 tests, 7257.
+- Host: PHPUnit 1415 tests, 2121 assertions, 740 skipped; PHP CS Fixer 0 of 251 files; PHP 8.0.30 lint of `src` and
+  `tests`, 398 files, 0 errors; `header-stamp --dry-run` and `node --check` clean.
+- The zip: 333 files; an `index.php` in 60 of 60 folders outside vendor; the licence notice in 299 of 299 PHP, Twig,
+  JavaScript and CSS files; no test or development file.
+- A console uninstall on both versions after a setup in a browser (an account against the mock, the welcome on with a
+  discount rule, one email with a code): 24 `SMAILY%` keys, 9 tables, 5 tabs, 32 hooks before, 0 of each after; the 1
+  issued code (1 `cart_rule` row) stays, as designed.
+
+**NOT verified — keep these visible:** the live Smaily service has never been called (every check used the mock);
+GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed; the official
+`9.2.0-8.1` image; PrestaShop's online validator (it needs an upload); the multishop screens in Estonian; one
+unexplained PHP 8.0.30 segfault report (not reproduced in 113 runs).
+
+## Next, in this order (the owner decides at the start of the session)
+
+1. The owner's answers to the open questions below.
+2. Capability walks that are now possible: 14, after the multishop screens are seen in Estonian and a native speaker
+   has read the module's own sentences (92 at the Estonian round).
+3. Stage 5, Campaign Intelligence, only after the owner says so. Its map: 5.1 engine client first; then 5.2 ingest,
+   5.5 storefront and 5.6 privacy in parallel; then 5.3 history import and 5.4 engine automations; 6.1 installation
+   report may start after 5.1. It needs an engine mock (port WooCommerce's) and the engine host in the egress guard;
+   the key namespace `ps-` stays behind one constant until the engine team answers INT-306.
 
 ## Queue (technical, for the orchestrator)
 
-- **Not verified:** MySQL (queue claim, `GET_LOCK`, upgrade); the official
-  9.2.0-8.1 image after the event queue; LiteSpeed; the 1.6.x hidden-tab
-  removal on a real 1.6.2 install. The 2.x tab row stays in `tab`, inactive.
-- **The live Smaily API has never been called**; every run used the mock.
-- **Clean-up** (ARCHITECTURE 13): `Upgrade300`; the janitor skips two tables;
-  two hooks without a listener; screenshots for the user guide (five 2.x
-  images are unreferenced).
+- The Smaily client's own failure messages show in English in the Log; its Last Error column is narrow for a sentence.
+  A simplification review of the Log and Automations code is due.
+- Clean-up (ARCHITECTURE 13): `Upgrade300`; the janitor skips two tables; the mock's transport passes other hosts on;
+  one test leaves other cron tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive;
+  the 1.6.x hidden-tab removal never ran on a real 1.6.2.
 
 ## First-release checklist (gauge: 7 / 14 demonstrated)
 
-A box is ticked only when the real flow was exercised; a line names how.
+A box is ticked only when the real flow was exercised; the line names how. Decisions: ARCHITECTURE 15.
 
-- [x] 1. Upgrade in place from 2.x, including settings left by 1.6.x
-  - Demonstrated by: genuine 2.2.0 and 1.6.2 stores upgraded on 8.0.0, 8.2.8
-    and 9.2.0; an interrupted upgrade completed by a cron URL and by a
-    storefront request. Still waits: "Finish upgrade" (3.1); the pilot store.
-- [x] 2. Smaily account connection, with an invitation for a new store
-  - Demonstrated by: the Initial setup walked in a browser on 8.0.0 and 9.2.0
-    against the Smaily mock (connect, test, wrong credentials, invitation).
-- [x] 3. Store mode by language (four modes)
-  - Demonstrated by: the four modes walked in a browser on 8.2.8 and 9.2.0.
-- [x] 4. Store mode by shop: one shared setup, or one per shop
-  - Demonstrated by: two shops walked on 8.2.8 and 9.2.0; open: walk defect 1.
-- [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only
-  - Demonstrated by: the mode chosen in the Initial setup; registration,
-    guest checkout, account edit, newsletter block and orders walked over
-    HTTP on 8.0.0 and 9.2.0 against the Smaily mock. Not the live Smaily.
-- [x] 6. Contact sync both ways, first import, and a Log with retry
-  - Demonstrated by: the storefront, tick and Log walked on 8.2.8 and 9.2.0.
-- [x] 7. Store automations: welcome, first order, abandoned cart
-  - Demonstrated by: walked on 8.2.8 and 9.2.0, with a genuine 2.2.0 upgrade.
-- [ ] 8. Campaign Intelligence connection with catalog, customer and order
-  imports
+- [x] 1. Upgrade in place from 2.x, including settings left by 1.6.x — genuine 2.2.0 and 1.6.2 stores on 8.0.0, 8.2.8,
+  9.2.0. Still waits: "Finish upgrade" (3.1); the pilot store.
+- [x] 2. Smaily account connection, with an invitation for a new store — browser, 8.0.0 and 9.2.0.
+- [x] 3. Store mode by language (four modes) — walked in a browser on 8.2.8 and 9.2.0.
+- [x] 4. Store mode by shop: one shared setup, or one per shop — two shops walked on 8.2.8 and 9.2.0; the scope defect
+  found beside it is fixed since.
+- [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only — HTTP, 8.0.0, 9.2.0.
+- [x] 6. Contact sync both ways, first import, and a Log with retry — walked on 8.2.8 and 9.2.0.
+- [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
+- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports
 - [ ] 9. Campaign Intelligence automations, listed from the engine
 - [ ] 10. Browse tracking and attribution of email clicks to orders
 - [ ] 11. Product recommendations in the storefront, and the product feed
 - [ ] 12. Installation report (phone-home)
 - [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out
-- [ ] 14. Administration screens in English and Estonian
-  - All strings in Estonian, walked on 8.2.8 and 9.2.0; waits: stage 5 screens.
+- [ ] 14. Administration screens in English and Estonian — all strings in Estonian, walked on 8.2.8 and 9.2.0; waits:
+  the multishop screens, a native reader, the stage 5 screens.
 
-## Staged work order
+## Open questions (for the owner)
 
-0. **Foundation** — _Done (CON-370)._
-1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
-2. **Contacts and modes** — _Done (2.1–2.4)._
-3. **Admin screens** — _Dashboard, setup, Settings, Log done, in EN and ET._
-4. **Store automations and language routing** — _Built, with discount codes._
-5. **Intelligence, tracking, recommendations, privacy.**
-6. **Release** — installation report, upgrade guide, rc1, upgrade walk.
+A number in brackets is the row of `docs/ARCHITECTURE.md` section 14 that holds the detail. 1–9: consent and audience;
+10–16: upgrade and data; 17: Marketplace (details in `docs/MARKETPLACE.md` 6.3); 18–22: product.
 
-## Decisions (2026-11-20)
+1. A newsletter-block subscriber without an account is synced and welcomed only when "Include guests" is on; Magento
+   syncs and welcomes them regardless: which? [25]
+2. The newsletter block's unsubscribe needs no confirmation in PrestaShop, and the module forwards it to Smaily as
+   permanent: keep? [26]
+3. A late unsubscribe arriving after a newer delivered subscription leaves the contact unsubscribed: keep? [23]
+4. The Log refuses a resend that would re-subscribe after a later consent change, and adds no second entry for an
+   event that already waits — two rules beyond Magento: confirm? [27]
+5. The stale-subscription check compares rows of one shop only; two shops on one Smaily account are one contact there:
+   extend it to the account? [28]
+6. Two shops on one Smaily account with different consent modes: could the reconcile mark someone subscribed in the
+   "subscribers only" shop because the "all customers" shop created the contact? It depends on how Smaily logs
+   contacts created through the API. [29]
+7. With multistore off, the abandoned-cart sweep covers the carts of every shop row; 2.x covered only the cron URL's
+   shop: narrow it to 2.x's behaviour? [30]
+8. In the mode "an account per language" the router ends at the no-language workflow, which Magento never starts:
+   remove that fallback? [24]
+9. The welcome email repeats on subscribe → unsubscribe → subscribe, as Magento and WooCommerce (Shopify sends it
+   once): keep? [31]
+10. A Smaily account saved while an upgrade is unfinished is replaced by the upgrade, or blocks it at the verify step:
+    which? [32]
+11. Abandoned-cart tracker rows are never deleted (the row is the only sign that a cart was reminded); Magento deletes
+    after 30 days and reminds a changed cart again: which rule? [33]
+12. Two hooks are registered and unused (`actionCartSave`, `actionObjectCustomerDeleteAfter`): remove them before the
+    release (touches the main class)? [34]
+13. The import card offers "Start import" again once the last import is 90 days old and deleted: keep the newest
+    import per shop? [35]
+14. A shop row with no workflow now means "this shop sends nothing for this event" — a data convention to confirm
+    before release. [36]
+15. Replacing a Smaily account in the same language mode removes that account's workflows (Magento keeps the old
+    numbers): keep? [37]
+16. An upgraded store keeps the 35 files 2.2.0 shipped and 3.0.0 does not: may the upgrade delete them? [21]
+17. The licence GPL-3.0, the public RSS feed URL without a token, the literal SQL casts, the one `unserialize` for
+    1.6.x settings, the external links, the guide as a PDF; and PrestaShop's online validator has not been run because
+    it needs an upload. [21]
+18. The amber and red Background tasks card hides the cron line behind the same button as the green one: keep? [38]
+19. Capability 4 is ticked although a scope defect sat beside it (fixed since), and capability 3 asks for confirmation
+    only when a language mode with accounts or workflows is left: agree with both ticks?
+20. Discount codes: a guest's code is transferable; every email makes a new rule (WooCommerce re-sends an unused
+    code); a guest's remainder voucher of a merchant's own rule can still be picked as a template. [39]
+21. The checkout capture: one reminder per address per day to up to 2000 addresses an hour stays possible; Magento's
+    five writes per cart need a schema change. [40]
+22. Stage 5: start before the engine team answers (row 1)? Are price groups (CON-385) in 3.0.0 (row 41)? Does the 2.x
+    RSS feed count as capability 11's product feed (row 42)? Are multi-currency stores in scope (row 4)? The contract
+    sends customers with an order in the last 60 months whatever their marketing consent — acceptable for the privacy
+    text (row 43)?
 
-Recorded in `docs/ARCHITECTURE.md` section 15 (10–16 and 19–22 are Erkki's,
-all on 2026-11-20). "≠": the owner overrode the agent-side proposal.
+**Only the owner can do:** enable GitHub Actions on the fork (row 16); give a Smaily test account for a live walk; ask
+the engine team for the answer on INT-306; choose a pilot store; have a native speaker read the Estonian.
 
-1. Background tasks: cron URL plus a visitor-traffic fallback tick.
-2. ≠ Consent: merchant-confirmed setting plus `consentOverride()`.
-3. Abandoned cart after upgrade: the siblings' consent rule; fewer reminders.
-4. 1.6.x leftovers: switch on only what the running code sent, with notices.
-5. 2.x opt-in without a workflow: keeps the generic opt-in trigger.
-6. Product keys: one row per combination; format per contract 1.35.0.
-7. Campaign Intelligence: one connection per separately set-up shop.
-8. Uninstall removes all module data after the disconnect and the report.
-9. ≠ Scope: multishop "separate stores" is in the first release.
-10. Gauge: the 14 capabilities. Stock alerts (§6c, CON-371): right after 3.0.0.
-11–12. Reconcile two-way in "Subscribers only"; first run: unsubscribes only.
-13–14. A guest-checkout customer is sent only with "include guests" on.
-15. New-version notice from GitHub now; Smaily's own notice later (CON-380).
-16. The code follows the Marketplace technical rules from the start (CON-379).
-17. Admin colours: the Campaign Intelligence palette, own components (CON-377).
-18. Contract copy re-synced: v1.36.0 (price groups); §6c is on at the engine.
-19. Admin screens show a contact's address as the siblings do.
-20. Separate stores → one store removes other shops' own settings (Magento).
-21. The wording of the consent-mode and layout confirmations is approved.
-22. Discount codes in store automations are in 3.0.0, a Story of their own.
-
-Orchestrator (technical, reversible): the upgrade script never fails (3.7);
-`language` is `NOT NULL DEFAULT ''` (2.2); the menu sits under Customers
-(10.1); a shop on another Smaily account gets contact sync off after the
-upgrade, with a notice (3.3; the owner may overturn it).
-
-## Known 2.2.0 defects that 3.0.0 closes
-
-- Closed on `v3`: an empty stored cron token opens the cron URL; uninstall
-  deletes an override file it may not own; customer sync pushes every shop's
-  customers with one shop's configuration; the cart cron fataled on 1.6.x
-  serialized field lists (the 2.x cart code no longer runs).
-- The `NW_*` keys of ps_emailsubscription are never restored (a notice).
-
-## Open questions (for Erkki)
-
-1. A late unsubscribe that arrives after a newer, delivered subscription
-   leaves the contact unsubscribed — keep it so? (ARCHITECTURE 14, row 23.)
-2. The Log has two guard rules beyond Magento — no "Send again" that would
-   re-subscribe, no second queue entry for a waiting event — confirm them?
-3. A Smaily account saved while an upgrade is unfinished is replaced by the
-   upgrade, or stops it at the verify step — which should it be? (3.7.)
-4. Marketplace: ten rules need your decision (`docs/MARKETPLACE.md` 6.3): the
-   licence, the public feed address, the 27 files 2.2.0 leaves, the SQL casts…
-5. The amber and red Background tasks card now hide the cron line behind the
-   same button as the green one — keep?
-6. In language mode `a` the router still ends at the no-language workflow,
-   which Magento never starts and the tab hides — remove it? (14, row 24.)
-7. The engine team (INT-306) and subscription team (SUB-28) asks are unanswered.
-8. GitHub Actions on the fork are not enabled: CI on `v3` has never run.
-9. The live Smaily service has never been called; it needs your test account.
-10. A pilot store: one PrestaShop 8 store on 2.x asked about abandoned cart.
-
-Linear: P-CON-324; CON-373 (upgrade), CON-378 (contacts), CON-379 (Marketplace),
-CON-380, CON-393, CON-385, CON-371, CON-377; INT-306; SUB-28. Gauge: 7/14.
+Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381 (with CON-393), CON-379, CON-380; sibling asks CON-394,
+CON-395, CON-396; engine INT-306; subscription SUB-28 (answered). Gauge: 7/14.
