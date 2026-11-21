@@ -348,4 +348,102 @@ class Client
             $identifier + ['limit' => $limit]
         );
     }
+
+    // --- Ingest (Story 5.2): the catalog (§3, §3b, §3c), customers (§4), orders (§5) and the
+    // identity merge (§7). Each is one attempt, as every call above: the ingest queue retries.
+
+    /** The endpoints map key, the fallback path and the body's wrapper of each ingest domain. */
+    public const INGEST = [
+        'catalog' => ['ingest_catalog', '/api/v1/ingest/catalog', 'products'],
+        'customers' => ['ingest_customers', '/api/v1/ingest/customers', 'customers'],
+        'orders' => ['ingest_orders', '/api/v1/ingest/orders', 'orders'],
+    ];
+
+    /** The endpoints map key and the fallback path of the product removal (§3b). */
+    public const ENDPOINT_CATALOG_REMOVE = 'ingest_catalog_remove';
+    public const PATH_CATALOG_REMOVE = '/api/v1/ingest/catalog/remove';
+
+    /** The endpoints map key and the fallback path of the nightly product list (§3c). */
+    public const ENDPOINT_CATALOG_MANIFEST = 'ingest_catalog_manifest';
+    public const PATH_CATALOG_MANIFEST = '/api/v1/ingest/catalog/manifest';
+
+    /** The endpoints map key and the fallback path of the identity merge (§7). */
+    public const ENDPOINT_IDENTITY_MERGE = 'identity_merge';
+    public const PATH_IDENTITY_MERGE = '/api/v1/identity/merge';
+
+    /** Seconds one ingest request may take, so that a slow engine does not hold the tick. */
+    public const INGEST_TIMEOUT_SECONDS = 10;
+
+    /** Seconds the nightly product list may take: one request with up to 50 000 items. */
+    public const MANIFEST_TIMEOUT_SECONDS = 20;
+
+    /**
+     * Sends one batch of catalog rows (§3), customers (§4) or orders (§5).
+     *
+     * @param string $domain a key of INGEST
+     * @param list<array<string, mixed>> $items the rows, as the contract's field reference names them
+     *
+     * @return array<string, mixed> the engine's answer, unchecked: `errors[]` names the rows it refused
+     */
+    public function ingest(Connection $connection, string $domain, array $items): array
+    {
+        [$endpoint, $path, $wrapper] = self::INGEST[$domain];
+
+        return $this->request('POST', $connection->endpoint($endpoint, $path), self::INGEST_TIMEOUT_SECONDS, $connection->apiKey(), [$wrapper => $items]);
+    }
+
+    /**
+     * Tells the engine that products were deleted (§3b): it stops recommending every row of each.
+     *
+     * @param list<string> $productIds the parent product ids, as `tags.product_id` carries them
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function catalogRemove(Connection $connection, array $productIds): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_CATALOG_REMOVE, self::PATH_CATALOG_REMOVE),
+            self::INGEST_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            ['product_ids' => $productIds]
+        );
+    }
+
+    /**
+     * Sends the connection's complete product list (§3c): each row's `sku` and `in_stock`.
+     *
+     * @param list<array{sku: string, in_stock: bool}> $products
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function catalogManifest(Connection $connection, array $products): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_CATALOG_MANIFEST, self::PATH_CATALOG_MANIFEST),
+            self::MANIFEST_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            ['products' => $products]
+        );
+    }
+
+    /**
+     * Binds a visitor's token to a customer whom the store now knows (§7).
+     *
+     * @param array<string, mixed> $body `customer_email`, `smaily_visitor_token`, and where known
+     *                                   `customer_external_id`, `merge_ts` and `merge_reason`
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function identityMerge(Connection $connection, array $body): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_IDENTITY_MERGE, self::PATH_IDENTITY_MERGE),
+            self::INGEST_TIMEOUT_SECONDS,
+            $connection->apiKey(),
+            $body
+        );
+    }
 }
