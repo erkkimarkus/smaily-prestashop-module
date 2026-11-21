@@ -30,6 +30,8 @@ final class EngineMockServer
 
     private string $stateFile;
 
+    private static ?SymfonyTransport $http = null;
+
     /**
      * @param resource $process
      */
@@ -97,15 +99,17 @@ final class EngineMockServer
      */
     public function transport(): Transport
     {
-        return new class($this->baseUrl) implements Transport {
+        // One HTTP client for every test: a client keeps its connection open while it lives, and
+        // PHPUnit keeps every test, so a client per test ran the suite out of open files.
+        return new class($this->baseUrl, self::$http ??= new SymfonyTransport()) implements Transport {
             private string $baseUrl;
 
             private SymfonyTransport $transport;
 
-            public function __construct(string $baseUrl)
+            public function __construct(string $baseUrl, SymfonyTransport $transport)
             {
                 $this->baseUrl = $baseUrl;
-                $this->transport = new SymfonyTransport();
+                $this->transport = $transport;
             }
 
             public function request(string $method, string $url, array $options = []): Response
