@@ -31,7 +31,7 @@ A store with several languages also chooses how languages are handled: **Single 
 
 A multishop store first answers **How are your shops run?**
 
-- **One store in several versions**: the shops are country or language versions of one business, on one Smaily account. You set the store up once. To give one shop its own Smaily account or its own Contacts settings, pick the shop in the shop selector at the top of the page and tick **Use its own Smaily account on this shop** or **Use its own Contacts settings on this shop**.
+- **One store in several versions**: the shops are country or language versions of one business, on one Smaily account. You set the store up once. To give one shop its own Smaily account, its own Contacts settings or its own automations, pick the shop in the shop selector at the top of the page and tick **Use its own Smaily account on this shop**, **Use its own Contacts settings on this shop** or **Use its own automations on this shop**. A shop on another Smaily account than the one saved for all shops always uses its own automations: pick its workflows under **Settings -> Automations**.
 - **Separate stores**: each shop is a business of its own, with its own Smaily account, contacts and automations. Pick a shop in the shop selector at the top of the page and set each shop up on its own.
 
 **Change** next to the answer in **Settings** switches between the two. From one store to separate stores, each shop keeps the settings it uses now, as its own. From separate stores to one store, all shops then use the settings of the shop you have selected, and the other shops' own settings are removed; the page asks you to confirm first.
@@ -45,8 +45,7 @@ We however recommend you place a Newsletter Subscription form on your website, t
 
 ![Transplant module section](assets/6_transplant_a_module.png)
 
-2. Select **Newsletter subscription** for **Module** and the preferred form location for **Transplant to**. Notice that Smaily uses the built-in Newsletter Subscription form and extends it's functionality. When the **Trigger opt-in on customer sign-up** setting is activated users who subscribe trigger the automation workflow.
-   ![Opt-in trigger](assets/7_opt_in_trigger.png)
+2. Select **Newsletter subscription** for **Module** and the preferred form location for **Transplant to**. Notice that Smaily uses the built-in Newsletter Subscription form and extends it's functionality. When the **Welcome** automation is on (**Settings -> Automations**), users who subscribe trigger its workflow.
 3. Click **Save** and the Newsletter subscription form should be on your store at the specified location!
 
 ## Customer synchronization
@@ -63,19 +62,24 @@ Contact synchronization is set under **Settings -> Contacts**.
 5. Click **Save Contacts**. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.
 6. Under **Initial contact import**, **Start import** sends the contacts that your Contacts settings sync to Smaily once, in the background. New and changed contacts are synced on their own afterwards.
 
-## Abandoned cart emails
+## Automations
 
-1. Enable abandoned cart emails feature under **Abandoned Cart** section to send cart reminder emails to store customers.
+**Settings -> Automations** maps store events to Smaily automation workflows. The Initial setup has the same step.
 
-2. You need to create _form submitted_ workflow in Smaily prior to activating this feature. You can follow our [creating automation workflows tutorial](https://smaily.com/help/user-manual/automations/automation-workflows/).
+1. Create the workflows in Smaily first, each with the _form submitted_ trigger. You can follow our [creating automation workflows tutorial](https://smaily.com/help/user-manual/automations/automation-workflows/). The lists on the page come live from your Smaily account; click **Refresh workflows** after you have added one.
 
-3. After creating an automation in Smaily you can find this automation under **Autoresponder**.
+2. Each automation has an **Enabled** switch and a **Smaily Workflow**:
+   - **Welcome** fires when a shopper subscribes to the newsletter in your store.
+   - **First order** fires on a customer's first purchase.
+   - **Abandoned cart** fires when a cart is left behind. **Wait (minutes)** is how long a cart must be inactive before it counts as abandoned, from 10 to 1435 minutes. A cart older than 24 hours is never reminded.
 
-4. You can **choose timing** when cart is considered abandoned, from 10 to 1435 minutes. A cart older than 24 hours is never reminded.
+3. Every abandoned cart reminder carries the customer's first and last name and the name, description, SKU, price, base price and quantity of up to 10 products in the cart, so the template can send personalized reminder emails. If another module also sends abandoned cart emails, switch those emails off there, so a shopper does not get two reminders for one cart.
 
-5. Every reminder carries the customer's first and last name and the name, description, SKU, price, base price and quantity of up to 10 products in the cart, so the template can send personalized reminder emails.
+4. Click **Save Automations**. An automation that is switched on without a workflow sends nothing; the **Log** shows it as skipped.
 
-![Abandoned cart emails](assets/4_abandoned_cart.png)
+A store that handles its languages with **One account, per-language workflows** or **Per-language Smaily accounts** also sees **Per-language workflows**: pick a workflow for each language, and a **Default fallback** for contacts whose language has none. With per-language Smaily accounts, each language lists the workflows of its own account.
+
+After an upgrade from version 2.x, a store whose opt-in automation had no workflow chosen keeps working as before: the Welcome automation shows **Smaily's opt-in trigger (from 2.x)**. It stays until you pick another workflow and save.
 
 ## Log
 

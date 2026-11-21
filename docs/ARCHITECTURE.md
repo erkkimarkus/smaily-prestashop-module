@@ -111,10 +111,13 @@ src/
                               JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
     Automation/               WorkflowResolverInterface
+    Admin/Setup/              AutomationsPanel (section 10.9), beside the Connection, Contacts and
+                              store-layout panels
     Admin/Settings/           SettingsController (the page), SettingsPanels, SettingsScope (which
                               values the selected shop reads and saves), TabSaver, ShopOverrides
                               (a shop's own values), LayoutChange (section 5.1), RssPanel
     Admin/Api/Settings/       AbstractSettingsAction, SaveTab, TestConnection, ChangeLayout
+    Admin/Api/                Workflows (the workflow lists of the Automations panel)
 ```
 
 The 2.x admin configuration page is gone (Story 3.3): its controller, its forms, its five templates
@@ -900,6 +903,14 @@ mapping rows).
   shop's account of no language. Then every shop's own values of the three sections are removed,
   whether or not they differ from the shared ones: its keys, all its account rows and its mapping
   rows. The page asks first, with Magento's text.
+- **The mapping rows** move as Magento's `copyMappingRows()` moves them (owner, 2026-11-20). To
+  separate stores, a shop gets each shared row that it holds no row for (same trigger, language and
+  account key); a row it holds stays. To one store, the selected shop's rows of the account
+  `default` join the shared rows that an upgrade can have left: its row wins over a shared row of
+  the same key, and a shared row that it holds no row for stays. A row of a language's account is
+  never shared, as that account is not. In both directions a copied row is a trigger's default
+  fallback only where the target holds none of that kind (the rows of the account `default`, or the
+  rows of the languages' accounts); to one store, a copied default fallback takes that place over.
 - **The contacts confirmation** (`SMAILY_CONNECT_CONTACTS_CONFIRMED`) is not an own value. Neither
   direction copies or removes it, as in Magento, so a shop that synced keeps syncing.
 - Removing a value deletes its row through `Config\Settings`; no step writes `NULL` (section 2.1).
@@ -920,7 +931,7 @@ multishop install does not offer it.
 | Scope of an event | `Scope\ScopeResolver::forRecord($record)` reads `id_shop` and `id_lang` of a Customer, Order or Cart object or a row of their tables or of `emailsubscription`; `resolve($idShop, $idLang)` takes them directly. It never reads the context of the request that processes the event later, such as a cron. The answer is a `Scope\Scope`: the shop, the language's two-letter ISO code (`''` when none), the account, and `setupShopId()`. |
 | Setup shop of an event | `Scope::setupShopId()` is the shop itself in separate stores, else 0. It names the shop whose setup serves the event, which is the `id_shop` of the Campaign Intelligence connection that serves the event (0 = the installation-wide connection). |
 | Customer account scope | `StoreLayout::customerAccountScope()`: `global` when every shop is in one shop group that shares customers, else `website` (section 5.3). |
-| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row; `single`/`c` the default row. No match is a terminal skip with a reason. The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
+| Workflow for (trigger, shop, language) | `Automation\Router`, the Magento rules: at each step the shop's own mapping rows first, then the `id_shop = 0` rows; mode `a` exact (trigger, language) row, else the `is_default_fallback` row, else the (trigger, fallback language) row; mode `b` exact row, else the `is_default_fallback` row, else the default row; `single`/`c` the default row (the row of no language). Only the rows of the mode's accounts are read. No match is a terminal skip with a reason. As built, mode `a` also ends at the default row, which Magento's mode A never starts (section 14). The matched row's `account_key` travels with the workflow, and the handler posts through that account. A shop on another account than the global one reads only its own rows (Magento CON-190). |
 
 **[D]** A single-shop install keeps its mode-`a` account rows at `id_shop` 0: the Initial setup and
 Settings write a single shop's values at the global scope (`Admin\Setup\SetupScope::targetShop()`).
@@ -1525,6 +1536,10 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and their number of contacts as the Entity. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
 | The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
+| The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
+| The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
+| A workflow list that cannot be loaded shows Magento's sentence with a reason code (`authentication_failed`, `unavailable`, …), not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text. |
+| The Automations tab has no "Edit design", no "Send a discount code", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (4.4, 5.4). |
 | The cron line and Background tasks card. | Section 4. |
 
 ### 10.4 Wording and translations
@@ -1534,7 +1549,8 @@ and "store view" to "language". ET strings come from `magento:i18n/et_EE.csv`, t
 `languages/` where Magento has none. Domains: `Modules.Smailyforprestashop.Admin` for the back office,
 `Modules.Smailyforprestashop.Shop` for the storefront. Stories write EN strings in code and do not edit
 XLIFF files; one translation sweep per stage (Stories 3.5 and 6.2) writes
-`translations/et-EE/*.xlf`, so no two workers edit one XLIFF file.
+`translations/et-EE/*.xlf`, so no two workers edit one XLIFF file. Stories 3.4 and 4.1 wrote the
+Estonian units of their own screens.
 
 ### 10.5 Logos
 
@@ -1661,6 +1677,70 @@ again" and "Retry" need the right to change it. Each endpoint also needs the pag
 **Not built.** "Send again" and "Retry" of ingest rows (Story 5.2 builds that queue); the "Privacy
 request" form of section 11.2 (Story 5.6); sorting by another column than Created.
 
+### 10.9 The Automations panel (as built in Story 4.1)
+
+Settings > Automations and step 3 of the Initial setup show one panel
+(`views/templates/admin/panel/automations.html.twig`), read and saved by one class,
+`Admin\Setup\AutomationsPanel`, as Magento's `panel/automations.phtml` and
+`WizardStepSaver::saveAutomations()`. Settings reaches it through `Admin\Settings\TabSaver` and
+`Api\Settings\SaveTab` (`tab: automations`), the setup through `Api\Setup\SaveStep`
+(`step: automations`).
+
+**The panel.** One card per store automation (Welcome, First order, Abandoned cart) with the
+Off/Active pill, "Enabled" and, while the card is on, "Smaily Workflow"; the abandoned cart also has
+"Wait (minutes)". A switched-off card hides its settings and keeps their values. In the language
+modes `a` and `b` the card "Per-language workflows" follows, one table per automation that is on:
+Language, Workflow, Default fallback, and the row "None". In mode `a` a card has no workflow of its
+own: it belongs to no language's account. The panel is drawn for the saved mode (section 10.3).
+
+**The workflow lists** come live from Smaily through `Admin\Api\Workflows` (one route per page,
+the right to read its menu tab): `{"account": "default"|<language>, "own": bool}` answers the list
+of the stored account that the rows of that account key send through
+(`Automation\Router::accountFor()`, `Automation\WorkflowList`). Nothing is cached; "Refresh
+workflows" asks again. A language of mode `a` without its own account has an empty list.
+
+**What a save writes.** The switches and the delay are the keys of section 2.1; a workflow is a
+mapping row (section 2.2) at the scope's shop: the row of no language under the account `default`
+for a card, a row per language under `default` (mode `b`) or under the language (mode `a`) for the
+table, at most one of them the automation's default fallback. A save replaces only the rows of the
+shop's mode; the other mode's rows stay for a switch back (Magento CON-188). A row of a language
+that the shop no longer has is removed. The panel reads the rows that the Router reads
+(`Router::rowShops()`): a shop's own row before a shared one, and only its own rows for a shop on
+another Smaily account.
+
+**What a save checks** (nothing is written while a field is at fault):
+
+- The delay is a whole number from 10 to 1435 while the abandoned cart is on. With the card off
+  the field is hidden: a value outside the range is then left unsaved and refuses nothing.
+- A newly picked workflow must be in the live list of the account that sends it; one list read per
+  account and save. An id that the list does not hold, and any new pick while the list cannot be
+  loaded, is a field error.
+- A stored workflow stays where the page posts it unchanged, also when the list no longer offers
+  it or cannot be loaded; the page shows it as "Workflow #N (not in your Smaily list — kept)". It
+  also stays where the page posts none while the list does not offer it (Magento PRO-1286).
+  Cleared to "-- Not Selected --" while the list offers it, the row goes.
+- An automation switched on without a workflow is saved, as in Magento. It sends nothing: the
+  Router skips it as `no_workflow`, which the Log shows.
+- While Smaily cannot be reached, the save therefore stands for the switches, the delay and every
+  unchanged workflow, as in Magento.
+
+**The 2.x opt-in trigger** (decision 5). The migrated welcome row without a workflow shows in the
+Welcome card as "Smaily's opt-in trigger (from 2.x)". It stays while it is posted unchanged and
+keeps sending. Once another workflow is saved, the option is gone; no save can pick it again.
+
+**A shop's own automations** (multishop, one store). The switch "Use its own automations on this
+shop" follows the Connection and Contacts switches (`ShopOverrides`, section 5.1): ticked, the save
+writes the four keys and the rows the page shows at the shop; unticked on a shop that holds own
+values, the save only removes them. A shop in mode `a`, or on another Smaily account than the
+shared one, always keeps its own automations (`SettingsScope::automationsScope()`, Magento CON-190):
+its switch shows ticked and fixed, and while it holds no workflow of its own, the page shows "Pick
+this shop's workflows". In separate stores the switch is absent and every shop saves its own.
+
+**Not built.** Magento's notice of the languages without a workflow in mode `a`; a shop's own "no
+workflow" over a shared workflow (the table holds no such row: switch the automation off at the
+shop instead); "Edit design", transactional emails and the Campaign Intelligence card (out of
+3.0.0, or Story 5.4); the discount code (Story 4.4), whose block goes after a card's controls.
+
 ---
 
 ## 11. Installation report, privacy, retention, uninstall, new-version check
@@ -1777,7 +1857,7 @@ once a day and sends no store data."
 |---|---|---|
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
-| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` |
+| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock is to be ported from `woo:tests/Integration/Fixtures/RecEngineMockServer.php` + `mock-rec-engine/router.php` (Story 5.1). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
 | Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). | `tests/egress-guard/` |
 | Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
@@ -1820,7 +1900,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 2.3 Capture hooks | Next; waits for Story 3.1, because both edit the main class | — |
 | 3.1 Admin shell | In progress | — |
 | 3.3 Settings: Connection, Contacts, RSS, shop switches | Done, with the owner's decisions of 2026-11-20 on the layout change and the confirmations (sections 5.1 and 15). The RSS feed's port into `src/src/Rss/` is left open (below). | `admin:`, `rss-feed:`, `module:`, `tests:` |
-| 4.1 Automation routing and mapping, backend | In progress | — |
+| 4.1 Automation routing, mapping and the Automations tab | Done (section 10.9) | `automations:`, `admin:`, `tests:`, `docs:` |
 | New-version notice on the admin pages (CON-380) | Queued, after Story 3.1 (section 10.7) | — |
 | Marketplace technical rules (Linear CON-379) | Queued, after the running Stories land: it touches every file (`docs/MARKETPLACE.md`) | — |
 | All others | Not started | — |
@@ -2168,6 +2248,14 @@ has one owner:
      submitted" workflow, so the list of `GET autoresponder.php` offers ids that Smaily refuses.
   3. A migrated generic opt-in row shows as "Smaily's opt-in trigger (from 2.x)" until another
      workflow is picked.
+- **Done.** As built: section 10.9. The saves go through `Api\Settings\SaveTab` and
+  `Api\Setup\SaveStep`, so no `Admin\Api\SaveAutomations` exists. With it: the layout change
+  moves the mapping rows as Magento does (section 5.1), and "Test connection" asks Smaily with
+  Magento's call, `GET workflows.php?trigger_type=form_submitted`. Walked in a browser on 8.2.8 and
+  9.2.0 against the Smaily mock, behind the egress guard.
+- **Left open.** In mode `a` the Router ends at the row of no language, which the panel hides and
+  Magento never starts (section 14). The Initial setup reaches step 4 only in the browser: a
+  reload of an unfinished setup opens the rail up to step 3.
 
 ### Story 4.2 — Welcome and first-order automations
 
@@ -2355,6 +2443,7 @@ has one owner:
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
 | 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); three points may block a listing: the GPL-3.0 licence, the "Create a Smaily account" link, and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md`). The listing itself is a separate business step. | Owner; answered from the guidelines when CON-379 is worked |
 | 23 | A late unsubscribe after a newer subscription | A contact sync that unsubscribes is sent whenever its retry comes due, also after a later subscription of the same contact was delivered (section 6.4). The contact then ends unsubscribed in Smaily although the store's latest choice is subscribed, and in "Subscribers only" the reconcile takes that back to the store. The siblings send it the same way. Skipping such a row as stale would leave more contacts subscribed than today, so it is not done without a decision. | Owner |
+| 24 | Mode `a` and the workflow of no language | In mode `a` the Router's last step is the row of no language under the account `default` (section 5.2). Magento's mode A never starts that workflow, and the Automations panel hides it in mode `a` (section 10.9), so a workflow that was picked before the store took an account per language can still start for a contact whose language has no row, through the fallback account. Removing the step sends fewer automations, which is a change of who receives one. | Owner |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
