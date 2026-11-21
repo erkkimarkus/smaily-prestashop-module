@@ -85,7 +85,7 @@ final class ResendGuardTest extends LogTestCase
 
         self::event(['payload' => $payload(false, true)]);
         self::assertSame(
-            [$subscribe => ResendGuard::REASON_SUPERSEDED],
+            [$subscribe => ResendGuard::REASON_STALE],
             $this->refusals($subscribe, $unsubscribe, $profile),
             'after a later consent change only the row that would subscribe is held back'
         );

@@ -88,6 +88,11 @@ final class LogViewTest extends TestCase
 
         $failed = $this->view()->details(['status' => 'failed', 'last_error' => 'Smaily API request failed with HTTP 500'] + $job, null);
         self::assertSame(['Stopped before an error — 126 of 128 synced so far. Press Run again to run it again.', 'Last error', false], [$failed['outcome']['text'], $failed['error_title'], $failed['error_is_reason']]);
+        self::assertSame('Smaily API request failed with HTTP 500', $failed['error']);
+
+        $leftOut = 'Some contacts were left out: no Smaily account is saved for their shop and language.';
+        self::assertSame($leftOut, $this->view()->row(['last_error' => 'no_account'] + $job, false)['error']);
+        self::assertSame([$leftOut, 'Reason', true], array_values(array_intersect_key($this->view()->details(['last_error' => 'no_account'] + $job, null), ['error' => 1, 'error_title' => 1, 'error_is_reason' => 1])));
     }
 
     public function testTheDetailsOfADeliveredRowShowTheRequestInFullWithoutSecrets(): void
@@ -135,6 +140,10 @@ final class LogViewTest extends TestCase
         $superseded = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '1', 'last_error' => 'x']), ResendGuard::REASON_SUPERSEDED);
         self::assertSame('A later message of this kind already reached this contact; sending again would deliver it twice.', $superseded['outcome']['text']);
         self::assertFalse($superseded['resend']);
+
+        $stale = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '1', 'last_error' => 'x']), ResendGuard::REASON_STALE);
+        self::assertSame('A later change of this contact\'s newsletter subscription already reached Smaily; sending this one again would undo it.', $stale['outcome']['text']);
+        self::assertFalse($stale['resend']);
 
         $queued = $this->view()->details(self::storedRow(['status' => 'failed', 'attempts' => '5', 'last_error' => 'x']), ResendGuard::REASON_QUEUED);
         self::assertStringStartsWith('All 5 automatic attempts are used up', $queued['outcome']['text']);

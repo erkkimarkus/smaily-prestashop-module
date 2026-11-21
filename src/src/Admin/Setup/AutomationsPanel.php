@@ -83,6 +83,18 @@ final class AutomationsPanel
 
     private const PER_LANGUAGE_MODES = [StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, StoreLayout::MODE_WORKFLOW_PER_LANGUAGE];
 
+    /** Why the workflow list could not be loaded, by the reason code of WorkflowList. */
+    private const WORKFLOW_ERRORS = [
+        WorkflowList::ERROR_NO_ACCOUNT => 'No Smaily account is saved for this shop and language.',
+        WorkflowList::ERROR_NO_CREDENTIALS => 'The Smaily account has no subdomain, username or password.',
+        WorkflowList::ERROR_INVALID_SUBDOMAIN => 'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.',
+        WorkflowList::ERROR_AUTHENTICATION => 'Smaily rejected these credentials. Check the subdomain, username and password.',
+        WorkflowList::ERROR_PLAN_BLOCKED => 'Smaily refused the request because this account\'s package does not include API access. Upgrade the package in Smaily to connect — until then the credentials cannot be checked at all.',
+        WorkflowList::ERROR_REFUSED => 'Smaily refused the request.',
+        WorkflowList::ERROR_API => 'Smaily answered with an error.',
+        WorkflowList::ERROR_UNAVAILABLE => 'Smaily did not answer. Try again in a moment.',
+    ];
+
     private AutomationSettings $settings;
 
     private MappingRepository $mappings;
@@ -428,11 +440,13 @@ final class AutomationsPanel
     }
 
     /**
-     * Magento's sentence with the reason code of WorkflowList, which never carries Smaily's text.
+     * Magento's sentence with the reason of WorkflowList in words; it never carries Smaily's text.
      */
     private function listError(string $reason): string
     {
-        return $this->trans('Could not load the workflow list: %error%', ['%error%' => $reason]);
+        return $this->trans('Could not load the workflow list: %error%', [
+            '%error%' => isset(self::WORKFLOW_ERRORS[$reason]) ? $this->trans(self::WORKFLOW_ERRORS[$reason]) : $reason,
+        ]);
     }
 
     /**

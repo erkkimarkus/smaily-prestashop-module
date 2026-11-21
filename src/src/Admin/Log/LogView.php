@@ -83,7 +83,7 @@ final class LogView
             'entity' => $this->entity($row),
             'status' => ['label' => $this->statusLabel($status), 'variant' => LogStatus::pill($status)],
             'attempts' => $row['attempts'] === null ? '—' : (string) (int) $row['attempts'],
-            'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate),
+            'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB),
             'created' => self::time((string) $row['created_at']),
             'updated' => self::time((string) $row['updated_at']),
             'selectable' => $row['kind'] === LogRows::SMAILY && $status === LogStatus::FAILED,
@@ -117,7 +117,7 @@ final class LogView
             return $details + [
                 'job' => true,
                 'outcome' => ['text' => $this->jobOutcome($row), 'terminal' => !in_array($row['status'], JobStore::ACTIVE, true)],
-                'error' => (string) $row['last_error'],
+                'error' => FailureMessage::forDisplay($row['last_error'], $this->translate, true),
                 'error_title' => $this->trans($row['status'] === JobStore::STATUS_FAILED ? 'Last error' : 'Reason'),
                 'error_is_reason' => $row['status'] !== JobStore::STATUS_FAILED,
             ];

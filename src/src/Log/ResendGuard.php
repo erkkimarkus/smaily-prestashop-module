@@ -45,9 +45,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *    (the privacy Story writes it, ARCHITECTURE 11.2);
  *  - `superseded`: a later row of the same event type for the same contact in the same shop was
  *    delivered. For an automation that is a later message of the same kind. A contact sync repeats
- *    a state and may go again, with one exception: a row that would put a stale subscription into
- *    Smaily. Contacts\StaleSubscription decides that, for this guard and for the queue's handler
- *    alike, so a row that the guard clears is not skipped as stale when it is sent;
+ *    a state and may go again, with one exception;
+ *  - `stale_subscription`: a contact sync that would put a stale subscription into Smaily, because
+ *    a later consent change of the same contact was delivered. Contacts\StaleSubscription decides
+ *    that, for this guard and for the queue's handler alike, so a row that the guard clears is not
+ *    skipped as stale when it is sent;
  *  - `queued`: such a later row waits in the queue, for example the one a "Send again" of this row
  *    added. The contact gets that row, so this one is not queued a second time. It has no sentence
  *    of its own.
@@ -60,6 +62,8 @@ final class ResendGuard
 
     public const REASON_SUPERSEDED = 'superseded';
 
+    public const REASON_STALE = 'stale_subscription';
+
     public const REASON_ERASED = 'erased';
 
     public const REASON_NOT_FAILED = 'not_failed';
@@ -69,10 +73,14 @@ final class ResendGuard
     /** The entity of a row whose contact was erased. */
     public const ERASED_ENTITY = '[erased]';
 
-    /** The merchant's sentence of each refusal that has one, in Magento's words. */
+    /**
+     * The merchant's sentence of each refusal that has one, in Magento's words; Magento has no
+     * stale contact sync, and that sentence follows the one before it.
+     */
     private const MESSAGES = [
         self::REASON_WITHDRAWN => 'This reminder was withdrawn because the shopper completed the purchase; it cannot be re-sent.',
         self::REASON_SUPERSEDED => 'A later message of this kind already reached this contact; sending again would deliver it twice.',
+        self::REASON_STALE => 'A later change of this contact\'s newsletter subscription already reached Smaily; sending this one again would undo it.',
         self::REASON_ERASED => 'This contact\'s data was erased; the event cannot be re-sent.',
         self::REASON_NOT_FAILED => 'Only a failed event can be sent again.',
     ];
@@ -157,7 +165,7 @@ final class ResendGuard
         }
         $contactSyncs = array_filter($rows, static fn (array $row): bool => $row['event_type'] === ContactSyncHandler::EVENT_TYPE);
         foreach (StaleSubscription::among($contactSyncs) as $id) {
-            $refused[$id] = self::REASON_SUPERSEDED;
+            $refused[$id] = self::REASON_STALE;
         }
 
         return $refused;

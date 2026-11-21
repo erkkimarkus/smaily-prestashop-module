@@ -1910,7 +1910,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode, or that replaces a Smaily account whose workflows went with it (section 5.1), loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
-| A workflow list that cannot be loaded shows Magento's sentence with a reason code (`authentication_failed`, `unavailable`, …), not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text. |
+| A workflow list that cannot be loaded shows Magento's sentence ("Could not load the workflow list: …") with the module's own sentence for the reason, not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text: it answers a reason code, and `Admin\Setup\AutomationsPanel` words each code. |
 | The Automations tab has no "Edit design", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (5.4). |
 | The discount block of a card lists cart rules, enabled and disabled alike, and tells the merchant to keep the rule disabled or to give it a code that is not shared. Magento lists rules with "Use Auto Generation". | A PrestaShop cart rule has one code or none: an enabled rule without a code applies to every cart, and its code works for anyone (section 7). |
 | The cron line and Background tasks card. | Section 4. |
@@ -1999,13 +1999,19 @@ job to its shop, and a job of shop 0 (every shop) shows in every selection.
   (`Log\LogStatus`). An import job shows Queued, Running, Done, Failed or Cancelled.
 - **Entity.** `Admin\Dashboard\EntityLabel`, the Dashboard's rule: the entity as stored, a keyed hash
   cut to 12 characters. An import job shows its number of contacts.
-- **Last Error.** The stored reason without its class prefix. The four skip reasons that Magento words
-  (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`) show as
-  Magento's sentence, and the filter finds them by those words (`Log\FailureMessage`). The cart of
-  a deleted customer (`customer_deleted`, section 7) shows as a sentence of its own, and so does
-  the checkout capture's hourly limit (`capture_limit`, section 7), whose row stands for no event
-  and was never pending. A stale contact sync (`stale_subscription`, section 6.4), which Magento
-  does not have, shows as a sentence of the same form. Every other reason code shows as stored.
+- **Last Error.** The stored reason without its class prefix. Every reason code that a handler or
+  an import can store shows as a sentence in the admin's language, and the filter finds a row by
+  those words (`Log\FailureMessage`): Magento's sentence for the four skip reasons that Magento
+  words (`no_marketing_consent`, `unsubscribed_in_smaily`, `recently_reminded`, `no_workflow`), and
+  a sentence of the same form for the others (`contact_sync_off`, `not_in_audience`, `no_account`,
+  `no_credentials`, `automation_off`, `unknown_trigger`, `too_old`, `already_reminded`,
+  `not_tracked`, `payload_failed`, `customer_deleted` of section 7, and `stale_subscription` of
+  section 6.4, which Magento does not have). The checkout capture's hourly limit (`capture_limit`,
+  section 7), whose row stands for no event and was never pending, has a sentence of its own. A
+  row with `malformed_payload` failed, and its sentence says so without "Skipped". An import job
+  that left contacts out for `no_account` or `no_credentials` has a sentence of its own, as the job
+  sent the other contacts. A code without a sentence, and the Smaily client's own message of a
+  failure ("Smaily API request failed with HTTP 500"), show as stored.
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
   selected shops, and its button applies the filter `status=failed`, as Magento's does.
 
@@ -2047,7 +2053,9 @@ row whose event already waits in the queue again as a later `pending` or `proces
 first four answer Magento's sentences. The last one has no sentence: "Send again" then queues
 nothing and answers as the first request did, so a second click has no effect. A contact sync
 repeats a state and is not superseded by a later sync, with one exception that Magento does not
-have: a row that would put a stale subscription into Smaily is held back. `Contacts\StaleSubscription`
+have: a row that would put a stale subscription into Smaily is held back, with a sentence of its
+own ("A later change of this contact's newsletter subscription already reached Smaily; sending this
+one again would undo it."). `Contacts\StaleSubscription`
 decides that for the guard and for the queue's handler alike (section 6.4), so the automatic retry
 and the two manual actions follow one rule. A row that unsubscribes is never held back. A row
 without an entity is not compared with later rows; a contact's row always has one (section 2.2).

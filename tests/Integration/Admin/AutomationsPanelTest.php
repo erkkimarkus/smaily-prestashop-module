@@ -273,11 +273,11 @@ final class AutomationsPanelTest extends IntegrationTestCase
         self::assertTrue((new AutomationSettings())->enabled('abandoned_cart', 0));
 
         $errors = $this->panel()->save($scope, ['triggers' => ['welcome' => ['enabled' => true, 'workflow' => '13']], 'cart_delay' => '60']);
-        self::assertSame([['field' => 'welcome.workflow', 'message' => 'Could not load the workflow list: unavailable']], $errors);
+        self::assertSame([['field' => 'welcome.workflow', 'message' => 'Could not load the workflow list: Smaily did not answer. Try again in a moment.']], $errors);
         self::assertSame(['first_order||default 12', 'welcome||default 11'], $this->rows(0));
 
         $list = $this->panel()->workflows($scope, 'default');
-        self::assertSame(['workflows' => [], 'error' => 'Could not load the workflow list: unavailable'], $list);
+        self::assertSame(['workflows' => [], 'error' => 'Could not load the workflow list: Smaily did not answer. Try again in a moment.'], $list);
     }
 
     public function testAStoredWorkflowThatTheListNoLongerOffersIsKeptUntilAnotherIsPicked(): void

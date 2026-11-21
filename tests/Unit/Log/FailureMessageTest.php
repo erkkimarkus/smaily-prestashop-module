@@ -39,7 +39,38 @@ final class FailureMessageTest extends TestCase
             'ET: Skipped: the shopper has since changed their newsletter subscription, and the newer choice already reached Smaily. Nothing was sent.',
             FailureMessage::forDisplay('stale_subscription', $estonian)
         );
-        self::assertSame('contact_sync_off', FailureMessage::forDisplay('contact_sync_off', $estonian), 'a code without a sentence shows as stored');
+        self::assertSame('ET: Skipped: contact synchronization is off for this shop. Nothing was sent.', FailureMessage::forDisplay('contact_sync_off', $estonian));
+        self::assertSame('ET: The data stored with this row is incomplete, so it cannot be sent.', FailureMessage::forDisplay('malformed_payload', $estonian));
+        self::assertSame('some_new_code', FailureMessage::forDisplay('some_new_code', $estonian), 'a code without a sentence shows as stored');
+    }
+
+    public function testEveryReasonCodeOfAQueueRowHasASentence(): void
+    {
+        $codes = [
+            'no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'capture_limit', 'no_workflow', 'stale_subscription',
+            'contact_sync_off', 'not_in_audience', 'no_account', 'no_credentials', 'automation_off', 'unknown_trigger',
+            'too_old', 'already_reminded', 'not_tracked', 'payload_failed', 'malformed_payload',
+        ];
+
+        self::assertSame($codes, array_keys(FailureMessage::REASONS));
+        foreach (FailureMessage::REASONS + FailureMessage::JOB_REASONS as $code => $sentence) {
+            self::assertStringNotContainsString($code, $sentence);
+            self::assertMatchesRegularExpression('/^[A-Z].*\.$/', $sentence);
+        }
+    }
+
+    public function testAnImportJobHasItsOwnSentenceWhereOnlySomeContactsWereLeftOut(): void
+    {
+        $same = static fn (string $text): string => $text;
+
+        self::assertSame('Skipped: no Smaily account is saved for this shop and language. Nothing was sent.', FailureMessage::forDisplay('no_account', $same));
+        self::assertSame('Some contacts were left out: no Smaily account is saved for their shop and language.', FailureMessage::forDisplay('no_account', $same, true));
+        self::assertSame(
+            'Some contacts were left out: the Smaily account for their shop and language has no subdomain, username or password.',
+            FailureMessage::forDisplay('no_credentials', $same, true)
+        );
+        self::assertSame('Skipped: contact synchronization is off for this shop. Nothing was sent.', FailureMessage::forDisplay('contact_sync_off', $same, true));
+        self::assertSame('Smaily API request failed with HTTP 500', FailureMessage::forDisplay('Smaily API request failed with HTTP 500', $same, true));
     }
 
     public function testTheErrorFilterFindsAReasonByTheWordsItShows(): void
@@ -47,7 +78,9 @@ final class FailureMessageTest extends TestCase
         $same = static fn (string $text): string => $text;
 
         self::assertSame(['no_marketing_consent'], FailureMessage::codesShowing('marketing EMAILS', $same));
-        self::assertSame(['no_marketing_consent', 'unsubscribed_in_smaily', 'recently_reminded', 'customer_deleted', 'no_workflow', 'stale_subscription'], FailureMessage::codesShowing('Nothing was sent', $same));
+        self::assertSame(array_values(array_diff(array_keys(FailureMessage::REASONS), ['capture_limit', 'malformed_payload'])), FailureMessage::codesShowing('Nothing was sent', $same));
+        self::assertSame(['no_account', 'no_credentials'], FailureMessage::codesShowing('shop and language', $same), 'a queue row\'s sentence and an import job\'s');
+        self::assertSame(['no_account', 'no_credentials'], FailureMessage::codesShowing('were left out', $same));
         self::assertSame([], FailureMessage::codesShowing('HTTP 503', $same));
         self::assertSame([], FailureMessage::codesShowing('', $same));
     }
