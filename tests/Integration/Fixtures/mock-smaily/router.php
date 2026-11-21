@@ -18,6 +18,8 @@
  *                               only when `actions` is given, at most `limit`.
  * - GET  /api/workflows.php?trigger_type=  the workflows of that trigger type, all without it, as
  *                               Smaily lists them: {"id", "title", "trigger_type", "is_enabled"}.
+ *                               A workflow of the state with a "subdomain" is listed only to that
+ *                               subdomain, so that two accounts can have different lists.
  * - GET  /api/autoresponder.php?status=  the workflows of that status, all without it.
  * - POST /api/contact.php      one contact or a list; each needs an email, else code 203; while
  *                               contact writes fail, HTTP 500.
@@ -47,6 +49,7 @@ $state['requests'][] = [
     'body' => $body,
     'authorized' => $authorized,
     'username' => $_SERVER['PHP_AUTH_USER'] ?? null,
+    'host' => $_SERVER['HTTP_HOST'] ?? null,
 ];
 file_put_contents($stateFile, json_encode($state));
 
@@ -127,9 +130,11 @@ if ($method === 'GET' && $path === '/api/autoresponder.php') {
 
 if ($method === 'GET' && $path === '/api/workflows.php') {
     $type = $_GET['trigger_type'] ?? null;
+    $subdomain = explode('.', (string) ($_SERVER['HTTP_HOST'] ?? ''))[0];
     $answer(200, array_values(array_filter(
         $state['workflows'] ?? [],
-        static fn (array $workflow): bool => $type === null || ($workflow['trigger_type'] ?? null) === $type
+        static fn (array $workflow): bool => ($type === null || ($workflow['trigger_type'] ?? null) === $type)
+            && (!isset($workflow['subdomain']) || $workflow['subdomain'] === $subdomain)
     )));
 
     return true;
