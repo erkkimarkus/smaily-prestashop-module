@@ -26,6 +26,16 @@
  *                                    contract's own bodies
  *   delay               {exchange|ping|uninstall: seconds}  the route waits before it answers
  *
+ * The storefront routes (§6, §15) take `browse` and `recommendations` as route names in `fail` and
+ * `delay`, and read two more switches:
+ *
+ *   recommendations     {"customer:<id>"|"token:<visitor token>": list of slots}  the shopper's
+ *                                    recommendations (§15). A slot gives `external_id` and may give
+ *                                    any other field of a §15 slot; the mock fills the rest.
+ *                                    A shopper without an entry gets the empty answer.
+ *   visitor_tokens      {"<visitor token>": customer id}  the tokens that are bound to a
+ *                                    customer: a browse event with one counts as matched (§6)
+ *
  * Routes:
  * - POST /api/setup/exchange       §1. A token is used once (410 afterwards); a token that starts
  *                                  with "notfound" answers 404.
@@ -37,6 +47,8 @@
  *   The three know every address, but one that `unknown_customers` lists or that §9 deleted
  *   (`deleted_customers`): that one answers 404. `opt_outs` holds each address's choice. Their
  *   names for `fail` and `delay` are `customer_export`, `customer_delete` and `customer_opt_out`.
+ * - POST /api/v1/ingest/browse     §6. Validates each event on its own; an `event_id` counts once.
+ * - POST /api/v1/recommendations/customer  §15.
  * - Anything else: HTTP 404.
  *
  * An authenticated call needs a key that an exchange of this mock issued and that is not revoked
@@ -66,6 +78,8 @@ $routes = [
     'POST /api/setup/exchange' => 'exchange',
     'GET /api/v1/ingest/ping' => 'ping',
     'POST /api/v1/store/uninstall' => 'uninstall',
+    'POST /api/v1/ingest/browse' => 'browse',
+    'POST /api/v1/recommendations/customer' => 'recommendations',
 ];
 $route = $routes[$method . ' ' . $path] ?? null;
 
@@ -421,6 +435,138 @@ if ($customerEmail !== null) {
     }
 
     return $answer(404, ['error' => 'not_found', 'message' => 'No such route.', 'timestamp' => $now]);
+}
+
+// The storefront routes (Story 5.5): §6 browse events and §15 a shopper's recommendations.
+if ($route === 'browse' || $route === 'recommendations') {
+    if ($connection === null || $connection['revoked'] !== false) {
+        return $answer(401, $unauthorised);
+    }
+    if (!empty($state['tenant_inactive'])) {
+        return $answer(403, [
+            'error' => 'tenant_inactive',
+            'message' => 'This tenant is currently deactivated. Contact engine administrator.',
+            'tenant_status' => 'suspended',
+        ]);
+    }
+    // "Validation error example".
+    $invalid = static function (array $details) use ($answer, $now): bool {
+        return $answer(400, [
+            'error' => 'validation_failed',
+            'message' => 'One or more fields failed validation',
+            'details' => $details,
+            'request_id' => 'req_' . bin2hex(random_bytes(8)),
+            'timestamp' => $now,
+        ]);
+    };
+    $uuid = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+
+    if ($route === 'browse') {
+        // §6: the wrapper is all-or-nothing, each event is validated on its own.
+        $events = is_array($body) ? ($body['events'] ?? null) : null;
+        if (!is_array($events) || $events === [] || count($events) > 1000 || array_values($events) !== $events) {
+            return $invalid(['events' => ['Expected an array of 1 to 1000 events']]);
+        }
+        $types = ['product_view', 'category_view', 'search', 'cart_add', 'cart_remove', 'wishlist_add', 'wishlist_remove', 'checkout_start', 'checkout_complete'];
+        $seen = is_array($state['browse_event_ids'] ?? null) ? $state['browse_event_ids'] : [];
+        $bound = is_array($state['visitor_tokens'] ?? null) ? $state['visitor_tokens'] : [];
+        $errors = [];
+        $deduplicated = $matched = $anonymous = 0;
+        foreach ($events as $index => $event) {
+            $field = null;
+            if (!is_array($event)) {
+                $field = 'event_id';
+            } elseif (!is_string($event['event_id'] ?? null) || preg_match($uuid, $event['event_id']) !== 1) {
+                $field = 'event_id';
+            } elseif (!is_string($event['session_id'] ?? null) || $event['session_id'] === '') {
+                $field = 'session_id';
+            } elseif (!in_array($event['event_type'] ?? null, $types, true)) {
+                $field = 'event_type';
+            } elseif (!is_string($event['event_ts'] ?? null) || strtotime($event['event_ts']) === false) {
+                $field = 'event_ts';
+            } elseif (isset($event['smaily_rec_id']) && (!is_string($event['smaily_rec_id']) || preg_match($uuid, $event['smaily_rec_id']) !== 1)) {
+                $field = 'smaily_rec_id';
+            } elseif ($connection['prefix'] !== '' && isset($event['sku']) && strpos((string) $event['sku'], $connection['prefix']) !== 0) {
+                // §6 `sku`, v1.33.0.
+                $field = 'sku';
+            }
+            if ($field !== null) {
+                $errors[] = ['index' => $index, 'field' => $field, 'message' => $field === 'event_type' ? 'Invalid enum value' : 'Invalid'];
+                continue;
+            }
+            if (in_array($event['event_id'], $seen, true)) {
+                ++$deduplicated;
+                continue;
+            }
+            $seen[] = $event['event_id'];
+            isset($event['smaily_visitor_token'], $bound[$event['smaily_visitor_token']]) ? ++$matched : ++$anonymous;
+        }
+        $state['browse_event_ids'] = $seen;
+        $write($state);
+
+        // §6 "Response 200 OK", with `deduplicated_all` when every event was a repeat.
+        $payload = [
+            'ok' => true,
+            'processed' => $matched + $anonymous,
+            'deduplicated' => $deduplicated,
+            'errors' => $errors,
+            'with_customer_match' => $matched,
+            'anonymous' => $anonymous,
+            'retroactive_bound' => 0,
+            'duplicates_skipped' => $deduplicated,
+        ];
+        if ($deduplicated === count($events)) {
+            $payload['deduplicated_all'] = true;
+        }
+
+        return $answer(200, $payload);
+    }
+
+    // §15. At least one identifier of 1 to 255 characters; the customer id wins over the token.
+    $customerId = is_array($body) ? ($body['customer_external_id'] ?? null) : null;
+    $token = is_array($body) ? ($body['smaily_visitor_token'] ?? null) : null;
+    $identifier = static fn ($value): bool => is_string($value) && $value !== '' && strlen($value) <= 255;
+    if (($customerId === null && $token === null)
+        || ($customerId !== null && !$identifier($customerId))
+        || ($token !== null && !$identifier($token))) {
+        return $invalid(['customer_external_id' => ['Required: customer_external_id or smaily_visitor_token']]);
+    }
+    $limit = is_array($body) && array_key_exists('limit', $body) ? $body['limit'] : 9;
+    if (!is_int($limit) || $limit < 1) {
+        return $invalid(['limit' => ['Expected a positive integer']]);
+    }
+    $limit = min($limit, 9);
+    $shoppers = is_array($state['recommendations'] ?? null) ? $state['recommendations'] : [];
+    $given = $shoppers[$customerId !== null ? 'customer:' . $customerId : 'token:' . $token] ?? [];
+
+    $slots = [];
+    foreach (array_slice(is_array($given) ? array_values($given) : [], 0, $limit) as $index => $slot) {
+        $slot = is_array($slot) ? $slot : [];
+        $recId = $slot['rec_id'] ?? sprintf('3fa85f64-5717-4562-b3fc-%012d', $index + 1);
+        $externalId = (string) ($slot['external_id'] ?? '');
+        // §15 "Response 200 OK": the fields of a slot, in the contract's order.
+        $slots[] = array_merge([
+            'position' => $index + 1,
+            'rec_id' => $recId,
+            'sku' => $connection['prefix'] . $externalId,
+            'external_id' => $externalId === '' ? null : $externalId,
+            'name' => 'Recommended product ' . ($index + 1),
+            'description' => 'A product the mock engine recommends.',
+            'price' => 29.99,
+            'compare_price' => null,
+            'in_stock' => true,
+            'image_url' => null,
+            'product_url' => 'https://shop.example.test/product/' . rawurlencode($externalId) . '?smaily_rec=' . $recId . '&smaily_ctx=storefront',
+            'headline' => null,
+            'cta' => null,
+            'reason' => null,
+        ], $slot, ['position' => $index + 1]);
+    }
+
+    // §15 "Caching".
+    header('Cache-Control: no-store, private');
+
+    return $answer(200, ['slots' => $slots]);
 }
 
 // §2.
