@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Discount;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
@@ -17,8 +18,9 @@ require_once __DIR__ . '/DiscountTestCase.php';
 
 /**
  * The codes the module issued: the janitor removes the ones nobody used 30 days after their end
- * date and keeps a used one, a fresh one and every rule of the merchant; an uninstall leaves the
- * codes in place.
+ * date and keeps a used one, a fresh one and every rule of the merchant; a privacy request finds a
+ * shopper's codes by customer account and by address and removes the unused ones; an uninstall
+ * leaves the codes in place.
  */
 final class IssuedCodesTest extends DiscountTestCase
 {
@@ -64,6 +66,51 @@ final class IssuedCodesTest extends DiscountTestCase
         $this->services->get(Tick::class)->run('tick', 50);
 
         self::assertSame([], self::issuedIds());
+    }
+
+    public function testAShoppersCodesAreFoundByCustomerAccountAndByAddressAndTheUnusedOnesRemoved(): void
+    {
+        $template = $this->template();
+        $this->discount(Trigger::WELCOME, $template);
+        $customer = $this->fixture->customer('shopper1@example.test');
+        $other = $this->fixture->customer('shopper2@example.test');
+        $tied = $this->issue($template, time(), $customer);
+        $usedTied = $this->issue($template, time(), $customer);
+        $othersCode = $this->issue($template, time(), $other);
+        $idCart = $this->fixture->cart($customer, 1);
+        (new \Cart($idCart))->addCartRule($usedTied);
+        $this->fixture->order($idCart);
+        // A guest's code is tied to nobody: only its queue row names the address.
+        $this->automationRow(WelcomeTrigger::EVENT_TYPE, 'Guest1@Example.test');
+        $this->automationRow(WelcomeTrigger::EVENT_TYPE, 'guest2@example.test');
+        $this->flush();
+        $guestCode = $this->posted(0)['welcome_coupon_code'];
+        $codes = new IssuedCodes();
+
+        $ofCustomer = $codes->ofCustomer($customer);
+        self::assertSame([$tied, $usedTied], array_column($ofCustomer, 'id'));
+        self::assertSame([false, true], array_column($ofCustomer, 'used'));
+        self::assertSame(['id', 'code', 'created_at', 'expires_at', 'used'], array_keys($ofCustomer[0]));
+        self::assertSame((new \CartRule($tied))->code, $ofCustomer[0]['code']);
+        self::assertSame((new \CartRule($tied))->date_to, $ofCustomer[0]['expires_at']);
+        self::assertSame([], $codes->ofCustomer(0), 'an untied code is nobody\'s');
+
+        $ofAddress = $codes->ofAddress('guest1@example.TEST');
+        self::assertSame([$guestCode], array_column($ofAddress, 'code'), 'any letter case, and only this address');
+        self::assertSame([], $codes->ofAddress('guest3@example.test'));
+        self::assertSame([], $codes->ofAddress(''));
+
+        self::assertSame(['removed' => 1, 'kept' => 1], $codes->removeUnused(array_column($ofCustomer, 'id')));
+        self::assertSame(['removed' => 1, 'kept' => 0], $codes->removeUnused(array_column($ofAddress, 'id')));
+        self::assertSame(['removed' => 0, 'kept' => 0], $codes->removeUnused([$template, 99999999]), 'a rule of the merchant is left alone');
+
+        $left = self::issuedIds();
+        self::assertContains($usedTied, $left, 'a used code stays with its order');
+        self::assertContains($othersCode, $left);
+        self::assertNotContains($tied, $left);
+        self::assertSame([], $codes->ofAddress('guest1@example.test'));
+        self::assertCount(1, $codes->ofAddress('guest2@example.test'));
+        self::assertNotFalse(self::db()->getValue('SELECT 1 FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` = ' . $template));
     }
 
     public function testAnUninstallLeavesTheIssuedCodesInPlace(): void

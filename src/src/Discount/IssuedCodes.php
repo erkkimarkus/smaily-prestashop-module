@@ -29,13 +29,27 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\FirstOrder\FirstOrderTrigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\Welcome\WelcomeTrigger;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+
 /**
  * The cart rules that this module issued as discount codes (CodeIssuer::MARKER): the clean-up of
- * the ones nobody used. A cart rule that the merchant made is never read or removed here.
+ * the ones nobody used, and a shopper's codes for a privacy request. A cart rule that the merchant
+ * made is never read or removed here.
  *
- * A code is used once an order carries it (`order_cart_rule`). A used code stays: its orders name
- * it. The janitor removes an unused code once its end date is more than KEEP_SECONDS past, as the
- * WooCommerce connector does.
+ * A code is used once an order carries it (`order_cart_rule`). A used code stays in every case:
+ * its orders name it.
+ *
+ * - The janitor removes an unused code once its end date is more than KEEP_SECONDS past, as the
+ *   WooCommerce connector does.
+ * - A shopper's codes are the rules tied to the customer account (`id_customer`), and for an
+ *   address the codes that the address's automation rows of the event queue still hold in their
+ *   fields: an untied code holds nothing of the shopper, so only its queue row names its address.
+ *   Once the queue's own retention removed that row, nothing ties the code to the address.
  */
 final class IssuedCodes
 {
@@ -44,6 +58,8 @@ final class IssuedCodes
 
     /** The most codes one clean-up call removes. */
     public const BATCH_SIZE = 200;
+
+    private const EVENT_TYPES = [WelcomeTrigger::EVENT_TYPE, FirstOrderTrigger::EVENT_TYPE, AbandonedCartHandler::EVENT_TYPE];
 
     /** @var callable(): int */
     private $clock;
@@ -70,6 +86,96 @@ final class IssuedCodes
             self::unused(),
             $limit
         )));
+    }
+
+    /**
+     * The codes tied to a customer account, oldest first.
+     *
+     * @return list<array{id: int, code: string, created_at: string, expires_at: string, used: bool}>
+     */
+    public function ofCustomer(int $idCustomer): array
+    {
+        return $idCustomer > 0 ? $this->rows('cr.`id_customer` = ' . $idCustomer) : [];
+    }
+
+    /**
+     * The codes that the automation rows of the event queue hold for the address, oldest first.
+     * The address matches in any letter case; an address that differs by an accent or a character
+     * is another shopper's.
+     *
+     * @return list<array{id: int, code: string, created_at: string, expires_at: string, used: bool}>
+     */
+    public function ofAddress(string $email): array
+    {
+        $address = mb_strtolower(trim($email));
+        if ($address === '') {
+            return [];
+        }
+        $rows = \Db::getInstance()->executeS(sprintf(
+            'SELECT `payload` FROM `%s%s` WHERE `entity_id` = \'%s\' AND `event_type` IN (\'%s\')',
+            _DB_PREFIX_,
+            EventQueue::TABLE,
+            pSQL(ContactEntity::of($address)),
+            implode('\', \'', self::EVENT_TYPES)
+        ), true, false);
+        $codes = [];
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            $payload = json_decode((string) $row['payload'], true);
+            if (!is_array($payload) || !is_array($payload['fields'] ?? null) || mb_strtolower(trim((string) ($payload['email'] ?? ''))) !== $address) {
+                continue;
+            }
+            foreach (Trigger::COUPON_FIELDS as [$field]) {
+                if (is_string($payload['fields'][$field] ?? null) && $payload['fields'][$field] !== '') {
+                    $codes[] = $payload['fields'][$field];
+                }
+            }
+        }
+
+        return $codes === [] ? [] : $this->rows(sprintf('cr.`code` IN (\'%s\')', implode('\', \'', array_map('pSQL', array_unique($codes)))));
+    }
+
+    /**
+     * Removes the unused ones of the codes, by the ids that ofCustomer() and ofAddress() answer.
+     * An id that is not a code of this module is left alone.
+     *
+     * @param list<int> $ids
+     *
+     * @return array{removed: int, kept: int} `kept`: the used codes, which stay with their orders
+     */
+    public function removeUnused(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if ($ids === []) {
+            return ['removed' => 0, 'kept' => 0];
+        }
+        $in = 'cr.`id_cart_rule` IN (' . implode(', ', $ids) . ')';
+        $issued = count($this->ids($in));
+
+        $removed = $this->delete($this->ids($in . ' AND ' . self::unused()));
+
+        return ['removed' => $removed, 'kept' => $issued - $removed];
+    }
+
+    /**
+     * @return list<array{id: int, code: string, created_at: string, expires_at: string, used: bool}>
+     */
+    private function rows(string $condition): array
+    {
+        $rows = \Db::getInstance()->executeS(sprintf(
+            'SELECT cr.`id_cart_rule`, cr.`code`, cr.`date_add`, cr.`date_to`, (NOT %s) AS `used` FROM `%scart_rule` cr WHERE %s AND %s ORDER BY cr.`id_cart_rule`',
+            self::unused(),
+            _DB_PREFIX_,
+            CodeIssuer::issued('cr'),
+            $condition
+        ), true, false);
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int) $row['id_cart_rule'],
+            'code' => (string) $row['code'],
+            'created_at' => (string) $row['date_add'],
+            'expires_at' => (string) $row['date_to'],
+            'used' => (bool) $row['used'],
+        ], is_array($rows) ? $rows : []);
     }
 
     /**
