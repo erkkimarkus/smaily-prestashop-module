@@ -2476,18 +2476,18 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 ### 11.3 Retention
 
 **[D]** Magento's janitor periods: sent and skipped queue rows 30 days, failed rows 90 days, tracker
-rows in a terminal state 30 days, finished jobs 90 days. Engine-side retention follows contract §8;
+rows in a terminal state 30 days. Magento's janitor does not sweep its job table, and this module's
+does not either (owner, 2026-11-21; section 15). Engine-side retention follows contract §8;
 the user guide carries the privacy-policy template of `woo:docs/DATA_MODEL_GDPR.md`.
 
 As built: the job `queue_janitor` (`Scheduler\QueueJanitor`) runs daily. It deletes `sent` and
 `skipped` rows of the event queue 30 days and `failed` rows 90 days after their `updated_at`, in
 batches of 1000 by primary key (`EventQueue::deleteClosed()`), until none is left or its deadline
-passes. It never deletes a `pending` or `processing` row. It then deletes the finished jobs of the
-job table (`done`, `failed`, `cancelled`) 90 days after their `updated_at`, in the same batches
-(`JobStore::deleteFinished()`); it never deletes a `queued` or `running` job. The card of the first
-import (Settings > Contacts, the Initial setup) reads the newest import job, so it offers "Start
-import" again once that job is 90 days old; the daily refresh does not read it. Magento's janitor
-does not sweep its job table. Last, it removes the discount codes of the store automations that no
+passes. It never deletes a `pending` or `processing` row. It deletes no row of the job table: the
+card of the first import (Settings > Contacts, the Initial setup) reads the newest import job, and
+a swept job made the card forget that an import ever ran and offer "Start import" again. Every
+contact import and every daily refresh therefore leaves one row for the life of the store. Last, it
+removes the discount codes of the store automations that no
 order carries, once their end date is more than 30 days past (`Discount\IssuedCodes`, as the
 WooCommerce connector), 200 codes a batch, each through `CartRule::delete()`, until none is left
 or its deadline passes; a used code and every cart rule that the merchant made stay. The Story
@@ -3220,7 +3220,7 @@ has one owner:
 | 32 | A Smaily account saved while an upgrade is unfinished | The upgrade saves the legacy account again and `verify` insists on the legacy password, so such an account is replaced, or it stops the run at `verify` (section 3.7). One of the two should be the rule. | Owner |
 | 33 | Abandoned-cart tracker rows are never deleted | A cart's tracker row is the only sign that the cart was reminded, so the janitor leaves the table alone and its closed rows stay until uninstall (section 11.3). Magento deletes a closed row after 30 days and reminds a changed cart again. | Owner |
 | 34 | Two hooks without a listener | **Closed (owner, 2026-11-21):** `actionCartSave` and `actionObjectCustomerDeleteAfter` are no longer registered; `Install\HookList` holds 30 hooks (section 7). | — |
-| 35 | The first-import card after 90 days | The card reads the newest import job, and the janitor deletes a finished job after 90 days, so the card then offers "Start import" again (section 11.3). Keeping the newest import job of each shop would close it. | Owner |
+| 35 | The first-import card after 90 days | **Closed (owner, 2026-11-21):** the janitor does not delete import jobs, as Magento's does not, so the card keeps the last import (section 11.3). | — |
 | 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
 | 37 | A workflow number of another Smaily account | Known limit, accepted for now (owner, 2026-11-21). After a save that puts another Smaily account in a stored one's place (another account in the same mode, or mode `a`'s fallback account), an automation keeps the workflow number that was picked from the first account until the merchant picks a new one (section 5.1). Magento behaves the same. | Cross-connector analysis (Linear CON-397) |
 | 39 | Discount codes: three limits | A guest's code is tied to no account, so it can be passed on. Every email makes a new cart rule, where WooCommerce sends an unused code again. The remainder voucher of a guest's order from a merchant's own rule can still be picked as a template (section 7). | Owner |
@@ -3333,6 +3333,9 @@ Decisions of 2026-11-21:
   through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
   the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
   29).
+- Finished import jobs are not deleted, as on Magento (owner, 2026-11-21). The janitor's sweep of
+  the job table, one day old, is taken out again: the card of the first import reads the newest
+  import job (section 11.3).
 - The two hooks without a listener, `actionCartSave` and `actionObjectCustomerDeleteAfter`, are
   not registered (owner, 2026-11-21). They left `Install\HookList` and the main class; the
   deleted customer is handled at send time (section 7). The module registers 30 hooks.

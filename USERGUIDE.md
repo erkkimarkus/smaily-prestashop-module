@@ -157,7 +157,7 @@ After an upgrade from version 2.x, a store whose opt-in automation had no workfl
 4. **Details** shows the attempts, what happens next, the last error, the data that was sent and Smaily's answer. The contact's data is shown in full; passwords and API keys are never stored or shown.
 5. After you have fixed the cause of a failure, for example new API credentials, click **Send again** on the row, or tick the failed rows and click **Retry**. **Select all** retries every failed row that the filter lists. A row is left alone when sending it again would not be safe, for example when a later email of the same kind already reached the contact, and the answer says how many rows were skipped.
 
-Sent and skipped rows are kept for 30 days, failed rows and finished contact imports for 90 days.
+Sent and skipped rows are kept for 30 days, failed rows for 90 days. Contact imports stay in the list.
 
 ## RSS
 

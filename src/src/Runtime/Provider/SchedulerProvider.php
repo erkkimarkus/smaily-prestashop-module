@@ -30,7 +30,6 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
-use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -83,7 +82,6 @@ final class SchedulerProvider implements ProviderInterface
         ));
         $services->set(QueueJanitor::class, fn (Services $services): QueueJanitor => new QueueJanitor(
             $services->get(QueueProvider::EVENT_QUEUE),
-            new JobStore(),
             $services->get(IssuedCodes::class)
         ));
 

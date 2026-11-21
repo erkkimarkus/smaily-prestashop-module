@@ -54,9 +54,6 @@ final class JobStore
     /** The statuses of a job that the tick still runs. */
     public const ACTIVE = [self::STATUS_QUEUED, self::STATUS_RUNNING];
 
-    /** The statuses of a job that the tick no longer runs. */
-    public const FINISHED = [self::STATUS_DONE, self::STATUS_FAILED, self::STATUS_CANCELLED];
-
     /**
      * @return array<string, mixed>|null
      */
@@ -130,30 +127,6 @@ final class JobStore
             'UPDATE ' . self::table() . ' SET ' . implode(', ', $assignments) . ' WHERE `id` = ' . $id
             . ($fromStatuses === [] ? '' : ' AND `status` IN (' . self::quoteAll($fromStatuses) . ')')
         );
-    }
-
-    /**
-     * Deletes up to $limit finished jobs, oldest first, that last changed more than $ageSeconds ago.
-     *
-     * @return int the number of rows deleted
-     */
-    public function deleteFinished(int $ageSeconds, int $limit): int
-    {
-        $condition = '`status` IN (' . self::quoteAll(self::FINISHED) . ')'
-            . ' AND `updated_at` < ' . self::quote(gmdate('Y-m-d H:i:s', time() - $ageSeconds));
-        $rows = Sql::rows(
-            'SELECT `id` FROM ' . self::table() . ' WHERE ' . $condition . ' ORDER BY `id` LIMIT ' . $limit
-        );
-        if ($rows === []) {
-            return 0;
-        }
-
-        Sql::write(
-            'DELETE FROM ' . self::table() . ' WHERE `id` IN (' . implode(', ', array_map('intval', array_column($rows, 'id'))) . ')'
-            . ' AND ' . $condition
-        );
-
-        return Sql::affectedRows();
     }
 
     public static function now(): string

@@ -4,9 +4,11 @@ declare(strict_types=1);
 namespace Tests\Integration\Scheduler;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use Tests\Integration\IntegrationTestCase;
@@ -15,9 +17,8 @@ use Tests\Integration\Migration\LegacyStore;
 require_once __DIR__ . '/../Migration/LegacyStore.php';
 
 /**
- * The janitor deletes sent and skipped event queue rows after 30 days, failed ones after 90 days
- * and finished jobs after 90 days, and no other rows: no cart of the tracker, and none of 2.x's
- * `smaily_cart`.
+ * The janitor deletes sent and skipped event queue rows after 30 days and failed ones after 90
+ * days, and no other rows: no import job, no cart of the tracker, and none of 2.x's `smaily_cart`.
  */
 final class QueueJanitorTest extends IntegrationTestCase
 {
@@ -87,44 +88,24 @@ final class QueueJanitorTest extends IntegrationTestCase
         self::assertCount(3, $this->ids());
     }
 
-    public function testDeletesTheFinishedJobsPastRetentionAndNoOthers(): void
+    /**
+     * The job table is not swept, as on Magento: a finished import stays however old it is, and
+     * the card of the first import still shows it.
+     */
+    public function testKeepsEveryImportJobAndTheImportCardStillShowsTheLastImport(): void
     {
-        $kept = [
-            $this->job(JobStore::STATUS_DONE, 90 * self::DAY - 60),
-            $this->job(JobStore::STATUS_FAILED, 31 * self::DAY),
-            $this->job(JobStore::STATUS_CANCELLED, 89 * self::DAY),
-            $this->job(JobStore::STATUS_QUEUED, 400 * self::DAY),
-            $this->job(JobStore::STATUS_RUNNING, 400 * self::DAY),
+        $jobs = [
+            $this->job(JobStore::STATUS_FAILED, 400 * self::DAY),
+            $this->job(JobStore::STATUS_CANCELLED, 300 * self::DAY),
+            $this->job(JobStore::STATUS_DONE, 91 * self::DAY),
         ];
-        $this->job(JobStore::STATUS_DONE, 90 * self::DAY + 60);
-        $this->job(JobStore::STATUS_FAILED, 91 * self::DAY);
-        $this->job(JobStore::STATUS_CANCELLED, 400 * self::DAY);
 
-        self::assertSame(3, $this->janitor()->run($this->deadline(false)));
+        self::assertSame(0, $this->janitor()->run($this->deadline(false)));
 
-        self::assertSame($kept, $this->jobIds());
-    }
-
-    public function testDeletesTheFinishedJobsInBatchesUntilNoneIsLeft(): void
-    {
-        for ($i = 0; $i < 5; ++$i) {
-            $this->job(JobStore::STATUS_DONE, 100 * self::DAY);
-        }
-
-        self::assertSame(5, $this->janitor(2)->run($this->deadline(false)));
-        self::assertSame([], $this->jobIds());
-    }
-
-    public function testStopsTheJobsAfterABatchOnceItsDeadlinePassed(): void
-    {
-        for ($i = 0; $i < 5; ++$i) {
-            $this->job(JobStore::STATUS_DONE, 100 * self::DAY);
-        }
-        // The deadline passes once the first batch of jobs is gone.
-        $deadline = new Deadline(10.0, fn (): float => count($this->jobIds()) < 5 ? 10.0 : 0.0);
-
-        self::assertSame(2, $this->janitor(2)->run($deadline));
-        self::assertCount(3, $this->jobIds());
+        self::assertSame($jobs, $this->jobIds());
+        $card = Services::instance()->get(ContactImport::class)->progress(1);
+        self::assertNotNull($card);
+        self::assertSame([$jobs[2], JobStore::STATUS_DONE], [$card['id'], $card['status']]);
     }
 
     public function testLeavesTheCartTrackerAndTheLegacyCartTableAlone(): void
@@ -149,7 +130,7 @@ final class QueueJanitorTest extends IntegrationTestCase
 
     private function janitor(int $batch = QueueJanitor::BATCH_SIZE): QueueJanitor
     {
-        return new QueueJanitor($this->queue, new JobStore(), new IssuedCodes(), $batch);
+        return new QueueJanitor($this->queue, new IssuedCodes(), $batch);
     }
 
     private function deadline(bool $passed): Deadline
