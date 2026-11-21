@@ -1611,11 +1611,11 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   "Valid for (days)" (section 2.1), saved by the Automations panel (section 10.9).
 - **Which cart rule can be the template** (`Discount\TemplateRules`). A cart rule that the merchant
   made: not one that this module issued or that comes from such a code (the marker, below), not
-  limited to one customer (`id_customer`), not past its
-  end date (the shop's time), with uses left (below), and usable in the shop (no shop restriction,
-  or the shop among its shops). An enabled and a disabled rule alike. A rule limited to one customer is never a
-  template, because a code is a copy for another shopper, and because the vouchers that PrestaShop
-  makes itself are a customer's own: the voucher of a refund
+  limited to one customer (`id_customer`), not past its end date (the shop's time), with uses left
+  (below), and usable in the shop (no shop restriction, or the shop among its shops). An enabled
+  and a disabled rule alike. A rule limited to one customer is never a template, because a code is
+  a copy for another shopper, and because the vouchers that PrestaShop makes itself are a
+  customer's own: the voucher of a refund
   (`Adapter\Order\Refund\VoucherGenerator`), the discount and the free shipping that an employee
   gives an order or a back-office cart (`AddCartRuleToOrderHandler`, `AddProductToOrderHandler`,
   `UpdateCartDeliverySettingsHandler`), and the remainder of a voucher that was spent in part
@@ -1633,9 +1633,9 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   condition are the template's. The copy differs in this: a random code of 10 upper-case letters
   and digits without 0, O, 1 and I, checked unique; the name "Smaily Connect – <the template's
   name>" in every language; the description `smaily-connect-issued: code=<the code>
-  template=<id> trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so an untied code
-  is never advertised in a cart; `active` 1; `id_customer` (below). On PrestaShop 9 the copy's
-  `total_quantity` is 1.
+  template=<id> trigger=<automation>`; `quantity` 1 and `quantity_per_user` 1; `highlight` 0, so
+  an untied code is never advertised in a cart; `active` 1; `id_customer` (below). On PrestaShop 9
+  the copy's `total_quantity` is 1.
 - **PrestaShop 9.2's discount types.** 9.2.0 gives a cart rule a type (`cart_rule.id_cart_rule_type`,
   one of the five rows of `cart_rule_type`) and the types it combines with
   (`cart_rule_compatible_types`); the new Discounts form writes both. They decide only while the
