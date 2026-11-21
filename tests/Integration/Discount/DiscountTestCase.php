@@ -78,6 +78,62 @@ abstract class DiscountTestCase extends AbandonedCartTestCase
     }
 
     /**
+     * A merchant's voucher of 5000 in the shop's currency that can be spent in part, enabled, with
+     * the code; $columns replace what the rule holds.
+     *
+     * @param array<string, mixed> $columns
+     */
+    protected function credit(string $code, array $columns = []): int
+    {
+        return $this->template($columns + [
+            'code' => $code,
+            'active' => true,
+            'reduction_percent' => 0,
+            'reduction_amount' => 5000,
+            'reduction_tax' => true,
+            'reduction_currency' => (int) \Configuration::get('PS_CURRENCY_DEFAULT'),
+            'partial_use' => true,
+        ]);
+    }
+
+    /**
+     * Spends a part of the voucher in an order of the customer, through PrestaShop's own order
+     * code, and answers the order and the remainder voucher that PrestaShop made of it.
+     *
+     * @return array{order: int, remainder: int}
+     */
+    protected function spendPartOf(int $idRule, int $idCustomer): array
+    {
+        $before = (int) self::db()->getValue('SELECT MAX(`id_cart_rule`) FROM `' . _DB_PREFIX_ . 'cart_rule`');
+        $idCart = $this->fixture->cart($idCustomer, 1);
+        self::assertTrue((new \Cart($idCart))->addCartRule($idRule));
+        \CartRule::cleanCache();
+        \Cache::clean('*');
+        $idOrder = $this->fixture->order($idCart);
+        $remainder = (int) self::db()->getValue('SELECT `id_cart_rule` FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` > ' . $before . ' ORDER BY `id_cart_rule`');
+        self::assertGreaterThan(0, $remainder, 'PrestaShop made a remainder voucher');
+        $this->rules[] = $remainder;
+
+        return ['order' => $idOrder, 'remainder' => $remainder];
+    }
+
+    /**
+     * The voucher that PrestaShop makes for a refund of the order ("Generate a voucher").
+     */
+    protected function refundVoucher(int $idOrder): int
+    {
+        $before = (int) self::db()->getValue('SELECT MAX(`id_cart_rule`) FROM `' . _DB_PREFIX_ . 'cart_rule`');
+        $context = \Context::getContext();
+        (new \PrestaShop\PrestaShop\Adapter\Order\Refund\VoucherGenerator(\Tools::getContextLocale($context), $context->getTranslator()))
+            ->generateVoucher(new \Order($idOrder), 12.5, (new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code, true);
+        $voucher = (int) self::db()->getValue('SELECT `id_cart_rule` FROM `' . _DB_PREFIX_ . 'cart_rule` WHERE `id_cart_rule` > ' . $before . ' ORDER BY `id_cart_rule`');
+        self::assertGreaterThan(0, $voucher, 'PrestaShop made a refund voucher');
+        $this->rules[] = $voucher;
+
+        return $voucher;
+    }
+
+    /**
      * Switches an automation's discount code on, from the rule, for the days.
      */
     protected function discount(string $trigger, int $idRule, int $days = 7, int $idShop = 0): void

@@ -1588,9 +1588,18 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
 - **Settings.** Per automation and per shop: the switch "Send a discount code", the cart rule and
   "Valid for (days)" (section 2.1), saved by the Automations panel (section 10.9).
 - **Which cart rule can be the template** (`Discount\TemplateRules`). A cart rule that the merchant
-  made: not one that this module issued, not past its end date (the shop's time), and usable in
-  the shop (no shop restriction, or the shop among its shops). An enabled and a disabled rule
-  alike. **PrestaShop differs from the siblings here:** an enabled cart rule without a code applies
+  made: not one that this module issued, not limited to one customer (`id_customer`), not past its
+  end date (the shop's time), and usable in the shop (no shop restriction, or the shop among its
+  shops). An enabled and a disabled rule alike. A rule limited to one customer is never a
+  template, because a code is a copy for another shopper, and because the vouchers that PrestaShop
+  makes itself are a customer's own: the voucher of a refund
+  (`Adapter\Order\Refund\VoucherGenerator`), the discount and the free shipping that an employee
+  gives an order or a back-office cart (`AddCartRuleToOrderHandler`, `AddProductToOrderHandler`,
+  `UpdateCartDeliverySettingsHandler`), and the remainder of a voucher that was spent in part
+  (`PaymentModule::validateOrder()`). Each carries the `id_customer` of its order or cart, with one
+  exception: the remainder voucher of a guest's order has `id_customer` 0 and nothing else that
+  tells it from a rule of the merchant, so the picker lists it, under the name of the rule it
+  remains of. **PrestaShop differs from the siblings here:** an enabled cart rule without a code applies
   to every cart by itself, and anyone who knows the code of an enabled rule can use it. So the
   merchant keeps the template disabled, or gives it a code that is not shared (and not
   highlighted); the panel says so. A code is always issued enabled.
@@ -1634,8 +1643,8 @@ rule in Catalog > Discounts; the module issues one code from it for each email.
   `first_order_coupon_code` and `first_order_coupon_expires_at`, `abandoned_cart_coupon_code` and
   `abandoned_cart_coupon_expires_at` (`Automation\Trigger::COUPON_FIELDS`). No amount is sent.
   With the switch off the payload is what it was before.
-- **No code.** A template that is deleted, past its end date or not usable in the row's shop does
-  not hold the email back: it goes without a code, and the row's payload keeps
+- **No code.** A template that is deleted, limited to one customer, past its end date or not usable
+  in the row's shop does not hold the email back: it goes without a code, and the row's payload keeps
   `"discount_notice": {"reason": "rule_unavailable", "rule": <id>}`, which the Log's Details show
   as a sentence (section 10.8). A row stored that way makes no code on a retry either; the next
   event does, once the template is fixed. An error while the code is made (PrestaShop refuses the
@@ -2056,8 +2065,8 @@ import job shows its summary, its progress line and its last error.
 
 A row whose email went without its discount code (section 7) says so in one sentence above the
 attempts: "Without a discount code: cart price rule N gave no code for this shop (it was deleted,
-is past its end date, or is not for this shop). The email goes without one." The row itself reads
-as sent; the list shows nothing more.
+is past its end date, is limited to one customer, or is not for this shop). The email goes without
+one." The row itself reads as sent; the list shows nothing more.
 
 **[D]** (owner, 2026-11-20) Details show the request and the answer in full to the admin, the
 contact's data included, without secrets, as Magento does: the Log is an admin's debugging tool

@@ -47,6 +47,31 @@ final class CodeIssuerTest extends DiscountTestCase
         self::assertNull($this->issuer()->issue($issued, 7, $this->idShop, 0, Trigger::WELCOME), 'a code is never a template');
     }
 
+    public function testARuleLimitedToOneCustomerIsNoTemplate(): void
+    {
+        $customer = $this->fixture->customer('shopper1@example.test');
+        $credit = $this->credit('STORECREDIT');
+        $spent = $this->spendPartOf($credit, $customer);
+        $refund = $this->refundVoucher($spent['order']);
+        $limited = $this->template(['id_customer' => $customer]);
+        foreach ([$spent['remainder'], $refund] as $id) {
+            $voucher = new \CartRule($id);
+            self::assertSame([$customer, 1], [(int) $voucher->id_customer, (int) $voucher->active], 'PrestaShop made the voucher for the customer, enabled');
+        }
+        self::assertSame('STORECREDIT-2', (new \CartRule($spent['remainder']))->code);
+        $templates = new TemplateRules();
+
+        $ids = array_column($templates->listFor([$this->idShop], (int) \Configuration::get('PS_LANG_DEFAULT')), 'id');
+
+        self::assertContains($credit, $ids);
+        self::assertSame([], array_intersect([$spent['remainder'], $refund, $limited], $ids), 'a customer\'s own voucher is not offered');
+        foreach ([$spent['remainder'], $refund, $limited] as $id) {
+            self::assertNull($templates->usable($id, $this->idShop));
+            self::assertNull($this->issuer()->issue($id, 7, $this->idShop, 0, Trigger::WELCOME), 'no shopper gets a copy of a customer\'s voucher');
+        }
+        self::assertSame([], self::issuedIds());
+    }
+
     public function testACodeIsACopyOfTheTemplateThatWorksOnceUntilItsLastDay(): void
     {
         $template = $this->template(['minimum_amount' => 5, 'group_restriction' => true, 'product_restriction' => true]);

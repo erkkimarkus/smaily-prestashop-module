@@ -1157,11 +1157,6 @@
         <target>Sooduskoodi kehtivus peab olema täisarv päevi vahemikus %min% kuni %max%.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="96f5e632659c6a7fcfd7296827cca1b0">
-        <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, or is not for this shop). The email goes without one.</source>
-        <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="ea5532fc1cbc64cab09c25f0729963da">
         <source>Skipped: the store reached its limit of 2000 checkout addresses in one hour. An address typed at checkout after that was not recorded, and gets no abandoned-cart reminder.</source>
         <target>Vahele jäetud: pood jõudis piirmäärani, milleks on 2000 kassas sisestatud aadressi ühe tunni jooksul. Pärast seda kassas sisestatud aadressi ei salvestatud ja sellele ostukorvi meeldetuletust ei saadeta.</target>
@@ -2565,6 +2560,11 @@
       <trans-unit id="3a2209483df1270dc3e014fd72537761">
         <source>the previous version stopped with an error on its field list, so it sent nothing.</source>
         <target>eelmine versioon peatus väljade loendi vea tõttu ega saatnud midagi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c8b41a6bb6eef456bc5654e1253664c5">
+        <source>Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, is limited to one customer, or is not for this shop). The email goes without one.</source>
+        <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas, see on piiratud ühe kliendiga või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

@@ -155,7 +155,7 @@ final class AutomationDiscountTest extends DiscountTestCase
      */
     public function unusableTemplates(): array
     {
-        return ['deleted' => ['deleted'], 'past its end date' => ['ended'], 'of another shop' => ['other shop']];
+        return ['deleted' => ['deleted'], 'past its end date' => ['ended'], 'of another shop' => ['other shop'], 'limited to one customer' => ['one customer']];
     }
 
     /**
@@ -169,6 +169,9 @@ final class AutomationDiscountTest extends DiscountTestCase
             (new \CartRule($template))->delete();
         } elseif ($state === 'ended') {
             self::db()->update('cart_rule', ['date_to' => date('Y-m-d H:i:s', time() - 60)], '`id_cart_rule` = ' . $template);
+        } elseif ($state === 'one customer') {
+            // As an earlier build could save it: the picker no longer offers such a rule.
+            self::db()->update('cart_rule', ['id_customer' => $this->fixture->customer('shopper9@example.test')], '`id_cart_rule` = ' . $template);
         } else {
             self::db()->update('cart_rule', ['shop_restriction' => 1], '`id_cart_rule` = ' . $template);
             self::db()->insert('cart_rule_shop', ['id_cart_rule' => $template, 'id_shop' => $this->idShop + 100]);

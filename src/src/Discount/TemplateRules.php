@@ -33,6 +33,10 @@ if (!defined('_PS_VERSION_')) {
  * The merchant's cart rules that an automation's discount codes can be copies of (the templates;
  * the Magento connector's Discount\RuleSource and the WooCommerce connector's template coupon):
  *  - a cart rule that the merchant made, never one this module issued (CodeIssuer::MARKER);
+ *  - not limited to one customer (`id_customer`): a code is a copy for another shopper, and the
+ *    vouchers that PrestaShop makes itself are a customer's own (the voucher of a refund, the
+ *    remainder of a voucher that was spent in part, a discount or free shipping that an employee
+ *    gives an order);
  *  - not past its end date, in the shop's time;
  *  - usable in the shop: without a shop restriction, or with the shop among its shops.
  *
@@ -71,7 +75,7 @@ final class TemplateRules
         $rows = \Db::getInstance()->executeS(sprintf(
             'SELECT cr.`id_cart_rule`, cr.`code`, crl.`name` FROM `%1$scart_rule` cr'
             . ' LEFT JOIN `%1$scart_rule_lang` crl ON crl.`id_cart_rule` = cr.`id_cart_rule` AND crl.`id_lang` = %2$d'
-            . ' WHERE %3$s AND (cr.`date_to` IS NULL OR cr.`date_to` = \'0000-00-00 00:00:00\' OR cr.`date_to` >= \'%4$s\')'
+            . ' WHERE %3$s AND cr.`id_customer` = 0 AND (cr.`date_to` IS NULL OR cr.`date_to` = \'0000-00-00 00:00:00\' OR cr.`date_to` >= \'%4$s\')'
             . ' AND (cr.`shop_restriction` = 0 OR (SELECT COUNT(*) FROM `%1$scart_rule_shop` crs'
             . ' WHERE crs.`id_cart_rule` = cr.`id_cart_rule` AND crs.`id_shop` IN (%5$s)) = %6$d)'
             . ' ORDER BY crl.`name`, cr.`id_cart_rule` LIMIT %7$d',
@@ -95,13 +99,13 @@ final class TemplateRules
 
     /**
      * The rule, with its names in every language, when a code can be a copy of it for the shop
-     * now; null when it is gone, was issued by this module, is past its end date or is not usable
-     * in the shop.
+     * now; null when it is gone, was issued by this module, is limited to one customer, is past
+     * its end date or is not usable in the shop.
      */
     public function usable(int $idRule, int $idShop): ?\CartRule
     {
         $rule = new \CartRule($idRule);
-        if (!\Validate::isLoadedObject($rule) || CodeIssuer::isIssued($rule)) {
+        if (!\Validate::isLoadedObject($rule) || CodeIssuer::isIssued($rule) || (int) $rule->id_customer > 0) {
             return null;
         }
         $end = self::end($rule);
