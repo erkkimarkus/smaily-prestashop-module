@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -50,6 +51,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * | Event queue rows of the      | type, status, time; never | a row that can still be sent is      |
  * | address or its keyed hash    | the message               | deleted; a closed row loses its      |
  * |                              |                           | payload, request, answer and entity  |
+ * | Campaign Intelligence queue  | type, status, time; never | as the event queue's rows: a waiting |
+ * | rows of the accounts and of  | what was sent             | row is deleted; a closed row loses   |
+ * | their orders                 |                           | what was sent, the answer and entity |
  * | Cart tracker rows            | cart, status, times       | marked `erased`, without address,    |
  * |                              |                           | customer and queue row               |
  * | Order attribution            | the row                   | loses the visitor token; the row and |
@@ -76,12 +80,15 @@ class LocalData
 
     private ProfilingRecord $record;
 
-    public function __construct(EventQueue $queue, CartTracker $tracker, IssuedCodes $codes, ProfilingRecord $record)
+    private IngestQueue $ingest;
+
+    public function __construct(EventQueue $queue, CartTracker $tracker, IssuedCodes $codes, ProfilingRecord $record, IngestQueue $ingest)
     {
         $this->queue = $queue;
         $this->tracker = $tracker;
         $this->codes = $codes;
         $this->record = $record;
+        $this->ingest = $ingest;
     }
 
     /**
@@ -95,7 +102,8 @@ class LocalData
      *     attribution: list<array{order: int, recommendation: string, context: string, visitor_token: string, created_at: string}>,
      *     codes: list<array{code: string, created_at: string, expires_at: string, used: bool}>,
      *     preference: array{opted_out: bool, changed_at: string, source: string}|null
-     * } queue times in UTC, the others in the shop's time
+     * } queue times in UTC, the others in the shop's time; a Campaign Intelligence queue row is in
+     *   `queue` with the type `engine.<domain>`
      */
     public function export(string $email, int $idCustomer = 0): array
     {
@@ -106,11 +114,18 @@ class LocalData
         $customers = $this->customers($address, $idCustomer);
 
         return [
-            'queue' => array_map(static fn (array $row): array => [
-                'type' => (string) $row['event_type'],
-                'status' => (string) $row['status'],
-                'created_at' => (string) $row['created_at'],
-            ], $this->queueRows($email)),
+            'queue' => array_merge(
+                array_map(static fn (array $row): array => [
+                    'type' => (string) $row['event_type'],
+                    'status' => (string) $row['status'],
+                    'created_at' => (string) $row['created_at'],
+                ], $this->queueRows($email)),
+                array_map(static fn (array $row): array => [
+                    'type' => 'engine.' . $row['domain'],
+                    'status' => (string) $row['status'],
+                    'created_at' => (string) $row['created_at'],
+                ], $this->ingest->ofShopper($customers, $this->orders($customers)))
+            ),
             'carts' => array_map(static fn (array $row): array => [
                 'cart' => (int) $row['id_cart'],
                 'status' => (string) $row['status'],
@@ -139,7 +154,8 @@ class LocalData
      *
      * @param int $idCustomer the customer account of the request, 0 when it names an address only
      *
-     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int}
+     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int} the
+     *                                                                                                                          queue counts are of both queues
      */
     public function erase(string $email, int $idCustomer = 0): array
     {
@@ -153,6 +169,10 @@ class LocalData
         $codes = $this->codes->removeUnused(array_map(static fn (array $code): int => $code['id'], $this->codes($address, $customers)));
         $queue = $this->queue->erase(
             array_map(static fn (array $row): int => (int) $row['id'], $this->queueRows($email)),
+            ResendGuard::ERASED_ENTITY
+        );
+        $ingest = $this->ingest->erase(
+            array_map(static fn (array $row): int => (int) $row['id'], $this->ingest->ofShopper($customers, $this->orders($customers))),
             ResendGuard::ERASED_ENTITY
         );
         $carts = $this->tracker->erase($address, $customers);
@@ -171,8 +191,8 @@ class LocalData
         }
 
         return [
-            'queue_removed' => $queue['removed'],
-            'queue_cleared' => $queue['cleared'],
+            'queue_removed' => $queue['removed'] + $ingest['removed'],
+            'queue_cleared' => $queue['cleared'] + $ingest['cleared'],
             'carts' => $carts,
             'attribution' => count($orders),
             'codes_removed' => $codes['removed'],
@@ -214,6 +234,23 @@ class LocalData
             $this->queue->ofEntities([$address, $key]),
             static fn (array $row): bool => in_array(self::address((string) $row['entity_id']), [$address, $key], true)
         ));
+    }
+
+    /**
+     * The orders of the customer accounts, in every shop.
+     *
+     * @param list<int> $customers
+     *
+     * @return list<int>
+     */
+    private function orders(array $customers): array
+    {
+        if ($customers === []) {
+            return [];
+        }
+        $rows = Sql::rows(sprintf('SELECT `id_order` FROM `%sorders` WHERE `id_customer` IN (%s)', _DB_PREFIX_, implode(', ', $customers)));
+
+        return array_map(static fn (array $row): int => (int) $row['id_order'], $rows);
     }
 
     /**

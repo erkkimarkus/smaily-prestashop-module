@@ -10,6 +10,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\VisitorToken;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IdentityMergeHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\LocalData;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use Tests\Integration\Contacts\ContactRows;
@@ -94,6 +99,9 @@ final class CustomerIngestTest extends IngestTestCase
                 self::db()->delete('address', '`id_address` IN (' . implode(',', $this->addresses) . ')');
             }
             $this->removeContactRows();
+            // The personalization choices of the tests' shoppers, and their rows for the engine.
+            self::db()->delete(ProfilingRecord::TABLE);
+            self::db()->delete(EventQueue::TABLE, '`event_type` = \'' . ProfilingConsent::EVENT_TYPE . '\'');
             foreach (self::KEYS as $key) {
                 \Configuration::deleteByName($key);
             }
@@ -449,6 +457,155 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame([EventQueue::STATUS_PENDING, '0', null], [$row['status'], $row['attempts'], $row['last_error']]);
         self::assertNotSame('', $this->connections()->find(0)->refusedAt());
         self::assertCount($requests, $this->engine->requests(), 'once the refusal is known, nothing more is sent');
+    }
+
+    public function testAPrivacyRequestFindsTheShoppersEngineRowsAndTheErasureClearsThem(): void
+    {
+        $connection = $this->connect();
+        $this->storefront();
+        $this->token = self::STORE_TOKEN;
+        $shopper = $this->customer('Shopper30@Example.test', true);
+        $this->address((int) $shopper->id, '+372 5550 0130');
+        $order = $this->order((int) $shopper->id, date('Y-m-d H:i:s'));
+        $other = $this->customer('shopper31@example.test', true);
+        // What was sent: the shopper and the merge of a sign-in, and another shopper.
+        $this->fire('actionAuthentication', ['customer' => $shopper]);
+        $this->fire('actionAuthentication', ['customer' => $other]);
+        $this->services->get(QueueProvider::FLUSHER)->flush();
+        // An order that was sent, as the Log keeps it; and what still waits.
+        $queue = $this->services->get(IngestQueue::class);
+        $sentOrder = $queue->record($connection->id(), IngestQueue::DOMAIN_ORDERS, (string) $order->id, ['customer_email' => 'shopper30@example.test'], ['http_status' => 200, 'body' => ['ok' => true]], null);
+        $waiting = [
+            $queue->enqueue($connection->id(), IngestQueue::DOMAIN_CUSTOMERS, (string) $shopper->id),
+            $queue->enqueue($connection->id(), IngestQueue::DOMAIN_ORDERS, (string) $order->id),
+        ];
+        // A product whose id is the shopper's customer id: a product row holds nothing of a shopper.
+        $product = $queue->enqueue($connection->id(), IngestQueue::DOMAIN_CATALOG, (string) $shopper->id);
+        self::db()->update(IngestQueue::TABLE, ['updated_at' => '2026-11-01 10:00:00'], '`id` = ' . $sentOrder);
+        $before = self::rows();
+        self::assertStringContainsString('shopper30@example.test', (string) $before[0]['last_request'], 'the Log\'s copy of what was sent names the shopper');
+        $local = $this->services->get(LocalData::class);
+
+        $export = $local->export(' Shopper30@Example.test ');
+
+        self::assertSame(
+            [
+                ['engine.identity_merge', 'sent'],
+                ['engine.customers', 'sent'],
+                ['engine.orders', 'sent'],
+                ['engine.customers', 'pending'],
+                ['engine.orders', 'pending'],
+            ],
+            array_map(static fn (array $row): array => [$row['type'], $row['status']], $export['queue']),
+            'the rows of both queues, never what was sent, and nothing of the other shopper or of a product'
+        );
+
+        $erased = $local->erase('shopper30@example.test');
+
+        self::assertSame([2, 3], [$erased['queue_removed'], $erased['queue_cleared']]);
+        $rows = array_column(self::rows(), null, 'id');
+        self::assertSame([], array_intersect_key($rows, array_flip($waiting)), 'nothing more goes out for the shopper');
+        foreach ([$before[0]['id'], $sentOrder] as $id) {
+            self::assertSame(
+                [EventQueue::STATUS_SENT, ResendGuard::ERASED_ENTITY, null, null, null],
+                [$rows[$id]['status'], $rows[$id]['entity_key'], $rows[$id]['payload'], $rows[$id]['last_request'], $rows[$id]['last_response']],
+                'a sent row stays as the record of a send, without the shopper'
+            );
+        }
+        self::assertSame('2026-11-01 10:00:00', $rows[$sentOrder]['updated_at'], 'and leaves with the retention as before');
+        self::assertSame([$before[1], IngestQueue::DOMAIN_CATALOG], [$rows[$before[1]['id']], $rows[$product]['domain']], 'the other shopper\'s row and the product\'s row are untouched');
+        self::assertSame([(string) $shopper->id, EventQueue::STATUS_PENDING], [$rows[$product]['entity_key'], $rows[$product]['status']]);
+        $merges = self::mergeRows();
+        self::assertSame([ResendGuard::ERASED_ENTITY, 'shopper31@example.test'], array_column($merges, 'entity_id'));
+        self::assertSame(['[]', null, null], [$merges[0]['payload'], $merges[0]['last_request'], $merges[0]['last_response']]);
+        $kept = (string) json_encode([array_diff_key($rows, [$before[1]['id'] => 1]), $merges[0]]);
+        self::assertStringNotContainsString('shopper30', $kept, 'neither queue holds the address');
+        self::assertStringNotContainsString('5550', $kept);
+        self::assertSame(
+            [(int) $before[0]['id'] => ResendGuard::REASON_ERASED],
+            (new ResendGuard())->ingestRefusals([(int) $before[0]['id'] => $rows[$before[0]['id']]]),
+            'the Log refuses to send an erased row again'
+        );
+        self::assertSame(['queue_removed' => 0, 'queue_cleared' => 0], array_intersect_key($local->erase('shopper30@example.test'), ['queue_removed' => 1, 'queue_cleared' => 1]), 'a second erasure finds nothing');
+    }
+
+    public function testASignInOfAShopperWhoOptedOutOfPersonalizationSendsNothing(): void
+    {
+        $this->connect();
+        $this->storefront();
+        $this->token = self::ENGINE_TOKEN;
+        $customer = $this->customer('shopper32@example.test', true);
+        $this->fire('actionAuthentication', ['customer' => $customer]);
+        $this->optOut('Shopper32@Example.test');
+        $requests = count($this->engine->requests());
+
+        $this->services->get(QueueProvider::FLUSHER)->flush();
+
+        $row = self::mergeRows()[0];
+        self::assertSame([EventQueue::STATUS_SKIPPED, IdentityMergeHandler::SKIPPED_OPTED_OUT], [$row['status'], $row['last_error']]);
+        self::assertCount($requests, $this->engine->requests(), 'neither the customer nor the merge is sent');
+        self::assertSame([], self::rows());
+    }
+
+    public function testACustomerTheEngineTookHasTheStoredOptOutSentAgainOnce(): void
+    {
+        $connection = $this->connect();
+        $this->contactSync(ContactSyncMode::SUBSCRIBERS);
+        $optedOut = $this->customer('Shopper33@Example.test', true);
+        $allowed = $this->customer('shopper34@example.test', true);
+        $at = $this->optOut('shopper33@example.test');
+        $queue = $this->services->get(IngestQueue::class);
+        foreach ([$optedOut, $allowed, $optedOut] as $customer) {
+            $queue->enqueue($connection->id(), IngestQueue::DOMAIN_CUSTOMERS, (string) $customer->id);
+        }
+
+        $this->flush();
+        $queue->enqueue($connection->id(), IngestQueue::DOMAIN_CUSTOMERS, (string) $optedOut->id);
+        $this->flush();
+
+        self::assertSame([EventQueue::STATUS_SENT], array_values(array_unique(array_column(self::rows(), 'status'))));
+        $choices = $this->choiceRows();
+        self::assertCount(1, $choices, 'one row for the shopper who opted out, however many rows the engine took; none while one waits');
+        self::assertSame(
+            [ContactEntity::key('shopper33@example.test'), $this->shop, EventQueue::STATUS_PENDING],
+            [$choices[0]['entity_id'], (int) $choices[0]['id_shop'], $choices[0]['status']]
+        );
+        self::assertSame(
+            ['connection' => $connection->id(), 'email' => 'shopper33@example.test', 'opt_out' => true, 'opted_out_at' => $at],
+            json_decode((string) $choices[0]['payload'], true),
+            'the stored choice with its moment, for the connection that took the customer'
+        );
+
+        $this->services->get(QueueProvider::FLUSHER)->flush();
+
+        self::assertSame(EventQueue::STATUS_SENT, $this->choiceRows()[0]['status']);
+        $sent = array_values(array_filter($this->engine->requests(), static fn (array $request): bool => substr($request['path'], -8) === '/opt-out'));
+        self::assertCount(1, $sent);
+        self::assertSame([true, $at], [$sent[0]['body']['opt_out'], $sent[0]['body']['opted_out_at']]);
+    }
+
+    /**
+     * Records the shopper's own opt-out of personalization, as the account page does.
+     *
+     * @return string the moment of the choice, as the engine gets it
+     */
+    private function optOut(string $email): string
+    {
+        return $this->services->get(ProfilingRecord::class)->write($email, true, ProfilingRecord::SOURCE_ACCOUNT);
+    }
+
+    /**
+     * The rows of the event queue that hold a choice about personalization, oldest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function choiceRows(): array
+    {
+        return self::db()->executeS(
+            'SELECT * FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '` WHERE `event_type` = \'' . ProfilingConsent::EVENT_TYPE . '\' ORDER BY `id`',
+            true,
+            false
+        ) ?: [];
     }
 
     private function contactSync(string $mode, bool $guests = false): void

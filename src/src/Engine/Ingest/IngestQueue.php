@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Log\PayloadRedactor;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\EngineFailure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\RetryPolicy;
@@ -85,8 +86,8 @@ final class IngestQueue
     /** The domains whose rows wait for a flush, in the order a flush sends them. */
     public const QUEUED = [self::DOMAIN_CATALOG, self::DOMAIN_CATALOG_REMOVE, self::DOMAIN_CUSTOMERS, self::DOMAIN_ORDERS];
 
-    /** The reason of a row whose connection is no longer stored. */
-    public const SKIPPED_NO_CONNECTION = 'engine_no_connection';
+    /** The reason of a row whose connection is no longer stored: the one of every engine row. */
+    public const SKIPPED_NO_CONNECTION = EngineFailure::SKIPPED_NO_CONNECTION;
 
     private const ERROR_LENGTH = 255;
 
@@ -420,6 +421,73 @@ final class IngestQueue
         Sql::write(sprintf('DELETE FROM %s WHERE `id` IN (%s) AND %s', self::table(), implode(', ', $ids), $closed));
 
         return Sql::affectedRows();
+    }
+
+    /**
+     * The rows of a shopper, oldest first, for a privacy request (Privacy\LocalData): the customer
+     * rows of the customer accounts $customers and the order rows of the orders $orders, of every
+     * connection. A product's rows hold nothing of a shopper.
+     *
+     * @param list<int> $customers
+     * @param list<int> $orders
+     *
+     * @return list<array<string, string|null>> with `id`, `domain`, `status` and `created_at`
+     */
+    public function ofShopper(array $customers, array $orders): array
+    {
+        $conditions = [];
+        foreach ([self::DOMAIN_CUSTOMERS => $customers, self::DOMAIN_ORDERS => $orders] as $domain => $ids) {
+            if ($ids !== []) {
+                $keys = array_map(static fn (int $id): string => self::quote((string) $id), $ids);
+                $conditions[] = sprintf('(`domain` = %s AND `entity_key` IN (%s))', self::quote($domain), implode(', ', $keys));
+            }
+        }
+        if ($conditions === []) {
+            return [];
+        }
+
+        return Sql::rows(sprintf(
+            'SELECT `id`, `domain`, `status`, `created_at` FROM %s WHERE %s ORDER BY `id`',
+            self::table(),
+            implode(' OR ', $conditions)
+        ));
+    }
+
+    /**
+     * Erases a shopper from the rows $ids, as the event queue does (Queue\EventQueue::erase()). A
+     * row that can still be sent is deleted: nothing more goes out for the shopper. A closed row
+     * stays, as the store's record that something was sent, and loses what names the shopper: what
+     * was sent, what came back, and its entity, which becomes $entity. `updated_at` is not written,
+     * so the row leaves with the queue's retention as before.
+     *
+     * @param list<int> $ids
+     * @param string $entity the entity of an erased row (Log\ResendGuard::ERASED_ENTITY)
+     *
+     * @return array{removed: int, cleared: int}
+     */
+    public function erase(array $ids, string $entity): array
+    {
+        if ($ids === []) {
+            return ['removed' => 0, 'cleared' => 0];
+        }
+        $in = implode(', ', array_map('intval', $ids));
+        Sql::write(sprintf(
+            'DELETE FROM %s WHERE `id` IN (%s) AND `status` IN (%s, %s)',
+            self::table(),
+            $in,
+            self::quote(EventQueue::STATUS_PENDING),
+            self::quote(EventQueue::STATUS_PROCESSING)
+        ));
+        $removed = Sql::affectedRows();
+        // Every row that is left, also one that a flush closed since it was read.
+        Sql::write(sprintf(
+            'UPDATE %s FORCE INDEX (PRIMARY) SET `payload` = NULL, `last_request` = NULL, `last_response` = NULL, `entity_key` = %s WHERE `id` IN (%s)',
+            self::table(),
+            self::quote($entity),
+            $in
+        ));
+
+        return ['removed' => $removed, 'cleared' => count($ids) - $removed];
     }
 
     /**

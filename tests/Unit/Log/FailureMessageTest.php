@@ -47,8 +47,8 @@ final class FailureMessageTest extends TestCase
             'contact_sync_off', 'not_in_audience', 'no_account', 'no_credentials', 'automation_off', 'unknown_trigger',
             'too_old', 'already_reminded', 'not_tracked', 'payload_failed', 'malformed_payload',
             'preference_replaced', 'no_connection',
-            'engine_no_connection', 'engine_product_gone', 'engine_product_exists', 'engine_customer_gone', 'engine_customer_not_in_scope',
-            'engine_order_gone', 'engine_item_refused', 'engine_manifest_too_many', 'engine_nothing_to_merge', 'engine_customer_not_sent',
+            'engine_product_gone', 'engine_product_exists', 'engine_customer_gone', 'engine_customer_not_in_scope',
+            'engine_order_gone', 'engine_item_refused', 'engine_manifest_too_many', 'engine_opted_out', 'engine_nothing_to_merge', 'engine_customer_not_sent',
             'engine_customer_refused', 'engine_customer_not_found',
         ];
 

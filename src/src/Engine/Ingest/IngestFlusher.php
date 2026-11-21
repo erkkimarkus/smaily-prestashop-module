@@ -40,6 +40,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CatalogPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CustomerPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\OrderPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 
@@ -69,6 +70,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
  *
  * Each row keeps what was sent for it and the engine's answer for it, without the engine's
  * `message`, which can name a shopper. One row that cannot be built fails alone.
+ *
+ * A customer or an order that the engine took has its shopper's stored opt-out of personalization
+ * sent again (ProfilingConsent::resendOptOuts(), as the Magento connector's OptOutReplay): the
+ * engine keeps an opt-out only for a shopper it holds, and these rows carry no consent.
  */
 final class IngestFlusher
 {
@@ -99,6 +104,9 @@ final class IngestFlusher
 
     public const FAILED_ITEM_REFUSED = 'engine_item_refused';
 
+    /** The field that names the shopper in an item of the domains whose rows are a shopper's. */
+    private const SHOPPER = [IngestQueue::DOMAIN_CUSTOMERS => 'email', IngestQueue::DOMAIN_ORDERS => 'customer_email'];
+
     /** The payload key of the combinations that a catalog change removed. */
     public const REMOVED = 'removed';
 
@@ -118,13 +126,15 @@ final class IngestFlusher
 
     private CustomerScope $scope;
 
+    private ProfilingConsent $profiling;
+
     /** @var array<int, true> the connections that send nothing more in this run, by id */
     private array $stopped = [];
 
     /** @var array<string, true> "<connection id>:<domain>" that send nothing more in this run */
     private array $halted = [];
 
-    public function __construct(IngestQueue $queue, Connections $connections, Client $client, HealthCheck $health, CatalogPayloadBuilder $catalog, CustomerPayloadBuilder $customers, OrderPayloadBuilder $orders, CustomerScope $scope)
+    public function __construct(IngestQueue $queue, Connections $connections, Client $client, HealthCheck $health, CatalogPayloadBuilder $catalog, CustomerPayloadBuilder $customers, OrderPayloadBuilder $orders, CustomerScope $scope, ProfilingConsent $profiling)
     {
         $this->queue = $queue;
         $this->connections = $connections;
@@ -134,6 +144,7 @@ final class IngestFlusher
         $this->customers = $customers;
         $this->orders = $orders;
         $this->scope = $scope;
+        $this->profiling = $profiling;
     }
 
     public function flush(Deadline $deadline): void
@@ -291,6 +302,7 @@ final class IngestFlusher
         $position = 0;
         $unsent = [];
         $sent = [];
+        $confirmed = [];
         foreach ($entries as $index => $entry) {
             $last = $position + count($entry['items']) - 1;
             $position = $last + 1;
@@ -305,9 +317,13 @@ final class IngestFlusher
                 $this->queue->markFailed($entry['row'], Failure::permanent(self::FAILED_ITEM_REFUSED));
             } else {
                 $sent[] = $entry['row'];
+                $confirmed[] = (string) ($entry['items'][0][self::SHOPPER[$domain] ?? ''] ?? '');
             }
         }
         $this->queue->markSent($sent);
+        if (isset(self::SHOPPER[$domain])) {
+            $this->profiling->resendOptOuts($confirmed, $connection, ConnectionShops::of($connection)[0] ?? 0);
+        }
         if ($failure !== null) {
             $this->failed($connection, $domain, $unsent, $failure);
         }

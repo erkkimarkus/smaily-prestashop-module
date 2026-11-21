@@ -2752,11 +2752,6 @@
         <target>Vastust ei ole alles — see kustutati privaatsuspäringu alusel.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="1f5a5c7d69617d19790e32e0d59661ba">
-        <source>Skipped: this shop is no longer connected to Campaign Intelligence. Nothing was sent.</source>
-        <target>Vahele jäetud: see pood ei ole enam Campaign Intelligence'iga ühendatud. Midagi ei saadetud.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="23f6c072cacb9d02e855183fc7878214">
         <source>Skipped: this product is no longer in the shop. Nothing was sent.</source>
         <target>Vahele jäetud: seda toodet ei ole enam poes. Midagi ei saadetud.</target>
@@ -2794,7 +2789,7 @@
       </trans-unit>
       <trans-unit id="c1c9c2830a1964c1588e934cd5fa5adc">
         <source>Skipped: the shopper withdrew the marketing consent, and the visit has no visitor token. Nothing was sent.</source>
-        <target>Vahele jäetud: ostleja võttis turundusnõusoleku tagasi ja külastusel puudub külastajatunnus. Midagi ei saadetud.</target>
+        <target>Vahele jäetud: ostja võttis turundusnõusoleku tagasi ja külastusel puudub külastajatunnus. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="56f538be5f06eaef9d2baab3482c8982">
@@ -2815,6 +2810,11 @@
       <trans-unit id="b5720332b0df40237ba619f1d7519a62">
         <source>The product list is built afresh each night, so this one is not sent again.</source>
         <target>Tootenimekiri koostatakse igal ööl uuesti, seega seda nimekirja uuesti ei saadeta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="33d7789dc6f9d3162d868c142468420f">
+        <source>Skipped: the shopper opted out of personalized recommendations, so their browsing is not linked to their address. Nothing was sent.</source>
+        <target>Vahele jäetud: ostja loobus personaalsetest soovitustest, seega tema sirvimist tema aadressiga ei seota. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

@@ -35,12 +35,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\Captu
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
-use PrestaShop\Module\SmailyForPrestaShop\Privacy\EngineFailure;
-use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsentHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IdentityMergeHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
-use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\EngineFailure;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsentHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
@@ -79,7 +78,6 @@ final class FailureMessage
         ProfilingConsentHandler::SKIPPED_REPLACED => 'Skipped: the shopper has since changed their personalization preference, and the newer preference is sent in its own row. Nothing was sent.',
         EngineFailure::SKIPPED_NO_CONNECTION => 'Skipped: the Campaign Intelligence connection of this row no longer exists. Nothing was sent.',
         // Campaign Intelligence: the ingest queue and the identity merge.
-        IngestQueue::SKIPPED_NO_CONNECTION => 'Skipped: this shop is no longer connected to Campaign Intelligence. Nothing was sent.',
         IngestFlusher::SKIPPED_PRODUCT_GONE => 'Skipped: this product is no longer in the shop. Nothing was sent.',
         IngestFlusher::SKIPPED_PRODUCT_EXISTS => 'Skipped: this product is still in the shop, so it was not removed from Campaign Intelligence. Nothing was sent.',
         IngestFlusher::SKIPPED_CUSTOMER_GONE => 'Skipped: this customer is no longer in the store. Nothing was sent.',
@@ -87,6 +85,7 @@ final class FailureMessage
         IngestFlusher::SKIPPED_ORDER_GONE => 'Skipped: this order, or its customer, is no longer in the store. Nothing was sent.',
         IngestFlusher::FAILED_ITEM_REFUSED => 'Campaign Intelligence refused this row. The response shows the field it refused.',
         CatalogManifest::FAILED_TOO_MANY => 'Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold.',
+        IdentityMergeHandler::SKIPPED_OPTED_OUT => 'Skipped: the shopper opted out of personalized recommendations, so their browsing is not linked to their address. Nothing was sent.',
         IdentityMergeHandler::SKIPPED_NOTHING_TO_SEND => 'Skipped: the shopper withdrew the marketing consent, and the visit has no visitor token. Nothing was sent.',
         IdentityMergeHandler::FAILED_NOT_SENT => 'Campaign Intelligence does not have this customer yet, so the login was not linked to them. The store sends a customer who is in your contact sync, has an order or logs in with marketing consent; Retry links the login after that.',
         IdentityMergeHandler::FAILED_CUSTOMER_REFUSED => 'Campaign Intelligence refused the customer, so the login was not linked to them. Retry sends the customer and the login again.',

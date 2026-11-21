@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\AccountLink;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\CustomerDeleteHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\GdprHooks;
@@ -84,7 +85,8 @@ final class PrivacyProvider implements ProviderInterface
             $services->get(QueueProvider::EVENT_QUEUE),
             $services->get(CartTracker::class),
             $services->get(IssuedCodes::class),
-            $services->get(ProfilingRecord::class)
+            $services->get(ProfilingRecord::class),
+            $services->get(IngestQueue::class)
         ));
         $services->set(PrivacyRequest::class, fn (Services $services): PrivacyRequest => new PrivacyRequest(
             $services->get(LocalData::class),

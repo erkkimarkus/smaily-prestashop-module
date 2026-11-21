@@ -48,6 +48,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CatalogPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CustomerPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\OrderPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
@@ -89,7 +90,8 @@ final class EngineIngestProvider implements ProviderInterface
             $services->get(CatalogPayloadBuilder::class),
             $services->get(CustomerPayloadBuilder::class),
             $services->get(OrderPayloadBuilder::class),
-            $services->get(CustomerScope::class)
+            $services->get(CustomerScope::class),
+            $services->get(ProfilingConsent::class)
         ));
         $services->set(CatalogManifest::class, fn (Services $services): CatalogManifest => new CatalogManifest(
             $services->get(Connections::class),
@@ -105,7 +107,8 @@ final class EngineIngestProvider implements ProviderInterface
             $services->get(CustomerScope::class),
             $services->get(CustomerPayloadBuilder::class),
             $services->get(IngestQueue::class),
-            $services->get(QueueProvider::EVENT_QUEUE)
+            $services->get(QueueProvider::EVENT_QUEUE),
+            $services->get(ProfilingConsent::class)
         ));
 
         $services->set(IngestMarkers::class, fn (Services $services): IngestMarkers => new IngestMarkers(

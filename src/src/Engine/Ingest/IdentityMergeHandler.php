@@ -37,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CustomerPayloadBuilder;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
@@ -61,8 +62,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
  * Each customer sent this way is one row of the Log (ingest queue, domain `customers`).
  *
  * A row is closed without a request when its shop has no connection, when the customer is gone,
- * or when it has nothing to send (no visitor token, and the consent withdrawn). It waits, as it
- * is, while the engine refuses the connection. A reason is a code, never the engine's text.
+ * when the shopper opted out of personalization (Privacy\ProfilingConsent, as the Magento
+ * connector's handler), or when it has nothing to send (no visitor token, and the consent
+ * withdrawn). It waits, as it is, while the engine refuses the connection. A reason is a code,
+ * never the engine's text.
  */
 final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
 {
@@ -71,6 +74,9 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
     public const SKIPPED_CUSTOMER_GONE = IngestFlusher::SKIPPED_CUSTOMER_GONE;
 
     public const SKIPPED_NOTHING_TO_SEND = 'engine_nothing_to_merge';
+
+    /** The shopper opted out of personalization: the browsing is not linked to the address. */
+    public const SKIPPED_OPTED_OUT = 'engine_opted_out';
 
     /** The engine does not have the customer, and the store does not send that customer. */
     public const FAILED_NOT_SENT = 'engine_customer_not_sent';
@@ -100,14 +106,17 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
 
     private EventQueue $eventQueue;
 
+    private ProfilingConsent $profiling;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
     /** @var array{request: array<string, mixed>, response: array{http_status: int, body: mixed}} what the last customer send carried */
     private array $customerExchange = ['request' => [], 'response' => ['http_status' => 0, 'body' => null]];
 
-    public function __construct(Connections $connections, Client $client, HealthCheck $health, CustomerScope $scope, CustomerPayloadBuilder $customers, IngestQueue $ingestQueue, EventQueue $eventQueue)
+    public function __construct(Connections $connections, Client $client, HealthCheck $health, CustomerScope $scope, CustomerPayloadBuilder $customers, IngestQueue $ingestQueue, EventQueue $eventQueue, ProfilingConsent $profiling)
     {
+        $this->profiling = $profiling;
         $this->connections = $connections;
         $this->client = $client;
         $this->health = $health;
@@ -154,6 +163,9 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
         $customer = $this->scope->customer((int) $payload['id_customer']);
         if ($customer === null) {
             return new Skipped(self::SKIPPED_CUSTOMER_GONE);
+        }
+        if (!$this->profiling->isAllowed((string) $customer['email'])) {
+            return new Skipped(self::SKIPPED_OPTED_OUT);
         }
 
         $consents = !empty($payload['send_customer']) && $this->scope->consents($customer);

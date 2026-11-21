@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
@@ -47,6 +48,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * Leaving marketing also stops profiling, and joining it again starts profiling again, unless the
  * shopper opted out of profiling on the account page: that choice stays (Magento's
  * optOutOnUnsubscribe() and optInOnResubscribe()). Both act only in a shop that has a connection.
+ *
+ * The engine keeps an opt-out only for a shopper it holds. An opt-out is therefore sent again to a
+ * connection whose engine store confirmed a customer or an order of the shopper
+ * (resendOptOuts(), Magento's OptOutReplay).
  *
  * Unlike Magento, nothing is written to the Smaily contact (`smaily_rec_profiling`) and nothing is
  * read back from it: the design keeps the choice in the store and at the engine (ARCHITECTURE 11.2).
@@ -122,6 +127,51 @@ class ProfilingConsent
         $at = $this->record->write($email, true, ProfilingRecord::SOURCE_UNSUBSCRIBE);
 
         return $this->queueForEngine($email, true, $at, $idShop);
+    }
+
+    /**
+     * The engine store of $connection confirmed a customer or an order of these shoppers (the
+     * ingest flush). An opt-out made before the engine knew the shopper did not stay there, and a
+     * customer or an order carries no consent: the stored opt-out of each shopper who opted out is
+     * queued again for that connection, with its moment, so the newest choice still wins when the
+     * row is sent. Not for a shopper whose opt-out already waits for the connection: many orders
+     * make one row.
+     *
+     * @param list<string> $emails
+     * @param int $idShop the shop of the rows of the installation-wide connection
+     *
+     * @return int the number of rows queued
+     */
+    public function resendOptOuts(array $emails, Connection $connection, int $idShop): int
+    {
+        $queued = 0;
+        $addresses = array_unique(array_filter(array_map(static fn (string $email): string => strtolower(trim($email)), $emails)));
+        foreach ($addresses as $address) {
+            $record = $this->record->find($address);
+            if ($record === null || !$record['opted_out']) {
+                continue;
+            }
+            $key = ContactEntity::key($address);
+            foreach ($this->queue->ofEntities([$key]) as $row) {
+                $payload = json_decode((string) $row['payload'], true);
+                if (
+                    $row['event_type'] === self::EVENT_TYPE
+                    && in_array($row['status'], [EventQueue::STATUS_PENDING, EventQueue::STATUS_PROCESSING], true)
+                    && is_array($payload) && (int) ($payload['connection'] ?? 0) === $connection->id() && ($payload['opt_out'] ?? null) === true
+                ) {
+                    continue 2;
+                }
+            }
+            $this->queue->enqueue(
+                self::EVENT_TYPE,
+                $connection->idShop() > 0 ? $connection->idShop() : $idShop,
+                ['connection' => $connection->id(), 'email' => $address, 'opt_out' => true, 'opted_out_at' => str_replace(' ', 'T', $record['changed_at']) . 'Z'],
+                $key
+            );
+            ++$queued;
+        }
+
+        return $queued;
     }
 
     /**
