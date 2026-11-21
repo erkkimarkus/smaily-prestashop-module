@@ -193,9 +193,13 @@ ask (Linear discipline below).
   the locking updates); no statement locks rows through a secondary index
   (ARCHITECTURE 4.3).
 - **A contact's queue rows.** A contact's queue row takes its entity from
-  `Queue\ContactEntity::of()`; the stale check (`Contacts\StaleSubscription`)
-  and the resend guard (`Log\ResendGuard`) match rows by shop and entity
-  (ARCHITECTURE 2.2, 6.4).
+  `Queue\ContactEntity::of()`; the resend guard (`Log\ResendGuard`) matches
+  rows by shop and entity. A contact change is sent as stored, in any order,
+  as the sibling connectors do (owner, 2026-11-21; ARCHITECTURE 2.2, 6.4).
+- **One connector never changes a behaviour rule alone** (owner,
+  2026-11-21). Where the siblings behave one way, PrestaShop behaves the
+  same way; an improvement only one connector would have goes into the
+  cross-connector analysis (Linear CON-397) and all change together.
 - **Marketplace structure.** Every new PHP, Twig, JS and CSS file needs the
   licence notice and every new directory an `index.php`:
   `composer --working-dir src autoindex`, then `header-stamp` (it stamps PHP
@@ -233,7 +237,9 @@ ask (Linear discipline below).
   upgrade never marks anyone subscribed again. A guest-checkout customer is
   sent in "All customers", and with a ticked box in "Subscribers only", only
   when "include guests" is on; "Checkout opt-in only" sends a ticked box
-  always. All audience questions go through `Contacts\ContactAudience`.
+  always. A newsletter-block subscriber without an account goes by the
+  consent mode alone, whatever "include guests" says, as Magento (owner,
+  2026-11-21). All audience questions go through `Contacts\ContactAudience`.
 - **Discount codes are cart rules** (ARCHITECTURE 7). The module knows the
   rules it issued by their description (`smaily-connect-issued:`); never
   filter by name. PrestaShop 8 lists a customer's vouchers by the database
