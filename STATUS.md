@@ -10,7 +10,8 @@
 
 _Last updated: 2026-11-21 — stages 1 and 2 done; Dashboard, Initial setup and
 Settings (Connection, Contacts, RSS) done; store automations built; the Log
-page built, on its branch; gauge 3/14._
+page built, on its branch; the Automations tab built, on its branch; gauge
+3/14._
 
 ## Next session opens with
 
@@ -19,21 +20,25 @@ with its corrections (a contact's address shown as the siblings do; one cron
 line, whose token the upgrade creates); the 8.2.8 admin fix; the login-cookie
 fix; Settings (Story 3.3: Connection, Contacts, RSS, shop switches, layout
 change; the 2.x admin page is gone); the three store automations.
+Built on the branch `worktree-agent-af9375eb57f45d7cb`: the Automations tab of
+Settings and step 3 of the Initial setup (Story 4.1, ARCHITECTURE 10.9), walked
+on 8.2.8 and 9.2.0 against the mock; with it, the layout change merges the
+workflow rows as Magento does, and "Test connection" uses Magento's call.
 Built and not yet on `v3`: the Log page (Story 3.4), on the branch
 `worktree-agent-a0d4f2246a378b7d7`; land it by cherry-pick.
 
-Last verified with Settings on the tip: in-shop 1160 tests, 5155 assertions on
-a fresh 8.2.8 and a fresh 9.2.0; `tests/ci/validate.sh` 10 of 10 on both.
+Last verified with the Automations tab on its branch's tip: in-shop 1293 tests,
+6245 assertions on a fresh 8.2.8 and a fresh 9.2.0. `tests/ci/validate.sh` last
+ran with Settings on the tip, 10 of 10 on both.
 Load the egress guard (`docs/DEV_ENVIRONMENT.md` 4a) before any admin walk.
 
-Then, in this order: (1) the Automations tab (workflow lists use Magento's
-call `workflows.php?trigger_type=form_submitted`);
-(2) discount codes in store automations (Story 4.4; design with the owner
-first); (3) walk capabilities 3, 4, 6 and 7 through the screens and tick them;
-(4) Estonian targets for every v3 admin string (the XLIFF holds the 2.x
-strings, four v3 units and the Log's texts; capability 14); (5) the document pass (ARCHITECTURE
-1.1 and 13 and the user guide lag); (6) Marketplace rules (CON-379); (7) stage
-5, Campaign Intelligence, with group prices (CON-385, contract 1.36.0).
+Then, in this order: (1) discount codes in store automations (Story 4.4;
+design with the owner first); (2) walk capabilities 3, 4, 6 and 7 through the
+screens and tick them; (3) Estonian targets for every v3 admin string (the
+XLIFF holds the 2.x strings, four v3 units and the texts of the Log and of the
+Automations screens; capability 14); (4) the document pass (ARCHITECTURE 1.1
+and 13 and the user guide lag); (5) Marketplace rules (CON-379); (6) stage 5,
+Campaign Intelligence, with group prices (CON-385, contract 1.36.0).
 
 ## Queue (technical, for the orchestrator)
 
@@ -79,7 +84,7 @@ A box is ticked only when the real flow was exercised; a line names how.
 1. **Upgrade-safe core** — _Done (1.1–1.8); `Upgrade300` clean-up deferred._
 2. **Contacts and modes** — _Done (2.1–2.4)._
 3. **Admin screens** — _Dashboard, setup, Settings done; Log in flight; no ET._
-4. **Store automations and language routing** — _Built; Automations tab next._
+4. **Store automations and language routing** — _Built, with the Automations tab._
 5. **Intelligence, tracking, recommendations, privacy.**
 6. **Release** — installation report, upgrade guide, rc1, upgrade walk.
 

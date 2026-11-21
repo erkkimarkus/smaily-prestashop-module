@@ -83,10 +83,10 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1160 tests, 5155 assertions on 8.2.8 and 9.2.0, each on a fresh
-shop, with the Settings tabs Connection, Contacts and RSS (Story 3.3) on `v3`; 8.0.0 last ran at the
-stage 1 integration commit (278 tests, 1337 assertions). On the host the same suite runs its unit
-tests and skips the integration tests (1160 tests, 1809 assertions, 560 skipped). `PS_ROOT_DIR` makes the test bootstrap boot the
+Last verified results, all passing: 1293 tests, 6245 assertions on 8.2.8 and 9.2.0, each on a fresh
+shop, with the Automations tab (Story 4.1); 8.0.0 last ran at the stage 1 integration commit (278
+tests, 1337 assertions). On the host the same suite runs its unit tests and skips the integration
+tests (1293 tests, 2012 assertions, 636 skipped). `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a
 container, and a second Composer autoloader from another path stops PHP with "Cannot redeclare class".
