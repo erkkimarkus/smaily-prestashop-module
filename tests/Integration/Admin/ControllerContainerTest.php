@@ -24,6 +24,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\MigrationPlan;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -124,6 +125,47 @@ final class ControllerContainerTest extends IntegrationTestCase
 
         self::assertSame(403, $response->getStatusCode());
         self::assertSame(['layoutTitle' => 'Smaily Connect — Settings'], $this->rendered);
+    }
+
+    /**
+     * A page refused for missing rights reads nothing that only the opened page shows: the
+     * controller builds no service of the module before the refusal.
+     *
+     * @dataProvider pages
+     *
+     * @param class-string<BaseController> $class
+     */
+    public function testAPageRefusedForMissingRightsBuildsNoService(string $class, string $page, string $title): void
+    {
+        $services = Services::instance();
+        $factories = new \ReflectionProperty(Services::class, 'factories');
+        $factories->setAccessible(true);
+        $instances = new \ReflectionProperty(Services::class, 'instances');
+        $instances->setAccessible(true);
+        $saved = [$factories->getValue($services), $instances->getValue($services)];
+        $built = [];
+        $recording = [];
+        foreach ($saved[0] as $id => $factory) {
+            $recording[$id] = static function (Services $services) use ($id, $factory, &$built): object {
+                $built[] = $id;
+
+                return $factory($services);
+            };
+        }
+        $factories->setValue($services, $recording);
+        $instances->setValue($services, []);
+        try {
+            $controller = new $class();
+            $controller->setContainer($this->locator(false));
+            $response = $controller->index(new Request());
+        } finally {
+            $factories->setValue($services, $saved[0]);
+            $instances->setValue($services, $saved[1]);
+        }
+
+        self::assertSame(403, $response->getStatusCode());
+        self::assertSame(['layoutTitle' => $title], $this->rendered);
+        self::assertSame([], $built);
     }
 
     public function testARequestWithoutTheRightIsRefusedInWords(): void

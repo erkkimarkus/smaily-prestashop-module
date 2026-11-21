@@ -53,6 +53,11 @@ final class SettingsController extends BaseController
 
     public function index(Request $request): Response
     {
+        if (!$this->opens('settings')) {
+            // The shell refuses the page, or sends it to the Initial setup; no setting is read for it.
+            return $this->renderPage('settings');
+        }
+
         $services = Services::instance();
         $panels = new SettingsPanels($services, self::translator());
         $setup = $panels->setup();

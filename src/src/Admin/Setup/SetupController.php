@@ -53,6 +53,11 @@ final class SetupController extends BaseController
 
     public function index(Request $request): Response
     {
+        if (!$this->opens('setup')) {
+            // The shell refuses the page; nothing of the setup is read for it.
+            return $this->renderPage('setup');
+        }
+
         $services = Services::instance();
         $panels = new SetupPanels($services, self::translator());
         $scope = $panels->scope(AbstractJsonAction::shopId());

@@ -1750,6 +1750,9 @@ Initial setup, Settings, Log), registered through the module's `$tabs`, under Cu
 (`AdminParentCustomer`) on every version. Core 8.2.8 and 9.2.0 create no Marketing parent tab: other
 marketing modules create and delete one, and `AdminParentCustomer` exists on both (facts file 1.11).
 The module's "Configure" button opens the Dashboard, or the Initial setup while it is not finished.
+Each page needs the right to read its menu tab: an employee without it gets the refusal page (HTTP
+403). Each of the four page controllers asks `BaseController::opens()` first, and reads nothing
+that only the opened page shows for a page that does not open.
 
 **[D]** The base controller stays `FrameworkBundleAdminController` (section 1.5). On 9.x,
 `Context::getContext()->controller` inside a Symfony admin page is a `LegacyControllerContext` proxy,
