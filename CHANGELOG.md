@@ -7,6 +7,7 @@
 - Refuses a cron URL request whose token is empty or wrong. On upgrade, an empty cron token is replaced with a new random token, so the cron URL of those stores changes.
 - Runs every background task from one cron line. The Dashboard's Background tasks card shows it while the tasks do not run from a cron line, and under "Show the cron line" while they do; it replaces the two crontab lines of 2.x, which keep working with their tokens.
 - Runs the background tasks also when visitors open pages of the store, after the page is sent, so a store without a cron line still sends its contacts and automation emails. The Background tasks card then shows "Visitors only". On a server that cannot send a page before the work is done (PHP without PHP-FPM or LiteSpeed), the tasks need the cron line.
+- The upgrade deletes the files of versions 2.x and 1.6.x that 3.0.0 no longer uses from the module's folder: the old settings forms, templates, scripts and classes. A file that cannot be deleted stays, and a notice on the Smaily Connect pages names it, so that you can delete it by hand.
 - No longer installs an override of the Newsletter Subscription module (`ps_emailsubscription`). The upgrade removes the override file that 2.x installed, and leaves any other file in place.
 - Uninstall removes all module data: every setting, the cron tokens and the module's database tables.
 - The module is named Smaily Connect in the back office (2.x: Smaily for PrestaShop). Its technical name `smailyforprestashop` and its folder stay as they are.

@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyFiles;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyReader;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
@@ -56,7 +57,8 @@ final class MigrationProvider implements ProviderInterface
             new LegacyConfigMapper(),
             $services->get(AccountStore::class),
             $services->get(MigrationNotices::class),
-            new LegacyOverride(_PS_OVERRIDE_DIR_)
+            new LegacyOverride(_PS_OVERRIDE_DIR_),
+            new LegacyFiles(_PS_MODULE_DIR_ . 'smailyforprestashop')
         ));
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job('migration', 0, 10, static function () use ($services): void {

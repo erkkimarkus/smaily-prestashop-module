@@ -52,7 +52,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * is skipped once it has succeeded. A failed step stops the run and records its name and the class of
  * the error, never the error's message. The last step deletes the legacy keys and marks the schema
  * current in one transaction; until then the runtime stays inert and every legacy key stays in
- * place. `smaily_cart` stays (a later release drops it).
+ * place. `smaily_cart` stays (a later release drops it). The files of the previous version that
+ * 3.0.0 does not ship are deleted from the module's folder.
  *
  * A database query that fails is a failed step, never an empty answer (Database\Sql): a read of
  * what 2.x left that fails makes no plan, so no legacy key is deleted on it, and the next run reads
@@ -80,6 +81,7 @@ final class Upgrade300
         'tick_token',
         'carts',
         'override',
+        'files',
         'tab',
         'verify',
         'finish',
@@ -104,6 +106,8 @@ final class Upgrade300
 
     private LegacyOverride $override;
 
+    private LegacyFiles $files;
+
     /** @var callable(string): void|null */
     private $beforeStep;
 
@@ -120,6 +124,7 @@ final class Upgrade300
         AccountStore $accounts,
         MigrationNotices $notices,
         LegacyOverride $override,
+        LegacyFiles $files,
         ?callable $beforeStep = null
     ) {
         $this->reader = $reader;
@@ -127,6 +132,7 @@ final class Upgrade300
         $this->accounts = $accounts;
         $this->notices = $notices;
         $this->override = $override;
+        $this->files = $files;
         $this->beforeStep = $beforeStep;
     }
 
@@ -474,6 +480,20 @@ final class Upgrade300
     {
         if ($this->override->removeIfShipped() === LegacyOverride::FOREIGN) {
             $this->notices->add(MigrationNotices::OVERRIDE_LEFT_IN_PLACE, ['path' => 'override/' . LegacyOverride::RELATIVE_PATH]);
+        }
+    }
+
+    /**
+     * Deletes the files that 2.x and 1.6.x shipped and 3.0.0 does not (LegacyFiles): PrestaShop
+     * unpacks 3.0.0 over the module's folder and deletes nothing. A file that cannot be deleted
+     * stays, and one notice names every such file, so that the merchant can delete it by hand: no
+     * file fails this step.
+     */
+    private function stepFiles(): void
+    {
+        $left = $this->files->remove();
+        if ($left !== []) {
+            $this->notices->add(MigrationNotices::FILES_LEFT_IN_PLACE, ['files' => implode(', ', $left)]);
         }
     }
 

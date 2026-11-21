@@ -41,6 +41,9 @@ final class MigrationNotices extends Settings
     /** An override file of ps_emailsubscription that 2.x did not ship stays in place; params: path. */
     public const OVERRIDE_LEFT_IN_PLACE = 'override_left_in_place';
 
+    /** Files of the previous version could not be deleted from the module's folder; params: files. */
+    public const FILES_LEFT_IN_PLACE = 'files_left_in_place';
+
     /**
      * Stores a notice unless the same code with the same parameters is stored already.
      *

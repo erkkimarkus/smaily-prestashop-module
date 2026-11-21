@@ -85,6 +85,8 @@ final class NoticeMessages
                 return $this->trans('The previous version switched off the verification and confirmation emails of the newsletter block (ps_emailsubscription) and cleared its voucher. They stay as they are: switch them on again in that module if you want them.');
             case MigrationNotices::OVERRIDE_LEFT_IN_PLACE:
                 return $this->trans('The file %path% was left in place: the previous version of this module did not ship it as it is now.', ['%path%' => (string) ($params['path'] ?? '')]);
+            case MigrationNotices::FILES_LEFT_IN_PLACE:
+                return $this->trans('These files of the previous version could not be deleted from the folder of the module: %files%. Delete them by hand; the module does not use them.', ['%files%' => (string) ($params['files'] ?? '')]);
             default:
                 return $this->trans('The upgrade left a notice (%code%).', ['%code%' => $notice['code']]);
         }

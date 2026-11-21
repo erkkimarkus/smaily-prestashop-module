@@ -108,7 +108,7 @@ src/
                               RssSettings (the RSS URL builder's defaults), AdminSettings (the
                               setup state, the invitation's dismissal)
     Migration/                LegacyState, LegacyReader, LegacyConfigMapper (pure), MigrationPlan,
-                              Upgrade300, LegacyOverride
+                              Upgrade300, LegacyOverride, LegacyFiles
     Http/                     Transport (interface), SymfonyTransport, Response, NetworkException
     Smaily/                   Client, Account, AccountStore, Crypto, Exception/*
     Queue/                    EventQueue (with deleteClosed()), Flusher, RetryPolicy, Failure,
@@ -551,6 +551,7 @@ regenerates it) breaks decryption.
 | Table `smaily_cart` | Rows copied into `smaily_connect_cart` as `mailed` (section 2.2). **[D]** The upgrade leaves the table untouched; uninstall drops it (section 11.4). A later release drops it on upgrade, so until then a manual reinstall of 2.x does not resend reminders. |
 | `override/modules/ps_emailsubscription/ps_emailsubscription.php` | `Migration\LegacyOverride` deletes it only when its SHA-256 equals the one hash in `LegacyOverride::SHIPPED_HASHES`: every 2.x tag from 2.0.0 to 2.2.0 shipped the same file. It then removes the folder when the folder is empty. Any other content stays, with the notice `override_left_in_place`. PrestaShop loads a module override by its path on each request and keeps no class index of it, so deleting the file is enough (facts file part 6). |
 | `NW_VERIFICATION_EMAIL`, `NW_CONFIRMATION_EMAIL`, `NW_VOUCHER_CODE` | Not touched. 3.0.0 never writes them. 2.x never kept the earlier values, so no code can restore them: where a 2.x save had the opt-in on, the migration leaves the notice `emailsubscription_emails_changed` (2.x switched off `ps_emailsubscription`'s verification and confirmation emails and cleared its voucher). Settings > Contacts shows a note when `ps_emailsubscription`'s own emails are on while the welcome automation is on. |
+| The files that 2.2.0 and 1.6.2 shipped in the module's folder and 3.0.0 does not ship (47 paths: the 2.x settings forms, `lib/`, `overrides/`, the old templates and scripts, the classes of the 2.x contact sync and cart reminder, the 1.6.x admin controller, templates and upgrade scripts) | `Migration\LegacyFiles` deletes them, with the 6 folders that they leave empty (migration step `files`, section 3.7). A file that cannot be deleted stays, with the notice `files_left_in_place`. `translations/et.php` of 1.6.x stays: PrestaShop writes a merchant's own translations to it. |
 | Hooks registered by 1.6.x (`footerBefore`, `leftColumn`, `rightColumn`, `backOfficeHeader`, `actionFrontControllerSetMedia`) or 2.x | The migration registers the 3.0.0 list, then unregisters every hook that `Install\HookList` does not name. |
 | The hidden admin tab `AdminSmailyforprestashopAjax` of 1.6.x | Deleted through PrestaShop's `Tab` object, which also removes its authorization roles (migration step `tab`). |
 | The 2.x configuration page's tab `SmailyForPrestaShopConfiguration` | PrestaShop created it from the 2.x `config/routes.yml`. The 2.x page and its route are gone (Story 3.3), and no 3.0.0 code names the tab: whether an upgraded store keeps its row is not verified (section 14, row 15). |
@@ -574,7 +575,8 @@ regenerates it) breaks decryption.
    rows, the token rows to replace, whether to copy the reminded carts, the legacy keys to delete and
    the notices. Unit tests run it on every rule and on the fixtures in `tests/fixtures/legacy/`.
 3. `Migration\Upgrade300::runPending()` applies the plan (section 3.7). `Migration\LegacyOverride`
-   removes the 2.x override file (section 2.4). `upgrade/upgrade-3.0.0.php` calls only `runPending()`.
+   removes the 2.x override file, and `Migration\LegacyFiles` the files of the previous version in
+   the module's folder (section 2.4). `upgrade/upgrade-3.0.0.php` calls only `runPending()`.
 
 ### 3.2 Inputs the mapper accepts
 
@@ -675,6 +677,7 @@ parameters:
 | `newsletter_block_removed` | The previous code was 1.x. | — |
 | `emailsubscription_emails_changed` | A 2.x save had the opt-in on (section 2.4). | — |
 | `override_left_in_place` | The override file is not the 2.x copy (section 2.4). | `path` |
+| `files_left_in_place` | Files of the previous version could not be deleted from the module's folder (section 3.7). One notice names them all. | `files` (the paths, relative to the module's folder, joined by a comma) |
 
 **[D]** Every empty, `NULL` or missing legacy cron token row gets a new token and a
 `cron_token_replaced` notice: an empty row at any scope, and the global row when no global row exists.
@@ -767,8 +770,8 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    at once, without work. Under the lock it reloads the configuration, checks the schema again, and
    runs the steps, unless the store has nothing to migrate (below).
 3. The steps run in `Upgrade300::STEPS` order: `tables`, `hooks`, `menu`, `notices`, `settings`,
-   `accounts`, `mappings`, `tokens`, `tick_token`, `carts`, `override`, `tab` (the 1.6.x hidden tab,
-   section 2.4), `verify`, `finish`. `tables` (`CREATE TABLE IF NOT EXISTS`) and `hooks` run on every
+   `accounts`, `mappings`, `tokens`, `tick_token`, `carts`, `override`, `files` (below), `tab` (the
+   1.6.x hidden tab, section 2.4), `verify`, `finish`. `tables` (`CREATE TABLE IF NOT EXISTS`) and `hooks` run on every
    call. Every other step is skipped once it succeeded. `tick_token` creates the tick URL's token
    unless one is stored, so the Dashboard has the cron line of an upgraded store at once (section
    4.3); it changes no legacy token.
@@ -793,6 +796,29 @@ So PrestaShop gives a failed upgrade no second run, and the module finishes the 
    fallback tick of page traffic, whose two listeners run before the upgrade (section 1.2).
 8. The admin's "Finish upgrade" button (`Admin\Api\FinishUpgrade`, Story 3.1) calls `runPending()`
    too; section 3.6 describes the banner and the notices.
+
+**[D]** The upgrade deletes the files that the previous version left (owner, 2026-11-21; section
+15). PrestaShop unpacks the new version over the module's folder and never deletes a file that the
+new version no longer ships (section 3.8), so an upgraded store kept 35 files of 2.2.0, two of
+which read the 2.x password as plain text, and a store that came from 1.6.x kept 12 more. The step
+`files` (`Migration\LegacyFiles`) deletes them:
+
+- **A fixed list.** `LegacyFiles::FILES` holds 47 paths: every path of the 2.2.0 release zip and of
+  the 1.6.2 release zip, minus every path of the 3.0.0 zip, without `translations/et.php`
+  (`docs/MARKETPLACE.md`, rule 33, holds the commands). 1.6.2 is in the list because such a store
+  reaches this upgrade in the same folder: 1.6.2 declares PrestaShop 1.7.0 and newer without an
+  upper bound, its zip unpacks to `smailyforprestashop/` too, and the upgrade already migrates its
+  settings. The releases 2.0.0 to 2.1.2 and 1.6.0 shipped no path beyond these.
+- **Only inside the module's folder.** The step deletes a listed path only when it is a regular
+  file at that place: a link, or a file under a folder that is a link, leads elsewhere and stays.
+  It then removes each of the 6 folders that 3.0.0 does not have (`LegacyFiles::DIRECTORIES`)
+  when that folder is empty. It touches nothing under `vendor/` or `translations/`, and no file
+  that is not on the list: a folder that holds a merchant's own file stays with that file.
+- **It never fails on a file.** A file that cannot be deleted (permissions, a read-only file
+  system) stays. The step then stores one notice, `files_left_in_place`, that names every such
+  file, so that the merchant can delete them by hand, and it counts as done.
+- **A fresh install** has none of these files, and a run on a store that has nothing to migrate
+  (below) does not reach the step.
 
 **[D]** A run never resets a store in use (2026-11-21). `runPending()` runs whenever the schema
 version is missing, also on a store that is set up, so it is safe to run at any time:
@@ -852,8 +878,9 @@ on the old schema).
 - An FTP copy over 2.2.0 on a store without a cron line stays inert until the admin clicks Upgrade:
   2.2.0 registered no page hook, so no fallback tick runs before the upgrade registers the 3.0.0 hooks.
   The admin's "Finish upgrade" button (section 3.6) runs the same migration.
-- A zip upload unpacks over the old module folder (read from code, facts file part 6), so files that
-  2.x had and 3.0.0 does not stay on disk. 3.0.0 does not load them.
+- A zip upload unpacks over the old module folder (read from code, facts file part 6), so the files
+  that 2.x had and 3.0.0 does not are on disk until the step `files` has run. 3.0.0 does not load
+  them. Files that a release older than 1.6.0 left, and `translations/et.php` of 1.6.x, stay.
 
 ### 3.8 Zip upgrade and marketplace upgrade
 
@@ -2860,8 +2887,8 @@ has one owner:
   classes `Controller/RssFeedController` and `Model/RssFeedProductsCollection`, behind
   `controllers/front/SmailyRssFeed.php`; they stay until a Story ports the feed. The 2.x admin page
   (its controller, its forms, its templates and its script) went with Story 3.3. An upgrade by zip
-  deletes no file, so a store that had 2.2.0 keeps 2.2.0's copies of the removed files on disk,
-  unreachable there too (`docs/MARKETPLACE.md`, rule 33).
+  deletes no file by itself; the upgrade's step `files` deletes 2.2.0's copies of the removed
+  files from an upgraded store (section 3.7; `docs/MARKETPLACE.md`, rule 33).
 
 ### Story 2.1 — Scope: shop layout, languages, account resolution
 
@@ -3252,7 +3279,7 @@ has one owner:
 | 17 | A 2.x store after the upgrade | Answered by Stories 2.3 and 4.3: its crontab runs the tick, which covers the work of both 2.x crons (section 3.4). What a merchant must know (fewer reminders than under 2.x, the 24-hour window, the one cron line) waits for the upgrade guide. | Story 6.2 writes the upgrade guide |
 | 18 | The guest gates of the live sync | Answered by Story 2.3: the capture sets the payload's `guest` field, so the live sync applies the decision of 2026-11-20 as the imports do (section 6.2). | Story 2.3 (done) |
 | 20 | The unsubscriber list is paged by page number | When the list shrinks between two ticks of one first reconcile run, one address can be skipped; it then stays as the store has it (section 6.5). 2.x had the same exposure. | Accepted; recorded |
-| 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and ten rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the files of 2.2.0 that the upgrade leaves on disk, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
+| 21 | PrestaShop Marketplace listing | The code follows the Marketplace technical rules from the start (Linear CON-379); the structural rules are met, and nine rules wait for the owner's decision, among them the GPL-3.0 licence, the public RSS feed address, the integer casts in SQL and the read of 1.6.x serialized settings (`docs/MARKETPLACE.md` section 6.3). The listing itself is a separate business step. | Owner |
 | 26 | The newsletter block's unsubscribe | PrestaShop's block unsubscribes an address without a confirmation step, and in "Subscribers only" the module forwards that to Smaily as a permanent unsubscribe (`is_unsubscribed = 1`, section 6.2). | Owner |
 | 29 | Two shops on one Smaily account with different consent modes | Established on 2026-11-21, not changed. Smaily records a contact that the API creates as an opt-in (owner). So when a shop in "All customers" creates a contact, the reconcile of a "Subscribers only" shop on the same account reads that opt-in and sets `newsletter = 1` for a customer of its own shop with the same address, also one who never subscribed there (section 6.5). The first reconcile run of an account marks nobody subscribed; the later runs do. Neither sibling prevents it: Magento's and WooCommerce's reconcile apply every opt-in of the account's log to the address and never ask which website or site caused it. Magento reaches fewer people, because it changes only an address that has a newsletter-subscriber row in the consent website. | The cross-connector analysis (Linear CON-397) |
 | 30 | Multistore off with several rows in `shop` | 3.0.0 runs every shop under the one global setup, so the abandoned-cart sweep reminds the carts of every shop row, where the 2.x cron reminded the carts of the shop whose URL the crontab named (section 3.3). Narrowing the sweep to that shop sends fewer reminders. | Owner |
@@ -3372,6 +3399,10 @@ Decisions of 2026-11-21:
   through the API as an opt-in. Magento and WooCommerce do not prevent it either, so it goes into
   the cross-connector analysis (Linear CON-397) and no connector changes alone (section 14, row
   29).
+- The 3.0.0 upgrade deletes the files that 2.2.0 and 1.6.2 left in the module's folder (owner,
+  2026-11-21): a fixed list of 47 paths, only regular files inside that folder, and a file that
+  cannot be deleted is named in one notice and never fails the upgrade (section 3.7;
+  `docs/MARKETPLACE.md`, rule 33).
 - A Smaily account saved while an upgrade is unfinished stays (owner, 2026-11-21). The upgrade
   never writes over an account that the store holds at a shop and language, by the rule of the
   settings and the mapping rows; the 2.x account of that scope is then not migrated, the upgrade

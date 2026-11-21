@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyFiles;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyReader;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
@@ -54,6 +55,8 @@ final class FinishUpgradeTest extends IntegrationTestCase
             Services::instance()->get(AccountStore::class),
             new MigrationNotices(),
             new LegacyOverride(_PS_OVERRIDE_DIR_),
+            // No such folder: the files step works on the module's folder only in a real upgrade.
+            new LegacyFiles(sys_get_temp_dir() . '/smaily-no-module-folder'),
             static function (string $step): void {
                 if ($step === 'verify') {
                     throw new \LogicException('injected');

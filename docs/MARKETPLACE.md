@@ -155,7 +155,7 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | 8 | Runs on a current PrestaShop | The test suite passes inside PrestaShop 9.2.0 and 8.2.8 (section 6.4). |
 | 9 | Zip name and folder | `smailyforprestashop.zip` holds 1 top-level entry, the folder `smailyforprestashop`; `$this->name` is a lowercase literal. 0 `__MACOSX` or `.DS_Store` entries. |
 | 11 | No `ALTER`; guarded `CREATE` and `DROP` | 0 `ALTER`. 2 of 2 `CREATE TABLE` statements carry `IF NOT EXISTS`, 2 of 2 `DROP TABLE` statements carry `IF EXISTS`. |
-| 12 | No change to core or other modules' files | The module writes no file (0 calls of `file_put_contents`, `fopen`, `fwrite`, `copy`, `rename`, `mkdir`). It deletes one file: the override of `ps_emailsubscription` that 2.x installed, and only when its SHA-256 is that of the 2.x copy. The contact reconcile writes data, not files: `customer.newsletter` and `emailsubscription.active`. |
+| 12 | No change to core or other modules' files | The module writes no file (0 calls of `file_put_contents`, `fopen`, `fwrite`, `copy`, `rename`, `mkdir`). It deletes one file outside its own folder: the override of `ps_emailsubscription` that 2.x installed, and only when its SHA-256 is that of the 2.x copy. Inside its own folder the upgrade deletes the files of the previous version (rule 33). The contact reconcile writes data, not files: `customer.newsletter` and `emailsubscription.active`. |
 | 13 | Overrides | The module ships no `override` folder. |
 | 14 | Uninstall | A console uninstall on 8.2.8 and on 9.2.0, of a module that was set up with a Smaily account, the welcome automation and a discount rule, left 0 `SMAILY%` configuration rows (24 before), 0 tables (9), 0 admin tabs (5), 0 hook registrations (32) and 0 authorization roles that name the module (24). The 1 discount code that the module had issued stayed in the shop's cart rules, as designed (`docs/ARCHITECTURE.md` section 11.4). |
 | 15 | Debug mode | Both dev shops run with `_PS_MODE_DEV_` on. The suite passes in them with PHPUnit turning warnings and notices into failures. 15 storefront and module requests and the module's 5 admin menu links per shop returned 0 answers with PHP error text; the shop's output held 0 PHP messages that name the module. The admin links were opened before the Initial setup, so each showed the Initial setup page. While the suite ran on 9.2.0, PrestaShop's own log took 5 lines "Cannot register tab … because it already exists"; a plain install and the requests above wrote none. |
@@ -167,7 +167,7 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | 22 | File storage | The module writes no file (rule 12). |
 | 23 | No iframe | 0 `<iframe`. |
 | 25 | Escaped output | All 40 templates are Twig, with PrestaShop's automatic escaping: 0 `raw` filters, 0 `autoescape` switches, no Smarty file. The RSS feed is built with `DOMDocument` nodes. One script sets `innerHTML`, with HTML that a Twig template rendered. |
-| 28 | No file operation on request input | The 5 file calls (`is_file`, `hash_file`, `unlink`, `scandir`, `rmdir`) take the fixed path of the 2.x override; 1 `require_once`, of the module's own autoloader. |
+| 28 | No file operation on request input | The file calls (`is_file`, `hash_file`, `unlink`, `scandir`, `rmdir`, and `realpath`, `is_dir`, `is_writable` in `Migration\LegacyFiles`) take the fixed path of the 2.x override or a path of the fixed list of rule 33 under the module's folder; 1 `require_once`, of the module's own autoloader. |
 | 31 | Nothing downloaded after install | No code downloads or writes a file. 0 scripts, styles, fonts or images are loaded from another host. The daily new-version check reads release data from `api.github.com` and never fetches the release. |
 | 35 | Licence of the dependencies | The production `vendor/` holds Composer's autoloader only (MIT). The module's own licence is in section 6.3. |
 
@@ -180,6 +180,8 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | 10 | Licence notice in every source file | PrestaShop's `header-stamp` wrote the module's existing notice, as a Twig comment, at the top of the templates. The Composer script `header-stamp` runs it with the text in `bin/license-header.txt`. | Notice in 251 of 251 PHP, 40 of 40 Twig, 7 of 7 JavaScript and 1 of 1 CSS files. The Twig token stream of each of the 37 templates that got the notice then is the same as before it. |
 | 26 | No direct superglobal | `src/controllers/front/capture.php` reads the method and the posted fields from Symfony's request object instead of `$_SERVER` and `$_POST`. | 0 superglobals in the module. The other request reads are 5 `Tools::getValue()` calls (each cast, checked against a list, or compared with `hash_equals()`) and Symfony's request object in the admin controllers. |
 
+| 33 | Deleting files that an update drops | The owner decided on 2026-11-21 that the upgrade deletes them. The upgrade's step `files` (`Migration\LegacyFiles`) deletes the 47 paths that 2.2.0 (35) or 1.6.2 (12 more) shipped and 3.0.0 does not, with `unlink()`, and the 6 folders that they leave empty: only regular files inside the module's folder, nothing under `vendor/` or `translations/`. A file that cannot be deleted is named in a notice and does not fail the upgrade (`docs/ARCHITECTURE.md` section 3.7). | `tests/Unit/Migration/LegacyFilesTest.php` checks the deletion on a folder that holds the 47 files, and that 3.0.0 ships none of the listed paths. |
+
 ### 6.3 Not technical, or waiting for the owner
 
 | # | Rule | Standing | Question |
@@ -190,7 +192,6 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | 29 | Front controllers behind a token | The 2 cron URLs and the tick URL compare a stored token with `hash_equals()` and refuse an empty one; the capture URL compares the token of the visitor's own cart (an HMAC of the cart's id) the same way. The RSS feed URL takes no token: merchants embedded it in their Smaily templates, and Smaily fetches it. | Is the public, read-only feed acceptable to the Marketplace, given that a token would break the feeds that 2.x stores use? |
 | 30 | `header_csp.txt` | The pages of the module load nothing from another host. The server calls `<subdomain>.sendsmaily.net` and `api.github.com`. The page does not say whether server-side calls belong in the file. | Does the reviewer expect a `header_csp.txt` with these two hosts? |
 | 32 | No external links | 299 files carry `http://www.gnu.org/licenses/` in the licence notice. 10 other files name an outside address: the Smaily API and the GitHub API, XML namespaces in the RSS feed and the 3 SVG logos, the example subdomain in 3 files, and the "Create a Smaily account" link. `composer.lock` holds 487 package addresses. The links of `USERGUIDE.pdf` are not counted. | Which of these does the Marketplace accept, and does the licence notice lose its link? |
-| 33 | Deleting files that an update drops | 2.2.0 shipped 35 files that 3.0.0 does not ship (the 2.x settings forms, `lib/`, the old templates and script, and the 8 classes of the 2.x contact sync and cart reminder, which no URL of 3.0.0 reaches). The upgrade deletes none of them; it deletes only the 2.x override in the core's folder. | May the 3.0.0 upgrade get a step that deletes these 35 files from the module folder? |
 | 34 | Light hooks | Not measured in this pass. `docs/ARCHITECTURE.md` section 3.7 holds the measured page cost of the fallback tick. | Is a measurement of each hook's page cost wanted before a listing? |
 | 35 | Supported licence | GPL-3.0: `LICENCE.txt` at the repository root, `"license"` in `src/composer.json`, and every notice. GPL-3.0 is not among the listed licences. The zip holds no licence file. | Does the Marketplace accept GPL-3.0, or does the listing need another licence? |
 | 36 | `docs/readme_en.pdf` | The zip holds `docs/USERGUIDE.pdf`, the 2.x guide; no `readme_en.pdf`. | Does the 3.0.0 guide ship as `docs/readme_en.pdf`, with the old file deleted by the upgrade (rule 33)? |
@@ -213,6 +214,25 @@ The licence notice, the index files, the code style and the tests, from the repo
     composer --working-dir src autoindex                     # adds a missing index.php; stamp it afterwards
     (cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
     src/vendor/bin/phpunit
+
+The list of rule 33 was made once, from the repository root, and is fixed in
+`Migration\LegacyFiles::FILES`. A path of 2.2.0 or 1.6.2 that the 3.0.0 zip does not hold is on
+the list, except `translations/et.php` (PrestaShop writes a merchant's own translations of a 1.6.x
+module there). The 2.2.0 release workflow packed the tag's `src/` without `.gitignore`,
+`.php-cs-fixer.dist.php` and `phpstan.neon`, and the 1.6.2 workflow the tag's `src/` as it is;
+neither list holds a path under `vendor/`. The tags 2.0.0 to 2.1.2 and 1.6.0 hold no path beyond
+these:
+
+    composer --working-dir src package
+    unzip -Z1 dist/smailyforprestashop.zip | grep -v '/$' | sed 's|^smailyforprestashop/||' | sort > new.txt
+    git ls-tree -r --name-only 2.2.0:src | grep -vxE '\.gitignore|\.php-cs-fixer\.dist\.php|phpstan\.neon' | sort > 220.txt
+    git ls-tree -r --name-only 1.6.2:src | sort > 162.txt
+    comm -23 220.txt new.txt                                         # 35 paths
+    comm -23 162.txt 220.txt | comm -23 - new.txt | grep -v '^translations/'   # 12 paths
+
+In an upgraded shop, the files of the list that are still on disk:
+
+    cd modules/smailyforprestashop && for f in <the 47 paths>; do [ -e "$f" ] && echo "$f"; done
 
 Forbidden constructs are counted with `grep` over the PHP files that the zip holds, for example
 `grep -nE '\$_(GET|POST|REQUEST|SERVER|COOKIE|FILES|SESSION|ENV)\b'` and

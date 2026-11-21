@@ -18,7 +18,7 @@ This guide will help you set up and configure Smaily Connect for PrestaShop (the
 
 1. Install the new version over the old one: **Modules -> Module Manager -> Upload a module**, with the .zip file of the release. Do not uninstall the old version first: uninstalling removes every setting of the module.
 
-2. The upgrade carries your settings over: the Smaily account, contact synchronization, the opt-in and abandoned cart automations with their workflows, the RSS defaults, and the record of the carts that were already reminded. The password of the Smaily account is stored encrypted from now on. Your cron URLs and your RSS feed URLs keep working.
+2. The upgrade carries your settings over: the Smaily account, contact synchronization, the opt-in and abandoned cart automations with their workflows, the RSS defaults, and the record of the carts that were already reminded. The password of the Smaily account is stored encrypted from now on. Your cron URLs and your RSS feed URLs keep working. The files of the old version that Smaily Connect does not use are deleted from the module's folder; if one cannot be deleted, a notice names it, so that you can delete it by hand.
 
 3. Notices at the top of the Smaily Connect pages tell what the upgrade changed and what it left switched off, with the reason. Close each notice once you have read it; it then goes away for every administrator. Until then the other back-office pages show one line with a link to the Dashboard.
 

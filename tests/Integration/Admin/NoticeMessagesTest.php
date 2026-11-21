@@ -28,6 +28,7 @@ final class NoticeMessagesTest extends IntegrationTestCase
             MigrationPlan::NOTICE_NEWSLETTER_BLOCK_REMOVED => [],
             MigrationPlan::NOTICE_EMAILSUBSCRIPTION_EMAILS_CHANGED => [],
             MigrationNotices::OVERRIDE_LEFT_IN_PLACE => ['path' => 'override/modules/ps_emailsubscription/ps_emailsubscription.php'],
+            MigrationNotices::FILES_LEFT_IN_PLACE => ['files' => 'lib/Api.php, lib/Logger.php'],
         ];
         $cases = [];
         foreach ($notices as $code => $params) {

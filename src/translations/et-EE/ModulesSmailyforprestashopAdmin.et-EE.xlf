@@ -2547,6 +2547,11 @@
         <target>Kaasa külalised: edaspidi sünkroonitakse ka külalisena ostnud kliendid ning igapäevane värskendus saadab ka olemasolevad.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="083fba139621d6b21b2bd89e05258396">
+        <source>These files of the previous version could not be deleted from the folder of the module: %files%. Delete them by hand; the module does not use them.</source>
+        <target>Neid eelmise versiooni faile ei õnnestunud mooduli kaustast kustutada: %files%. Kustuta need käsitsi; moodul neid ei kasuta.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -16,6 +16,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyConfigMapper;
+use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyFiles;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyReader;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
@@ -40,7 +41,9 @@ require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
  * reminded carts exist afterwards, the legacy keys but the two cron tokens are gone, and a migration
  * that stops at any step leaves the legacy state and an inert runtime until a later run completes it.
  *
- * No assertion compares the password itself, so a failure cannot print it.
+ * No assertion compares the password itself, so a failure cannot print it. The step that deletes
+ * the files of the previous version works on a folder under the system's temporary folder that
+ * holds those files, never on the module's own folder.
  */
 final class Upgrade300Test extends IntegrationTestCase
 {
@@ -50,16 +53,22 @@ final class Upgrade300Test extends IntegrationTestCase
 
     private const SAVED_PASSWORD = 'another-invented-password';
 
+    /** A folder that stands for the module's, with every file that 2.2.0 and 1.6.2 left. */
+    private string $moduleDir;
+
     protected function setUp(): void
     {
         parent::setUp();
         LegacyStore::clear();
         $this->removeOverride();
+        $this->moduleDir = sys_get_temp_dir() . '/smaily-legacy-files-' . bin2hex(random_bytes(4));
+        $this->placeLegacyFiles(LegacyFiles::FILES);
     }
 
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
+            $this->removeModuleDir($this->moduleDir);
             LegacyStore::removeSecondShop();
             LegacyStore::restore();
             $this->removeOverride();
@@ -254,6 +263,7 @@ final class Upgrade300Test extends IntegrationTestCase
         $this->recordModuleVersion('3.0.0');
         self::assertTrue($this->upgrade()->runPending());
         self::assertSame($undisturbed, $this->snapshot());
+        self::assertSame([], $this->legacyFiles(), 'the files of the previous version are gone');
     }
 
     public function testASecondRunOfACompletedMigrationChangesNothing(): void
@@ -335,6 +345,10 @@ final class Upgrade300Test extends IntegrationTestCase
         }
         \Configuration::deleteByName(Schema::VERSION_KEY);
         LegacyStore::reloadConfiguration();
+        // What the module's folder of such a store holds: files of 3.0.0, and the files of the
+        // previous version only where no upgrade ran.
+        $this->placeFiles(['smailyforprestashop.php', 'src/Model/RssFeedProductsCollection.php']);
+        $files = $this->moduleFiles();
         $before = $this->held();
         self::assertFalse(Schema::isCurrent());
 
@@ -342,6 +356,7 @@ final class Upgrade300Test extends IntegrationTestCase
 
         self::assertTrue(Schema::isCurrent());
         self::assertSame($before, $this->held());
+        self::assertSame($files, $this->moduleFiles(), 'and no file is deleted');
         self::assertSame(!$setUp, BaseController::isSetupForced(), 'only a store nobody set up opens the Initial setup');
     }
 
@@ -550,6 +565,59 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertContains(
             ['code' => MigrationNotices::OVERRIDE_LEFT_IN_PLACE, 'params' => ['path' => 'override/' . LegacyOverride::RELATIVE_PATH]],
             $this->notices()
+        );
+    }
+
+    /**
+     * PrestaShop unpacks 3.0.0 over the module's folder and deletes nothing. The upgrade deletes
+     * the files that 2.2.0 and 1.6.2 shipped and 3.0.0 does not, with the folders they leave
+     * empty, and no other file.
+     */
+    public function testTheFilesOfThePreviousVersionAreDeleted(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        $this->placeFiles(['smailyforprestashop.php', 'src/Model/RssFeedProductsCollection.php', 'lib/MerchantsOwn.php']);
+        self::assertCount(47, $this->legacyFiles());
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame([], $this->legacyFiles());
+        self::assertFileExists($this->moduleDir . '/smailyforprestashop.php');
+        self::assertFileExists($this->moduleDir . '/src/Model/RssFeedProductsCollection.php');
+        self::assertFileExists($this->moduleDir . '/lib/MerchantsOwn.php', 'a file that no release shipped stays, and its folder with it');
+        self::assertDirectoryDoesNotExist($this->moduleDir . '/src/Form');
+        self::assertNotContains(MigrationNotices::FILES_LEFT_IN_PLACE, array_column($this->notices(), 'code'));
+    }
+
+    /**
+     * A file that cannot be deleted does not stop the upgrade: the step is done, the upgrade
+     * completes, and one notice names the files, so that the merchant can delete them by hand.
+     */
+    public function testAFileThatCannotBeDeletedIsNamedInANoticeAndTheUpgradeCompletes(): void
+    {
+        if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+            self::markTestSkipped('root deletes from a read-only folder');
+        }
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        $this->recordModuleVersion('2.2.0');
+        chmod($this->moduleDir . '/lib', 0555);
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        $state = $this->upgrade()->state();
+        self::assertSame('done', $state['status']);
+        self::assertContains('files', $state['done']);
+        $left = ['lib/Api.php', 'lib/Logger.php', 'lib/Rss.php', 'lib/index.php'];
+        self::assertSame($left, $this->legacyFiles());
+        self::assertContains(
+            ['code' => MigrationNotices::FILES_LEFT_IN_PLACE, 'params' => ['files' => implode(', ', $left)]],
+            $this->notices()
+        );
+        self::assertSame(
+            [MigrationNotices::FILES_LEFT_IN_PLACE],
+            array_values(array_intersect(array_column($this->notices(), 'code'), [MigrationNotices::FILES_LEFT_IN_PLACE])),
+            'one notice'
         );
     }
 
@@ -921,8 +989,70 @@ final class Upgrade300Test extends IntegrationTestCase
             $services->get(AccountStore::class),
             new MigrationNotices(),
             new LegacyOverride(_PS_OVERRIDE_DIR_),
+            new LegacyFiles($this->moduleDir),
             $beforeStep
         );
+    }
+
+    /**
+     * @param list<string> $paths files that 2.2.0 or 1.6.2 shipped, relative to the module's folder
+     */
+    private function placeLegacyFiles(array $paths): void
+    {
+        self::assertSame([], array_values(array_diff($paths, LegacyFiles::FILES)));
+        $this->placeFiles($paths);
+    }
+
+    /**
+     * @param list<string> $paths
+     */
+    private function placeFiles(array $paths): void
+    {
+        foreach ($paths as $path) {
+            $file = $this->moduleDir . '/' . $path;
+            if (!is_dir(dirname($file))) {
+                mkdir(dirname($file), 0777, true);
+            }
+            file_put_contents($file, "<?php\n");
+        }
+    }
+
+    /**
+     * @return list<string> the listed files that the folder holds
+     */
+    private function legacyFiles(): array
+    {
+        return array_values(array_filter(
+            LegacyFiles::FILES,
+            fn (string $path): bool => file_exists($this->moduleDir . '/' . $path)
+        ));
+    }
+
+    /**
+     * @return list<string> every file of the folder, relative to it
+     */
+    private function moduleFiles(): array
+    {
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->moduleDir, \FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            $files[] = substr($file->getPathname(), strlen($this->moduleDir) + 1);
+        }
+        sort($files);
+
+        return $files;
+    }
+
+    private function removeModuleDir(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        chmod($dir, 0755);
+        foreach (array_diff((array) scandir($dir), ['.', '..']) as $name) {
+            is_dir($dir . '/' . $name) ? $this->removeModuleDir($dir . '/' . $name) : unlink($dir . '/' . $name);
+        }
+        rmdir($dir);
     }
 
     private function plan(string $from): MigrationPlan
