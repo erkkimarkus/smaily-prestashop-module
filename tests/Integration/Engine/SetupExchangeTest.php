@@ -25,7 +25,7 @@ final class SetupExchangeTest extends EngineTestCase
 {
     use MultistoreShop;
 
-    /** A prefix no parser would read: tags, quotes, a backslash, a format mark, a back-tick. */
+    /** No prefix of the engine's form: tags, quotes, a backslash, a format mark, a back-tick. */
     private const ODD_PREFIX = "<c9>-'\"\\ %s\u{00e4}`;--\n";
 
     private const REMOTE_TEXT = 'No customer with email shopper@example.test';
@@ -116,7 +116,28 @@ final class SetupExchangeTest extends EngineTestCase
     {
         yield 'none' => [''];
         yield 'as the contract shows it' => ['c2-'];
+        yield 'the highest number' => ['c9999-'];
+    }
+
+    /**
+     * @dataProvider otherForms
+     */
+    public function testAPrefixOfAnotherFormIsRefusedAndNothingIsStored(string $prefix): void
+    {
+        $this->engine->set('prefix_answer', ['exchange' => $prefix]);
+
+        self::assertSame([0, Setup::INVALID_ANSWER], $this->failure(fn () => $this->connect()));
+        self::assertSame(0, self::connectionRows());
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function otherForms(): iterable
+    {
         yield 'characters a parser trips on' => [self::ODD_PREFIX];
+        yield 'another form' => ['shop_7.'];
+        yield 'a number from zero' => ['c0-'];
     }
 
     public function testAnEngineThatNamesNoPrefixStoresNone(): void
@@ -200,7 +221,7 @@ final class SetupExchangeTest extends EngineTestCase
 
     public function testAConnectAfterADisconnectReportsThePrefixThatWasHeld(): void
     {
-        $this->engine->set('prefix_answer', ['exchange' => self::ODD_PREFIX]);
+        $this->engine->set('next_prefix', 'c7-');
         $this->services->get(Disconnector::class)->disconnect($this->connect());
         self::assertSame(0, self::connectionRows());
 
@@ -210,7 +231,7 @@ final class SetupExchangeTest extends EngineTestCase
         $this->connect();
 
         $again = $this->engine->requestsTo('/api/setup/exchange')[1]['body'];
-        self::assertSame(bin2hex(self::ODD_PREFIX), bin2hex($again['connection']['previous_prefix']));
+        self::assertSame('c7-', $again['connection']['previous_prefix']);
     }
 
     /**

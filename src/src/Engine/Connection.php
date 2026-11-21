@@ -36,6 +36,13 @@ if (!defined('_PS_VERSION_')) {
  */
 final class Connection
 {
+    /**
+     * The form of a connection prefix that the engine assigns (contract "Base context": `c<N>-`, N
+     * from 1 to 9999, lower case). It decides only whether a value that arrives is taken as a
+     * prefix, as in the Magento and WooCommerce connectors; nothing reads a prefix in parts.
+     */
+    private const PREFIX_FORM = '/^c[1-9][0-9]{0,3}-$/D';
+
     private int $id;
 
     private int $idShop;
@@ -159,6 +166,18 @@ final class Connection
         $prefix = is_array($connection) ? ($connection['prefix'] ?? null) : null;
 
         return is_string($prefix) ? $prefix : '';
+    }
+
+    /**
+     * Whether a value is a connection prefix as the engine gives one: '' (a connection without a
+     * prefix) or `c<N>-`. An exchange that answers another value is refused, and a ping's is
+     * ignored (Setup::read(), HealthCheck::withAnswer()), as in the sibling connectors.
+     *
+     * @param mixed $value
+     */
+    public static function isPrefix($value): bool
+    {
+        return is_string($value) && ($value === '' || preg_match(self::PREFIX_FORM, $value) === 1);
     }
 
     /**

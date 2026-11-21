@@ -163,24 +163,29 @@ final class HealthCheckTest extends EngineTestCase
         self::assertSame('connected', $this->connections()->find(0)->health()['status']);
     }
 
-    public function testThePingsPrefixAndHistoryReplaceTheStoredOnesByteForByte(): void
+    public function testThePingsPrefixAndHistoryReplaceTheStoredOnes(): void
     {
         $this->engine->set('omit_connection', ['exchange' => true]);
         $connection = $this->connect();
         self::assertSame('', $connection->prefix());
         $this->engine->set('omit_connection', []);
-        $odd = "<c9>-'\"\\ %s\u{00e4}`;--\n";
-        $this->engine->set('prefix_answer', ['ping' => $odd]);
+        $this->engine->set('prefix_answer', ['ping' => 'c6-']);
 
         $this->check(self::NOW)->check($connection);
 
         $stored = $this->connections()->find(0);
-        self::assertSame(bin2hex($odd), bin2hex($stored->prefix()), 'a connection without a prefix gets the ping\'s');
+        self::assertSame('c6-', $stored->prefix(), 'a connection without a prefix gets the ping\'s');
         self::assertSame(100, $stored->config()['batch_size_max'], 'the rest of the stored config stays');
 
         $this->engine->set('prefix_answer', ['ping' => 7]);
         $this->check(self::NOW + 900)->check($stored);
-        self::assertSame(bin2hex($odd), bin2hex($this->connections()->find(0)->prefix()), 'a prefix that is no text changes nothing');
+        self::assertSame('c6-', $this->connections()->find(0)->prefix(), 'a prefix that is no text changes nothing');
+
+        // The sibling connectors' rule: a prefix that is neither '' nor `c<N>-` is ignored.
+        $this->engine->set('prefix_answer', ['ping' => "<c9>-'\"\\ %s\u{00e4}`;--\n"]);
+        $this->check(self::NOW + 1800)->check($this->connections()->find(0));
+        self::assertSame('c6-', $this->connections()->find(0)->prefix(), 'a prefix of another form changes nothing');
+        self::assertSame('connected', $this->connections()->find(0)->health()['status']);
     }
 
     public function testAKeyThatDoesNotDecryptIsRefusedWithoutARequest(): void

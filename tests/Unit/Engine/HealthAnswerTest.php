@@ -9,8 +9,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 
 /**
  * What a ping's answer changes in a stored connection: the engine's history window and connection
- * prefix replace the stored ones, each only in the form the contract gives it, and the prefix
- * exactly as it came.
+ * prefix replace the stored ones, each only in the form the contract gives it: a prefix that is
+ * '' or `c<N>-` exactly as it came, and no other.
  */
 final class HealthAnswerTest extends TestCase
 {
@@ -60,7 +60,31 @@ final class HealthAnswerTest extends TestCase
     {
         yield 'none' => [''];
         yield 'as the contract shows it' => ['c2-'];
+        yield 'the highest number' => ['c9999-'];
+    }
+
+    /**
+     * @dataProvider otherForms
+     */
+    public function testAPrefixOfAnotherFormIsIgnoredAsInTheSiblingConnectors(string $prefix): void
+    {
+        self::assertSame(self::STORED, HealthCheck::withAnswer(self::STORED, ['config' => ['connection' => ['prefix' => $prefix]]]));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function otherForms(): iterable
+    {
+        yield 'another form' => ['shop_7.'];
         yield 'characters a parser trips on' => ["<c9>-'\"\\ %s\u{00e4}`;--\n"];
+        yield 'white space only' => ['  '];
+        yield 'a number as text' => ['007'];
+        yield 'no number' => ['c-'];
+        yield 'a number from zero' => ['c0-'];
+        yield 'five digits' => ['c10000-'];
+        yield 'upper case' => ['C2-'];
+        yield 'a line end after it' => ["c2-\n"];
     }
 
     /**

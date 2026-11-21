@@ -136,8 +136,9 @@ final class HealthCheck
 
     /**
      * The settings with what a ping's answer names: the engine version, the history window and the
-     * connection prefix, each only when the answer holds it in the form the contract gives it. The
-     * prefix is kept exactly as it came.
+     * connection prefix, each only when the answer holds it in the form the contract gives it. A
+     * prefix that is neither '' nor `c<N>-` is ignored, as in the Magento and WooCommerce
+     * connectors (Connection::isPrefix()); one that is taken is kept exactly as it came.
      *
      * @param array<string, mixed> $settings
      * @param array<string, mixed> $answer
@@ -154,7 +155,7 @@ final class HealthCheck
         if (is_array($config['history'] ?? null)) {
             $stored['history'] = $config['history'];
         }
-        if (is_array($config['connection'] ?? null) && is_string($config['connection']['prefix'] ?? null)) {
+        if (is_array($config['connection'] ?? null) && Connection::isPrefix($config['connection']['prefix'] ?? null)) {
             $stored['connection'] = is_array($stored['connection'] ?? null) ? $stored['connection'] : [];
             $stored['connection']['prefix'] = $config['connection']['prefix'];
         }

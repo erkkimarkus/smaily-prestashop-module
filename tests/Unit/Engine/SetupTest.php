@@ -12,8 +12,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 
 /**
  * What the setup exchange takes from the merchant and from the engine: a setup link of the
- * engine's own host, and an answer that is stored whole or not at all, with the connection prefix
- * exactly as the engine gave it.
+ * engine's own host, and an answer that is stored whole or not at all, with a connection prefix of
+ * the engine's form ('' or `c<N>-`) exactly as the engine gave it.
  */
 final class SetupTest extends TestCase
 {
@@ -110,10 +110,6 @@ final class SetupTest extends TestCase
         yield 'none' => [''];
         yield 'as the contract shows it' => ['c2-'];
         yield 'the highest number' => ['c9999-'];
-        yield 'another form' => ['shop_7.'];
-        yield 'characters a parser trips on' => ["<c9>-'\"\\ %s\u{00e4}`;--\n"];
-        yield 'white space only' => ['  '];
-        yield 'a number as text' => ['007'];
     }
 
     public function testAnAnswerWithoutTheConnectionBlockStoresNoPrefix(): void
@@ -170,6 +166,16 @@ final class SetupTest extends TestCase
         yield 'a prefix that is a number' => [['config' => ['connection' => ['prefix' => 2]]], Setup::INVALID_ANSWER];
         yield 'a prefix that is null' => [['config' => ['connection' => ['prefix' => null]]], Setup::INVALID_ANSWER];
         yield 'a prefix that is a list' => [['config' => ['connection' => ['prefix' => ['c2-']]]], Setup::INVALID_ANSWER];
+        // The sibling connectors' rule: a prefix is '' or `c<N>-`, N from 1 to 9999.
+        yield 'a prefix of another form' => [['config' => ['connection' => ['prefix' => 'shop_7.']]], Setup::INVALID_ANSWER];
+        yield 'a prefix with characters a parser trips on' => [['config' => ['connection' => ['prefix' => "<c9>-'\"\\ %s\u{00e4}`;--\n"]]], Setup::INVALID_ANSWER];
+        yield 'a prefix of white space' => [['config' => ['connection' => ['prefix' => '  ']]], Setup::INVALID_ANSWER];
+        yield 'a prefix that is a number as text' => [['config' => ['connection' => ['prefix' => '007']]], Setup::INVALID_ANSWER];
+        yield 'a prefix without a number' => [['config' => ['connection' => ['prefix' => 'c-']]], Setup::INVALID_ANSWER];
+        yield 'a prefix numbered from zero' => [['config' => ['connection' => ['prefix' => 'c0-']]], Setup::INVALID_ANSWER];
+        yield 'a prefix of five digits' => [['config' => ['connection' => ['prefix' => 'c10000-']]], Setup::INVALID_ANSWER];
+        yield 'a prefix in upper case' => [['config' => ['connection' => ['prefix' => 'C2-']]], Setup::INVALID_ANSWER];
+        yield 'a prefix with a line end after it' => [['config' => ['connection' => ['prefix' => "c2-\n"]]], Setup::INVALID_ANSWER];
         yield 'a connection block without a prefix' => [['config' => ['connection' => []]], Setup::INVALID_ANSWER];
         yield 'a connection block that is text' => [['config' => ['connection' => 'c2-']], Setup::INVALID_ANSWER];
         yield 'a Smaily account longer than a subdomain' => [['smaily_subdomain' => str_repeat('a', 64)], Setup::INVALID_ANSWER];

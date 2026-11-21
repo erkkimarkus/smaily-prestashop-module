@@ -45,7 +45,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
  * before. No customer, order, product or browsing data.
  *
  * Nothing is stored unless the whole answer can be used: an API key and an engine store, every
- * address in it on the engine's own host, a connection prefix that can be kept as given, and an
+ * address in it on the engine's own host, a connection prefix of the engine's form, and an
  * engine store of one of the shop's own Smaily accounts. The setup token is spent by then; the
  * merchant asks for a new link.
  */
@@ -161,8 +161,10 @@ final class Setup
     /**
      * What a setup exchange's answer stores, when all of it can be used.
      *
-     * The connection prefix (`config.connection.prefix`) is kept exactly as it came: any string,
-     * unread. An answer without the block (an engine before the prefix existed) stores none.
+     * The connection prefix (`config.connection.prefix`) is kept exactly as it came. An answer
+     * whose prefix is neither '' nor of the form `c<N>-` is refused, as the Magento and
+     * WooCommerce connectors refuse it (Connection::isPrefix()). An answer without the block (an
+     * engine before the prefix existed) stores none.
      *
      * @param array<string, mixed> $answer
      * @param string $now the UTC time of the exchange
@@ -192,7 +194,7 @@ final class Setup
 
         $config = is_array($answer['config'] ?? null) ? $answer['config'] : [];
         if (array_key_exists('connection', $config)
-            && !(is_array($config['connection']) && is_string($config['connection']['prefix'] ?? null))) {
+            && !(is_array($config['connection']) && Connection::isPrefix($config['connection']['prefix'] ?? null))) {
             throw new EngineRequestException(self::INVALID_ANSWER);
         }
 
