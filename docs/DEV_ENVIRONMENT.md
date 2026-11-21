@@ -231,6 +231,20 @@ the image they were created with.
 Verified on 8.2.8 and 8.0.0 through the CI script (section 6). The dev stack itself was verified on
 9.2.0 only.
 
+One series of PHPUnit runs in the 8.2.8 shop (PHP 8.0.30) stopped with `Segmentation fault` and passed
+with `-d zend.enable_gc=0`. The cause is not known. Afterwards more than 100 runs of the suite in that
+image passed without the switch, plain and with `--debug`, at five commits, and three runs under
+Valgrind showed no invalid write or free; the command of section 4 therefore carries no GC switch. If
+PHP stops that way again, keep the evidence before anything else changes. The image sets no core
+limit, so PHP leaves the file `core` in the folder the command ran in (`/var/www/html/core`), and gdb
+names the functions on the stack (`zend_gc_collect_cycles` is the garbage collector):
+
+    docker compose exec -u root prestashop apk add --no-cache gdb
+    docker compose exec prestashop gdb /usr/local/bin/php core -batch -ex bt
+
+Keep the exact command and the working tree, as a commit, with the backtrace. A page request that
+crashes shows in `/var/log/php/php-fpm-errors.log` as `exited on signal 11 (SIGSEGV)`.
+
 ## 6. CI validation script (verified)
 
     composer --working-dir src package       # builds dist/smailyforprestashop.zip
