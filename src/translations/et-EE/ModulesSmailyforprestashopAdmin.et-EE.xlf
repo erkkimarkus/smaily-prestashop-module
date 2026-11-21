@@ -2552,6 +2552,206 @@
         <target>Neid eelmise versiooni faile ei õnnestunud mooduli kaustast kustutada: %files%. Kustuta need käsitsi; moodul neid ei kasuta.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="21370b2e745e14f97492b57a149942db">
+        <source>Privacy requests are handled by the store's GDPR module.</source>
+        <target>Privaatsuspäringuid käsitleb poe GDPR-moodul.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d68c7cd2cdc561bc55a5b8e6d8c4dd6c">
+        <source>Enter a valid email address.</source>
+        <target>Sisesta kehtiv e-posti aadress.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="def0b27a0b40b140f3e28ed1384a0157">
+        <source>The export was saved as a file.</source>
+        <target>Eksport salvestati failina.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8b539a0b0b254081c7aa48bf77826327">
+        <source>The data of this address was erased. Queued rows deleted: %deleted%; Log rows cleared: %cleared%; cart reminders closed: %carts%; discount codes removed: %codes%. The deletion in Campaign Intelligence is queued; connections: %connections%.</source>
+        <target>Selle aadressi andmed on kustutatud. Järjekorrast kustutatud ridu: %deleted%; tühjendatud logiridu: %cleared%; suletud ostukorvi meeldetuletusi: %carts%; eemaldatud sooduskoode: %codes%. Kustutamine Campaign Intelligence'is on järjekorras, ühendusi: %connections%.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2164e8d11df860f8c6409b147204533c">
+        <source>Erase the data of this address?</source>
+        <target>Kas kustutada selle aadressi andmed?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="112069ebfbf9bc379be7f78f8e1f6def">
+        <source>Everything this module holds about the address is erased in every shop: queued messages are deleted, sent rows of the Log lose the contact's data, unused discount codes are removed, and Campaign Intelligence is asked to delete the shopper. This cannot be undone.</source>
+        <target>Kõik, mida see moodul selle aadressi kohta hoiab, kustutatakse kõigis poodides: järjekorras olevad sõnumid kustutatakse, logi saadetud ridadelt eemaldatakse kontakti andmed, kasutamata sooduskoodid eemaldatakse ja Campaign Intelligence'il palutakse ostja kustutada. Seda ei saa tagasi võtta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="edc187bdea52d6e32b9c0f84e0849ec5">
+        <source>Erase</source>
+        <target>Kustuta</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b8b239113842535a5a6534fe06e7b2e4">
+        <source>Privacy request</source>
+        <target>Privaatsuspäring</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3d67a169ed033854895f8d28e86197bb">
+        <source>Export or erase what this module holds about one email address: its rows of the Log, its abandoned-cart reminders, order attribution, discount codes and personalization preference, and its Campaign Intelligence data. The customer account, the orders and the Smaily contact are not changed; handle those in PrestaShop and in Smaily.</source>
+        <target>Ekspordi või kustuta see, mida moodul ühe e-posti aadressi kohta hoiab: selle logiread, hüljatud ostukorvi meeldetuletused, tellimuste omistamise andmed, sooduskoodid, personaliseerimise eelistus ja Campaign Intelligence'i andmed. Kliendikontot, tellimusi ja Smaily kontakti ei muudeta; nendega tegele PrestaShopis ja Smailys.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b357b524e740bc85b9790a0712d84a30">
+        <source>Email address</source>
+        <target>E-posti aadress</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0095a9fa74d1713e43e370a7d7846224">
+        <source>Export</source>
+        <target>Ekspordi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fdbb03e5fd908db6025e7e19570257ef">
+        <source>Skipped: the shopper has since changed their personalization preference, and the newer preference is sent in its own row. Nothing was sent.</source>
+        <target>Vahele jäetud: ostja on vahepeal oma personaliseerimise eelistust muutnud ja uuem eelistus saadetakse eraldi real. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="513831e2da752834605fc6e75d45fcb9">
+        <source>Skipped: the Campaign Intelligence connection of this row no longer exists. Nothing was sent.</source>
+        <target>Vahele jäetud: selle rea Campaign Intelligence'i ühendust enam ei ole. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f6068daa29dbb05a7ead1e3b5a48bbee">
+        <source>Data</source>
+        <target>Andmed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="44749712dbec183e983dcd78a7736c41">
+        <source>Date</source>
+        <target>Kuupäev</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ad3569e33727eb6e4393a2766c2403b3">
+        <source>Queued message</source>
+        <target>Järjekorda pandud sõnum</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a85eba4c6c699122b2bb1387ea4813ad">
+        <source>Cart</source>
+        <target>Ostukorv</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2e57a5e4cfc4babee6620ca92ef603ee">
+        <source>Last change</source>
+        <target>Viimane muudatus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="16950ee7abb982c29efec4ce24762096">
+        <source>Reminder sent</source>
+        <target>Meeldetuletus saadetud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eec117b55637a29df774d2daa96f3433">
+        <source>Order attribution</source>
+        <target>Tellimuse omistamine</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a240fa27925a635b08dc28c9e4f9216d">
+        <source>Order</source>
+        <target>Tellimus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c76e3867213cff8946148c6510af0736">
+        <source>Recommendation</source>
+        <target>Soovitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ad4e206408c1c59bfb8a057ba7857446">
+        <source>Context</source>
+        <target>Kontekst</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="89d3aa90d44231874dcc361502338627">
+        <source>Visitor token</source>
+        <target>Külastaja tunnus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="aa74397584da0fd719c7f349ba31e399">
+        <source>Discount code</source>
+        <target>Sooduskood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ca0dbad92a874b2f69b549293387925e">
+        <source>Code</source>
+        <target>Kood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b2844b8e17ecaaeae68d018fe9418af0">
+        <source>Valid until</source>
+        <target>Kehtib kuni</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="019d1ca7d50cc54b995f60d456435e87">
+        <source>Used</source>
+        <target>Kasutatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="93cba07454f06a4a960172bbd6e2a435">
+        <source>Yes</source>
+        <target>Jah</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bafd7322c6e97d25b6299b5d6fe8920b">
+        <source>No</source>
+        <target>Ei</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a77368ebf39c08c9c710297249c2665e">
+        <source>Personalization preference</source>
+        <target>Personaliseerimise eelistus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="159cc3ffbe57f10c9fd60e2b86e450f8">
+        <source>Personalized recommendations</source>
+        <target>Personaalsed soovitused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fe493d8556500e969ee652c2155faa0f">
+        <source>Opted out</source>
+        <target>Loobunud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bb5fe5cd9c8c778e81b05ef53c166612">
+        <source>Allowed</source>
+        <target>Lubatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="820dbd2b8f606aff866c0bbfb6b737c1">
+        <source>Changed</source>
+        <target>Muudetud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f15c1cae7882448b3fb0404682e17e61">
+        <source>Content</source>
+        <target>Sisu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="42a7b2626eae970122e01f65af2f5092">
+        <source>No data</source>
+        <target>Andmeid ei ole</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2d25c72c1b18e562f6654fff8e11711e">
+        <source>Not available</source>
+        <target>Ei ole saadaval</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c8edd5d1c60ecc1d6d9d69a7aa1ed150">
+        <source>Payload (erased on a privacy request)</source>
+        <target>Andmesisu (kustutatud privaatsuspäringu alusel)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="eef48ccc6d636cab4aa4e2896db92f0f">
+        <source>No response is kept — it was erased on a privacy request.</source>
+        <target>Vastust ei ole alles — see kustutati privaatsuspäringu alusel.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

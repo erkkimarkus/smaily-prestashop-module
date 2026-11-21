@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file original="shop" source-language="et-EE" target-language="et-EE" datatype="plaintext">
+    <body>
+      <trans-unit id="57fe132c158447f26f6c14db9bd3d1ac">
+        <source>Personalization</source>
+        <target>Personaliseerimine</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="60178e9bea87234e2bc0bd22a09b20a4">
+        <source>Personalized Recommendations</source>
+        <target>Personaalsed soovitused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="81e9bfd02973a852d3df379afb5ec833">
+        <source>We use your shopping activity to personalize product recommendations in our newsletters. You can opt out at any time; newsletters will then show generic content.</source>
+        <target>Kasutame sinu ostutegevust, et personaliseerida meie uudiskirjade tootesoovitusi. Saad igal ajal loobuda; seejärel näitavad uudiskirjad üldist sisu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a3babc8c5f5298478d5ba31ba5cc78a4">
+        <source>Allow personalized recommendations</source>
+        <target>Luba personaalsed soovitused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d493018965e613b4e3ea23036ab23559">
+        <source>Save Preference</source>
+        <target>Salvesta eelistus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9a0ade22dfe88ef8cfe39a6da69e4186">
+        <source>Your personalization preference has been saved.</source>
+        <target>Sinu personaliseerimise eelistus on salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>
