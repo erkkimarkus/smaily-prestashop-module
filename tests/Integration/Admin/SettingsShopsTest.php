@@ -345,9 +345,95 @@ final class SettingsShopsTest extends IntegrationTestCase
     }
 
     /**
-     * Magento CON-190: a shop on another Smaily account than the shared one always holds its own
-     * automations, starts from no workflow, and never reads or writes the shared ones.
+     * A workflow belongs to the Smaily account it was picked from. An account per language once
+     * replaced the single account with the fallback account and kept the single account's
+     * workflows: back in Single language, every automation went to the fallback account with the
+     * workflow ids of the first one.
      */
+    public function testAChangeOfTheLanguageModeNeverKeepsAWorkflowOfAnotherAccount(): void
+    {
+        $this->oneStoreConfigured();
+        $panel = $this->setupPanels()->connection();
+        $scope = new SetupScope(false, false, true, 0, ['en' => 'English', 'et' => 'Eesti']);
+        /** @var Router $router */
+        $router = $this->services->get(Router::class);
+        $account = static fn (string $subdomain): array => ['subdomain' => $subdomain, 'username' => self::USERNAME, 'password' => self::PASSWORD];
+        $perLanguage = static fn (string $en, string $et): array => ['language_mode' => 'a', 'fallback_language' => 'en', 'accounts' => ['en' => $account($en), 'et' => $account($et)]];
+        $rows = fn (): array => array_map(static fn (array $row): array => [$row['language'], $row['account_key'], $row['workflow_id']], $this->mappings->rows(0));
+
+        // single -> a with the single account as the fallback account: no account is replaced.
+        $saved = $panel->save($scope, $perLanguage('demo', 'demo-et'));
+        self::assertSame([[], false], [$saved['errors'], $saved['workflows_removed']]);
+        self::assertSame([['', 'default', 42]], $rows());
+        $this->mappings->upsert(0, 'welcome', 'en', 'en', 43);
+        $this->mappings->upsert(0, 'welcome', 'et', 'et', 43);
+
+        // a -> single: the per-language rows stay for a switch back and are not read.
+        $saved = $panel->save($scope, $account('demo') + ['language_mode' => 'single']);
+        self::assertFalse($saved['workflows_removed']);
+        self::assertCount(3, $rows());
+        $match = $router->resolve('welcome', $this->shopB, 'et');
+        self::assertSame([42, 'demo'], [$match->workflowId(), $match->account()->subdomain()]);
+
+        // single -> a with another fallback account: it takes the single account's place, and the
+        // workflows of both replaced accounts go. The Estonian account is the one stored before.
+        $saved = $panel->save($scope, $perLanguage('other-en', 'demo-et'));
+        self::assertSame([[], true], [$saved['errors'], $saved['workflows_removed']]);
+        self::assertSame([['et', 'et', 43]], $rows());
+        self::assertSame('other-en', $this->accounts->find(0, '')->subdomain());
+        $match = $router->resolve('welcome', $this->shopB, 'et');
+        self::assertSame([43, 'demo-et'], [$match->workflowId(), $match->account()->subdomain()]);
+        self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $this->shopB, 'en'));
+
+        // a -> single: the single account is the fallback account, and no workflow of the first
+        // account is left to post through it.
+        $saved = $panel->save($scope, $account('other-en') + ['language_mode' => 'single']);
+        self::assertFalse($saved['workflows_removed']);
+        foreach (['en', 'et', ''] as $language) {
+            self::assertEquals(new Skipped(Router::SKIPPED_NO_WORKFLOW), $router->route('welcome', $this->shopB, $language));
+        }
+
+        // The modes of one account keep its workflows.
+        $this->mappings->upsert(0, 'welcome', '', 'default', 42);
+        foreach (['b', 'c', 'single'] as $mode) {
+            self::assertFalse($panel->save($scope, $account('other-en') + ['language_mode' => $mode])['workflows_removed']);
+            self::assertSame(42, $router->resolve('welcome', $this->shopB, '')->workflowId());
+        }
+    }
+
+    /**
+     * The same rule without a change of the mode, at every scope that sends through the replaced
+     * account: the shared rows, and the own rows of a shop without an account of its own.
+     */
+    public function testAReplacedSmailyAccountTakesItsWorkflowsAlongAndAnotherApiUserDoesNot(): void
+    {
+        $this->oneStoreConfigured();
+        // The shared welcome keeps the 2.x opt-in trigger; first order has a workflow.
+        $this->mappings->upsert(0, 'welcome', '', 'default', null, true);
+        $this->mappings->upsert(0, 'first_order', '', 'default', 43);
+        // Shop B holds its own automations on the shared account; shop C has its own account.
+        $this->mappings->upsert($this->shopB, 'welcome', '', 'default', 43);
+        $this->mappings->setNone($this->shopB, 'first_order', '', 'default');
+        $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
+        $this->mappings->upsert($this->shopC, 'welcome', '', 'default', 7);
+        $panel = $this->setupPanels()->connection();
+        $scope = $this->context(0)->shared();
+        $rows = fn (int $shop): array => array_map(static fn (array $row): array => [$row['trigger'], $row['workflow_id'], $row['optin_trigger']], $this->mappings->rows($shop));
+
+        // Another API user of the same Smaily account lists the same workflows.
+        $saved = $panel->save($scope, ['subdomain' => 'Demo', 'username' => 'another-api-user', 'password' => self::PASSWORD]);
+        self::assertSame([[], false], [$saved['errors'], $saved['workflows_removed']]);
+        self::assertSame([2, 2, 1], [$this->mappingCount(0), $this->mappingCount($this->shopB), $this->mappingCount($this->shopC)]);
+
+        $saved = $panel->save($scope, ['subdomain' => 'demo-two', 'username' => self::USERNAME, 'password' => self::PASSWORD]);
+
+        self::assertSame([[], true], [$saved['errors'], $saved['workflows_removed']]);
+        self::assertSame([['welcome', null, true]], $rows(0), 'the opt-in trigger names no workflow of an account');
+        self::assertSame([['first_order', null, false]], $rows($this->shopB), 'its workflow of the replaced account goes; its "no workflow" stays');
+        self::assertSame([['welcome', 7, false]], $rows($this->shopC), 'a shop on its own account keeps its workflows');
+    }
+
+
     public function testAShopOnAnotherAccountAlwaysSavesItsOwnAutomations(): void
     {
         $this->oneStoreConfigured();

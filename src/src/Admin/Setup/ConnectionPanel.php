@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
@@ -49,6 +50,13 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * - Every other mode: the account of no language.
  * - Saving asks Smaily whether it accepts the account of no language. The answer never stops the
  *   save: a refused account is saved and reads "Not connected", as in Magento.
+ * - A workflow belongs to the Smaily account it was picked from. Where a save puts another Smaily
+ *   account (another subdomain) in the place of a stored one, the workflows picked from the stored
+ *   one go: the mapping rows of that account's key, at the scope and at every shop that sends
+ *   through the scope's account. So no automation is posted to an account with another account's
+ *   workflow id: it sends nothing (`no_workflow`) until a workflow of the new account is picked.
+ *   Mode `a` does this to the account of no language, which becomes the fallback account; the
+ *   page asks before it.
  *
  * Nothing here returns a password: values() says only whether one is stored.
  */
@@ -64,12 +72,22 @@ final class ConnectionPanel
 
     private TranslatorInterface $translator;
 
-    public function __construct(AccountStore $accounts, StoreLayout $layout, SmailyCheck $check, TranslatorInterface $translator)
+    private MappingRepository $mappings;
+
+    /** @var callable(): list<int> */
+    private $shops;
+
+    /**
+     * @param callable(): list<int> $shops the ids of the store's shops
+     */
+    public function __construct(AccountStore $accounts, StoreLayout $layout, SmailyCheck $check, TranslatorInterface $translator, MappingRepository $mappings, callable $shops)
     {
         $this->accounts = $accounts;
         $this->layout = $layout;
         $this->check = $check;
         $this->translator = $translator;
+        $this->mappings = $mappings;
+        $this->shops = $shops;
     }
 
     /**
@@ -134,13 +152,13 @@ final class ConnectionPanel
      *
      * @param array<string, mixed> $data
      *
-     * @return array{errors: list<array{field: string, message: string}>, connected: bool, error: ?string}
+     * @return array{errors: list<array{field: string, message: string}>, connected: bool, error: ?string, workflows_removed: bool} `workflows_removed`: the save replaced a Smaily account whose workflows the automations held
      */
     public function save(SetupScope $scope, array $data): array
     {
         $refused = $this->scopeErrors($scope);
         if ($refused !== []) {
-            return ['errors' => $refused, 'connected' => false, 'error' => null];
+            return ['errors' => $refused, 'connected' => false, 'error' => null, 'workflows_removed' => false];
         }
         $target = (int) $scope->targetShop();
         $mode = (string) ($data['language_mode'] ?? StoreLayout::MODE_SINGLE);
@@ -161,10 +179,15 @@ final class ConnectionPanel
             $fallback = '';
         }
         if ($errors !== []) {
-            return ['errors' => $errors, 'connected' => false, 'error' => null];
+            return ['errors' => $errors, 'connected' => false, 'error' => null, 'workflows_removed' => false];
         }
 
+        $removed = false;
         foreach ($accounts as $language => $credentials) {
+            $stored = $this->accounts->find($target, (string) $language);
+            if ($stored !== null && strcasecmp(trim($stored->subdomain()), $credentials[0]) !== 0) {
+                $removed = $this->removeWorkflowsOf($target, (string) $language) || $removed;
+            }
             $this->accounts->save(new Account($target, (string) $language, $credentials[0], $credentials[1], $credentials[2]));
         }
         if ($mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE) {
@@ -180,7 +203,35 @@ final class ConnectionPanel
 
         $check = $this->check->check($accounts[''][0], $accounts[''][1], $accounts[''][2]);
 
-        return ['errors' => [], 'connected' => $check['connected'], 'error' => $check['error']];
+        return ['errors' => [], 'connected' => $check['connected'], 'error' => $check['error'], 'workflows_removed' => $removed];
+    }
+
+    /**
+     * Removes the workflows that were picked from the stored account of a language ('' = no
+     * language) at the scope: the mapping rows of its account key there, and at every shop that
+     * sends that key through the shared account (Automation\Router::accountFor()). Returns whether
+     * any row held one.
+     */
+    private function removeWorkflowsOf(int $target, string $language): bool
+    {
+        $accountKey = $language === '' ? MappingRepository::ACCOUNT_DEFAULT : $language;
+        $scopes = [$target];
+        if ($target === 0) {
+            foreach (($this->shops)() as $idShop) {
+                if ($this->accounts->find($idShop, $language) === null) {
+                    $scopes[] = $idShop;
+                }
+            }
+        }
+        $removed = false;
+        foreach ($scopes as $idShop) {
+            foreach ($this->mappings->rows($idShop) as $row) {
+                $removed = $removed || ($row['account_key'] === $accountKey && $row['workflow_id'] !== null);
+            }
+            $this->mappings->removeWorkflows($idShop, $accountKey);
+        }
+
+        return $removed;
     }
 
     /**

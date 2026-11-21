@@ -66,6 +66,7 @@ final class SaveTab extends AbstractSettingsAction
                 return [
                     'connected' => $result['connected'],
                     'error' => $result['error'],
+                    'workflows_removed' => $result['workflows_removed'],
                     'returned' => $result['returned'],
                     'own_account_started' => $result['own_account_started'],
                 ];

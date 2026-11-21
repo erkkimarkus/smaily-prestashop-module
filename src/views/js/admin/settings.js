@@ -33,8 +33,9 @@
  *   tab until the save removes them; the page then reloads to show the shared values;
  * - the connection's state is asked of Smaily once the page has loaded;
  * - the workflow lists of the Automations tab are asked of Smaily when the tab first shows, and
- *   again on Refresh workflows; a saved language mode that changed reloads the page, because the
- *   Automations tab is drawn for the saved mode;
+ *   again on Refresh workflows; a saved language mode that changed, or a replaced Smaily account
+ *   whose workflows went with it, reloads the page, because the Automations tab is drawn for the
+ *   saved mode and workflows;
  * - Change of the store layout opens the choice above the tabs; to one store it asks first;
  * - the RSS builder builds the feed URL from the picked values, with Copy.
  *
@@ -97,22 +98,10 @@
 
     /* Connection: the language mode, and the state of the stored accounts. */
     var connection = panel('connection');
-    var savedLanguageMode = connection ? (checked(connection, 'smaily-language-mode') || 'single') : 'single';
-    var languageModeConfirmed = false;
 
     panels.onChange(function (input) {
       if (input.name === 'smaily-language-mode') {
-        // Magento asks once before it leaves a configured per-language mode.
-        var leaving = (savedLanguageMode === 'a' || savedLanguageMode === 'b') && input.value !== savedLanguageMode;
-        if (leaving && !languageModeConfirmed) {
-          if (!window.confirm(label('language-mode-switch'))) {
-            connection.querySelector('input[name="smaily-language-mode"][value="' + savedLanguageMode + '"]').checked = true;
-            input = connection.querySelector('input[name="smaily-language-mode"]:checked');
-          } else {
-            languageModeConfirmed = true;
-          }
-        }
-        panels.showLanguageMode(input.value);
+        panels.pickLanguageMode(input);
       }
       if (input.name === 'smaily-shape-change') {
         showShapeNote();
@@ -226,14 +215,13 @@
           applyOwn(own);
         }
         if (tab === 'connection') {
-          if (data.language_mode !== savedLanguageMode) {
+          if (panels.connectionSaved(answer, data.language_mode)) {
             reload();
             return;
           }
           if (workflowsAsked) {
             loadWorkflows();
           }
-          languageModeConfirmed = false;
           panels.showStatus(!!answer.connected);
           scope.querySelectorAll('[data-smaily-field$="password"]').forEach(function (input) {
             input.value = '';

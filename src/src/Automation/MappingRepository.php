@@ -142,6 +142,21 @@ class MappingRepository
     }
 
     /**
+     * Deletes a shop scope's rows of one account key that hold a workflow: their workflows were
+     * picked from the Smaily account that the key named until now. The welcome's generic opt-in
+     * row and a shop's rows of "no workflow" name no workflow of any account and stay.
+     */
+    public function removeWorkflows(int $idShop, string $accountKey): bool
+    {
+        return \Db::getInstance()->execute(
+            'DELETE FROM `' . _DB_PREFIX_ . self::TABLE . '`'
+            . ' WHERE `id_shop` = ' . $idShop
+            . ' AND `account_key` = \'' . pSQL($accountKey) . '\''
+            . ' AND `workflow_id` IS NOT NULL'
+        );
+    }
+
+    /**
      * Deletes the row of (shop, trigger, language, account key), if one is stored.
      */
     public function delete(int $idShop, string $trigger, string $language, string $accountKey): bool

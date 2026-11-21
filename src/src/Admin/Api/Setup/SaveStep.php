@@ -62,7 +62,7 @@ final class SaveStep extends AbstractSetupAction
                     return $this->fieldErrors($result['errors']);
                 }
 
-                return ['connected' => $result['connected'], 'error' => $result['error']];
+                return ['connected' => $result['connected'], 'error' => $result['error'], 'workflows_removed' => $result['workflows_removed']];
             case 'contacts':
                 $errors = $panels->contacts()->save($scope, $data);
 

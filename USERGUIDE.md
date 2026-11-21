@@ -77,6 +77,8 @@ One cron line runs every task. The two cron lines of version 2.x keep working; t
 
 A store with several languages also chooses how languages are handled: **Single language** (every language the same), **Per-language Smaily accounts**, **One account, per-language workflows**, or **One workflow branching by language**.
 
+A workflow belongs to the Smaily account it was picked from. With **Per-language Smaily accounts**, the default fallback account also becomes the account of the store itself. When a change of this choice, or another account that you save, replaces a saved Smaily account, the workflows picked from the replaced account are removed: the page asks before a change of the choice, and tells you after a replaced account. The automations concerned send nothing, and the **Log** shows them as skipped, until you pick workflows of the new account under **Settings -> Automations**.
+
 ### Stores with several shops
 
 A multishop store first answers **How are your shops run?**
