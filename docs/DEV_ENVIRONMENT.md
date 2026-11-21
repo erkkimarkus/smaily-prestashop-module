@@ -207,6 +207,20 @@ guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the
 write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for
 a single-contact read. The guard is not installed in the shop of `tests/ci/validate.sh`.
 
+In a shop with debug mode on (the dev stack), `prestashop:module upgrade` stops behind the guard with
+`Unable to retrieve informations from Distribution API`: a native module asks
+`api.prestashop-project.org` during the upgrade, the proxy refuses the call, and debug mode turns that
+error into a failure of the command. With debug mode off for that one command, PrestaShop goes on
+without the answer and the upgrade runs (verified on 8.2.8):
+
+    docker compose exec -u www-data -e https_proxy=http://127.0.0.1:3128 \
+      -e http_proxy=http://127.0.0.1:3128 -e no_proxy=localhost,127.0.0.1 prestashop sh -c \
+      'echo "<?php define(\"_PS_MODE_DEV_\", false);" > /tmp/no-debug.php \
+       && php -d auto_prepend_file=/tmp/no-debug.php bin/console prestashop:module upgrade smailyforprestashop'
+
+The command builds `var/cache/prod`; remove that folder afterwards. A shop that runs with debug mode
+off needs no such step: 22 console upgrades from 2.2.0 ran behind the guard in one.
+
 ## 5. PrestaShop 8
 
 Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (PrestaShop 8.2.8 on PHP 8.0) or
