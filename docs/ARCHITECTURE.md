@@ -445,8 +445,9 @@ Magento's unified Log does (`magento:Controller/Adminhtml/Log/*`).
 `smaily_cart` row that names a cart (`id_cart` not `NULL`) with `INSERT IGNORE`: `status` =
 `mailed`, `mailed_at` and `last_activity_at` = `date_sent`, `id_customer` as stored, `email` `NULL`,
 `id_shop` and `id_lang` from the cart, or the default shop and the default language when the cart no
-longer exists. A row without `id_cart` names no cart and is skipped. `smaily_cart` itself stays until
-uninstall (section 2.4).
+longer exists. A row without `id_cart` names no cart and is skipped. A cart that `smaily_cart` records
+more than once gets one row, with the latest `date_sent` (section 3.5). `smaily_cart` itself stays
+until uninstall (section 2.4).
 
 ### 2.3 Secrets
 
@@ -641,6 +642,14 @@ reminded again. A customer whose legacy reminder is younger than 24 hours is not
 cart in that time: the sweep's rule of one reminder per address per 24 hours counts a 2.x row by its
 customer, because the row names no address (section 7, "The abandoned-cart sweep"). This keeps
 "nobody gets a duplicate reminder because of the upgrade" (Magento UPGRADING "What is cleaned up").
+
+The previous code can record one cart more than once. Its cart cron selects the carts that have no
+`smaily_cart` row, one cart per customer, and writes a row after each reminder that Smaily accepted;
+the table has no unique key on the cart, and nothing locks a run. Two cron requests that overlap can
+therefore both select a cart before either records it, and both remind and record it (2.2.0
+`Model\AbandonedCartCollection::getCarts()` and `Controller\AbandonedCartController::send()`; 1.6.2
+`SmailyCartCron` the same way). The migrated row takes the latest of those send times, so the 24
+hours count from the last reminder that 2.x sent.
 
 ### 3.6 Admin notice
 

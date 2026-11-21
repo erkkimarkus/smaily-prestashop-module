@@ -422,7 +422,10 @@ final class Upgrade300
     /**
      * Carries every reminder that `smaily_cart` records into `smaily_connect_cart` as mailed, so no
      * shopper gets a second reminder for the same cart. A row without a cart id names no cart and
-     * is left out; a cart that no longer exists keeps the default shop and language.
+     * is left out; a cart that no longer exists keeps the default shop and language. Two cron runs
+     * of the previous code that overlapped could each remind one cart and each record it: such a
+     * cart keeps the latest of its send times, which the rule of one reminder per 24 hours counts
+     * from.
      */
     private function stepCarts(): void
     {
@@ -436,7 +439,7 @@ final class Upgrade300
             . ' COALESCE(c.`id_lang`, ' . (int) \Configuration::get('PS_LANG_DEFAULT') . '), \'mailed\', sc.`date_sent`, sc.`date_sent`'
             . ' FROM `' . _DB_PREFIX_ . 'smaily_cart` sc'
             . ' LEFT JOIN `' . _DB_PREFIX_ . 'cart` c ON c.`id_cart` = sc.`id_cart`'
-            . ' WHERE sc.`id_cart` IS NOT NULL ORDER BY sc.`date_sent`, sc.`id_smaily_cart`'
+            . ' WHERE sc.`id_cart` IS NOT NULL ORDER BY sc.`date_sent` DESC, sc.`id_smaily_cart` DESC'
         ));
     }
 

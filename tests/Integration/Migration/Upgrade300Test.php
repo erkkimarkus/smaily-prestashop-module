@@ -152,6 +152,35 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertSame('3', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_cart`', false), 'the legacy table stays');
     }
 
+    /**
+     * Two cron runs of 2.x that overlapped could each remind one cart and each record it (the 2.x
+     * table has no unique key on the cart). The cart keeps the latest send time, whichever row
+     * came first, and the legacy table keeps both rows.
+     */
+    public function testACartThat2xRecordedTwiceKeepsItsLatestSendTime(): void
+    {
+        LegacyStore::loadFixture('2.2.0-configured.sql');
+        self::db()->execute(
+            'INSERT INTO `' . _DB_PREFIX_ . 'smaily_cart` (`id_customer`, `id_cart`, `date_sent`) VALUES'
+            . ' (2, 1, \'2026-11-01 10:19:30\'), (2, 3, \'2026-11-03 07:01:00\')'
+        );
+        $this->recordModuleVersion('2.2.0');
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame(
+            [
+                ['id_cart' => '1', 'last_activity_at' => '2026-11-01 10:19:30', 'mailed_at' => '2026-11-01 10:19:30'],
+                ['id_cart' => '2', 'last_activity_at' => '2026-11-02 18:40:30', 'mailed_at' => '2026-11-02 18:40:30'],
+                ['id_cart' => '3', 'last_activity_at' => '2026-11-03 07:05:59', 'mailed_at' => '2026-11-03 07:05:59'],
+            ],
+            array_map(static fn (array $row): array => array_map('strval', $row), self::db()->executeS(
+                'SELECT `id_cart`, `last_activity_at`, `mailed_at` FROM `' . _DB_PREFIX_ . 'smaily_connect_cart` ORDER BY `id_cart`'
+            ) ?: [])
+        );
+        self::assertSame('5', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_cart`', false), 'the legacy table stays');
+    }
+
     public function testAStoreWithoutLegacyDataCompletesAsANewSetup(): void
     {
         $this->recordModuleVersion('2.2.0');
