@@ -1172,19 +1172,9 @@
         <target>Algseadistus seadistab kõik poed: see näitab ja salvestab kõigi poodide jaoks salvestatud seadeid, olenemata sellest, milline pood on valitud. Pood, millel on oma seaded, jääb nende juurde; muuda neid lehel Seaded.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="914fa8adfc0c59affa35c7115f81e6a1">
-        <source>Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used. Continue?</source>
-        <target>Mitmekeelse režiimi vahetamine muudab kontaktide ja automaatikate suunamist. Keelepõhised kontod ja töövoovastendused, mis enam ei kehti, jäävad kasutusest välja. Kas jätkata?</target>
-        <note>Line: </note>
-      </trans-unit>
-      <trans-unit id="1813458d7fff47e133b10530a5f370ae">
-        <source>Switching the multilingual mode changes how contacts and automations are routed. The default fallback account takes the place of the Smaily account saved now; where it is another Smaily account, the workflows picked from the saved account are removed. Workflow mappings that no longer apply stop being used. Continue?</source>
-        <target>Mitmekeelse režiimi vahetamine muudab kontaktide ja automaatikate suunamist. Vaikimisi varukonto asendab praegu salvestatud Smaily konto; kui see on teine Smaily konto, eemaldatakse salvestatud kontolt valitud töövood. Töövoovastendused, mis enam ei kehti, jäävad kasutusest välja. Kas jätkata?</target>
-        <note>Line: </note>
-      </trans-unit>
-      <trans-unit id="2d6e1bd54e0064ec850e27a2f93e76f4">
-        <source>This save replaced a Smaily account. The workflows that the automations picked from the replaced account were removed: pick workflows of the new account under Automations.</source>
-        <target>See salvestamine asendas Smaily konto. Töövood, mille automaatikad olid valinud asendatud kontolt, eemaldati: vali uue konto töövood jaotises Automaatikad.</target>
+      <trans-unit id="5328159c8de0f2baeae94d148e1b8bb9">
+        <source>Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used (per-language credentials are removed on save). Continue?</source>
+        <target>Mitmekeelse režiimi vahetamine muudab kontaktide ja automaatikate suunamist. Keelepõhised kontod ja töövoovastendused, mis enam ei kehti, jäävad kasutusest välja (keelepõhised kasutajaandmed eemaldatakse salvestamisel). Kas jätkata?</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="5d4b56d5c31cb003dc27c419a8f11a99">

@@ -1123,31 +1123,34 @@ per language; `c` one workflow that branches on the contact's `language` field. 
 is always a shop's own setting (owner decision 2026-10-22 in Magento), and a store-wide save on a
 multishop install does not offer it.
 
-**[D]** A change of the language mode, by direction (`Admin\Setup\ConnectionPanel`,
-`views/js/admin/panels.js`). As in Magento, mode `a` stores the fallback account also as the account
-of no language, the accounts and the workflow rows of a mode that is left stay stored for a switch
-back, and the Router and the pages read only the rows of the saved mode (section 5.2).
+**[D]** A change of the language mode or of the account behaves as in Magento (owner, 2026-11-21;
+`Admin\Setup\ConnectionPanel`, `views/js/admin/panels.js`; Magento's
+`WizardStepSaver::saveConnect()` and `panels-js.phtml`). Mode `a` stores the fallback account also
+as the account of no language. A save that leaves mode `a` removes the languages' accounts, as
+Magento removes the store views' credentials. No save removes a workflow row: the rows of a mode
+that is left stay stored for a switch back, and the Router and the pages read only the rows of the
+saved mode (section 5.2).
 
 | Change | Accounts | Workflow rows | The page asks first |
 |---|---|---|---|
-| `single` ↔ `c`; `single` or `c` → `b` | unchanged | unchanged; `b` adds the per-language rows of the one account | no: nothing is dropped or replaced |
-| `b` → `single` or `c` | unchanged | the per-language rows stop being read | yes, Magento's question |
-| `single`, `b` or `c` → `a` | the fallback account takes the place of the account of no language | where the fallback account is another Smaily account, the rows of the account `default` are removed | yes: the question names the replaced account and its workflows (Magento asks only where `b` is left) |
-| `a` → `single`, `b` or `c` | the account of no language stays the fallback account; the languages' accounts stop being read | the rows of the languages' accounts stop being read; no row of the account `default` survives from another account | yes, Magento's question |
+| `single` ↔ `c`; `single` or `c` → `b` | unchanged | unchanged; `b` adds the per-language rows of the one account | no |
+| `single`, `b` or `c` → `a` | the fallback account takes the place of the account of no language | unchanged; the rows of the account `default` stop being read | only where `b` is left |
+| `b` → `single` or `c` | unchanged | the per-language rows stop being read | yes |
+| `a` → `single`, `b` or `c` | the account of no language stays the fallback account; the languages' accounts are removed | the rows of the languages' accounts stop being read; the rows of the account `default` are read again | yes |
 
-**[D]** A workflow belongs to the Smaily account it was picked from, so no automation is posted to an
-account with another account's workflow id. Where a Connection save puts another Smaily account
-(another subdomain; another API user of the same subdomain lists the same workflows) in the place
-of a stored account, the rows of that account's key that hold a workflow are removed, at the saved
-scope and at every shop that sends that key through the scope's account
-(`MappingRepository::removeWorkflows()`). The affected automations then send nothing: the Router
-skips them as `no_workflow`, which the Log words, until the merchant picks a workflow of the new
-account. The 2.x opt-in row and a shop's rows of "no workflow" name no workflow and stay. A save
-that changes the mode asks first (the table above); a save that replaces an account in the same
-mode says afterwards that the workflows of the replaced account were removed. Magento keeps such a
-workflow id and posts it to the new account, where Smaily refuses it (a cross-repo observation,
-not mirrored). The table has no column for the account a row was picked from, so the rows cannot
-wait for the first account to come back: typed again, it needs its workflows picked again.
+The page asks once, in the Initial setup and in Settings alike, before a saved mode `a` or `b` is
+left, with Magento's text ("store view" read as "language"): "Switching the multilingual mode
+changes how contacts and automations are routed. Per-language accounts and workflow mappings that
+no longer apply stop being used (per-language credentials are removed on save). Continue?" A
+declined change puts the saved mode back; entering `a` or `b` from `single` or `c` asks nothing.
+
+**Known limit.** A workflow row names no Smaily account, so a row keeps its workflow number when a
+save puts another Smaily account in the place of the account it was picked from: another account
+typed in the same mode, or the fallback account of mode `a` taking the place of the single
+account. The automation is then posted to the new account with the old number until the merchant
+picks a workflow of the new account; the Automations panel marks such a number "not in your Smaily
+list — kept". Magento does the same. Removing such rows on the save was built on 2026-11-21 and
+taken out the same day: no connector changes this alone (section 14, row 37; Linear CON-397).
 
 ### 5.2 Resolution rules
 
@@ -2110,7 +2113,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and their number of contacts as the Entity. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
 | The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
-| The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode, or that replaces a Smaily account whose workflows went with it (section 5.1), loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
+| The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
 | A workflow list that cannot be loaded shows Magento's sentence ("Could not load the workflow list: …") with the module's own sentence for the reason, not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text: it answers a reason code, and `Admin\Setup\AutomationsPanel` words each code. |
 | The Automations tab has no "Edit design", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (5.4). |
@@ -3160,7 +3163,7 @@ has one owner:
 | 34 | Two hooks without a listener | `actionCartSave` and `actionObjectCustomerDeleteAfter` are registered and unused (section 7). Removing them before the release changes `Install\HookList` and the main class. | Owner |
 | 35 | The first-import card after 90 days | The card reads the newest import job, and the janitor deletes a finished job after 90 days, so the card then offers "Start import" again (section 11.3). Keeping the newest import job of each shop would close it. | Owner |
 | 36 | A shop's row with no workflow | A shop's own mapping row that names no workflow means "this shop sends nothing for this event", while the shops on the shared setup still send (sections 5.1 and 10.9). It is a convention of stored data, to confirm before the release. | Owner |
-| 37 | Replacing a Smaily account in the same language mode | The save removes the workflows of the replaced account and says so afterwards (section 5.1). Magento keeps the old workflow numbers. | Owner |
+| 37 | A workflow number of another Smaily account | Known limit, accepted for now (owner, 2026-11-21). After a save that puts another Smaily account in a stored one's place (another account in the same mode, or mode `a`'s fallback account), an automation keeps the workflow number that was picked from the first account until the merchant picks a new one (section 5.1). Magento behaves the same. | Cross-connector analysis (Linear CON-397) |
 | 38 | The cron line on the Background tasks card | The amber and the red state keep the cron line behind the same button, "Show the cron line", as the green state (section 4.3). | Owner |
 | 39 | Discount codes: three limits | A guest's code is tied to no account, so it can be passed on. Every email makes a new cart rule, where WooCommerce sends an unused code again. The remainder voucher of a guest's order from a merchant's own rule can still be picked as a template (section 7). | Owner |
 | 40 | The bounds of the checkout capture | One reminder per address in 24 hours, to at most 2000 addresses an hour for the installation, stays possible for whoever posts addresses to the capture URL (section 7). Magento's bound of five writes per cart needs a schema change. | Owner |
@@ -3230,3 +3233,10 @@ Decisions of 2026-11-21:
 - A failed database query is an error everywhere in the module, never "no row" (2026-11-21).
   Every read and write goes through `Database\Sql`, which throws; nothing is sent, subscribed,
   overwritten or deleted on a read that failed (section 1.6).
+- Where the sibling connectors behave one way, PrestaShop behaves the same way; an improvement
+  that only one connector would have is not built alone and goes into one cross-connector
+  analysis (owner, 2026-11-21; Linear CON-397).
+- A change of the language mode or of the Smaily account behaves as in Magento (owner,
+  2026-11-21): the page asks only before a saved mode `a` or `b` is left, with Magento's text; a
+  save that leaves mode `a` removes the languages' accounts; no save removes a workflow, and none
+  says that workflows were removed (section 5.1; section 14, row 37).

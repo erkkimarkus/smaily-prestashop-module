@@ -44,9 +44,7 @@
   c: ['One workflow branching by language'|trans, 'A single workflow that branches on the contact\'s language inside Smaily. The language is sent with every contact.'|trans],
 } %}
 <div class="smaily-panel" data-smaily-panel="connection" data-language-mode="{{ mode }}"
-     data-label-mode-switch="{{ 'Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used. Continue?'|trans }}"
-     data-label-mode-accounts="{{ 'Switching the multilingual mode changes how contacts and automations are routed. The default fallback account takes the place of the Smaily account saved now; where it is another Smaily account, the workflows picked from the saved account are removed. Workflow mappings that no longer apply stop being used. Continue?'|trans }}"
-     data-label-workflows-removed="{{ 'This save replaced a Smaily account. The workflows that the automations picked from the replaced account were removed: pick workflows of the new account under Automations.'|trans }}">
+     data-label-mode-switch="{{ 'Switching the multilingual mode changes how contacts and automations are routed. Per-language accounts and workflow mappings that no longer apply stop being used (per-language credentials are removed on save). Continue?'|trans }}">
   {% if multilingual %}
     <div class="smaily-card" data-smaily-language-modes>
       <h2>{{ 'How is Smaily organized for your store languages?'|trans }}</h2>

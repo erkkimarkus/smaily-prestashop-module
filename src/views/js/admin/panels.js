@@ -24,7 +24,7 @@
 /*
  * What the Initial setup (setup.js) and Settings (settings.js) share of the panels in
  * views/templates/admin/panel/: the page's words and endpoints, the field errors, the Connection
- * panel's account blocks with Test connection and the state, the questions before a change of the
+ * panel's account blocks with Test connection and the state, the question before a change of the
  * language mode, what the Connection, Contacts and
  * Automations panels would save, the Automations panel's cards, workflow lists and discount
  * pickers, and the first
@@ -145,29 +145,19 @@
     }
 
     /*
-     * A picked language mode. As Magento, the page asks once before a saved per-language mode is
-     * left. It also asks before an account per language takes the place of a saved Smaily
-     * account: the workflows picked from a replaced account go with it (ConnectionPanel). A
-     * declined change puts the saved mode back.
+     * A picked language mode. As Magento, the page asks once before a saved mode with per-language
+     * accounts or workflows (a, b) is left, in the Initial setup and in Settings alike; entering
+     * one asks nothing. A declined change puts the saved mode back.
      */
     var savedConnection = panel('connection');
     var savedLanguageMode = savedConnection ? savedConnection.getAttribute('data-language-mode') : 'single';
-    var languageModeAsked = {};
-
-    function accountSaved() {
-      return savedConnection.querySelector('[data-smaily-account-block=""]').getAttribute('data-has-password') === '1';
-    }
+    var languageModeConfirmed = false;
 
     function pickLanguageMode(input) {
-      var question = '';
-      if (input.value === 'a' && savedLanguageMode !== 'a' && accountSaved()) {
-        question = 'mode-accounts';
-      } else if ((savedLanguageMode === 'a' || savedLanguageMode === 'b') && input.value !== savedLanguageMode) {
-        question = 'mode-switch';
-      }
-      if (question && !languageModeAsked[question]) {
-        if (window.confirm(labels(savedConnection)(question))) {
-          languageModeAsked[question] = true;
+      var leaving = (savedLanguageMode === 'a' || savedLanguageMode === 'b') && input.value !== savedLanguageMode;
+      if (leaving && !languageModeConfirmed) {
+        if (window.confirm(labels(savedConnection)('mode-switch'))) {
+          languageModeConfirmed = true;
         } else {
           input = savedConnection.querySelector('input[name="smaily-language-mode"][value="' + savedLanguageMode + '"]');
           input.checked = true;
@@ -177,16 +167,12 @@
     }
 
     /*
-     * After a Connection save. A save that replaced an account without a change of the mode asked
-     * nothing before: it says now that the replaced account's workflows are gone. Answers whether
-     * the page must be drawn again: the Automations panel shows the saved mode and its workflows.
+     * After a Connection save: answers whether the saved mode changed. The page is then drawn
+     * again, as the Automations panel shows the saved mode; else the next change asks again.
      */
-    function connectionSaved(answer, mode) {
-      savedConnection.querySelector('[data-smaily-account-block=""]').setAttribute('data-has-password', '1');
-      if (answer.workflows_removed && mode === savedLanguageMode) {
-        window.alert(labels(savedConnection)('workflows-removed'));
-      }
-      return mode !== savedLanguageMode || !!answer.workflows_removed;
+    function connectionSaved(mode) {
+      languageModeConfirmed = false;
+      return mode !== savedLanguageMode;
     }
 
     function showStatus(connected) {

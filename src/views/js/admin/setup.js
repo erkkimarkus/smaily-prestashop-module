@@ -29,8 +29,7 @@
  * Continue saves a step through Admin\Api\Setup\SaveStep (window.smailyConnect.setup.onContinue);
  * a refused save marks each field at fault with its message and keeps the step. Back keeps what
  * was typed: the steps stay on the page. The Automations step is drawn for the saved language
- * mode and workflows, so a Connect save that changes the mode, or that replaces a Smaily account
- * whose workflows went with it, opens the page again on step 2. The Intelligence
+ * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
  * window.smailyConnect.setup.finish(), which a later saver of step 4 calls after its own save.
  */
@@ -106,7 +105,7 @@
       panels.clearErrors(step);
       var data = panels.panel('connection') ? panels.connectionData() : {};
       return post('save', {step: 'connect', data: data}).then(function (answer) {
-        if (panels.connectionSaved(answer, data.language_mode)) {
+        if (panels.connectionSaved(data.language_mode)) {
           return reopen(2);
         }
         panels.showStatus(!!answer.connected);

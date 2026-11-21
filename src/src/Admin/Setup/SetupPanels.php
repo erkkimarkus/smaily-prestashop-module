@@ -70,9 +70,7 @@ final class SetupPanels
             $this->accounts(),
             $this->layout(),
             new SmailyCheck($this->transport(), $this->translator),
-            $this->translator,
-            $this->mappings(),
-            static fn (): array => array_map('intval', \Shop::getShops(false, null, true))
+            $this->translator
         );
     }
 
@@ -94,7 +92,8 @@ final class SetupPanels
     {
         /** @var AutomationSettings $settings */
         $settings = $this->services->get(AutomationSettings::class);
-        $mappings = $this->mappings();
+        /** @var MappingRepository $mappings */
+        $mappings = $this->services->get(MappingRepository::class);
         /** @var Router $router */
         $router = $this->services->get(Router::class);
         /** @var WorkflowList $workflows */
@@ -128,14 +127,6 @@ final class SetupPanels
         $layout = $this->services->get(StoreLayout::class);
 
         return $layout;
-    }
-
-    private function mappings(): MappingRepository
-    {
-        /** @var MappingRepository $mappings */
-        $mappings = $this->services->get(MappingRepository::class);
-
-        return $mappings;
     }
 
     private function accounts(): AccountStore

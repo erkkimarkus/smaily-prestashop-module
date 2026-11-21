@@ -107,7 +107,7 @@ final class SetupPanelsTest extends IntegrationTestCase
         self::assertSame('demo', $this->account(0, '')['subdomain']);
 
         $accepted = $panel->save($scope, ['subdomain' => 'demo.sendsmaily.net', 'username' => self::USERNAME, 'password' => self::PASSWORD]);
-        self::assertSame(['errors' => [], 'connected' => true, 'error' => null, 'workflows_removed' => false], $accepted);
+        self::assertSame(['errors' => [], 'connected' => true, 'error' => null], $accepted);
 
         $values = $panel->values($scope);
         self::assertSame(['demo', self::USERNAME, true, 'single'], [$values['subdomain'], $values['username'], $values['has_password'], $values['language_mode']]);

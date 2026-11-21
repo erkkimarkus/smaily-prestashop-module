@@ -33,9 +33,8 @@
  *   tab until the save removes them; the page then reloads to show the shared values;
  * - the connection's state is asked of Smaily once the page has loaded;
  * - the workflow lists of the Automations tab are asked of Smaily when the tab first shows, and
- *   again on Refresh workflows; a saved language mode that changed, or a replaced Smaily account
- *   whose workflows went with it, reloads the page, because the Automations tab is drawn for the
- *   saved mode and workflows;
+ *   again on Refresh workflows; a saved language mode that changed reloads the page, because the
+ *   Automations tab is drawn for the saved mode;
  * - Change of the store layout opens the choice above the tabs; to one store it asks first;
  * - the RSS builder builds the feed URL from the picked values, with Copy.
  *
@@ -215,7 +214,7 @@
           applyOwn(own);
         }
         if (tab === 'connection') {
-          if (panels.connectionSaved(answer, data.language_mode)) {
+          if (panels.connectionSaved(data.language_mode)) {
             reload();
             return;
           }
