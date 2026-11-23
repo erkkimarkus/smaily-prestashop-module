@@ -2195,10 +2195,10 @@ that changes one of them keeps it:
 ### 8.9 The connection (as built in Story 5.1)
 
 Story 5.1 built the foundation of this section: a shop exchanges a setup link for a connection, the
-module keeps one connection per separately set-up shop, checks that each is alive, and ends it. It
-has no screen: Story 5.3 calls these services from the Intelligence tab and the setup's Intelligence
-step. Nothing connects a shop but `Engine\Setup::connect()`: an install and an upgrade make no
-connection.
+module keeps one connection per separately set-up shop, checks that each is alive, and ends it. Its
+screen is Story 5.3's: the Intelligence tab and the setup's Intelligence step call these services
+(section 10.11). Nothing connects a shop but `Engine\Setup::connect()`: an install and an upgrade
+make no connection.
 
 **The engine's address.** `Engine\Client` calls `https://intelligence.smaily.com` (contract "Base
 context") and no other host, as the Magento and WooCommerce connectors: a setup link, a stored
@@ -2546,8 +2546,8 @@ once a day (section 4.1).
 "beacon". While the schema version is not current, each answers 404. Every answer carries
 `Cache-Control: no-store, private`.
 
-**Not built here.** The Settings switch for the consent setting and its help text (Story 5.3,
-section 10.11); the identity merge and the order's row to the engine (Story 5.2).
+**Built by other Stories.** The Settings switch for the consent setting and its help text (Story
+5.3, section 10.11); the identity merge and the order's row to the engine (Story 5.2).
 
 ### 8.11 Ingest: catalog, customers, orders and the identity merge (as built in Story 5.2)
 
@@ -3878,7 +3878,7 @@ Each Story fits one worker dispatch. "Owns" lists the paths only that Story crea
 other path is read-only for it. "Parallel group" names Stories that may run at the same time (at most
 three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/Integration/<Area>/`.
 
-**State on `v3`** (2026-11-21):
+**State on `v3`** (2026-11-23):
 
 | Story | State | Commit areas on `v3` |
 |---|---|---|
@@ -3909,13 +3909,15 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | New-version notice on the admin pages (CON-380) | Done (section 10.7) | `admin:` |
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
-| 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. No screen: Story 5.3 calls `Engine\Setup::connect()`. | `engine:`, `tests:`, `tooling:`, `docs:` |
+| 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. Its screen is Story 5.3's, which calls `Engine\Setup::connect()`. | `engine:`, `tests:`, `tooling:`, `docs:` |
 | 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in their own currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and is not agreed with the engine team (section 8.2, Linear INT-306): nothing that sends a key is released before that. The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
 | 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows are covered since Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
-| 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
-| 5.3 History import and the Intelligence tab | First part done (sections 8.12 and 10.11): the Intelligence tab and step, the connection made, checked and ended on the screen, the cookie-banner confirmation, the three imports with their cards and the §25 progress. Open: the invitation card on the Dashboard and the other tabs, the Dashboard's Campaign Intelligence state, what a layout change does with the connections. | `admin/…/intelligence`, `Engine/History/` |
-| 5.4 Engine-run automations | Done (section 10.10): the card "Campaign Intelligence Automations" on Settings > Automations lists the engine's catalogue of that moment and saves on its own; nothing is stored in the module. | `engine:`, `admin:`, `translations:`, `tests:`, `docs:` |
-| Stage 6 | Not started | — |
+| 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting's screen is Story 5.3's (section 10.11), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
+| 5.3 History import and the Intelligence tab | Done (Linear CON-405). First part (sections 8.12 and 10.11): the Intelligence tab and step, the connection made, checked and ended on the screen, the cookie-banner confirmation, the three imports with their cards and the §25 progress. Second part (sections 8.9 and 10.12): the invitation card on the Dashboard and the other tabs with its 30-day dismissal, the Dashboard's Campaign Intelligence and Browse tracking cards, its Catalog items tile and verdicts, the Log's source and job reasons, and the layout change that carries one connection and ends the others. | `engine:`, `admin:`, `log:`, `translations:`, `tests:`, `docs:` |
+| 5.4 Engine-run automations | Done (section 10.10; Linear CON-406): the card "Campaign Intelligence Automations" on Settings > Automations lists the engine's catalogue of that moment and saves on its own; nothing is stored in the module. | `engine:`, `admin:`, `translations:`, `tests:`, `docs:` |
+| 6.1 Installation report | Done (section 11.1; Linear CON-404): `setup_saved`, `daily`, `disconnected` and `deactivated`, against a mock receiver; the real service was never called. | `report:`, `engine:`, `tests:`, `tooling:`, `docs:` |
+| 6.2 Upgrade guide, user guide, changelog, translation sweep | Not started as a Story; each Story wrote its own part of the guides, the changelog and the Estonian units. | — |
+| 6.3 Release candidate and upgrade walk | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -4402,6 +4404,17 @@ has one owner:
   3. The Catalog, Customers and Orders cards show live progress.
   4. The Intelligence tab carries the consent setting of section 9, off by default, with help text
      that states the merchant's responsibility.
+  5. (Linear CON-405) A store without a connection sees the Campaign Intelligence invitation on
+     the Intelligence tab, on step 4, on the Dashboard and on the other tabs, and can close it
+     for 30 days.
+  6. (Linear CON-405) A change of the store layout carries the connection of the selected or
+     default shop over and ends the other connections.
+  7. (Linear CON-405) The Dashboard's cards show the connection's real state.
+- **As built.** Sections 8.9 ("A change of the shop layout"), 8.12, 10.11 and 10.12; decisions
+  in section 15. Also: `src/src/Engine/LayoutConnections.php`,
+  `src/src/Admin/Dashboard/EngineFacts.php` and
+  `src/views/templates/admin/layout/intelligence-invitation.html.twig`. The main class did not
+  change.
 
 ### Story 5.4 — Engine-run automations
 
