@@ -3020,6 +3020,12 @@ range for Created and for Updated, in the shop's time zone. The page's address c
 group, or all. An event row belongs to its shop, an ingest row to its connection's shop, an import
 job to its shop, and a job of shop 0 (every shop) shows in every selection.
 
+The ten columns fit the page at a width of 1440 px, in English and in Estonian, on 8.2.8 and
+9.2.0 (`views/css/admin.css`, measured in a browser on 2026-11-23): Last Error is at least 180 px
+wide, so a sentence breaks between words and only an address or a path inside a word; the day
+fields of the two time columns are as narrow as a date; the cells have narrow gaps; "Send again"
+stays on one line. A narrower window scrolls the table in its own box, not the page.
+
 - **Source.** Where the row goes (`Log\LogRows::sourceOf()`). "Campaign Intelligence" for an
   ingest row, for a job that names a connection, and for a row of the event queue whose type
   begins with `engine.` (the identity merge, a shopper's personalization choice, a shopper's
