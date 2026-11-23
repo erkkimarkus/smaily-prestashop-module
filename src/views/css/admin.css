@@ -1895,3 +1895,52 @@
   width: 26rem;
   max-width: 100%;
 }
+
+/* The Intelligence panel (panel/intelligence.html.twig). */
+.smaily-ui .smaily-intelligence .smaily-banner {
+  align-items: flex-start;
+}
+
+.smaily-ui .smaily-banner--ok {
+  align-items: center;
+  background: #f1f9f3;
+  border-color: var(--smaily-success);
+}
+
+.smaily-ui .smaily-banner--info {
+  background: var(--smaily-tint);
+  border-color: var(--smaily-tint-border);
+  border-left-color: var(--smaily-primary);
+}
+
+.smaily-ui .smaily-banner .smaily-actions {
+  margin: 8px 0 4px;
+}
+
+.smaily-ui .smaily-ci-invite {
+  background: var(--smaily-tint);
+  border: 1px dashed var(--smaily-tint-border);
+}
+
+.smaily-ui .smaily-ci-invite__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  color: var(--smaily-plum);
+}
+
+.smaily-ui .smaily-ci-invite__title span {
+  color: var(--smaily-accent);
+}
+
+.smaily-ui .smaily-imports {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.smaily-ui .smaily-imports .smaily-import {
+  margin-bottom: 0;
+}

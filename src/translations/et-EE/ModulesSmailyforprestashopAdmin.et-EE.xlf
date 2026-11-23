@@ -2957,6 +2957,311 @@
         <target>Campaign Intelligence ei võtnud seda automaatikat vastu. Laadi leht uuesti ja proovi veel kord.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="260d43070e33ac36d752671d1124a9ed">
+        <source>Connected: %name% (engine %version%)</source>
+        <target>Ühendatud: %name% (mootor %version%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3b2d765eccc1de094ed25ff285602956">
+        <source>Connected: %name%</source>
+        <target>Ühendatud: %name%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="182e7eda4e721ad00737460b88701dee">
+        <source>Connecting…</source>
+        <target>Ühendan…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="11de134aefe51cb4a5c545b5a057a871">
+        <source>Disconnecting…</source>
+        <target>Katkestan ühendust…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b8eaf625e98c0364059b0b23dc50a14f">
+        <source>Disconnect Smaily Campaign Intelligence? The module stops syncing data and tells Campaign Intelligence that this connection ends. If your store has no other connection, Campaign Intelligence pauses it: no recommendations and none of its automated emails until you connect again. Your data is kept.</source>
+        <target>Kas katkestada ühendus Smaily Campaign Intelligence'iga? Moodul lõpetab andmete sünkroonimise ja teatab Campaign Intelligence'ile, et see ühendus lõpeb. Kui sinu poel teist ühendust ei ole, peatab Campaign Intelligence selle: soovitusi ega selle automaatseid e-kirju ei tule, kuni ühendad uuesti. Sinu andmed säilivad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fee0ba991e4b223943dc96db2e49fad2">
+        <source>Sending the orders of the last %months% months first…</source>
+        <target>Saadan kõigepealt viimase %months% kuu tellimused…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8c8b4139550b7a6576b94e94c13734ae">
+        <source>The last %months% months are in: Campaign Intelligence can start. Older orders, back to %horizon% months, follow in the background…</source>
+        <target>Viimase %months% kuu tellimused on kohal: Campaign Intelligence saab alustada. Vanemad tellimused, kuni %horizon% kuu tagant, järgnevad taustal…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7518018ad6fac6d544995bc8c25e92ef">
+        <source>Stalled — nothing has moved this import for over an hour; %sent% of %total% synced so far. Press Run again to start a fresh import. If it stalls again, check that the background tasks run.</source>
+        <target>Seiskunud — seda importi pole üle tunni edasi viidud; seni sünkroonitud %sent% / %total%. Värske impordi alustamiseks vajuta „Käivita uuesti“. Kui see seiskub uuesti, kontrolli, et taustatööd töötavad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="117068a6e55846888cbb60978fe82ca2">
+        <source>Stalled</source>
+        <target>Seiskunud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a183a4446334d02cbd20ca0f663c8a7b">
+        <source>Campaign Intelligence is one connection for the whole installation, whichever shop you pick: it covers every shop (%shops%).</source>
+        <target>Campaign Intelligence on kogu paigalduse peale üks ühendus, olenemata valitud poest: see hõlmab kõiki poode (%shops%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9d3fe4939dbbcf0a7dae4b564a54f4c2">
+        <source>Connect your store with Smaily, and add personalized product recommendations to your campaigns, tailored to each customer’s interests.</source>
+        <target>Ühenda oma pood Smailyga ja lisa oma kampaaniatesse isikupärastatud tootesoovitused, mis on valitud iga kliendi huvide järgi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3a671291d0fe87f4476aa195cb9379d3">
+        <source>Contact Smaily</source>
+        <target>Võta Smailyga ühendust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7cf37d1bcfb5bc39aed23c66c5e4c892">
+        <source>Check again</source>
+        <target>Kontrolli uuesti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="42ae25231906c83927831e0ef7c317ac">
+        <source>Disconnect</source>
+        <target>Katkesta ühendus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6d5bdbf2031c8189478d1866ba9ace27">
+        <source>Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.</source>
+        <target>Campaign Intelligence ei võta enam sellest poest andmeid vastu, seega toote-, kliendi- ja tellimusandmeid enam ei saadeta ning soovitused vananevad. Ootamine seda ei lahenda — konto tuleb Smaily poolel uuesti aktiivseks teha. Smaily e-kirjade saatmist see ei mõjuta; kõik siin järjekorras olev ootab ja saadetakse ära, kui konto on taas aktiivne.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c6b50e8eb6881eecd1cb8c0c519d6b93">
+        <source>Once Smaily tells you the account is active, press Check again — sending resumes on the next run of the background tasks.</source>
+        <target>Kui Smaily on öelnud, et konto on aktiivne, vajuta „Kontrolli uuesti“ — saatmine jätkub taustatööde järgmisel käivitusel.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f109cbab3f630949bdd16857bbcec818">
+        <source>Open your Smaily account</source>
+        <target>Ava oma Smaily konto</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="004f72d0fdf65e6ae68e6030198f967e">
+        <source>Campaign Intelligence rejected the stored API key.</source>
+        <target>Campaign Intelligence lükkas salvestatud API võtme tagasi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="678bd11962da6272c131b92edd42aec4">
+        <source>The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.</source>
+        <target>Võti on tühistatud või välja vahetatud. Katkesta ühendus ja ühenda uuesti värske seadistuslingiga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="82a41273de208b68be2ce9a83d0e6816">
+        <source>Campaign Intelligence needs a newer version of Smaily Connect.</source>
+        <target>Campaign Intelligence vajab Smaily Connecti uuemat versiooni.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="51322cf274009421e10c48d0fdf3edc1">
+        <source>Update the module, then press Check again.</source>
+        <target>Uuenda moodul ja vajuta siis „Kontrolli uuesti“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a0e0292578d725cdae8bba9524ceb52f">
+        <source>The catalog import has started</source>
+        <target>Kataloogi import käivitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="701ae16b5e3c2759a0c68d2b66d3fd57">
+        <source>Your whole catalog goes to Campaign Intelligence once, in the background, from the next run of the background tasks (usually within a minute). To hold the imports back, press Hold back the import before then: nothing is sent, the customers and orders imports waiting behind it do not start either, and you can start each import later under Settings &gt; Intelligence.</source>
+        <target>Kogu sinu kataloog saadetakse Campaign Intelligence'i üks kord, taustal, alates taustatööde järgmisest käivitusest (tavaliselt minuti jooksul). Impordide peatamiseks vajuta enne seda „Peata import“: midagi ei saadeta, ka selle järel ootavad klientide ja tellimuste impordid ei käivitu ning iga impordi saad hiljem käivitada menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="19017cd3cfc89b0bea22e75c6b73bd12">
+        <source>Hold back the import</source>
+        <target>Peata import</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b124ce15a729234006e6f5b93d403df0">
+        <source>The customers import has started</source>
+        <target>Klientide import käivitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="642d5ab47b326b6498910ce1c6746eb4">
+        <source>The customer accounts your contact sync puts into Smaily, and every customer with an order in the order history Campaign Intelligence takes, go to Campaign Intelligence once, in the background, after the catalog import. To hold it back, press Cancel import on the Customers card under Settings &gt; Intelligence.</source>
+        <target>Kliendikontod, mille sinu kontaktide sünkroonimine Smailysse paneb, ja iga klient, kellel on tellimus Campaign Intelligence'i võetavas tellimuste ajaloos, saadetakse Campaign Intelligence'i üks kord, taustal, pärast kataloogi importi. Selle peatamiseks vajuta kaardil „Kliendid“ nuppu „Katkesta import“ menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d037ac12900f824effdcce0c4aef0fb1">
+        <source>The orders import has started</source>
+        <target>Tellimuste import käivitus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b653ef3f7cd636a678fe761f32b74c1f">
+        <source>Your order history goes to Campaign Intelligence once, in the background, after the customers import, newest first: the recent orders first, so that Campaign Intelligence can start, then the older ones. No order older than the history Campaign Intelligence takes is sent. To hold it back, press Cancel import on the Orders card under Settings &gt; Intelligence.</source>
+        <target>Sinu tellimuste ajalugu saadetakse Campaign Intelligence'i üks kord, taustal, pärast klientide importi, uusimast alates: kõigepealt hiljutised tellimused, et Campaign Intelligence saaks alustada, siis vanemad. Ühtegi tellimust, mis on vanem kui Campaign Intelligence'i võetav ajalugu, ei saadeta. Selle peatamiseks vajuta kaardil „Tellimused“ nuppu „Katkesta import“ menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e0e97163695677b80e6741c017458746">
+        <source>Held back: the catalog import is canceled, and the customers and orders imports waiting behind it do not start. Start each any time under Settings &gt; Intelligence.</source>
+        <target>Peatatud: kataloogi import on katkestatud ning selle järel ootavad klientide ja tellimuste impordid ei käivitu. Iga impordi saad igal ajal käivitada menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1b432cee87f6552c22a5a320d4b39c63">
+        <source>Catalog, customer and order sync started automatically. Connecting also starts the catalog, customers and orders imports, which send your catalog, your customers and your order history once, the orders newest first. Each import can run again any time under Settings &gt; Intelligence.</source>
+        <target>Kataloogi, klientide ja tellimuste sünkroonimine käivitus automaatselt. Ühendamine käivitab ka kataloogi, klientide ja tellimuste impordi, mis saadavad sinu kataloogi, kliendid ja tellimuste ajaloo üks kord, tellimused uusimast alates. Iga importi saab uuesti käivitada igal ajal menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c462940af038d3d9eebe0d54cc3dff64">
+        <source>Setup URL or token from Smaily</source>
+        <target>Smailylt saadud seadistus-URL või -võti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="acbb9f226fed40affec23d9719868f55">
+        <source>The one-time token is exchanged immediately and never stored.</source>
+        <target>Ühekordne võti vahetatakse kohe ja seda ei salvestata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="013413791bd42630db10b1002c4fa401">
+        <source>Show recommendations in your store</source>
+        <target>Näita soovitusi oma poes</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="45da65cdd15c7f8377407a40569da0ea">
+        <source>Open Design &gt; Positions, pick Smaily Connect as the module and a position, for example displayHome for the home page or displayFooterProduct for the product page. A theme developer can also write {widget name='smailyforprestashop'} in a template. Shoppers who accept marketing cookies see the products Smaily recommends to them.</source>
+        <target>Ava Kujundus &gt; Positsioonid, vali mooduliks Smaily Connect ja positsioon, näiteks displayHome avalehe või displayFooterProduct tootelehe jaoks. Teema arendaja võib kirjutada malli ka {widget name='smailyforprestashop'}. Ostjad, kes nõustuvad turundusküpsistega, näevad tooteid, mida Smaily neile soovitab.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9f0899017a14ac3bcdab51138bab340e">
+        <source>How to add it →</source>
+        <target>Kuidas lisada →</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ca6181679abf123f1bb805e8da063737">
+        <source>Storefront browse tracking and recommendations</source>
+        <target>Poe sirvimise jälgimine ja soovitused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="825753d7d99d6a08c20300ab70c75737">
+        <source>My store’s cookie banner covers Smaily tracking</source>
+        <target>Minu poe küpsiseteade hõlmab Smaily jälgimist</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f5a40ba3fe56421ffbbd28276dc03517">
+        <source>Off by default. While it is off, the store runs no browse tracking (product views, searches, cart activity), shows no recommendations and sets no tracking cookie.</source>
+        <target>Vaikimisi väljas. Kuni see on väljas, ei jälgi pood sirvimist (toodete vaatamised, otsingud, ostukorvi tegevused), ei näita soovitusi ega sea ühtegi jälgimisküpsist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c9ae3a131c2123ebfaeab6dda2a58d92">
+        <source>PrestaShop has no cookie-consent setting that a module can read, so Smaily Connect cannot see what a visitor answered to your banner. When you switch this on, every visitor of this shop is treated as having agreed to Smaily tracking and recommendations: you are responsible that your cookie banner asks for it.</source>
+        <target>PrestaShopis ei ole küpsiste nõusoleku seadet, mida moodul saaks lugeda, seega ei näe Smaily Connect, mida külastaja sinu küpsiseteatele vastas. Kui lülitad selle sisse, loetakse selle poe iga külastaja Smaily jälgimise ja soovitustega nõustunuks: sina vastutad selle eest, et sinu küpsiseteade seda küsib.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="aa31cb1daca51ae76a539c970e788a21">
+        <source>Events flow through your own server, so the API key never reaches the browser.</source>
+        <target>Sündmused liiguvad läbi sinu enda serveri, nii et API võti ei jõua kunagi brauserisse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f4260176aad96d916ce8a2390d6ee99f">
+        <source>A developer can hand over each visitor’s own answer with window.smailyConnect.consentOverride(); where it is defined, its answer decides.</source>
+        <target>Arendaja saab iga külastaja enda vastuse edasi anda funktsiooniga window.smailyConnect.consentOverride(); kus see on määratud, otsustab selle vastus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f15d7e9168a638c9112508ee2a5d5ff6">
+        <source>Historical imports to Campaign Intelligence</source>
+        <target>Ajaloolised impordid Campaign Intelligence'i</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="872eebbe8174101873176f55fa2bcdb7">
+        <source>Imports are unavailable while the account is not active — there is nowhere to send the data. They come back as soon as the account does.</source>
+        <target>Kuni konto ei ole aktiivne, ei saa importe käivitada — andmeid pole kuhugi saata. Need tulevad tagasi kohe, kui konto on taas aktiivne.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1a3ba933cd533afd9a9727fb9891c75d">
+        <source>Send your existing data to the engine in the background — a chunk per minute. Imports are resumable and safe to re-run: deliveries are deduplicated on the receiving side.</source>
+        <target>Saada oma olemasolevad andmed mootorisse taustal — üks tükk minutis. Importe saab jätkata ja neid on ohutu uuesti käivitada: saadetised dedubleeritakse vastuvõtja poolel.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c32516babc5b6c47eb8ce1bfc223253c">
+        <source>Catalog</source>
+        <target>Kataloog</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e6d0e1c8fc6a4fcf47869df87e04cd88">
+        <source>Customers</source>
+        <target>Kliendid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7442e29d7d53e549b78d93c46b8cdcfc">
+        <source>Orders</source>
+        <target>Tellimused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="aa1a055a7327fc20d87b10efda620787">
+        <source>View them in the Log</source>
+        <target>Vaata neid logis</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5a81e4b30ac2a1f806f16feac984c4d5">
+        <source>Not active</source>
+        <target>Ei ole aktiivne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ef8208d9f51eb8cc1c4dbd0c473fa427">
+        <source>Historical imports</source>
+        <target>Ajaloolised impordid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b77e40eff3ed368adbbb31228f267f56">
+        <source>Paste the setup URL or token from Smaily first.</source>
+        <target>Kleebi esmalt Smailylt saadud seadistus-URL või -võti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2e88492cbd976993217c221e3205a0bf">
+        <source>The setup URL must be an https address on intelligence.smaily.com.</source>
+        <target>Seadistus-URL peab olema https-aadress domeenil intelligence.smaily.com.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0fa82c781e12c0763f511e759fe7b5ef">
+        <source>Could not reach Campaign Intelligence.</source>
+        <target>Campaign Intelligence'iga ei saadud ühendust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="19d10a75e03aead04db6465875f4d658">
+        <source>Campaign Intelligence still reports that this account is not active.</source>
+        <target>Campaign Intelligence teatab endiselt, et see konto ei ole aktiivne.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9f5048559087a846e89c82665ea1ee43">
+        <source>This setup link has already been used. Ask Smaily for a new one.</source>
+        <target>Seda seadistuslinki on juba kasutatud. Küsi Smailylt uus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="efb17cf19a66a613c8fd6a19e43f1f30">
+        <source>Setup token not recognised. Verify the URL is correct.</source>
+        <target>Seadistusvõtit ei tuntud ära. Kontrolli, et URL on õige.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f44354e1045814a87fc569c95c8ce313">
+        <source>This setup link is for the Campaign Intelligence store of another Smaily account, so the connection was not saved. The link is now used up: ask Smaily for a new setup link for this store’s Smaily account.</source>
+        <target>See seadistuslink kuulub teise Smaily konto Campaign Intelligence'i poele, seega ühendust ei salvestatud. Link on nüüd kasutatud: küsi Smailylt uus seadistuslink selle poe Smaily konto jaoks.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="669899db4f3423d25f87b57ceeafa4cc">
+        <source>The engine answered with an address that is not an https address on intelligence.smaily.com, so the connection was not saved.</source>
+        <target>Mootor vastas aadressiga, mis ei ole https-aadress domeenil intelligence.smaily.com, seega ühendust ei salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="711c1b7bd3aabb24657d081630628cf4">
+        <source>Campaign Intelligence needs a newer version of Smaily Connect. Update the module and try again with a new setup link.</source>
+        <target>Campaign Intelligence vajab Smaily Connecti uuemat versiooni. Uuenda moodul ja proovi uuesti uue seadistuslingiga.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3fb7240a274f0cf806ae0d5564b8d213">
+        <source>Could not reach Campaign Intelligence. Try again in a few minutes.</source>
+        <target>Campaign Intelligence'iga ei saadud ühendust. Proovi mõne minuti pärast uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6c183572b93a5ee2fa84de51e9de4b5e">
+        <source>Campaign Intelligence did not accept this setup link, so the connection was not saved. Ask Smaily for a new one.</source>
+        <target>Campaign Intelligence ei võtnud seda seadistuslinki vastu, seega ühendust ei salvestatud. Küsi Smailylt uus.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

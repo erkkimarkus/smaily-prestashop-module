@@ -1,0 +1,223 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # The Intelligence panel (Magento's panel/intelligence.phtml): the setup link and Connect, the
+ # connection's state with Check again and Disconnect, the notices of the imports that a
+ # connection starts with "Hold back the import", how to place the recommendations block, the
+ # merchant's confirmation that the store's cookie banner covers Smaily tracking, and the Catalog,
+ # Customers and Orders import cards.
+ #
+ # Everything stands in the page; views/js/admin/intelligence.js shows the parts of the state it
+ # is given (`data-smaily-intelligence`, Admin\Setup\IntelligencePanel::values()) and draws it
+ # again from each answer of Admin\Api, so nothing reloads. `data-ci-show` names the states a part
+ # shows in: `none` (no connection), `connected`, `not_active`, `key_refused`, `update_required`.
+ #
+ # Takes `intelligence`, `context` (`setup` shows no recommendations card, no import cards, no
+ # Check again and no Disconnect, as Magento's step) and `shops` (the shops one connection serves).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set settings = context == 'settings' %}
+{% set ci_icon = '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' %}
+<div class="smaily-panel smaily-intelligence" data-smaily-panel="intelligence" data-context="{{ context }}"
+     data-smaily-intelligence="{{ intelligence|json_encode }}"
+     data-label-connected="{{ 'Connected: %name% (engine %version%)'|trans }}"
+     data-label-connected-plain="{{ 'Connected: %name%'|trans }}"
+     data-label-connecting="{{ 'Connecting…'|trans }}"
+     data-label-checking="{{ 'Checking…'|trans }}"
+     data-label-disconnecting="{{ 'Disconnecting…'|trans }}"
+     data-label-confirm-disconnect="{{ 'Disconnect Smaily Campaign Intelligence? The module stops syncing data and tells Campaign Intelligence that this connection ends. If your store has no other connection, Campaign Intelligence pauses it: no recommendations and none of its automated emails until you connect again. Your data is kept.'|trans }}"
+     data-label-queued="{{ 'Queued — the import starts on the next scheduled run…'|trans }}"
+     data-label-importing="{{ 'Importing…'|trans }}"
+     data-label-progress="{{ '%sent% of %total%'|trans }}"
+     data-label-orders-start="{{ 'Sending the orders of the last %months% months first…'|trans }}"
+     data-label-orders-older="{{ 'The last %months% months are in: Campaign Intelligence can start. Older orders, back to %horizon% months, follow in the background…'|trans }}"
+     data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
+     data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
+     data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
+     data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
+     data-label-stalled="{{ 'Stalled — nothing has moved this import for over an hour; %sent% of %total% synced so far. Press Run again to start a fresh import. If it stalls again, check that the background tasks run.'|trans }}"
+     data-label-canceling="{{ 'Canceling…'|trans }}"
+     data-label-start="{{ 'Start import'|trans }}"
+     data-label-run-again="{{ 'Run again'|trans }}"
+     data-label-state-pending="{{ 'Pending'|trans }}"
+     data-label-state-running="{{ 'Running'|trans }}"
+     data-label-state-done="{{ 'Done'|trans }}"
+     data-label-state-stopped="{{ 'Stopped'|trans }}"
+     data-label-state-stalled="{{ 'Stalled'|trans }}"
+     data-label-state-cancelled="{{ 'Canceled'|trans }}">
+  {% if shops is not empty %}
+    <p class="smaily-note smaily-note--strong">{{ 'Campaign Intelligence is one connection for the whole installation, whichever shop you pick: it covers every shop (%shops%).'|trans({'%shops%': shops|join(', ')}) }}</p>
+  {% endif %}
+
+  {# The siblings' invitation card, while the store has no connection. #}
+  <div class="smaily-card smaily-ci-invite" data-ci-show="none" hidden>
+    <strong class="smaily-ci-invite__title">{% include ci_icon with {size: 24} %} Campaign <span>Intelligence</span></strong>
+    <p>{{ 'Connect your store with Smaily, and add personalized product recommendations to your campaigns, tailored to each customer’s interests.'|trans }}</p>
+    <a class="btn smaily-btn-primary" href="https://smaily.com/consultation/" target="_blank" rel="noopener noreferrer">{{ 'Contact Smaily'|trans }}</a>
+  </div>
+
+  <div class="smaily-banner smaily-banner--ok" data-ci-show="connected" hidden>
+    <span class="smaily-banner__icon" aria-hidden="true">&#10003;</span>
+    <div class="smaily-banner__body">
+      <div class="smaily-banner__message" data-ci-connected-text></div>
+      <div class="smaily-result smaily-banner__result" data-ci-check-result role="status"></div>
+    </div>
+    {% if settings %}
+      <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-check">{{ 'Check again'|trans }}</button>
+      <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-disconnect">{{ 'Disconnect'|trans }}</button>
+    {% endif %}
+  </div>
+
+  <div class="smaily-banner smaily-banner--danger" role="alert" data-ci-show="not_active" hidden>
+    <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+    <div class="smaily-banner__body">
+      <div class="smaily-banner__title">{{ 'Your Campaign Intelligence account is not active'|trans }}</div>
+      <div class="smaily-banner__message">{{ 'Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.'|trans }}</div>
+      {% if settings %}
+        <div class="smaily-actions">
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-check">{{ 'Check again'|trans }}</button>
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-disconnect">{{ 'Disconnect'|trans }}</button>
+          <span class="smaily-result" data-ci-check-result role="status"></span>
+        </div>
+        <div class="smaily-banner__message">{{ 'Once Smaily tells you the account is active, press Check again — sending resumes on the next run of the background tasks.'|trans }}</div>
+      {% endif %}
+    </div>
+    <a class="smaily-banner__action" data-ci-account-url href="#" target="_blank" rel="noopener noreferrer" hidden>{{ 'Open your Smaily account'|trans }}</a>
+  </div>
+
+  <div class="smaily-banner smaily-banner--danger" role="alert" data-ci-show="key_refused update_required" hidden>
+    <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+    <div class="smaily-banner__body">
+      <div data-ci-show="key_refused" hidden>
+        <div class="smaily-banner__title">{{ 'Campaign Intelligence rejected the stored API key.'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.'|trans }}</div>
+      </div>
+      <div data-ci-show="update_required" hidden>
+        <div class="smaily-banner__title">{{ 'Campaign Intelligence needs a newer version of Smaily Connect.'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'Update the module, then press Check again.'|trans }}</div>
+      </div>
+      {% if settings %}
+        <div class="smaily-actions">
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-check">{{ 'Check again'|trans }}</button>
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-disconnect">{{ 'Disconnect'|trans }}</button>
+          <span class="smaily-result" data-ci-check-result role="status"></span>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {# What a connection made on this page started, until the page is left. #}
+  <div data-ci-started hidden>
+    <div class="smaily-banner smaily-banner--info">
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">{{ 'The catalog import has started'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'Your whole catalog goes to Campaign Intelligence once, in the background, from the next run of the background tasks (usually within a minute). To hold the imports back, press Hold back the import before then: nothing is sent, the customers and orders imports waiting behind it do not start either, and you can start each import later under Settings > Intelligence.'|trans }}</div>
+        <div class="smaily-actions">
+          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-hold">{{ 'Hold back the import'|trans }}</button>
+          <span class="smaily-result" data-ci-hold-result role="status"></span>
+        </div>
+      </div>
+    </div>
+    <div class="smaily-banner smaily-banner--info">
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">{{ 'The customers import has started'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'The customer accounts your contact sync puts into Smaily, and every customer with an order in the order history Campaign Intelligence takes, go to Campaign Intelligence once, in the background, after the catalog import. To hold it back, press Cancel import on the Customers card under Settings > Intelligence.'|trans }}</div>
+      </div>
+    </div>
+    <div class="smaily-banner smaily-banner--info">
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">{{ 'The orders import has started'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'Your order history goes to Campaign Intelligence once, in the background, after the customers import, newest first: the recent orders first, so that Campaign Intelligence can start, then the older ones. No order older than the history Campaign Intelligence takes is sent. To hold it back, press Cancel import on the Orders card under Settings > Intelligence.'|trans }}</div>
+      </div>
+    </div>
+  </div>
+  <p class="smaily-note smaily-note--strong" data-ci-held hidden>{{ 'Held back: the catalog import is canceled, and the customers and orders imports waiting behind it do not start. Start each any time under Settings > Intelligence.'|trans }}</p>
+  {% if not settings %}
+    <p data-ci-show="connected" hidden>{{ 'Catalog, customer and order sync started automatically. Connecting also starts the catalog, customers and orders imports, which send your catalog, your customers and your order history once, the orders newest first. Each import can run again any time under Settings > Intelligence.'|trans }}</p>
+  {% endif %}
+
+  <div class="smaily-card" data-ci-show="none key_refused" hidden>
+    <div class="smaily-field">
+      <label for="smaily-ci-link-{{ context }}">{{ 'Setup URL or token from Smaily'|trans }}</label>
+      <input type="text" class="form-control" id="smaily-ci-link-{{ context }}" data-ci-link autocomplete="off" spellcheck="false" placeholder="https://intelligence.smaily.com/setup/…">
+      <p class="smaily-note">{{ 'The one-time token is exchanged immediately and never stored.'|trans }}</p>
+    </div>
+    <div class="smaily-actions">
+      <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-connect">{{ 'Connect'|trans }}</button>
+      <span class="smaily-result" data-ci-connect-result role="status"></span>
+    </div>
+  </div>
+
+  {% if settings %}
+    <div class="smaily-card" data-ci-show="connected" hidden>
+      <div class="smaily-card__head"><strong>{{ 'Show recommendations in your store'|trans }}</strong></div>
+      <p class="smaily-note">
+        {{ 'Open Design > Positions, pick Smaily Connect as the module and a position, for example displayHome for the home page or displayFooterProduct for the product page. A theme developer can also write {widget name=\'smailyforprestashop\'} in a template. Shoppers who accept marketing cookies see the products Smaily recommends to them.'|trans }}
+        <a href="https://github.com/sendsmaily/smaily-prestashop-module/blob/master/USERGUIDE.md#product-recommendations-in-your-store" target="_blank" rel="noopener noreferrer">{{ 'How to add it →'|trans }}</a>
+      </p>
+    </div>
+  {% endif %}
+
+  <div class="smaily-card" data-ci-show="connected not_active key_refused update_required" hidden>
+    <div class="smaily-card__head"><strong>{{ 'Storefront browse tracking and recommendations'|trans }}</strong></div>
+    <div class="smaily-inline-toggle">
+      <label><input type="checkbox" data-ci-consent> {{ 'My store’s cookie banner covers Smaily tracking'|trans }}</label>
+    </div>
+    <p class="smaily-note">{{ 'Off by default. While it is off, the store runs no browse tracking (product views, searches, cart activity), shows no recommendations and sets no tracking cookie.'|trans }}</p>
+    <p class="smaily-note">{{ 'PrestaShop has no cookie-consent setting that a module can read, so Smaily Connect cannot see what a visitor answered to your banner. When you switch this on, every visitor of this shop is treated as having agreed to Smaily tracking and recommendations: you are responsible that your cookie banner asks for it.'|trans }}</p>
+    <p class="smaily-note">{{ 'Events flow through your own server, so the API key never reaches the browser.'|trans }}</p>
+    <p class="smaily-note">{{ 'A developer can hand over each visitor’s own answer with window.smailyConnect.consentOverride(); where it is defined, its answer decides.'|trans }}</p>
+  </div>
+
+  {% if settings %}
+    <div class="smaily-card" data-ci-show="connected not_active" hidden>
+      <div class="smaily-card__head"><strong>{{ 'Historical imports to Campaign Intelligence'|trans }}</strong></div>
+      <p class="smaily-note" data-ci-show="not_active" hidden>{{ 'Imports are unavailable while the account is not active — there is nowhere to send the data. They come back as soon as the account does.'|trans }}</p>
+      <div data-ci-show="connected" hidden>
+        <p class="smaily-note">{{ 'Send your existing data to the engine in the background — a chunk per minute. Imports are resumable and safe to re-run: deliveries are deduplicated on the receiving side.'|trans }}</p>
+        <div class="smaily-imports">
+          {% for entity, title in {catalog: 'Catalog'|trans, customers: 'Customers'|trans, orders: 'Orders'|trans} %}
+            <div class="smaily-card smaily-import" data-ci-import="{{ entity }}">
+              <div class="smaily-import__head">
+                <strong class="smaily-import__title">{{ title }}</strong>
+                <span class="smaily-pill" data-ci-pill hidden><span class="smaily-pill__dot" aria-hidden="true"></span><span data-ci-pill-text></span></span>
+              </div>
+              <div class="smaily-progress" data-ci-bar hidden><div class="smaily-progress__fill"></div></div>
+              <p class="smaily-import__line" data-ci-line role="status"></p>
+              <p class="smaily-import__line" data-ci-log hidden><a href="{{ path('smailyforprestashop_log') }}">{{ 'View them in the Log'|trans }}</a></p>
+              <div class="smaily-actions">
+                <button type="button" class="btn smaily-btn-primary" data-smaily-action="ci-import-start">{{ 'Start import'|trans }}</button>
+                <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-import-cancel" hidden>{{ 'Cancel import'|trans }}</button>
+                <span class="smaily-result" data-ci-import-result role="status"></span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="smaily-tab-footer" data-ci-show="connected not_active key_refused update_required" hidden>
+      <button type="button" class="btn smaily-btn-primary" data-smaily-action="ci-save">{{ 'Save'|trans }}</button>
+      <span class="smaily-result" data-ci-save-result role="status"></span>
+    </div>
+  {% endif %}
+</div>

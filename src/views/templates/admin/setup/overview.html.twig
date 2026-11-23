@@ -128,6 +128,50 @@
         </dd>
         <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
       </div>
+      {% set ci = o.intelligence %}
+      {% if ci is not null %}
+        <div class="smaily-summary__row">
+          <dt>{{ 'Campaign Intelligence'|trans }}</dt>
+          <dd>
+            {% if not ci.connected %}
+              <span class="smaily-pill smaily-pill--off"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ 'Not connected'|trans }}</span>
+            {% elseif ci.state == 'connected' %}
+              {{ ci.name }} <span class="smaily-pill smaily-pill--active"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ 'Connected'|trans }}</span>
+            {% else %}
+              {{ ci.name }} <span class="smaily-pill smaily-pill--failed"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ ci.state == 'not_active' ? 'Not active'|trans : 'Not connected'|trans }}</span>
+            {% endif %}
+          </dd>
+          <dd class="smaily-summary__action">{{ summary.edit(4, edit_label) }}</dd>
+        </div>
+        <div class="smaily-summary__row">
+          <dt>{{ 'My store’s cookie banner covers Smaily tracking'|trans }}</dt>
+          <dd>{{ ci.consent ? 'On'|trans : 'Off'|trans }}</dd>
+          <dd class="smaily-summary__action">{{ summary.edit(4, edit_label) }}</dd>
+        </div>
+        {% if ci.connected %}
+          <div class="smaily-summary__row">
+            <dt>{{ 'Historical imports'|trans }}</dt>
+            <dd>
+              {%- set lines = [] -%}
+              {%- for entity, title in {catalog: 'Catalog'|trans, customers: 'Customers'|trans, orders: 'Orders'|trans} -%}
+                {%- set job = ci.imports[entity] -%}
+                {%- if job is null -%}
+                  {%- set text = 'Not started'|trans -%}
+                {%- elseif job.status == 'done' -%}
+                  {%- set text = 'Done, %sent% of %total% synced.'|trans({'%sent%': job.sent, '%total%': job.total}) -%}
+                {%- elseif job.status == 'running' -%}
+                  {%- set text = 'Importing…'|trans ~ ' ' ~ '%sent% of %total%'|trans({'%sent%': job.sent, '%total%': job.total}) -%}
+                {%- else -%}
+                  {%- set text = {queued: 'Queued'|trans, cancelled: 'Canceled'|trans, stalled: 'Stalled'|trans}[job.status]|default('Stopped'|trans) -%}
+                {%- endif -%}
+                {%- set lines = lines|merge([title ~ ': ' ~ text]) -%}
+              {%- endfor -%}
+              {{ lines|join(' · ') }}
+            </dd>
+            <dd class="smaily-summary__action">{{ summary.edit(4, edit_label) }}</dd>
+          </div>
+        {% endif %}
+      {% endif %}
       <div class="smaily-summary__row">
         <dt>{{ 'Background tasks last ran'|trans }}</dt>
         <dd>{{ o.last_tick is null ? 'Not yet'|trans : o.last_tick }}</dd>

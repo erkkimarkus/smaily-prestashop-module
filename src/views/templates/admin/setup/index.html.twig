@@ -35,6 +35,8 @@
        data-api-discount-rules="{{ path('smailyforprestashop_api_setup_discount_rules') }}"
        data-api-import="{{ path('smailyforprestashop_api_setup_import') }}"
        data-api-import-progress="{{ path('smailyforprestashop_api_setup_import_progress') }}"
+       data-api-engine-exchange="{{ path('smailyforprestashop_api_setup_engine_exchange') }}"
+       data-api-backfill="{{ path('smailyforprestashop_api_setup_backfill') }}"
        data-setup-url="{{ path('smailyforprestashop_setup') }}"
        data-label-testing="{{ 'Testing…'|trans }}"
        data-label-connected="{{ 'Connected'|trans }}"
@@ -51,4 +53,5 @@
   {{ parent() }}
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/panels.js') }}?v={{ smaily.version }}"></script>
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/setup.js') }}?v={{ smaily.version }}"></script>
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/intelligence.js') }}?v={{ smaily.version }}"></script>
 {% endblock %}

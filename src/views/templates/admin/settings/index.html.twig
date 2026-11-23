@@ -40,6 +40,11 @@
        data-api-layout="{{ path('smailyforprestashop_api_settings_layout') }}"
        data-api-import="{{ path('smailyforprestashop_api_settings_import') }}"
        data-api-import-progress="{{ path('smailyforprestashop_api_settings_import_progress') }}"
+       data-api-engine-exchange="{{ path('smailyforprestashop_api_settings_engine_exchange') }}"
+       data-api-engine-ping="{{ path('smailyforprestashop_api_settings_engine_ping') }}"
+       data-api-engine-disconnect="{{ path('smailyforprestashop_api_settings_engine_disconnect') }}"
+       data-api-backfill-state="{{ path('smailyforprestashop_api_settings_backfill_state') }}"
+       data-api-backfill="{{ path('smailyforprestashop_api_settings_backfill') }}"
        data-label-saving="{{ 'Saving…'|trans }}"
        data-label-saved="{{ 'Saved.'|trans }}"
        data-label-saving-failed="{{ 'Saving failed.'|trans }}"
@@ -71,4 +76,5 @@
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/panels.js') }}?v={{ smaily.version }}"></script>
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/settings.js') }}?v={{ smaily.version }}"></script>
   <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/engine-automations.js') }}?v={{ smaily.version }}"></script>
+  <script src="{{ asset('../modules/smailyforprestashop/views/js/admin/intelligence.js') }}?v={{ smaily.version }}"></script>
 {% endblock %}

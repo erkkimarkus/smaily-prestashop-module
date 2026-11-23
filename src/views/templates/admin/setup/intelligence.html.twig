@@ -1,0 +1,42 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # Initial setup, step 4 (Intelligence, optional): the Intelligence panel in its setup form, as
+ # Magento's step: the setup link, the connected line, the notices of the imports that started and
+ # the cookie-banner confirmation. The import cards, Check again and Disconnect are on Settings >
+ # Intelligence. Finish saves the confirmation and ends the setup (intelligence.js).
+ #
+ # `smaily_setup` comes from Admin\Setup\SetupController.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if smaily_setup.intelligence is null %}
+  <div class="smaily-panel">
+    {% include '@Modules/smailyforprestashop/views/templates/admin/panel/separate-stores.html.twig' only %}
+  </div>
+{% else %}
+  {% include '@Modules/smailyforprestashop/views/templates/admin/panel/intelligence.html.twig' with {
+    intelligence: smaily_setup.intelligence,
+    context: 'setup',
+    shops: smaily_setup.all_shops,
+  } only %}
+{% endif %}

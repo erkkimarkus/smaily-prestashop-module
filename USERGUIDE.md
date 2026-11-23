@@ -33,7 +33,7 @@ A new store opens in the **Initial setup**, a guided setup in five steps. **Back
 1. **Connect**: the Smaily account (see [Connecting module to Smaily account](#connecting-module-to-smaily-account)). A store with several shops first answers how its shops are run. A store without a Smaily account finds the link **Create a Smaily account** here.
 2. **Contacts**: who is synced to Smaily, and the first import (see [Customer synchronization](#customer-synchronization)).
 3. **Automations**: the store events that start Smaily workflows (see [Automations](#automations)).
-4. **Intelligence**: optional.
+4. **Intelligence**: optional. Connects the store to Campaign Intelligence (see [Campaign Intelligence](#campaign-intelligence)); **Finish** without a setup link ends the setup.
 5. **Overview**: a summary of what you set up, each line with **Edit** to go back to its step, and links to **Settings** and the **Log**.
 
 You can open the Initial setup again at any time under **Customers -> Smaily Connect -> Initial setup**; your settings are kept. Every setting is also in **Settings**. In a store whose shops are run as one store, the Initial setup shows and saves the settings of all shops, whichever shop is selected; a shop's own settings are changed in **Settings**.
@@ -179,6 +179,21 @@ When the list cannot be loaded, the card says **Could not load the automation ca
 5. After you have fixed the cause of a failure, for example new API credentials, click **Send again** on the row, or tick the failed rows and click **Retry**. **Select all** retries every failed row that the filter lists. A row is left alone when sending it again would not be safe, for example when a later email of the same kind already reached the contact, and the answer says how many rows were skipped.
 
 Sent and skipped rows are kept for 30 days, failed rows for 90 days. Contact imports stay in the list.
+
+## Campaign Intelligence
+
+Campaign Intelligence is Smaily's recommendation engine: it learns from your catalog, your customers and your orders, and puts products that fit each customer into your emails and your store. You connect it under **Settings -> Intelligence**, or on step 4 of the Initial setup.
+
+1. Ask Smaily for a setup link (**Contact Smaily** on the tab). Paste it into **Setup URL or token from Smaily** and click **Connect**. The link works once, and it is not stored. The tab then shows **Connected** with the name of your Campaign Intelligence store.
+2. A link that is not taken leaves the store unconnected, and the tab says why: the link was already used, it is not known, it belongs to another Smaily account, or Campaign Intelligence could not be reached. Ask Smaily for a new link.
+3. Connecting starts three imports, one after another: your **catalog**, your **customers** and your **orders**. They run in the background from the next run of the background tasks (see [Background tasks and the cron line](#background-tasks-and-the-cron-line)). To hold them back, click **Hold back the import** right after connecting: nothing is sent, and you start each import later on its card.
+4. The cards **Catalog**, **Customers** and **Orders** show how far each import is and update while the page is open. The customers import sends the customers that your contact synchronization sends to Smaily, and every customer with an order in the last 60 months. The orders import sends the newest orders first: the last 18 months, so that Campaign Intelligence can start, then the older ones back to 60 months. No older order is sent. **Cancel import** stops an import and the imports that wait behind it; **Run again** starts an import again from the beginning. An import that nothing has moved for an hour shows as **Stalled**: check that the background tasks run, and run it again. Rows that Campaign Intelligence refused are in the [Log](#log).
+5. From then on every change of a product, a customer or an order is sent as it happens.
+6. Tick **My store's cookie banner covers Smaily tracking** and click **Save** to switch on browse tracking and the recommendations block (see [Browse tracking and cookies](#browse-tracking-and-cookies)). It is off after an install and after an upgrade.
+7. **Check again** asks Campaign Intelligence whether it still takes the store's data. When your Campaign Intelligence account is not active, the tab says so, nothing is sent, and what waits is sent once Smaily has made the account active again.
+8. **Disconnect** ends the connection, after a question. The module stops sending data and tells Campaign Intelligence that the connection ended; your data there is kept. Connect again with a new setup link.
+
+In a store with several shops that are run as one store, one connection serves every shop, whichever shop is selected. Where the shops are run as separate stores, select a shop: each shop has its own setup link, its own confirmation and its own imports.
 
 ## Product recommendations in your store
 
