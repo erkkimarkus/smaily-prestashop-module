@@ -174,6 +174,10 @@ ask (Linear discipline below).
   in every language until a language is installed or updated; a page of the
   module puts its employee's language right (`Admin\Menu::name()`). A new
   tab needs its `wording` and a unit in the XLIFF.
+- **Translations.** A string of a template or of a translate call gets its
+  Estonian unit in `src/translations/et-EE/` in the same commit (the id is
+  the MD5 of the source; the storefront has its own file). A unit test fails
+  on a string without a unit (`TranslationCatalogueTest`).
 - **Work after the response.** PrestaShop writes the session of a login
   into its cookie when the request ends, after the shutdown functions.
   Send a response early only through `TrafficTick::finishFunction()`,

@@ -37,6 +37,11 @@
         <target>Sulle soovitatud</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="6f6162d3a052bb330e9c60285c74c6c9">
+        <source>Sign up for our newsletter</source>
+        <target>Liitu meie uudiskirjaga</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

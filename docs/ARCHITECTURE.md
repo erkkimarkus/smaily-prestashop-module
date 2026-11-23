@@ -2919,7 +2919,11 @@ appends its unit to `translations/et-EE/ModulesSmailyforprestashopAdmin.et-EE.xl
 MD5 of the source) in the same commit. The target is Magento's or Woo's for the same English, with
 "veebisait" changed to "pood" and "poevaade" to "keel"; else it uses the terms below, in short
 sentence-case imperatives without "teie". Product names stay as they are. A sentence with a
-placeholder is worded so that the placeholder needs no case ending ("pood: %shop%").
+placeholder is worded so that the placeholder needs no case ending ("pood: %shop%"). A unit test
+(`tests/Unit/Admin/TranslationCatalogueTest.php`) fails on a string of a template or of a
+translate call that has no unit, in the back-office or the storefront catalogue, and on a unit
+whose id is not the MD5 of its source, whose target is empty or whose placeholders differ from
+its source's.
 
 | English | Estonian | From |
 |---|---|---|
