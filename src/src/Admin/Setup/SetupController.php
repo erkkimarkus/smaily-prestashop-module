@@ -70,6 +70,7 @@ final class SetupController extends BaseController
         /** @var ContactImport $import */
         $import = $services->get(ContactImport::class);
         $progress = $target === null ? null : $import->progress($target);
+        $intelligence = $panels->intelligence()->values($scope);
 
         return $this->renderPage('setup', [
             'smaily_setup_step' => $step,
@@ -86,7 +87,9 @@ final class SetupController extends BaseController
                 'automations' => $panels->automations()->values($scope),
                 'all_shops' => $scope->multishop() && !$scope->separateStores() ? $scope->shopNames() : [],
                 'import' => $progress,
+                'intelligence' => $intelligence,
                 'overview' => $connection === null || $contacts === null ? null : [
+                    'intelligence' => $intelligence,
                     'accounts' => $this->accounts($connection, $scope),
                     'shape' => $scope->multishop() ? ($scope->separateStores() ? 'separate' : 'one') : null,
                     'language_mode' => $scope->multilingual() ? $connection['language_mode'] : null,

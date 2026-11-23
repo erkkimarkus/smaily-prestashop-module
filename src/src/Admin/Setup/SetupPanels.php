@@ -35,7 +35,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -113,6 +119,19 @@ final class SetupPanels
                 $idShop > 0 ? [$idShop] : array_map('intval', \Shop::getShops(true, null, true)),
                 (int) \Context::getContext()->language->id
             )
+        );
+    }
+
+    public function intelligence(): IntelligencePanel
+    {
+        return new IntelligencePanel(
+            $this->services->get(Connections::class),
+            $this->services->get(Setup::class),
+            $this->services->get(HealthCheck::class),
+            $this->services->get(Disconnector::class),
+            $this->services->get(HistoryJobs::class),
+            $this->services->get(EngineSettings::class),
+            $this->translator
         );
     }
 

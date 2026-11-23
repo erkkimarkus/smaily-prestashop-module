@@ -41,6 +41,8 @@ use Symfony\Component\HttpFoundation\Request;
  *   and, when Smaily refused or could not be asked, `error`. The save stands either way.
  * - `contacts`: the Contacts settings (ContactsPanel); contact sync starts with it.
  * - `automations`: the store automations (AutomationsPanel).
+ * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking
+ *   (IntelligencePanel); the connection itself is made at once by Api\EngineExchange.
  * - `finish`: the setup is done; the Configure button opens the Dashboard from now on.
  */
 final class SaveStep extends AbstractSetupAction
@@ -78,6 +80,10 @@ final class SaveStep extends AbstractSetupAction
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'automations':
                 $errors = $panels->automations()->save($scope, $data);
+
+                return $errors === [] ? [] : $this->fieldErrors($errors);
+            case 'intelligence':
+                $errors = $panels->intelligence()->save($scope, $data);
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'finish':

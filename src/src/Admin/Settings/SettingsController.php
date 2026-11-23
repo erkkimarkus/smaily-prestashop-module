@@ -98,6 +98,9 @@ final class SettingsController extends BaseController
                 'automations' => $setup->automations()->values($automationsScope),
                 'automations_languages' => $automationsScope->languages(),
                 'pick_workflows' => $ownShop !== null && $overrides->needsOwnWorkflows($ownShop),
+                'intelligence' => $setup->intelligence()->values($shared),
+                // One store with several shops: the tab says that one connection serves them all.
+                'intelligence_shops' => $shared->multishop() && !$shared->separateStores() ? $shared->shopNames() : [],
                 'rss' => $panels->rss()->values(),
             ],
         ], self::TEMPLATE);

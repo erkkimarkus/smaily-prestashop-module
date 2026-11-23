@@ -42,6 +42,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   save stands either way.
  * - `contacts`: the Contacts settings.
  * - `automations`: the store automations' switches, workflows and cart delay.
+ * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking.
  * - `rss`: the product feed URL builder's defaults.
  *
  * `own` is the tab's switch "Use its own … on this shop", which a shop selected in one store shows.
@@ -85,6 +86,11 @@ final class SaveTab extends AbstractSettingsAction
                 $result = $body['tab'] === 'contacts' ? $saver->saveContacts($context, $data, $own) : $saver->saveAutomations($context, $data, $own);
 
                 return $result['errors'] === [] ? ['returned' => $result['returned']] : $this->fieldErrors($result['errors']);
+            case 'intelligence':
+                // One connection and one confirmation per setup: a shop has no own values here.
+                $errors = $settings->setup()->intelligence()->save($settings->context($idShop)->shared(), $data);
+
+                return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'rss':
                 $errors = $settings->rss()->save($data);
 

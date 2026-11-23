@@ -63,3 +63,38 @@ smailyforprestashop_api_settings_engine_automations_save:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations::execute
     _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_exchange:
+  path: /smailyforprestashop/api/settings/engine-exchange
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_ping:
+  path: /smailyforprestashop/api/settings/engine-ping
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EnginePing::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_disconnect:
+  path: /smailyforprestashop/api/settings/engine-disconnect
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineDisconnect::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_backfill_state:
+  path: /smailyforprestashop/api/settings/backfill-state
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillState::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_backfill:
+  path: /smailyforprestashop/api/settings/backfill
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillAction::execute
+    _legacy_controller: AdminSmailyConnectSettings

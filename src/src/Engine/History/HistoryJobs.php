@@ -131,13 +131,17 @@ final class HistoryJobs
     }
 
     /**
-     * Starts a new import of an entity from the beginning, unless one is still to run.
+     * Starts a new import of an entity from the beginning, unless one is still to run. A stalled
+     * one is ended first: "Run again" on its card starts a fresh import.
      */
     public function start(Connection $connection, string $entity): void
     {
         $latest = $this->latest($connection->id(), $entity);
         if ($latest !== null && in_array($latest['status'], JobStore::ACTIVE, true)) {
-            return;
+            if (!$this->isStalled($latest)) {
+                return;
+            }
+            $this->end($latest, JobStore::STATUS_FAILED, self::REASON_STALLED);
         }
         $now = $this->time();
         Sql::write(sprintf(

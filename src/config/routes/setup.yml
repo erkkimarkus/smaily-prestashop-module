@@ -41,3 +41,17 @@ smailyforprestashop_api_setup_discount_rules:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules::execute
     _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_engine_exchange:
+  path: /smailyforprestashop/api/setup/engine-exchange
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
+smailyforprestashop_api_setup_backfill:
+  path: /smailyforprestashop/api/setup/backfill
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillAction::execute
+    _legacy_controller: AdminSmailyConnectSetup

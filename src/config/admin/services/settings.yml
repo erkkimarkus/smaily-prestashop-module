@@ -26,3 +26,18 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EnginePing:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EnginePing
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineDisconnect:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineDisconnect
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillState:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillState
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillAction:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\BackfillAction
