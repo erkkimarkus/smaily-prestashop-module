@@ -100,21 +100,17 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 
 ## Open questions (for the owner)
 
-The workers' full notes are in ARCHITECTURE section 14. Before recommending on 1 to 3, look up what the sibling
+The workers' full notes are in ARCHITECTURE section 14; the owner's decisions of 2026-11-23 on the five behaviour
+questions of the stage 5 Stories are in section 15. Before recommending on a behaviour rule, look up what the sibling
 connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 
-1. Privacy: the record of a shopper's opt-out stays after an erasure, as a keyed hash only, so the opt-out still holds
-   if the address returns: confirm.
-2. Privacy: a customer who stays in the store after an erasure made from the Log form is sent again at the next
-   change, as contact sync does. And PrestaShop's GDPR module deletes every cart rule of a customer it deletes, used
-   codes included; the module cannot stop that.
-3. A store whose connection the engine refuses sends nothing; its changes wait and go out once the engine accepts it
-   again, rather than not being noted at all.
 6. Installation report: a report that Smaily does not take in leaves its line in PrestaShop's log (Advanced
    Parameters > Logs), not on the module's Log page (ARCHITECTURE 14, row 51): confirm.
-4. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
+1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
+2. A guest-checkout customer's store-made visitor token still needs the checkout's newsletter box beside the
+   merchant's confirmation; the decision of 2026-11-23 named the signed-in customer only (ARCHITECTURE 14, row 48).
 
 7. Privacy on PrestaShop 9: psgdpr 1.4.3, which 9.2.0 ships, cannot search or show a customer in its admin screen
    (its own defect, facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled. A 9.x

@@ -2470,7 +2470,9 @@ storefront's (section 8.10), and take their product key from here.
 connection exists only after the merchant pasted a setup link (section 8.9), so there is no
 separate on/off switch. While the engine refuses a connection (`Connection::refusedAt()`, section
 8.9) or its key does not read, its rows are still noted and wait as they are
-(`IngestFlusher::maySend()`), as on the Magento connector; they go once a ping is answered again.
+(`IngestFlusher::maySend()`), as on the Magento and WooCommerce connectors; they go once a ping is
+answered again, whatever their age: the janitor never deletes a waiting row (owner, 2026-11-23;
+section 15).
 Every request goes through `Engine\Client`, which calls the engine's host only.
 
 **Markers.** A hook writes no payload. `Engine\Capture\IngestMarkers` collects, per request, one
@@ -3176,11 +3178,19 @@ with the account that the request names. `Privacy\PrivacyRequest` runs both requ
 | Order attribution of the accounts' orders | The row | `visitor_token` becomes `NULL`: it ties the order to a browser. The recommendation id, its context and the time stay with the order, as in Magento. |
 | Discount codes | Code, creation time, last valid time, used or not | An unused code is removed, also one that sits in a cart. A used code stays with its order. |
 | The attribution kept with a cart (`smaily_connect_cart_attribution`, section 8.10): the carts of the accounts, and the carts whose tracker row holds the address | The row | Deleted. |
-| The personalization record (`smaily_connect_privacy`) | The choice, its UTC time and its source | **Stays.** It holds the keyed hash and no address, and it keeps an opt-out in force: without it a shopper who opted out would be profiled again once the address returns with a new order. |
+| The personalization record (`smaily_connect_privacy`) | The choice, its UTC time and its source | **Stays** (owner, 2026-11-23; section 15). It holds the keyed hash and no address, and it keeps an opt-out in force: without it a shopper who opted out would be profiled again once the address returns with a new order. The Magento connector keeps it the same way and the WooCommerce plugin in substance; the Shopify app deletes it. |
 
 The erasure reads or writes nothing else: not PrestaShop's customer, orders or carts, not the 2.x
 table `smaily_cart`, not a cart rule that is not one of the module's own unused codes (a
 template, a used code, a remainder voucher), not a Smaily contact.
+
+**A customer who stays in the store** (owner, 2026-11-23; section 15). The Log's form erases the
+module's data and leaves the customer account, so the store still holds that customer, and the
+customer is sent again at their next change, as on all three sibling connectors: a contact sync
+by the consent mode, a customer or order row to Campaign Intelligence by the customer scope, and
+the attribution of a cart on the next page of a browser that still holds the cookies. The erasure
+is of what was held, not a block of what comes next; the merchant who wants the shopper gone
+deletes or anonymizes the account in PrestaShop, and psgdpr's own deletion does that.
 
 **Campaign Intelligence.** The export calls §8 once per stored connection
 (`Engine\Connections::all()`); HTTP 404 reads as "No data". The erasure never calls the engine in
@@ -3205,7 +3215,8 @@ answer as JSON. The words are in the administration's catalogue. psgdpr ignores 
 the deletion hook, so a failure there is a line in the shop's log. After the hook psgdpr deletes
 the customer account itself, and with it **every cart rule tied to that account**
 (`DELETE FROM cart_rule WHERE id_customer = …` in `Psgdpr::deleteDataFromPrestashop()`): a used
-code and a remainder voucher that the module's erasure left are gone after psgdpr's own step.
+code and a remainder voucher that the module's erasure left are gone after psgdpr's own step. The
+module cannot prevent that, and the merchant guide says so (owner, 2026-11-23).
 `registerGDPRConsent` has no listener: the hook lists a module on psgdpr's consent screen, and
 the module has no form of its own that needs a consent box.
 
@@ -4285,3 +4296,15 @@ Decisions of 2026-11-23:
   `smaily_connect_cart_attribution`, created by a fresh install and by the 2.x upgrade. The rule
   of what may be stored is the order row's own, a row leaves with its order or after a day, and
   the export and the erasure cover it (sections 2.2, 8.10, 11.2 and 11.3; section 14, row 49).
+- The record of a shopper's personalization opt-out stays after an erasure, as a keyed hash only
+  (confirmed as built). It holds no address and keeps the opt-out in force if the address returns.
+  The Magento connector does the same and the WooCommerce plugin in substance; the Shopify app
+  deletes it (section 11.2).
+- A customer who stays in the store after an erasure made from the Log form is sent again at
+  their next change, as on all three sibling connectors (confirmed as built; section 11.2). The
+  merchant guide also states a fact of the platform: PrestaShop's own GDPR module deletes every
+  discount code of a customer that it deletes, used codes included, and the module cannot prevent
+  it.
+- A store whose connection the engine refuses keeps noting changes (confirmed as built). They
+  wait, and go out once the engine accepts the connection again, with no age limit, as on the
+  Magento and WooCommerce connectors (sections 8.9 and 8.11).
