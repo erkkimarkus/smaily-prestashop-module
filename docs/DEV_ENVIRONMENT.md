@@ -2,7 +2,7 @@
 
 This recipe runs a local PrestaShop with the module from `src/`. It was run on 2026-11-20 on macOS
 (Apple Silicon) with Docker in a Colima VM (2 CPUs, 8 GiB), Docker Compose 5.5.1, first with the 3.0.0
-skeleton and the event queue, and again as the code grew, last on 2026-11-21. Each step says whether
+skeleton and the event queue, and again as the code grew, last on 2026-11-23. Each step says whether
 it was verified, and on which code.
 
 The admin user and password are the demo ones in [CONTRIBUTING.md](../CONTRIBUTING.md).
@@ -85,17 +85,18 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 2222 tests on 8.2.8 (11893 assertions) and on 9.2.0 (11898
-assertions; one test checks more where PrestaShop has discount types), each lane on a shop made
-from scratch behind the egress guard, with debug mode on (2026-11-23, on the branch of Story 5.3's
-second part; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). The suite with debug mode off last
-ran on `v3` at `82fc312`, before that second part (2172 tests on both lanes; 11689 assertions on
-8.2.8 and 11695 on 9.2.0). With debug mode off on 9.2.0 the run prints deprecation notices of
-modules that the image ships; they are not the suite's. One earlier run on 8.2.8 failed
-`ConcurrentFlushTest` alone: a worker booted later than the 3 seconds the test gives it, on a
-machine that ran other stacks; the test passed alone and in the next two runs. 8.0.0 last
+Last verified results, all passing: 2224 tests on 8.2.8 (11900 assertions) and on 9.2.0 (11905
+assertions; one test checks more where PrestaShop has discount types), with debug mode on and
+with debug mode off, each of the four runs on a shop made from scratch behind the egress guard
+(2026-11-23, on the merged `v3` with every stage 5 and stage 6 Story and the fixes of the install
+check; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
+prints deprecation notices: of modules that the image ships, of PrestaShop itself, and of the
+tests' own `setAccessible()` calls, which PHP 8.5 deprecates; none names the module's code. One
+run of that day on 8.2.8 failed `ConcurrentFlushTest` alone, as one earlier run had: a worker
+booted later than the 3 seconds the test gives it, on a machine that ran other stacks; the test
+passed alone and in every later run. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2222 tests, 3910 assertions, 1129 skipped). The storefront scripts have
+and skips the integration tests (2224 tests, 3914 assertions, 1130 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -450,7 +451,8 @@ dependencies), and prints one `ok` or `FAIL` line per check, 10 lines in all:
 4. The schema version is stored.
 5. The unit and integration tests pass inside the shop. For this step the module folder points at the
    repository's `src/`, as in the dev shop, so that one Composer autoloader is loaded; the zip's folder
-   is put back afterwards.
+   is put back afterwards. The script's shop runs with debug mode off, the flashlight default (the
+   dev stack sets `DEBUG_MODE=true`): this check is the suite with debug mode off.
 6. The storefront answers 200 while the schema version is unset.
 7. The API client sends one request through the HTTP client of this PrestaShop, to a mock transport,
    not to Smaily (`tests/ci/api-client-smoke.php`). The script loads PrestaShop's autoloader from
@@ -486,6 +488,9 @@ Results on 2026-11-20:
 - On 2026-11-21, with the ingest of Story 5.2: 10 of 10 checks on flashlight 8.2.8 and 9.2.0
   with the packaged zip, and 1957 tests in the shop on each (10518 assertions on 8.2.8, 10523 on
   9.2.0).
+- On 2026-11-23, on the merged `v3` with Campaign Intelligence, the installation report and the
+  fixes of the install check: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged zip,
+  and 2224 tests in the shop on each (11900 assertions on 8.2.8, 11905 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
@@ -498,6 +503,15 @@ The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
 its containers, volumes and network at the end; `KEEP=1` leaves the shop up.
 
+The script's shop is not behind the egress guard. A fresh install holds no account and no
+connection, so it calls no Smaily service; its storefront request runs the fallback tick, though,
+and with it the update check against the real GitHub (release data only, no store data). To keep
+a local run from that, name a second Compose file in `PS_COMPOSE` that resolves the host inside
+the shop, as the runs of 2026-11-23 did:
+
+    # override.yaml:  services: {prestashop: {extra_hosts: ["api.github.com:127.0.0.1"]}}
+    PS_COMPOSE="docker-compose.yaml -f /path/to/override.yaml" tests/ci/validate.sh
+
 ## 7. Installing or upgrading from a built zip
 
 The dev stack mounts `src/`, so do not unzip a release into its `modules/smailyforprestashop`: that
@@ -506,6 +520,15 @@ on start:
 
     composer --working-dir src package
     KEEP=1 tests/ci/validate.sh                       # shop stays up on http://localhost:8000
+
+Verified on 2026-11-23 on 8.2.8 and 9.2.0, each in a shop without the `src/` mount, made from
+scratch behind the egress guard: the zip, uploaded in Module Manager > Upload a module, installs
+the module (6 tabs, 30 hooks, the 10 tables, the schema version key, the zip's 443 files outside
+`vendor/`), and its pages open at once, without a cache removal. After a connection through the
+Initial setup (a Smaily account and Campaign Intelligence, against the mocks) and one request to
+the tick URL, a console uninstall told the subscription mock `deactivated` and then the engine
+mock the disconnect, and left no key, table, tab, hook registration, authorization role or cache
+folder of the module; a console install worked afterwards.
 
 To upgrade that shop to a newer build (not verified): build the new zip, then
 
@@ -523,7 +546,9 @@ To start from a legacy state, install the matching release and load a fixture fr
 ## 7a. Upgrade walk from a genuine 2.x or 1.6.x release
 
 The first upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
-commands below follow those walks; they were not run again for this document.
+commands below follow those walks. Steps 1 to 6 ran again on 2026-11-23 on 8.2.8 and 9.2.0, with
+a 2.2.0 that the console installed in a shop without the module and the upload of step 5: the
+migration ended `done`.
 
 1. **Build the 3.0.0 zip:** `composer --working-dir src package`. The script works in
    `build/package/` and replaces `dist/smailyforprestashop.zip`; it leaves everything else under
@@ -576,6 +601,9 @@ Seen in the walks of 2026-11-23 (8.2.8 and 9.2.0), on a machine that ran two oth
   (2.2.0's cart cron on a field list that is not JSON): judge such a request by its text.
 - A shopper who signs in from another browser gets a new cart (the demo data does not switch
   "Re-display cart at login" on). A walk that changes a cart again keeps the shopper's cookies.
+- On 9.2.0 with debug mode on, a page's own request ("Test connection" on the Initial setup)
+  once took over a minute, while PHP-FPM's log said that all of its 5 workers were busy. A script
+  waits minutes for such an answer too.
 - A script that holds the migration's lock from a `mariadb` session ends that session with
   `KILL <id>`: stopping `docker compose exec` leaves it running in the container.
 

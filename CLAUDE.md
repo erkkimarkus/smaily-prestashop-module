@@ -280,7 +280,7 @@ ask (Linear discipline below).
   follows the same one rule (`Attribution::marketingConsent()`). The click and the visitor token also wait with the
   cart (`Storefront\CartAttribution`, by the rule of the order's own row) for an order whose
   request has no shopper's cookies; the order takes the row once per request and deletes it. The
-  cache is files in PrestaShop's cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
+  cache is files in its own folder under PrestaShop's cache folder (the uninstall deletes it); an engine answer stays an hour. PrestaShop initialises a front controller once per
   process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
 - **Campaign Intelligence keys and prices** (ARCHITECTURE 8.2, 8.3, 8.11). Every product and
   order key comes from `Engine\Payload\Keys`; the namespace literal is its one constant, and a
@@ -398,7 +398,8 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
   package` and `composer install --working-dir src`, then
   `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx tests/ci/validate.sh`
   and the same with `9.2.0-nginx`; it also runs the unit and integration
-  tests in the shop. `KEEP=1` leaves the shop up.
+  tests in the shop, which runs with debug mode off (the dev stack runs
+  with it on). `KEEP=1` leaves the shop up.
 - A test that runs the whole tick must stub the update check, so no test
   calls the real GitHub. Every Story that registers a scheduler job edits
   the two tests that pin the tick's job list (`SchedulerProviderTest`,

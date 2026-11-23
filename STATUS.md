@@ -44,21 +44,23 @@ default shop's connection and ends the others (ARCHITECTURE 8.9 and 10.12). Walk
 and subscription mocks on 8.2.8 (114 checks) and 9.2.0 (114 checks), with one shop and with two, in English and
 Estonian; screenshots in `build/screens-5.3b/`.
 
-**Last runs** (2026-11-23). On the branch of Story 5.3's second part, before its merge: in-shop suite 2222 tests on
-8.2.8 (11893 assertions) and on 9.2.0 (11898), with debug on, each lane on a shop made from scratch behind the egress
-guard; host 2222 tests, 3910 assertions, 1129 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files;
-PHP 8.0.30 lint of 356 module files and 215 test files, no failure. With debug off the suite last ran on `v3` at
-`82fc312`, before that second part: 2172 tests on 8.2.8 (11689 assertions) and on 9.2.0 (11695). The capability walks
-of 8 to 11 ran on `82fc312` too; check by check on both versions, with two shops on 9.2.0 and a 2.2.0 store upgraded
-on 8.2.8, they are in `docs/internal/walks/2026-11-23-capabilities-8-11.md`; scripts, result files and screenshots
-in `build/walk-8-11/`. The merged tip (the second part and the walks' record together) ran the host tests only.
-Last run on `0c38f0b` (2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images. The zip
-content and the uninstall check last ran on `0d4425e`, long before stage 5.
+**Last runs** (2026-11-23): the full install check on the merged tip `5117054`, with its three fixes (`composer
+package` keeps `build/`, a test teardown, the cache folder at uninstall). `tests/ci/validate.sh` with the packaged zip:
+10 of 10 on flashlight 8.2.8 and 9.2.0 (debug off). In-shop suite on shops made from scratch behind the egress guard:
+2224 tests with debug on and off, on 8.2.8 (11900 assertions) and 9.2.0 (11905). Host: 2224 tests, 3914 assertions,
+1130 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 and 8.5.12 lint of 356 module
+and 215 test files, no failure. The zip (454 files) passes the content check of `docs/MARKETPLACE.md` 6. On both
+versions from the zip: upload in Module Manager, setup, one tick, a console uninstall that leaves nothing (keys,
+tables, tabs, hooks, roles, cache folder) and a reinstall; a genuine 2.2.0 took the zip by upload and ended `done`
+(`docs/DEV_ENVIRONMENT.md` 6, 7 and 7a). The capability walks of 8 to 11 ran on `82fc312`
+(`docs/internal/walks/2026-11-23-capabilities-8-11.md`; scripts and screenshots in `build/walk-8-11/`).
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
 the official `9.2.0-8.1` image; PrestaShop's online validator; the multishop screens in Estonian; one unexplained PHP
-8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: the capability walks of 8 to 11
+8.0.30 segfault report (not reproduced in 113 runs, nor in the install check's 7 suite runs on 8.2.8). Of the
+install check: Module Manager's own Uninstall and Reset buttons, an upload over 1.6.2 on this tip, a store with two
+shops. Of stage 5: the capability walks of 8 to 11
 (`docs/internal/walks/2026-11-23-capabilities-8-11.md`) ran with one shop, and capability 8 also with two shops as
 separate stores: two shops that share one Campaign Intelligence connection, and capabilities 9 to 11 with two shops,
 were not in them; an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there; the Log's form is the
@@ -67,7 +69,6 @@ export on 9.x).
 ## Next, in this order
 
 1. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
-2. A full install check (zip content, uninstall) on the tip, with the in-shop suite with debug on and off.
 
 Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 

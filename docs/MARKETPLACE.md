@@ -127,21 +127,27 @@ check (`docs/ARCHITECTURE.md` sections 10.7 and 11.5).
 
 ## 6. Where this module stands
 
-Read from branch `v3` on 2026-11-21. "The zip" is `dist/smailyforprestashop.zip`, which
+Read from branch `v3` on 2026-11-21, and again on 2026-11-23 where the text says so. "The zip" is `dist/smailyforprestashop.zip`, which
 `composer --working-dir src package` builds: the files that git tracks under `src/`, minus
 `src/.zipignore`, plus the production `vendor/` folder. Section 6.4 gives the commands behind the
 counts. PrestaShop's online validator was not run: it takes an upload of the zip, and no code of this
 module has been uploaded to an outside service.
 
-The zip holds 333 files: 322 of the module (251 PHP, 40 Twig, 13 YAML, 7 JavaScript, 3 SVG, and one
-each of CSS, XML, XLIFF, PNG, PDF, `composer.json`, `composer.lock` and `.htaccess`) and 11 of
-Composer's autoloader in `vendor/`. It holds no test, no development configuration, no Markdown file
-and no operating-system file.
+The zip holds 454 files (2026-11-23): 443 of the module (355 PHP, 46 Twig, 13 YAML, 13 JavaScript,
+4 Smarty, 3 SVG, 2 XLIFF, and one each of CSS, XML, PNG, PDF, `composer.json`, `composer.lock` and
+`.htaccess`) and 11 of Composer's autoloader in `vendor/`. It holds no test, fixture or mock, no
+development configuration, no Markdown file, no screenshot and no operating-system file.
 
 The file counts of this section were taken again on 2026-11-21, after the Automations tab, the
 discount codes and the removal of the 8 classes of the 2.x contact sync and cart reminder, with the
 commands of section 6.4, and once more after the last change of that day, with the same result. The
 count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were not.
+
+On 2026-11-23, with the Campaign Intelligence code and the installation report in the zip, the
+counts of rules 4, 6, 9 to 12, 14, 17, 19, 21 to 23, 25 to 28, 31 and 33 were taken again with
+the commands of section 6.4, and of rule 18 the debug statements and the empty files; the tables
+hold them. The counts of rules 15, 16 and 24, and the commented-out statements of rule 18, are of
+2026-11-21 and do not count that code.
 
 ### 6.1 Technical rules that the module meets
 
@@ -150,25 +156,25 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | 1 | Same technical name | `$this->name` is `smailyforprestashop` in the main class of 1.6.2, 2.2.0 and 3.0.0: 1 distinct value. |
 | 2 | `module_key` | The constructor sets it; 1.6.2, 2.2.0 and 3.0.0 hold 1 distinct value. |
 | 5 | Root `.htaccess` | `src/.htaccess` refuses `*.php` in an Apache 2.2 block and an Apache 2.4 block. Folder listings are closed by the `index.php` files (rule 4). |
-| 6 | `_PS_VERSION_` check | 191 of the 191 PHP files that are not an `index.php` hold the check in the exact form. The 60 `index.php` files are PrestaShop's own redirect stub, which has no such check. |
+| 6 | `_PS_VERSION_` check | 283 of the 283 PHP files that are not an `index.php` hold the check in the exact form. The 72 `index.php` files are PrestaShop's own redirect stub, which has no such check. |
 | 7 | `ps_versions_compliancy` | `min` `8.0.0`, `max` `9.99.99`. |
 | 8 | Runs on a current PrestaShop | The test suite passes inside PrestaShop 9.2.0 and 8.2.8 (section 6.4). |
 | 9 | Zip name and folder | `smailyforprestashop.zip` holds 1 top-level entry, the folder `smailyforprestashop`; `$this->name` is a lowercase literal. 0 `__MACOSX` or `.DS_Store` entries. |
 | 11 | No `ALTER`; guarded `CREATE` and `DROP` | 0 `ALTER`. 2 of 2 `CREATE TABLE` statements carry `IF NOT EXISTS`, 2 of 2 `DROP TABLE` statements carry `IF EXISTS`. |
-| 12 | No change to core or other modules' files | The module writes no file (0 calls of `file_put_contents`, `fopen`, `fwrite`, `copy`, `rename`, `mkdir`). It deletes one file outside its own folder: the override of `ps_emailsubscription` that 2.x installed, and only when its SHA-256 is that of the 2.x copy. Inside its own folder the upgrade deletes the files of the previous version (rule 33). The contact reconcile writes data, not files: `customer.newsletter` and `emailsubscription.active`. |
+| 12 | No change to core or other modules' files | The module writes files in one place: `Storefront\Store` keeps the storefront's per-address limits and cached recommendation answers as small files in the folder `smaily_connect` of PrestaShop's cache folder (1 `mkdir`, 1 `file_put_contents`, 1 `rename`; 0 calls of `fopen`, `fwrite`, `copy`), and the uninstall deletes that folder. It deletes one file outside its own folder and that cache folder: the override of `ps_emailsubscription` that 2.x installed, and only when its SHA-256 is that of the 2.x copy. Inside its own folder the upgrade deletes the files of the previous version (rule 33). The contact reconcile writes data, not files: `customer.newsletter` and `emailsubscription.active`. |
 | 13 | Overrides | The module ships no `override` folder. |
-| 14 | Uninstall | A console uninstall on 8.2.8 and on 9.2.0, of a module that was set up with a Smaily account, the welcome automation and a discount rule, left 0 `SMAILY%` configuration rows (24 before), 0 tables (9), 0 admin tabs (5), 0 hook registrations (32 then; 30 since the two unused hooks left, counted again on both versions with debug mode on) and 0 authorization roles that name the module (24). The 1 discount code that the module had issued stayed in the shop's cart rules, as designed (`docs/ARCHITECTURE.md` section 11.4). |
+| 14 | Uninstall | On 8.2.8 and on 9.2.0 (2026-11-23), each in a shop made from scratch: the zip was installed through Module Manager > Upload a module, set up through the Initial setup with a Smaily account and a Campaign Intelligence connection (against mocks), and uninstalled through the console. The uninstall left 0 `SMAILY%` configuration rows (27 before), 0 tables (10), 0 admin tabs (5), 0 hook registrations (30), 0 authorization roles that name the module (24) and no cache folder of the module (1 before, with 2 files); it sent the `deactivated` report and then the engine's disconnect. The uninstall of a store upgraded from a genuine 2.2.0 also dropped `smaily_cart` and the tab row of 2.x. A console install afterwards gave 6 tabs, 30 hooks and 10 tables again. An earlier check (2026-11-21) showed that a discount code that the module had issued stays in the shop's cart rules, as designed (`docs/ARCHITECTURE.md` section 11.4). |
 | 15 | Debug mode | Both dev shops run with `_PS_MODE_DEV_` on. The suite passes in them with PHPUnit turning warnings and notices into failures. 15 storefront and module requests and the module's 5 admin menu links per shop returned 0 answers with PHP error text; the shop's output held 0 PHP messages that name the module. The admin links were opened before the Initial setup, so each showed the Initial setup page. While the suite ran on 9.2.0, PrestaShop's own log took 5 lines "Cannot register tab … because it already exists"; a plain install and the requests above wrote none. |
-| 16 | English; translations through PrestaShop | 0 source files hold a non-ASCII letter. Texts go through the translator: 200 `trans()` calls in PHP, 386 `trans` filters in Twig, domains `Modules.Smailyforprestashop.Admin` and `.Shop`; 0 literal user texts in JavaScript. Estonian is one XLIFF file in `translations/et-EE/`. |
+| 16 | English; translations through PrestaShop | 0 source files hold a non-ASCII letter. Texts go through the translator: 200 `trans()` calls in PHP, 386 `trans` filters in Twig, domains `Modules.Smailyforprestashop.Admin` and `.Shop`; 0 literal user texts in JavaScript. Estonian is two XLIFF files in `translations/et-EE/` (the back office and the storefront; 2026-11-23). |
 | 17 | No obfuscation | 0 calls of `base64_decode`, `gzinflate`, `gzuncompress`, `str_rot13`, `create_function`. No minified script or style: the longest line of the JavaScript and CSS is 181 characters. |
 | 18 | No debug statements, dead code, empty files | 0 calls of `var_dump`, `print_r`, `var_export`, `dump`, `dd`, `error_log`; 0 `console.*` in JavaScript; 0 commented-out statements found by pattern; 0 empty files; no log or generated file. |
-| 19 | Coding standards | PHP CS Fixer with PrestaShop's configuration: 0 of 251 files to fix. PHP 8.0 lint: 0 errors. |
-| 21 | Prefixes | The 6 classes outside a namespace are the main class and the 5 front controllers, named as PrestaShop requires. The 57 keys that the uninstall removes start with `SMAILY_`: `Config\Settings` puts `SMAILY_CONNECT_` in front of every 3.0.0 key. The module's tables start with `smaily_`. The prefix is `SMAILY_`, not the technical name, because 2.x stores hold keys under it. |
-| 22 | File storage | The module writes no file (rule 12). |
+| 19 | Coding standards | PHP CS Fixer with PrestaShop's configuration: 0 of 355 files to fix. PHP 8.0 and PHP 8.5 lint: 0 errors. |
+| 21 | Prefixes | The 10 classes outside a namespace are the main class and the 9 front controllers, named as PrestaShop requires. The 59 keys that the uninstall removes start with `SMAILY_`: `Config\Settings` puts `SMAILY_CONNECT_` in front of every 3.0.0 key. The module's tables start with `smaily_`. The prefix is `SMAILY_`, not the technical name, because 2.x stores hold keys under it. |
+| 22 | File storage | The module writes only into PrestaShop's cache folder (rule 12). |
 | 23 | No iframe | 0 `<iframe`. |
-| 25 | Escaped output | All 40 admin templates are Twig, with PrestaShop's automatic escaping: 0 `raw` filters, 0 `autoescape` switches. The storefront templates are Smarty, which PrestaShop's front office escapes by default: none uses `nofilter`. The RSS feed is built with `DOMDocument` nodes. Two scripts set `innerHTML`, each with HTML that a template rendered on the store's own server: one in the back office, and the storefront's `recommendations.js`, with the recommendations block. |
-| 28 | No file operation on request input | The file calls (`is_file`, `hash_file`, `unlink`, `scandir`, `rmdir`, and `realpath`, `is_dir`, `is_writable` in `Migration\LegacyFiles`) take the fixed path of the 2.x override or a path of the fixed list of rule 33 under the module's folder; 1 `require_once`, of the module's own autoloader. |
-| 31 | Nothing downloaded after install | No code downloads or writes a file. 0 scripts, styles, fonts or images are loaded from another host. The daily new-version check reads release data from `api.github.com` and never fetches the release. |
+| 25 | Escaped output | All 46 admin templates are Twig, with PrestaShop's automatic escaping: 0 `raw` filters, 0 `autoescape` switches. The 4 storefront templates are Smarty, which PrestaShop's front office escapes by default: none uses `nofilter`. The RSS feed is built with `DOMDocument` nodes. Three scripts set `innerHTML`, each with HTML that a template rendered on the store's own server: two in the back office (the Log's details, the Campaign Intelligence automations card), and the storefront's `recommendations.js`, with the recommendations block. |
+| 28 | No file operation on request input | The file calls (`is_file`, `hash_file`, `unlink`, `scandir`, `rmdir`, and `realpath`, `is_dir`, `is_writable` in `Migration\LegacyFiles`) take the fixed path of the 2.x override or a path of the fixed list of rule 33 under the module's folder; those of `Storefront\Store` take a file of its cache folder (rule 12) whose name is a SHA-256 hash; `Privacy\AccountLink` asks whether one fixed template of the theme exists; 1 `require_once`, of the module's own autoloader. |
+| 31 | Nothing downloaded after install | No code downloads a file. 0 scripts, styles, fonts or images are loaded from another host. The daily new-version check reads release data from `api.github.com` and never fetches the release. |
 | 35 | Licence of the dependencies | The production `vendor/` holds Composer's autoloader only (MIT). The module's own licence is in section 6.3. |
 
 ### 6.2 Technical rules that the module meets since 2026-11-21
@@ -176,11 +182,11 @@ count of rule 14 was taken again then; the counts of rules 15, 24 and 33 were no
 | # | Rule | What changed, and where | Evidence now |
 |---|---|---|---|
 | 3 | `config.xml` | `src/config.xml` is the file that PrestaShop 8.2.8 and 9.2.0 write for the English back office (both write the same bytes). Git ignores only the copies for other languages. `tests/Unit/Install/ConfigXmlTest.php` compares the file with the main class. | The zip holds `config.xml`. |
-| 4 | `index.php` in every folder | `src/docs/index.php` was added. The Composer script `autoindex` now leaves `vendor` out. | 60 of 60 folders outside `vendor` hold an `index.php`; the 60 files are identical. |
-| 10 | Licence notice in every source file | PrestaShop's `header-stamp` wrote the module's existing notice, as a Twig comment, at the top of the templates. The Composer script `header-stamp` runs it with the text in `bin/license-header.txt`. | Notice in 251 of 251 PHP, 40 of 40 Twig, 7 of 7 JavaScript and 1 of 1 CSS files. The Twig token stream of each of the 37 templates that got the notice then is the same as before it. |
-| 26 | No direct superglobal | `src/controllers/front/capture.php` reads the method and the posted fields from Symfony's request object instead of `$_SERVER` and `$_POST`. | 0 superglobals in the module. The other request reads are 5 `Tools::getValue()` calls (each cast, checked against a list, or compared with `hash_equals()`) and Symfony's request object in the admin controllers. |
+| 4 | `index.php` in every folder | `src/docs/index.php` was added. The Composer script `autoindex` now leaves `vendor` out. | 72 of 72 folders outside `vendor` hold an `index.php`: 70 identical files, and 2 (`src/Storefront/`, `src/Engine/Capture/`) that differ from them by two blank lines. |
+| 10 | Licence notice in every source file | PrestaShop's `header-stamp` wrote the module's existing notice, as a Twig comment, at the top of the templates. The Composer script `header-stamp` runs it with the text in `bin/license-header.txt`. | Notice in 355 of 355 PHP, 46 of 46 Twig, 4 of 4 Smarty, 13 of 13 JavaScript and 1 of 1 CSS files (2026-11-23). The Twig token stream of each of the 37 templates that got the notice on 2026-11-21 is the same as before it. |
+| 26 | No direct superglobal | `src/controllers/front/capture.php` reads the method and the posted fields from Symfony's request object instead of `$_SERVER` and `$_POST`. | 0 superglobals in the module (2026-11-23). The other request reads are 9 `Tools::getValue()` calls and 1 `Tools::isSubmit()` call (each cast, checked against a list, trimmed for a search event, or compared with `hash_equals()`) and Symfony's request object in the admin controllers and in two front controllers. |
 
-| 33 | Deleting files that an update drops | The owner decided on 2026-11-21 that the upgrade deletes them. The upgrade's step `files` (`Migration\LegacyFiles`) deletes the 47 paths that 2.2.0 (35) or 1.6.2 (12 more) shipped and 3.0.0 does not, with `unlink()`, and the 6 folders that they leave empty: only regular files inside the module's folder, nothing under `vendor/` or `translations/`. A file that cannot be deleted is named in a notice and does not fail the upgrade (`docs/ARCHITECTURE.md` section 3.7). | A genuine 2.2.0 store, upgraded through the console on 8.2.8 and on 9.2.0 with the 3.0.0 zip unpacked over its folder, held 35 of the listed files before the upgrade and 0 after it; with `lib/` read-only, its 4 files stayed and the notice named them (section 6.4; `docs/ARCHITECTURE.md` section 3.7). `tests/Unit/Migration/LegacyFilesTest.php` checks the deletion on a folder that holds the 47 files, and that 3.0.0 ships none of the listed paths. |
+| 33 | Deleting files that an update drops | The owner decided on 2026-11-21 that the upgrade deletes them. The upgrade's step `files` (`Migration\LegacyFiles`) deletes the 47 paths that 2.2.0 (35) or 1.6.2 (12 more) shipped and 3.0.0 does not, with `unlink()`, and the 6 folders that they leave empty: only regular files inside the module's folder, nothing under `vendor/` or `translations/`. A file that cannot be deleted is named in a notice and does not fail the upgrade (`docs/ARCHITECTURE.md` section 3.7). | A genuine 2.2.0 store, upgraded through the console on 8.2.8 and on 9.2.0 with the 3.0.0 zip unpacked over its folder, held 35 of the listed files before the upgrade and 0 after it; with `lib/` read-only, its 4 files stayed and the notice named them (section 6.4; `docs/ARCHITECTURE.md` section 3.7). On 2026-11-23 a genuine 2.2.0 store on 8.2.8 and on 9.2.0 took the zip through Module Manager > Upload a module: 35 of the listed files before, 0 after, and the folder then held the 443 files of the zip outside `vendor/`; the zip holds 0 of the 47 paths. `tests/Unit/Migration/LegacyFilesTest.php` checks the deletion on a folder that holds the 47 files, and that 3.0.0 ships none of the listed paths. |
 
 ### 6.3 Not technical, or waiting for the owner
 
@@ -206,7 +212,7 @@ The zip and its content:
     unzip -qq dist/smailyforprestashop.zip -d /path/outside/the/repository
     find smailyforprestashop -type f | wc -l
     find smailyforprestashop -type d -not -path '*/vendor*' | while read d; do [ -f "$d/index.php" ] || echo "$d"; done
-    grep -L 'NOTICE OF LICENSE' $(find smailyforprestashop -type f \( -name '*.php' -o -name '*.twig' -o -name '*.js' -o -name '*.css' \) -not -path '*/vendor/*')
+    grep -L 'NOTICE OF LICENSE' $(find smailyforprestashop -type f \( -name '*.php' -o -name '*.twig' -o -name '*.tpl' -o -name '*.js' -o -name '*.css' \) -not -path '*/vendor/*')
 
 The licence notice, the index files, the code style and the tests, from the repository root:
 
@@ -239,8 +245,9 @@ Forbidden constructs are counted with `grep` over the PHP files that the zip hol
 `grep -nE '(^|[^a-zA-Z_>:])(serialize|unserialize|eval)\('`.
 
 The tests in a shop, the debug-mode requests and the uninstall follow `docs/DEV_ENVIRONMENT.md`
-(sections 4, 4a and 6). Last results, on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0: the suite of 1669 tests
-passes in both shops, and `tests/ci/validate.sh` passes its 10 checks with the zip on both.
+(sections 4, 4a, 6 and 7). Last results (2026-11-23), on PrestaShop 8.2.8 (PHP 8.0) and 9.2.0
+(PHP 8.5): the suite of 2224 tests passes in both shops, with debug mode on and off, and
+`tests/ci/validate.sh` passes its 10 checks with the zip on both.
 
 ## 7. What a listing needs outside the code
 

@@ -941,6 +941,15 @@ on the old schema).
     2.2.0 setting carried over, the notices shown, and a registration delivered through the
     carried-over account.
 
+- On 8.2.8 and 9.2.0 (2026-11-23, the merged `v3` with stages 5 and 6), each in a shop made from
+  scratch behind the egress guard: a genuine 2.2.0 store (`2.2.0-configured.sql`) took the
+  packaged zip through Module Manager > Upload a module. The migration ended `done`, with 30
+  hooks. The module's folder held 35 of the listed files before the upload and none after it, and
+  then the zip's 443 files outside `vendor/`. The account, the two workflows and the 3 reminded
+  carts were carried over, `smaily_cart` kept its 3 rows, the 2.x override was gone, and the
+  Dashboard, three Settings tabs and the Log opened without an error. A console uninstall then
+  left no key, no table (`smaily_cart` went too), no tab and no hook registration.
+
 **Limits:**
 
 - An FTP copy over 2.2.0 on a store without a cron line stays inert until the admin clicks Upgrade:
@@ -3799,7 +3808,10 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 4. Drops every table of `Install\Schema` and the legacy `smaily_cart`.
 
 Demonstrated on 8.0.0, 8.2.8 and 9.2.0: a console uninstall leaves 0 module keys and 0 module tables,
-after a fresh install and after an upgrade.
+after a fresh install and after an upgrade. On 8.2.8 and 9.2.0 (2026-11-23), after an install from
+the zip, a setup with a Smaily account and a Campaign Intelligence connection and one tick, it also
+left no tab, hook registration, authorization role or cache folder, and the mocks got `deactivated`
+and then the engine's disconnect.
 
 **Reset.** PrestaShop's "Reset" of a module runs its uninstall and then its install: the main class
 has no `reset()` of its own. A Reset therefore sends `deactivated` too, and removes the Smaily
