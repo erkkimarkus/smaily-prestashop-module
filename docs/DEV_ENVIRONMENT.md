@@ -327,6 +327,11 @@ in the container. `install.sh` seeds one workflow in it (id 11, "Welcome", a "fo
 workflow that is switched on); a walk that needs more workflows, or one per account, edits the
 `workflows` list of that file. Each recorded request names its `host`, so a walk can tell which Smaily account
 a call went to; a workflow of the state with a `subdomain` is listed only to that account. The
+mock keeps no credential that a request brought, because whoever walks the shop may type a real
+API user and password into it: a request names its API user (`username`) only when the mock
+accepted it, and of any other request the state says only whether an Authorization header came
+(`authorization`) and how long the user's name was (`username_length`); the password and the
+header are never written. The typed subdomain stays, as the request's `host`. The
 console's `prestashop:module upgrade` asks PrestaShop's Distribution API first and fails behind the
 guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the pending migration. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
 write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for

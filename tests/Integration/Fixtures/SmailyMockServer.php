@@ -170,7 +170,11 @@ final class SmailyMockServer
     }
 
     /**
-     * @return list<array{method: string, path: string, query: array<string, string>, content_type: ?string, body: mixed, authorized: bool, username: ?string}>
+     * Every request received. `username` is the API user of a request the mock accepted, else
+     * null: the mock keeps no credential that it did not accept, only whether an Authorization
+     * header came and how long the user's name was.
+     *
+     * @return list<array{method: string, path: string, query: array<string, string>, content_type: ?string, body: mixed, authorized: bool, authorization: string, username: ?string, username_length: ?int, host: ?string}>
      */
     public function requests(): array
     {

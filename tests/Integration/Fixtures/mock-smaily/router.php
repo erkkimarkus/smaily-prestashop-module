@@ -4,9 +4,14 @@
  *
  * State lives in the JSON file that SMAILY_MOCK_STATE names: the API user's credentials, the
  * unsubscribers that the contact list returns, the action log that the history returns, the
- * workflows that the two workflow lists return, and every request received, with the API user it
- * named. SmailyMockServer writes
+ * workflows that the two workflow lists return, and every request received. SmailyMockServer writes
  * and reads it.
+ *
+ * A request's credentials are never kept: whoever walks a dev shop may type a real API user and
+ * password into this stand-in. A request names its API user (`username`) only when the mock
+ * accepted it, which is the user the state names already; else the state says only whether an
+ * Authorization header came (`authorization`: "present" or "absent") and how long the user's name
+ * was (`username_length`). The header and the password are compared and dropped.
  *
  * - Wrong or missing credentials: HTTP 401.
  * - GET  /api/contact.php?list=2&limit=&offset=  one page of unsubscribers; offset counts pages.
@@ -39,7 +44,8 @@ $raw = (string) file_get_contents('php://input');
 $body = json_decode($raw, true);
 
 $credentials = $state['credentials'] ?? ['username' => '', 'password' => ''];
-$authorized = ($_SERVER['PHP_AUTH_USER'] ?? null) === $credentials['username']
+$username = $_SERVER['PHP_AUTH_USER'] ?? null;
+$authorized = $username === $credentials['username']
     && ($_SERVER['PHP_AUTH_PW'] ?? null) === $credentials['password'];
 
 $state['requests'][] = [
@@ -49,7 +55,9 @@ $state['requests'][] = [
     'content_type' => $_SERVER['CONTENT_TYPE'] ?? null,
     'body' => $body,
     'authorized' => $authorized,
-    'username' => $_SERVER['PHP_AUTH_USER'] ?? null,
+    'authorization' => $username !== null || isset($_SERVER['HTTP_AUTHORIZATION']) ? 'present' : 'absent',
+    'username' => $authorized ? $username : null,
+    'username_length' => $username === null ? null : strlen($username),
     'host' => $_SERVER['HTTP_HOST'] ?? null,
 ];
 file_put_contents($stateFile, json_encode($state));
