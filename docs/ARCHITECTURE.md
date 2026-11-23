@@ -2272,9 +2272,9 @@ the change to one store promotes).
   all shops stays with the shop that keeps the connection, as its own, and no other shop holds
   one. To one store, no confirmation stays: the one setup then covers the visitors of every
   shop, so browse tracking and recommendations are off until the merchant confirms again for all
-  of them, and the question before the change says so where the shop had confirmed. This part is
-  the narrowest reading of "an upgrade never widens the audience"; the owner may overturn it
-  (section 14, row 58).
+  of them, and the question before the change says so where the shop had confirmed. The owner
+  decided this on 2026-11-23 (section 15): a confirmation is never carried over to shops it
+  was not given for.
 - **Not built.** The engine is not told that the connection now serves other shops: `site_url`
   and `customer_account_scope` are what the setup exchange sent (section 14, row 59). To one
   store, the shops that the connection newly serves get no import of their own: their products,
@@ -2811,6 +2811,9 @@ store-created visitor token of a guest checkout the same way (Linear CON-409).
    gated on this consent, as in Magento, Woo and Shopify: it records the click on the merchant's own
    email (`magento:view/frontend/web/js/attribution.js`).
 6. A shopper's profiling opt-out (§10, section 11.2) applies whatever the setting says.
+7. A change of the store layout never carries the confirmation over to a shop it was not given
+   for (owner, 2026-11-23; section 8.9): to one store it is removed, and to separate stores it
+   stays with the shop that keeps the connection.
 
 No consent-cookie-name rule and no adapters for named consent modules are built.
 
@@ -4585,7 +4588,6 @@ has one owner:
 | 55 | Which keys a save of the engine's automations sends | Built as Magento does today: every row with all eight keys of contract §13, `automation_map`, `test_mode` and `test_emails` included (section 10.10). Since v1.15.0 the contract advises a connector to leave those three out unless the merchant set them here: a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored, a sent `test_mode: true` switches off real sends that were switched on there, and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored) and shows `test_mode` as the engine holds it, but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
 | 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
-| 58 | The cookie-banner confirmation at a layout change | Built as the narrowest reading of "never widen the audience" (section 8.9): to separate stores the confirmation given for all shops stays with the shop that keeps the connection; to one store no confirmation stays, so browse tracking and recommendations are off in every shop until the merchant confirms again for all of them. The owner decided what happens to the connections (2026-11-23), not this. The other reading, which carries one shop's confirmation over to all shops, keeps tracking running through the change and covers visitors of shops whose banner the merchant never confirmed. No sibling has this case. | Owner (a consent decision) |
 | 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team, with section 14 row 1 |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
@@ -4596,7 +4598,8 @@ subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription 
 shop), answered together on 2026-11-21, row 25 (a newsletter-block subscriber without an
 account) and row 31 (the welcome email repeats). Row 51 (no export in the back office on
 PrestaShop 9 with psgdpr) and row 52 (where the line of a report that was not taken in goes) were
-answered on 2026-11-23 and moved to section 15.
+answered on 2026-11-23 and moved to section 15, and so did row 58 (the cookie-banner confirmation
+at a layout change), which the owner decided on 2026-11-23.
 
 ## 15. Decisions
 
@@ -4807,9 +4810,11 @@ Decisions of 2026-11-23:
   goes as on Disconnect: the installation report's `disconnected` event, the engine told once,
   its imports stopped. The question before the change names the shop that keeps the connection
   and the connections that end (sections 5.1 and 8.9).
-  - The cookie-banner confirmation at that change follows the narrowest reading (orchestrator's
-    rule "never widen the audience", built by the Story; the owner may overturn it, section 14,
-    row 58): it stays with the one shop to separate stores, and is removed to one store.
+  - The cookie-banner confirmation at that change (owner, 2026-11-23, a consent decision): to
+    one store it is removed, so browse tracking and recommendations are off in every shop until
+    the merchant confirms again; to separate stores it stays with the shop that keeps the
+    connection, and no other shop holds one. A confirmation never comes to cover visitors of a
+    shop it was not given for (sections 8.9 and 9).
 - The Dashboard shows Campaign Intelligence as the approved sketch draws it (owner, 2026-11-23):
   Magento's four connection states and two tracking states in Magento's words, the Catalog items
   tile only with a connection, and PrestaShop's own sentence for two shops in one engine store.

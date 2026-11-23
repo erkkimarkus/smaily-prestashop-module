@@ -134,11 +134,7 @@ The workers' full notes are in ARCHITECTURE section 14; the owner's decisions of
 questions of the stage 5 Stories are in section 15. Before recommending on a behaviour rule, look up what the sibling
 connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 
-1. The cookie-banner confirmation at a store-layout change (ARCHITECTURE 14, row 58). Built as the narrowest
-   reading: to separate stores it stays with the shop that keeps the connection; to one store it is removed, so
-   tracking and recommendations are off in every shop until the merchant confirms again. The other reading carries
-   one shop's confirmation over to all shops. A consent decision: the owner's.
-2. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
+1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
 
