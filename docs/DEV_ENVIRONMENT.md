@@ -99,7 +99,8 @@ booted later than the 3 seconds the test gave it then, on a machine that ran oth
 test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of
 a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2232 tests, 3932 assertions, 1132 skipped). The storefront scripts have
+and skips the integration tests (2236 tests, 3946 assertions, 1132 skipped at the end of 2026-11-23: four unit
+tests more than the in-shop runs above; the suite of that size has not run in a shop). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
