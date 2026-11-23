@@ -84,7 +84,7 @@ final class EnqueueFlushTest extends IntegrationTestCase
             self::db()->delete(EventQueue::TABLE);
             self::db()->delete(self::ACCOUNT_TABLE);
             foreach ($this->savedAccounts as $row) {
-                self::db()->insert(self::ACCOUNT_TABLE, array_map(static fn ($value) => $value === null ? null : pSQL((string) $value), $row), true);
+                self::db()->insert(self::ACCOUNT_TABLE, array_map(static fn ($value) => pSQL((string) $value), $row));
             }
             $this->deleteKeys();
         }

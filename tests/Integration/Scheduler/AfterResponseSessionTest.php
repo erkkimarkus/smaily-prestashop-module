@@ -101,7 +101,7 @@ final class AfterResponseSessionTest extends IntegrationTestCase
             $db->delete(EventQueue::TABLE, 'entity_id LIKE \'after-response-%@example.test\'');
             $db->delete(self::ACCOUNT_TABLE);
             foreach ($this->savedAccounts as $row) {
-                $db->insert(self::ACCOUNT_TABLE, array_map(static fn ($value) => $value === null ? null : pSQL((string) $value), $row), true);
+                $db->insert(self::ACCOUNT_TABLE, array_map(static fn ($value) => pSQL((string) $value), $row));
             }
             foreach ($this->savedKeys as $key => $value) {
                 if ($value === false) {

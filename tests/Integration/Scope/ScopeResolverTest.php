@@ -46,7 +46,7 @@ final class ScopeResolverTest extends IntegrationTestCase
         if (defined('_PS_ROOT_DIR_')) {
             self::db()->delete(self::TABLE);
             foreach ($this->savedAccounts as $row) {
-                self::db()->insert(self::TABLE, array_map(static fn ($value) => $value === null ? null : pSQL((string) $value), $row), true);
+                self::db()->insert(self::TABLE, array_map(static fn ($value) => pSQL((string) $value), $row));
             }
             $this->deleteLayout();
             $this->closeMultistore();
