@@ -68,6 +68,14 @@ final class LogViewTest extends TestCase
         self::assertSame(['intelligence-7', 'Campaign Intelligence', 'ps-12', true], [$ingest['log_id'], $ingest['source'], $ingest['entity'], $ingest['selectable']]);
     }
 
+    public function testAnErasedFailedRowCannotBeTickedForARetry(): void
+    {
+        foreach (['smaily' => 'contact.sync', 'intelligence' => 'customers'] as $kind => $type) {
+            $erased = $this->view()->row(self::listRow(['source' => $kind, 'kind' => $kind, 'type' => $type, 'entity' => ResendGuard::ERASED_ENTITY, 'status' => 'failed']), false);
+            self::assertSame(['[erased]', 'Failed', false], [$erased['entity'], $erased['status']['label'], $erased['selectable']], $kind);
+        }
+    }
+
     public function testAnImportJobShowsItsContactsAndItsStatus(): void
     {
         $job = ['source' => 'smaily', 'kind' => 'job', 'id' => '3', 'type' => 'contacts_import', 'entity' => null, 'status' => 'done', 'attempts' => null,

@@ -2892,7 +2892,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | Page frame, toolbar and buttons are PrestaShop's. | Platform shell. |
 | The Log is a Twig table with filters, not a native grid. | A PrestaShop Grid component needs Symfony grid definitions that differ between 8 and 9; a plain table is one code path. |
 | The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and, as the Entity, how many contacts, products, customers or orders they hold. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
-| The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
+| The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and none whose contact was erased; "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
@@ -3080,7 +3080,8 @@ the queue stores an exchange and again when Details show a payload (section 2.2)
 - **Retry** (the ticked rows, or every row that the filter selects; `Log\Retry`,
   `EventQueue::retry()`) returns failed event rows to `pending` in place, with `attempts` 0. A second
   retry finds the row pending and changes nothing. The answer names the rows queued and the rows
-  left alone.
+  left alone. A failed row whose contact was erased has no checkbox (`LogView::row()`), and a
+  retry that names it all the same leaves it alone, as the guard below refuses it.
 
 `Log\ResendGuard` decides both, and the list shows "Send again" only on a row that it clears.
 Its refusals are Magento's (`magento:Model/Log/ResendGuard.php`), and no other (owner,

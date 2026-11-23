@@ -81,7 +81,7 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
 - A `cart_add` of a product with combinations and no chosen combination gets a key that has no catalog row. A product
   that gets its first combination keeps its old row at the engine until the next nightly list.
-- An erased failed row still shows the Retry checkbox. Story 5.2 has no CHANGELOG or USERGUIDE entry.
+- Story 5.2 has no CHANGELOG or USERGUIDE entry.
 - The Smaily client's own failure messages show in English in the Log; its Last Error column is narrow for a sentence.
   A simplification review of the Log, Automations and stage 5 code is due.
 - The Initial setup's first answer to "How are your shops run?" runs no layout change, so a store that held

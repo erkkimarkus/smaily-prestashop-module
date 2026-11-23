@@ -265,7 +265,7 @@ The form handles the module's data only. The customer account, the orders and th
 **What an erasure does:**
 
 - Messages that are still waiting to be sent are deleted.
-- Rows of the Log that were already sent, skipped or failed stay as a record, without the contact: their Entity reads `[erased]`, the data that was sent and Smaily's answer are removed, and such a row cannot be sent again.
+- Rows of the Log that were already sent, skipped or failed stay as a record, without the contact: their Entity reads `[erased]`, the data that was sent and Smaily's answer are removed, and such a row cannot be sent again: it has no **Send again** and no checkbox for **Retry**.
 - The address is taken off the customer's cart reminders, and a cart that was about to be reminded gets no reminder.
 - The email click and the visitor token that are kept with the customer's carts are deleted. An order keeps the email click that led to it, without the visitor token.
 - The discount codes that the module issued to the customer and that no order used are removed. A used code stays with its order, and so does the remaining credit of a code that was spent in part. PrestaShop's own GDPR module works differently: when it deletes a customer, it deletes every discount code of that customer, the used ones included. Smaily Connect cannot prevent that.

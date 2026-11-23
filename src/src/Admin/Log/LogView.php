@@ -86,7 +86,8 @@ final class LogView
             'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB),
             'created' => self::time((string) $row['created_at']),
             'updated' => self::time((string) $row['updated_at']),
-            'selectable' => $row['kind'] !== LogRows::JOB && $status === LogStatus::FAILED,
+            // An erased row is never sent again (ResendGuard), so it gets no retry checkbox.
+            'selectable' => $row['kind'] !== LogRows::JOB && $status === LogStatus::FAILED && $row['entity'] !== ResendGuard::ERASED_ENTITY,
             'resend' => $resend,
         ];
     }
