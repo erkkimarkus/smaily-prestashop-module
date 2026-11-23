@@ -391,7 +391,10 @@ with HTTP 200 and runs no page hook: ask for the friendly address (`/order`,
 `/cart?action=show`). The landing endpoint takes a form post (`rec_id`, `context`,
 `visitor_token`), a sign-in is a post of `email`, `password` and `submitLogin=1` to the
 authentication controller, and the customer step of a guest checkout a post of the form's fields
-with `submitCreate=1` to `/order`.
+with `submitCreate=1` to `/order`. The address step's form carries a `token` of its own, which is
+not the page's `static_token`; the delivery step is a post of `delivery_option[<address id>]` with
+`confirmDeliveryOption=1`, and a post to `/module/ps_wirepayment/validation` places the order. The
+ingest flush runs once in 60 seconds: wait that long before the tick that should send the order.
 
 **An order that a payment provider's server confirms.** No shipped payment module validates an
 order without the shopper's session. A walk copies a throwaway payment module into the container
