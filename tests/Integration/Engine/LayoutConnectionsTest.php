@@ -80,9 +80,13 @@ final class LayoutConnectionsTest extends EngineTestCase
         self::assertNull($this->connections()->find(0), 'no row of the other layout stays');
         self::assertSame([$shared->id(), $shared->apiKey(), $shared->tenantId()], [$carried->id(), $carried->apiKey(), $carried->tenantId()], 'the same connection: its row, its key, its engine store');
         self::assertSame([], $this->engine->requestsTo(self::UNINSTALL), 'the engine is told of no end');
+        // The driver answers numbers as text on PHP 8.0 and as integers on PHP 8.1 and later.
         self::assertSame(
-            [[(string) $this->shopA, '3']],
-            array_map('array_values', self::db()->executeS('SELECT `id_shop`, COUNT(*) AS `jobs` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id_connection` = ' . $shared->id() . ' GROUP BY `id_shop`', true, false)),
+            [[$this->shopA, 3]],
+            array_map(
+                static fn (array $row): array => array_map('intval', array_values($row)),
+                self::db()->executeS('SELECT `id_shop`, COUNT(*) AS `jobs` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id_connection` = ' . $shared->id() . ' GROUP BY `id_shop`', true, false)
+            ),
             'its imports are listed under the shop'
         );
         self::assertSame(['queued', 'queued', 'queued'], array_column($this->jobs()->progress($carried), 'status'), 'and still wait to run');
