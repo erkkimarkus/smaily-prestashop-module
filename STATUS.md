@@ -50,10 +50,8 @@ is shown by tests, not by a browser upgrade.
 
 1. Story 5.3: the history import and the Intelligence tab (Settings and Initial setup), with the switch "My store's
    cookie banner covers Smaily tracking" and the screen that makes a connection. A sketch against Magento's screens
-   goes to the owner first. Then 5.4 engine automations. 6.1 installation report can run beside them (SUB-28 is
-   answered: report contract v1.2.0).
-2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 after 5.4;
-   12 after 6.1.
+   goes to the owner first. Then 5.4 engine automations.
+2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 after 5.4.
 3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
 4. A full install check (zip content, uninstall) on the tip.
 
@@ -91,7 +89,8 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
   switch (5.3) and a walk on the merged `v3`.
 - [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); waits: the same
   walk, and the product feed.
-- [ ] 12. Installation report (phone-home) — Story 6.1.
+- [x] 12. Installation report (phone-home) — Story 6.1, walked on its branch on 8.2.8 and 9.2.0 against a mock
+  receiver: the tick URL, saves in a browser, the console's uninstall. The real service was never called.
 - [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
   on 8.2.8 and 9.2.0, with ingest and storefront rows: psgdpr's admin screen (8.2.8: export and erasure; 9.2.0: the
   erasure by address, and the export from the customer's own page), the Log's form, the Personalization page. Waits:
@@ -115,7 +114,9 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 4. An order that a payment provider's server confirms gets no attribution row (no shopper cookies in that request).
 5. A store whose connection the engine refuses sends nothing; its changes wait and go out once the engine accepts it
    again, rather than not being noted at all.
-6. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
+6. Installation report: a report that Smaily does not take in leaves its line in PrestaShop's log (Advanced
+   Parameters > Logs), not on the module's Log page (ARCHITECTURE 14, row 51): confirm.
+7. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
 
@@ -124,7 +125,8 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
    merchant then has no export in the back office and erases by address only. Show the Log's form beside psgdpr? And
    does capability 13 count as walked (8/14) with psgdpr's admin export shown on 8.2.8 only?
 
-**Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk; ask the
+**Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
+shows whether the real service takes an installation report); ask the
 engine team for the answer on INT-306 (`ps-`) and for the `source` value of PrestaShop's browse events; choose a pilot
 store; have a native speaker read the Estonian.
 
