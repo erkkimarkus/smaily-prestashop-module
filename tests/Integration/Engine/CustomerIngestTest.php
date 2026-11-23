@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Engine;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\IdentityCapture;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\VisitorToken;
@@ -17,6 +18,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Attribution;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\VisitorToken as StorefrontVisitorToken;
 use Tests\Integration\Contacts\ContactRows;
 use Tests\Integration\Migration\LegacyStore;
 
@@ -28,12 +34,14 @@ require_once __DIR__ . '/../Migration/LegacyStore.php';
  * The customers that reach the engine are the contract's three groups (§4) and no other: (a) the
  * customers of the shop's own contact sync, (b) the buyers inside the history horizon, (c) a
  * customer who signs in or registers with marketing consent, sent before the identity merge (§7).
+ * The marketing consent of group (c) is the merchant's confirmation of the cookie banner alone;
+ * the customer's `newsletter` is not asked.
  */
 final class CustomerIngestTest extends IngestTestCase
 {
     use ContactRows;
 
-    private const KEYS = [ContactsSettings::ENABLED, ContactsSettings::CONFIRMED, ContactsSettings::MODE, ContactsSettings::GUESTS];
+    private const KEYS = [ContactsSettings::ENABLED, ContactsSettings::CONFIRMED, ContactsSettings::MODE, ContactsSettings::GUESTS, EngineSettings::CONSENT_CONFIRMED];
 
     private const STORE_TOKEN = 'vs_AbCdEfGhIjKlMnOpQrStUv';
 
@@ -86,6 +94,13 @@ final class CustomerIngestTest extends IngestTestCase
                 return $this->token;
             }
         });
+        // The storefront's own listener of a sign-in sets a cookie where the merchant confirmed
+        // the banner; PHPUnit's process has no browser to set one in.
+        $this->services->set(StorefrontVisitorToken::class, fn (Services $services): StorefrontVisitorToken => new StorefrontVisitorToken(
+            $services->get(ActiveConnection::class),
+            $services->get(Attribution::class),
+            static fn (): ?Cookies => null
+        ));
     }
 
     protected function tearDown(): void
@@ -263,17 +278,18 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame([['shopper10@example.test', 'Later']], array_map(static fn (array $item): array => [$item['email'], $item['first_name']], $sent), 'the customer as the store holds it at the send');
     }
 
-    public function testASignInWithMarketingConsentSendsTheCustomerFirstAndThenTheMerge(): void
+    public function testASignInWhereTheMerchantConfirmedTheBannerSendsTheCustomerFirstAndThenTheMerge(): void
     {
         $this->connect();
+        $this->confirmTracking();
         $this->storefront();
         $this->token = self::STORE_TOKEN;
-        // Not in the contact sync and never bought: group (c) alone.
-        $customer = $this->customer('shopper11@example.test', true);
+        // Not in the contact sync, never bought and not subscribed: group (c) alone.
+        $customer = $this->customer('shopper11@example.test', false);
 
         $this->fire('actionAuthentication', ['customer' => $customer]);
 
-        self::assertSame([[$this->shop, true]], $this->asked, 'the seam is asked once, with the shopper\'s consent');
+        self::assertSame([[$this->shop, true]], $this->asked, 'the seam is asked once, with the merchant\'s confirmation');
         $rows = self::mergeRows();
         self::assertCount(1, $rows);
         self::assertSame(['shopper11@example.test', (string) $this->shop, EventQueue::STATUS_PENDING], [$rows[0]['entity_id'], $rows[0]['id_shop'], $rows[0]['status']]);
@@ -305,6 +321,7 @@ final class CustomerIngestTest extends IngestTestCase
     public function testARegistrationAndAGuestCheckoutAlsoQueueTheMerge(): void
     {
         $this->connect();
+        $this->confirmTracking();
         $this->storefront();
         $this->token = self::ENGINE_TOKEN;
         $registered = $this->customer('shopper12@example.test', true);
@@ -325,11 +342,15 @@ final class CustomerIngestTest extends IngestTestCase
         );
     }
 
-    public function testAStoreTokenTravelsOnlyWithMarketingConsentAndASignInWithNeitherQueuesNothing(): void
+    /**
+     * @testWith [true]
+     *           [false]
+     */
+    public function testWithoutTheMerchantsConfirmationNobodyIsSentOrJoinedWhateverTheNewsletter(bool $newsletter): void
     {
         $this->connect();
         $this->storefront();
-        $customer = $this->customer('shopper14@example.test', false);
+        $customer = $this->customer('shopper14@example.test', $newsletter);
 
         $this->token = self::STORE_TOKEN;
         $this->fire('actionAuthentication', ['customer' => $customer]);
@@ -345,8 +366,9 @@ final class CustomerIngestTest extends IngestTestCase
     public function testWithoutAVisitorTokenAConsentingSignInSendsTheCustomerAndNoMerge(): void
     {
         $this->connect();
+        $this->confirmTracking();
         $this->storefront();
-        $customer = $this->customer('shopper15@example.test', true);
+        $customer = $this->customer('shopper15@example.test', false);
 
         $this->fire('actionAuthentication', ['customer' => $customer]);
         $this->services->get(QueueProvider::FLUSHER)->flush();
@@ -358,14 +380,15 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame('shopper15@example.test', json_decode((string) $row['last_request'], true)['customers'][0]['email'], 'the row keeps the customer that was sent for it');
     }
 
-    public function testAConsentWithdrawnBeforeTheSendSendsNothing(): void
+    public function testAConfirmationTakenBackBeforeTheSendSendsNothing(): void
     {
         $this->connect();
+        $this->confirmTracking();
         $this->storefront();
         $this->token = self::STORE_TOKEN;
         $customer = $this->customer('shopper16@example.test', true);
         $this->fire('actionAuthentication', ['customer' => $customer]);
-        self::db()->update('customer', ['newsletter' => 0], '`id_customer` = ' . (int) $customer->id);
+        $this->confirmTracking(false);
 
         $this->services->get(QueueProvider::FLUSHER)->flush();
 
@@ -443,6 +466,7 @@ final class CustomerIngestTest extends IngestTestCase
     public function testARefusedConnectionKeepsTheMergeWaiting(): void
     {
         $this->connect();
+        $this->confirmTracking();
         $this->storefront();
         $this->token = self::STORE_TOKEN;
         $customer = $this->customer('shopper20@example.test', true);
@@ -462,6 +486,7 @@ final class CustomerIngestTest extends IngestTestCase
     public function testAPrivacyRequestFindsTheShoppersEngineRowsAndTheErasureClearsThem(): void
     {
         $connection = $this->connect();
+        $this->confirmTracking();
         $this->storefront();
         $this->token = self::STORE_TOKEN;
         $shopper = $this->customer('Shopper30@Example.test', true);
@@ -615,6 +640,14 @@ final class CustomerIngestTest extends IngestTestCase
         \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
         \Configuration::updateGlobalValue(ContactsSettings::GUESTS, $guests ? '1' : '0');
         LegacyStore::reloadConfiguration();
+    }
+
+    /**
+     * The merchant's confirmation that the store's cookie banner covers Smaily tracking.
+     */
+    private function confirmTracking(bool $confirmed = true): void
+    {
+        $this->services->get(EngineSettings::class)->setConsentConfirmed($confirmed, 0);
     }
 
     /**

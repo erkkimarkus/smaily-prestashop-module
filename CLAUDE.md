@@ -272,7 +272,9 @@ ask (Linear discipline below).
   may join them. Every front script is one IIFE and the scripts add one global,
   `window.smailyConnect` (`node --test tests/js/`). A page holds nothing about its visitor: what
   differs per visitor comes after load from `relay`, `land` and `recommendations`. A store-created
-  `vs_` token needs the setting and the customer's `newsletter`. The cache is files in PrestaShop's
+  `vs_` token, and a customer sent to Campaign Intelligence at sign-in, need the merchant's setting
+  alone, never the customer's `newsletter` (owner, 2026-11-23); only a guest-checkout customer's
+  token also needs the checkout's newsletter box. The cache is files in PrestaShop's
   cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
   process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
 - **Campaign Intelligence keys and prices** (ARCHITECTURE 8.2, 8.3, 8.11). Every product and

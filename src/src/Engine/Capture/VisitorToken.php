@@ -46,8 +46,9 @@ interface VisitorToken
      *
      * The contract lets the store create a `vs_` token only for a shopper who has given marketing
      * consent (§7 "Store-created token at login"). $marketingConsent is the identity capture's
-     * answer for this shopper (`customer.newsletter`, CustomerScope::consents()); an
-     * implementation may ask for more before it creates one, never for less.
+     * answer for this shopper (the merchant's confirmation of the cookie banner,
+     * CustomerScope::consents()); an implementation may ask for more before it creates one, never
+     * for less.
      *
      * @param int $idShop the shop the shopper is on
      */

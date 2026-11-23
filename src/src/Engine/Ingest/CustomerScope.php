@@ -50,8 +50,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
  *      (consents()). That customer is sent at that moment, before the identity merge
  *      (IdentityMergeHandler), and by no other path.
  *
- * Marketing consent is where PrestaShop keeps it: `customer.newsletter`. `customer.optin`
- * (partner offers) is never read. The engine stores no consent, and none is sent to it.
+ * Marketing consent of group (c) is the merchant's confirmation that the store's cookie banner
+ * covers Smaily tracking (Config\EngineSettings::consentConfirmed()), and nothing of the customer
+ * (owner, 2026-11-23): `customer.newsletter` decides the contact sync of group (a) alone.
+ * `customer.optin` (partner offers) is never read. The engine stores no consent, and none is sent
+ * to it.
  *
  * Not final: a unit test stands in for the stored customers and orders.
  */
@@ -62,15 +65,22 @@ class CustomerScope
 
     private ContactsSettings $contacts;
 
+    /** @var callable(int): bool */
+    private $trackingConfirmed;
+
     /** @var callable(): int */
     private $now;
 
     /**
+     * @param callable(int): bool $trackingConfirmed whether the merchant confirmed the cookie banner
+     *                                               for a connection's id_shop
+     *                                               (Config\EngineSettings::consentConfirmed())
      * @param callable(): int $now the current Unix time
      */
-    public function __construct(ContactsSettings $contacts, callable $now)
+    public function __construct(ContactsSettings $contacts, callable $trackingConfirmed, callable $now)
     {
         $this->contacts = $contacts;
+        $this->trackingConfirmed = $trackingConfirmed;
         $this->now = $now;
     }
 
@@ -122,15 +132,16 @@ class CustomerScope
     }
 
     /**
-     * Whether the customer has given marketing consent in the store and has not withdrawn it:
-     * group (c), asked when the customer signs in or registers. A guest-checkout customer has no
-     * account to sign in to.
+     * Whether a customer who signs in or registers is sent and joined to the browsing: group (c),
+     * asked at the sign-in and again at the send. The merchant's confirmation of the cookie banner
+     * for the connection decides it alone; the customer's `newsletter` is not asked. A
+     * guest-checkout customer has no account to sign in to.
      *
-     * @param array{newsletter: bool, is_guest: bool} $customer what customer() answered
+     * @param array{is_guest: bool} $customer what customer() answered
      */
-    public function consents(array $customer): bool
+    public function consents(Connection $connection, array $customer): bool
     {
-        return $customer['newsletter'] && !$customer['is_guest'];
+        return !$customer['is_guest'] && ($this->trackingConfirmed)($connection->idShop());
     }
 
     /**

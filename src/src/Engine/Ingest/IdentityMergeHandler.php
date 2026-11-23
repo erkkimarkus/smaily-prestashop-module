@@ -51,10 +51,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
  *
  * The customer goes first where the contract asks for it, in this run and not through the ingest
  * queue, whose job may run after this one:
- *  - a sign-in with marketing consent (`send_customer`, group (c) of the customer scope): the
- *    customer is sent (§4) before the merge, and also when the row has no visitor token and so
- *    no merge. The consent is read again here: a customer who withdrew it since is not sent by
- *    this group.
+ *  - a sign-in with marketing consent (`send_customer`, group (c) of the customer scope: the
+ *    merchant's confirmation of the cookie banner, CustomerScope::consents()): the customer is
+ *    sent (§4) before the merge, and also when the row has no visitor token and so no merge. The
+ *    confirmation is read again here: where the merchant took it back since, this group sends
+ *    nobody.
  *  - a merge that the engine answers with `404 customer_not_found`: the customer is sent when
  *    the store sends that customer anyway (groups (a) and (b), CustomerScope::includes()), and
  *    once §4 took the customer the merge is tried once more (§7 "Retry after 404"). It is never
@@ -63,8 +64,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
  *
  * A row is closed without a request when its shop has no connection, when the customer is gone,
  * when the shopper opted out of personalization (Privacy\ProfilingConsent, as the Magento
- * connector's handler), or when it has nothing to send (no visitor token, and the consent
- * withdrawn). It waits, as it is, while the engine refuses the connection. A reason is a code,
+ * connector's handler), or when it has nothing to send (no visitor token, and the confirmation
+ * taken back). It waits, as it is, while the engine refuses the connection. A reason is a code,
  * never the engine's text.
  */
 final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
@@ -168,11 +169,12 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
             return new Skipped(self::SKIPPED_OPTED_OUT);
         }
 
-        $consents = !empty($payload['send_customer']) && $this->scope->consents($customer);
+        $confirmed = $this->scope->consents($connection, $customer);
+        $consents = !empty($payload['send_customer']) && $confirmed;
         $token = is_string($payload['visitor_token'] ?? null) && preg_match(IdentityCapture::VISITOR_TOKEN, $payload['visitor_token']) === 1
             ? $payload['visitor_token']
             : null;
-        if ($token !== null && strpos($token, 'vs_') === 0 && !$this->scope->consents($customer)) {
+        if ($token !== null && strpos($token, 'vs_') === 0 && !$confirmed) {
             // A token that the store created travels only with marketing consent (contract §7).
             $token = null;
         }

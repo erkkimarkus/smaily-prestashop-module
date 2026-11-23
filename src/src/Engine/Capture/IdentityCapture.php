@@ -42,12 +42,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * waits for the engine.
  *
  * One row of the event queue carries both things that the contract ties to that moment:
- *  - the customer of group (c): a registered customer who signs in or registers with marketing
- *    consent (`customer.newsletter`, CustomerScope::consents()) is sent first (`send_customer`),
- *    also when the customer never bought and is not in the contact sync;
+ *  - the customer of group (c): a registered customer who signs in or registers in a shop whose
+ *    merchant confirmed that the cookie banner covers Smaily tracking
+ *    (CustomerScope::consents(); the customer's `newsletter` is not asked) is sent first
+ *    (`send_customer`), also when the customer never bought and is not in the contact sync;
  *  - the merge itself, when the request has a visitor token (VisitorToken). The token is the
  *    storefront's; nothing here reads a cookie or creates a token. A token of the store (`vs_…`)
- *    is sent only for a shopper with marketing consent.
+ *    is sent only under that same confirmation.
  * A sign-in with neither queues nothing.
  *
  * Only the shopper's own storefront request counts: an employee who creates or changes a customer
@@ -123,7 +124,8 @@ final class IdentityCapture
             return;
         }
         $idShop = (int) $context->shop->id;
-        if ($this->connections->forShop($idShop) === null) {
+        $connection = $this->connections->forShop($idShop);
+        if ($connection === null) {
             return;
         }
         $customer = $this->scope->customer($idCustomer);
@@ -131,7 +133,7 @@ final class IdentityCapture
             return;
         }
 
-        $consents = $this->scope->consents($customer);
+        $consents = $this->scope->consents($connection, $customer);
         $token = $this->visitor->token($idShop, $consents);
         if ($token !== null && (preg_match(self::VISITOR_TOKEN, $token) !== 1 || (!$consents && strpos($token, 'vs_') === 0))) {
             $token = null;

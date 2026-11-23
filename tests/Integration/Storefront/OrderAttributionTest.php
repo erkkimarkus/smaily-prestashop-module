@@ -17,7 +17,7 @@ require_once __DIR__ . '/StorefrontTestCase.php';
 
 /**
  * An order keeps the attribution cookies of the request that placed it, and a shopper whom the
- * store comes to know gets a visitor token only with marketing consent.
+ * store comes to know gets a visitor token only where the merchant confirmed the cookie banner.
  */
 final class OrderAttributionTest extends StorefrontTestCase
 {
@@ -107,13 +107,13 @@ final class OrderAttributionTest extends StorefrontTestCase
     /**
      * @dataProvider storeTokenCases
      */
-    public function testAStoreCreatedTokenIsStoredOnlyWithTheSettingAndTheBuyersOwnConsent(bool $setting, bool $newsletter, bool $stored): void
+    public function testAStoreCreatedTokenIsStoredByTheMerchantsConfirmationAndAGuestsOwnAnswer(bool $setting, bool $guest, bool $newsletter, bool $stored): void
     {
         $this->connect();
         $this->confirmConsent($setting);
         $this->storefrontRequest(['smaily_rec_uid' => self::STORE_TOKEN]);
 
-        $idOrder = $this->order('attribution-store-token@example.test', $newsletter);
+        $idOrder = $this->fixture->order($this->fixture->cart($this->fixture->customer('attribution-store-token@example.test', $guest, $newsletter), 0));
 
         self::assertSame(
             $stored ? [['id_order' => $idOrder, 'rec_id' => null, 'context' => null, 'visitor_token' => self::STORE_TOKEN]] : [],
@@ -122,14 +122,17 @@ final class OrderAttributionTest extends StorefrontTestCase
     }
 
     /**
-     * @return array<string, array{bool, bool, bool}>
+     * @return array<string, array{bool, bool, bool, bool}>
      */
     public function storeTokenCases(): array
     {
         return [
-            'the setting and a subscribed buyer' => [true, true, true],
-            'the setting, a buyer who is not subscribed' => [true, false, false],
-            'no setting, a subscribed buyer' => [false, true, false],
+            'the setting and a subscribed customer' => [true, false, true, true],
+            'the setting, a customer who is not subscribed' => [true, false, false, true],
+            'no setting, a subscribed customer' => [false, false, true, false],
+            'the setting and a guest who ticked the newsletter box' => [true, true, true, true],
+            'the setting, a guest who left the box empty' => [true, true, false, false],
+            'no setting, a guest who ticked the box' => [false, true, true, false],
         ];
     }
 
@@ -172,7 +175,7 @@ final class OrderAttributionTest extends StorefrontTestCase
             ? new VisitorToken($this->services->get(ActiveConnection::class), $this->services->get(Attribution::class), static fn (): ?Cookies => null)
             : $this->visitorToken([], $case !== 'the cookie cannot be set');
 
-        self::assertNull($tokens->token(1, $case !== 'the customer is not subscribed'));
+        self::assertNull($tokens->token(1, $case !== 'the caller answers no'));
         self::assertSame([], $this->sent);
     }
 
@@ -183,7 +186,7 @@ final class OrderAttributionTest extends StorefrontTestCase
     {
         return [
             'the merchant has not confirmed the banner' => ['the merchant has not confirmed the banner'],
-            'the customer is not subscribed' => ['the customer is not subscribed'],
+            'the caller answers no' => ['the caller answers no'],
             'no connection' => ['no connection'],
             'no storefront request' => ['no storefront request'],
             'the cookie cannot be set' => ['the cookie cannot be set'],

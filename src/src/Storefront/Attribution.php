@@ -86,22 +86,25 @@ final class Attribution
 
     /**
      * Whether a store-created visitor token may be created for, or sent about, the shopper of this
-     * request. Both must hold:
+     * request: the merchant confirmed that the store's cookie banner covers Smaily tracking
+     * (Config\EngineSettings::consentConfirmed()). That is what the server can see of the storefront
+     * scripts' consent rule, as the accepted cookie notice is for the Magento connector.
      *
-     * - the merchant confirmed that the store's cookie banner covers Smaily tracking
-     *   (Config\EngineSettings::consentConfirmed()): what the server can see of the storefront scripts'
-     *   consent rule, as the accepted cookie notice is for the Magento connector;
-     * - where the request knows the customer, the customer's own marketing consent in PrestaShop,
-     *   `customer.newsletter`.
-     *
-     * A request without a customer (a visitor who is not logged in) goes by the first alone.
+     * The confirmation decides alone for a visitor who is not logged in and for a signed-in
+     * customer, whatever that customer's `newsletter` (owner, 2026-11-23). A guest-checkout
+     * customer also needs the guest's own answer (guestConsents()).
      */
     public function marketingConsent(Connection $connection, ?\Customer $customer): bool
     {
-        if (!($this->consentConfirmed)($connection->idShop())) {
-            return false;
-        }
+        return ($this->consentConfirmed)($connection->idShop()) && self::guestConsents($customer);
+    }
 
-        return $customer === null || (int) $customer->id <= 0 || (int) $customer->newsletter === 1;
+    /**
+     * The shopper's own part of the rule, which only a guest-checkout customer has: the newsletter
+     * box of the checkout's customer step, `customer.newsletter`. Every other shopper passes.
+     */
+    public static function guestConsents(?\Customer $customer): bool
+    {
+        return $customer === null || (int) $customer->id <= 0 || (int) $customer->is_guest !== 1 || (int) $customer->newsletter === 1;
     }
 }

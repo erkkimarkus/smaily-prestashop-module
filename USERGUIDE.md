@@ -176,7 +176,15 @@ A theme can restyle the block by overriding the module's template `views/templat
 
 With Campaign Intelligence connected, the store can tell it which products, categories and searches a visitor looks at and what goes into the cart, so that the recommendations fit the visitor. The events go through your own store's server; no key or password of your store is ever in a page.
 
-**Browse tracking and the recommendations block are off until you confirm that your store's cookie banner covers them**, with the switch **My store's cookie banner covers Smaily tracking** in **Settings -> Intelligence**. PrestaShop has no cookie-consent setting that a module can read, so the module cannot see what a visitor answered to your banner. When you confirm, the module treats every visitor of that shop as having agreed to Smaily tracking and recommendations: make sure that your banner asks for it. A new store and a store upgraded from version 2.x start with this off.
+**Browse tracking and the recommendations block are off until you confirm that your store's cookie banner covers them**, with the switch **My store's cookie banner covers Smaily tracking** in **Settings -> Intelligence**. PrestaShop has no cookie-consent setting that a module can read, so the module cannot see what a visitor answered to your banner. When you confirm, the module treats every visitor of that shop as having agreed to Smaily tracking and recommendations: you answer for the banner, so make sure that it asks for this. A new store and a store upgraded from version 2.x start with this off.
+
+The confirmation switches on, for that shop:
+
+- browse tracking for every visitor: the product, category and search views and the cart changes;
+- the recommendations block;
+- the link between a customer and their browsing. When a customer signs in or registers, the store sends that customer to Campaign Intelligence and gives the browser the cookie `smaily_rec_uid`, so that what the customer looked at counts for their recommendations. This applies to every customer who signs in, also to one who does not subscribe to the newsletter. A guest gets the cookie at checkout only with the newsletter box ticked.
+
+Who is synced to Smaily as a contact does not change with this switch: that follows the consent mode in **Settings -> Contacts**. A customer who switched personalization off on their account page is not linked.
 
 If your store's developer can read the banner's answer, they can give the module each visitor's own choice: define the function `window.smailyConnect.consentOverride()` in the theme, returning `true` only for a visitor who agreed. Where it is defined, its answer decides, whatever the setting says. When the answer changes on an open page, fire the event `smaily:consent-changed` on `document`.
 
@@ -186,7 +194,7 @@ What a visitor's browser stores:
 |---|---|---|---|
 | `smaily_anon_sid` | A random number for this browser's visits | Only with consent, by the tracker | 30 days |
 | `smaily_rec_id`, `smaily_rec_ctx` | Which recommendation in a Smaily email, or in the block, the visitor clicked | When the visitor lands from such a link | 30 days |
-| `smaily_rec_uid` | A token that stands for the visitor, so that the store can ask for their recommendations | When the visitor lands from a Smaily email link. Also when a newsletter subscriber logs in, registers or checks out as a guest, but only once you have confirmed the cookie banner | 365 days |
+| `smaily_rec_uid` | A token that stands for the visitor, so that the store can ask for their recommendations | When the visitor lands from a Smaily email link. Also when a customer signs in or registers, or a guest ticks the newsletter box at checkout, but only once you have confirmed the cookie banner | 365 days |
 
 The cookies of an email click are set without the consent switch, as in every Smaily store connector: they record that the visitor came from your own email, so that the order can be credited to it. Without consent nothing else is stored and no browsing is sent.
 

@@ -2292,7 +2292,7 @@ the contract's defaults below (`Storefront\ClientConfig`). Every cookie has the 
 | `smaily_anon_sid` | A random UUID: the anonymous session of the browse events | `tracker.js` | The visitor consented (section 9) | 30 days |
 | `smaily_rec_id` | The recommendation id of the last Smaily link | The server (`land`); the script only when that request fails | The page address carries a well-formed `smaily_rec` (a UUID). Not gated on consent. | 30 days |
 | `smaily_rec_ctx` | The context of that link | As `smaily_rec_id`; a landing with `smaily_rec` and no well-formed `smaily_ctx` deletes it | As `smaily_rec_id` | 30 days |
-| `smaily_rec_uid` | The visitor token: an engine `vt_` token from a link, or a store-created `vs_` token | The server: `land` for a link's `smaily_vt` (only the `vt_` form), `Storefront\VisitorToken` for a store-created one | A link: not gated on consent. A store-created token: the shopper has marketing consent (below). | 365 days |
+| `smaily_rec_uid` | The visitor token: an engine `vt_` token from a link, or a store-created `vs_` token | The server: `land` for a link's `smaily_vt` (only the `vt_` form), `Storefront\VisitorToken` for a store-created one | A link: not gated on consent. A store-created token: the merchant confirmed the cookie banner (below). | 365 days |
 
 No other cookie is set. The `utm_content` fallback of the Magento connector's landing script (a
 recommendation id read from `utm_content` when `utm_source=smaily`) is not ported: it sets the
@@ -2346,25 +2346,30 @@ row reads the table.
 
 **The visitor token and marketing consent** (`Storefront\VisitorToken`, `Storefront\Attribution`).
 At a login (`actionAuthentication`) and at a registration or the customer step of a guest checkout
-(`actionCustomerAccountAdd`), a shopper with marketing consent and no visitor token gets a `vs_`
+(`actionCustomerAccountAdd`), a shopper with marketing consent (below) and no visitor token gets a `vs_`
 token of 22 characters `[A-Za-z0-9]` from `random_int()`, set in the visitor-token cookie by the
 server. A token that the browser holds is kept and never replaced. `VisitorToken::token()` answers
 the token to send for the shopper of the request, the same through the request. It implements the
 identity merge's seam, the interface `Engine\Capture\VisitorToken` (`token(int $idShop, bool
 $marketingConsent)`), and is registered under that name, so the merge of Story 5.2 sends its
 answer. The interface file is a byte copy of Story 5.2's, taken so that the two Stories meet
-before either lands. **[D]** Marketing consent for a store-created token is
-both of:
+before either lands. **[D]** (owner, 2026-11-23; section 15) Marketing consent for a store-created
+token is the merchant's consent setting of section 9 for the shop, and nothing of the customer:
+what the server can see of the browser's consent rule, as the accepted cookie notice is for the
+Magento connector and the WP Consent API's answer for the WooCommerce plugin
+(`Attribution::marketingConsent()`). A customer who signs in or registers gets the token whatever
+`customer.newsletter` says; that column decides the contact sync alone (section 6.1). Until
+2026-11-23 the rule asked for the setting and the customer's `newsletter`.
 
-- the merchant's consent setting of section 9 for the shop: what the server can see of the
-  browser's consent rule, as the accepted cookie notice is for the Magento connector and the WP
-  Consent API's answer for the WooCommerce plugin;
-- where the request knows the customer (the login, the registration, the guest checkout, the
-  order), the customer's `customer.newsletter`, PrestaShop's own marketing consent (section 6.1).
+One rule beside it did not change: a guest-checkout customer (`customer.is_guest`) gets and sends
+a store-created token only with the newsletter box of the checkout's customer step ticked as well
+(`Attribution::guestConsents()`).
 
 A store-created token in the cookie reads as absent on every sending path (the relay, a guest's
 recommendations, the order's row, the merge) while that does not hold. An engine `vt_` token came
-with an email link, is attribution, and is read as it is.
+with an email link, is attribution, and is read as it is. The browser's own
+`window.smailyConnect.consentOverride()` is not visible to the server: it decides the scripts
+(section 9), not the token of a sign-in.
 
 **The recommendations block** (`Storefront\Widget`, `RecommendationsBlock`, `Recommendations`,
 `RecommendedProducts`). The main class is a `WidgetInterface`; both of its methods hand the call to
@@ -2462,10 +2467,13 @@ three groups, asked when the row is noted and again when it is sent:
   `config.history.horizon_months` (60 where the connection names none), whatever the marketing
   consent (section 14, row 43). A guest-checkout customer is not sent as a customer for an order:
   the order carries the address, as the contract says.
-- (c) a registered customer who signs in or registers with marketing consent. The signal is
-  `customer.newsletter = 1`, PrestaShop's own marketing consent (section 6.1), read at the sign-in
-  and again at the send; `customer.optin` is never read. That customer is sent at that moment,
-  before the merge, by `IdentityMergeHandler`, and by no other path.
+- (c) a registered customer who signs in or registers with marketing consent. The signal is the
+  merchant's confirmation that the store's cookie banner covers Smaily tracking (section 9), for
+  the connection of the shop, read at the sign-in and again at the send
+  (`CustomerScope::consents()`; owner, 2026-11-23, section 15). `customer.newsletter` is not
+  asked, and `customer.optin` is never read. That customer is sent at that moment, before the
+  merge, by `IdentityMergeHandler`, and by no other path. While the merchant has not confirmed,
+  group (c) holds nobody.
 
 No consent value is sent to the engine: the contract's customer row has none. A customer who
 leaves the scope is not sent again; nothing removes a customer whom the engine already has (the
@@ -2537,9 +2545,10 @@ customer by id; its entity is the contact's (`Queue\ContactEntity::of()`), so th
 finds it. The handler sends the customer of group (c) first, in the same run, and then the merge
 when the row has a visitor token; a `404 customer_not_found` sends a customer of group (a) or (b)
 and tries the merge once more (§7 "Retry after 404"), and never again before that. A token that
-the store created (`vs_…`) travels only with marketing consent. A shopper who opted out of
-personalization (section 11.2) gets neither: the row is skipped (`engine_opted_out`), as on the
-Magento connector. A sign-in with neither consent nor a token queues nothing.
+the store created (`vs_…`) travels only with marketing consent, which is group (c)'s: the
+merchant's confirmation. A shopper who opted out of personalization (section 11.2) gets neither:
+the row is skipped (`engine_opted_out`), as on the Magento connector. A sign-in in a shop without
+the confirmation and without an engine token queues nothing.
 
 **The visitor-token seam.** `Engine\Capture\VisitorToken` is the one seam to the storefront:
 `token(int $idShop, bool $marketingConsent): ?string`. The storefront answers it
@@ -2586,8 +2595,9 @@ As built in Story 5.5 (section 8.10): `views/js/front/consent.js` is the rule of
 `window.smailyConnect.consentGiven()` answers it in the browser's console. A store whose banner
 changes its answer on an open page fires the DOM event `smaily:consent-changed` on `document`. The
 switch of item 1 has no screen yet (Story 5.3); `Config\EngineSettings::setConsentConfirmed()` writes
-it. A store-created visitor token needs this setting and the customer's newsletter consent (section
-8.10, "The visitor token and marketing consent").
+it. The setting alone also decides what happens when a customer signs in or registers: the
+store-created visitor token and the customer's row to Campaign Intelligence (owner, 2026-11-23;
+sections 8.10, "The visitor token and marketing consent", and 8.11, group (c)).
 
 **[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
 
@@ -4066,13 +4076,13 @@ has one owner:
 | 40 | The bounds of the checkout capture | One reminder per address in 24 hours, to at most 2000 addresses an hour for the installation, stays possible for whoever posts addresses to the capture URL (section 7). Magento's bound of five writes per cart needs a schema change. | Owner |
 | 41 | Price groups | Contract v1.36.0 adds `group_prices` and `price_group` (Linear CON-385). **Decided** (owner, 2026-11-21): 3.0.0 sends none; the catalog price is the visitor's (section 8.3). | Owner |
 | 42 | The product feed | Not decided: whether the RSS feed that 3.0.0 keeps from 2.x is the product feed of the first release, or a second feed is built. | Owner |
-| 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. As built (section 8.11): registered customers only; a guest buyer reaches the engine with the order's address alone. Group (c) reads `customer.newsletter`, where the siblings read the cookie banner's marketing consent: PrestaShop has no such signal per shopper (section 9). | Owner |
+| 43 | Customers sent to Campaign Intelligence whatever their marketing consent | Contract §4 sends every customer with an order in the last 60 months (section 8.1). The store's privacy text has to cover that. As built (section 8.11): registered customers only; a guest buyer reaches the engine with the order's address alone. Group (c) **decided** (owner, 2026-11-23): the merchant's confirmation of the cookie banner alone, where the siblings read the cookie banner's marketing consent; PrestaShop has no such signal per shopper (sections 9 and 15). | Owner |
 
 | 44 | A send whose `sent` cannot be written | A row that went out and whose status write fails twice is sent again after 10 minutes (section 4.3, item 7). Core reads that the module does not own (an object model's load, `Configuration`'s writes) still answer a failure as "nothing" on a live 9.2.0, and were not reviewed one by one (section 1.6). | Owner |
 | 45 | The form of the connection prefix | **Decided** (owner, 2026-11-21): as the Magento and WooCommerce connectors, the module refuses an exchange, and ignores a ping, whose prefix is neither `c<N>-` nor `''`, and stores a prefix of that form exactly as sent (section 8.9). | Owner; cross-connector analysis (Linear CON-397) |
 | 46 | No `source` constant for PrestaShop's browse events | Contract §6 lists `plugin_woo`, `plugin_shopify` and `plugin_magento` and asks a sender to use its listed constant; it lists none for PrestaShop. The relay sends no `source`, so the engine stores `web` (section 8.10). A `plugin_prestashop` needs a contract change. | Engine team |
 | 47 | Browse events without `sku` | Answered by Story 5.2: `Engine\Payload\Keys::sku()` listens to the product key seam, so a browse event names its product by the catalog row's key (sections 8.10 and 8.11). That key carries the namespace of row 1, which waits for the engine team. | Engine team (row 1) |
-| 48 | Marketing consent for a store-created visitor token | The contract asks for a shopper's marketing consent (§5, §7). The siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API). PrestaShop has neither, so the module asks for both the merchant's consent setting and the customer's `newsletter` (section 8.10). Confirm, or name another rule for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
+| 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). Not changed, and open: a guest-checkout customer's token still also needs the newsletter box of the checkout. | Owner |
 | 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 51 | No export in the back office on PrestaShop 9 with psgdpr | psgdpr 1.4.3's admin screen cannot search or show a customer on 9.2.0 (facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled (section 11.2). A merchant on 9.x then exports only through the customer's own page, cannot export for an address without an account, and erases by address. Not decided: whether the Log shows its form beside psgdpr. | Owner |
@@ -4223,3 +4233,12 @@ Decisions of 2026-11-23:
   2026-11-23; sections 1.2 and 11.4).
 - The answer's `latest_version` and `notice` are not read in 3.0.0 (owner, 2026-11-20 and
   2026-11-23; section 11.5).
+- Tracking of a signed-in customer follows the merchant's confirmation alone (Linear CON-408). The
+  store-created visitor token of a sign-in or a registration, and the customer's row to Campaign
+  Intelligence at that moment, need the setting "My store's cookie banner covers Smaily tracking"
+  and nothing of the customer: `customer.newsletter` is no longer asked. The setting stays off
+  after an install and after an upgrade; `window.smailyConnect.consentOverride()` still decides in
+  the browser; who the contact sync sends to Smaily is untouched; `customer.optin` is never read.
+  The siblings read the cookie banner's answer there, and the confirmation is what PrestaShop has
+  of one (sections 8.10, 8.11 and 9; section 14, rows 43 and 48). A consent decision: it is not
+  changed again without the owner.

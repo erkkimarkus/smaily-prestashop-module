@@ -61,9 +61,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\VisitorToken;
  * - An order stores the attribution cookies of its request (`actionValidateOrder`,
  *   Storefront\OrderAttribution).
  * - A login (`actionAuthentication`), a registration and the customer step of a guest checkout
- *   (`actionCustomerAccountAdd`) give a consenting shopper a visitor token
- *   (Storefront\VisitorToken), which also answers the identity merge's seam
- *   (Engine\Capture\VisitorToken).
+ *   (`actionCustomerAccountAdd`) give the shopper a visitor token where the merchant confirmed
+ *   the cookie banner (Storefront\VisitorToken; a guest also needs the checkout's newsletter box),
+ *   which also answers the identity merge's seam (Engine\Capture\VisitorToken).
  * - The job `storefront_cache` deletes the expired files of the storefront's cache once a day.
  *
  * One seam lets another area answer without this one knowing it. PRODUCT_KEY is a list of
@@ -158,7 +158,7 @@ final class StorefrontProvider implements ProviderInterface
             $customer = $params['customer'] ?? $params['newCustomer'] ?? null;
             $shop = \Context::getContext()->shop;
             if ($customer instanceof \Customer && (int) $customer->id > 0 && $shop instanceof \Shop) {
-                $services->get(VisitorToken::class)->token((int) $shop->id, (int) $customer->newsletter === 1);
+                $services->get(VisitorToken::class)->token((int) $shop->id, Attribution::guestConsents($customer));
             }
         };
         $services->listen('actionAuthentication', $issueToken);

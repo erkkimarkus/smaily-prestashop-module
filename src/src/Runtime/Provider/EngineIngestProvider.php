@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\CatalogCapture;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\CustomerCapture;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\IdentityCapture;
@@ -84,6 +85,7 @@ final class EngineIngestProvider implements ProviderInterface
         $services->set(OrderPayloadBuilder::class, fn (): OrderPayloadBuilder => new OrderPayloadBuilder());
         $services->set(CustomerScope::class, fn (Services $services): CustomerScope => new CustomerScope(
             $services->get(ContactsSettings::class),
+            [$services->get(EngineSettings::class), 'consentConfirmed'],
             'time'
         ));
         $services->set(IngestFlusher::class, fn (Services $services): IngestFlusher => new IngestFlusher(
