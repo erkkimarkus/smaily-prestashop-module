@@ -478,7 +478,7 @@ Column rules of `Install\Schema`:
 |---|---|---|---|
 | `smaily_connect_event_queue` | Marketing events to Smaily: `contact.sync`, `automation.welcome`, `automation.first_order`, `automation.abandoned_cart`; stage 5 adds `engine.identity_merge`, `engine.profiling_consent` and `engine.customer_delete` (section 11.2) | `id` BIGINT PK, `id_shop` INT, `event_type` VARCHAR(48), `entity_id` VARCHAR(64) NULL (address, or its keyed hash when longer, as `magento:Model/Queue/ContactEntity`), `language` CHAR(2) NULL, `payload` MEDIUMTEXT JSON, `status` VARCHAR(16) (`pending`, `processing`, `sent`, `failed`, `skipped`), `attempts` TINYINT, `next_retry_at` DATETIME NULL, `claim_token` CHAR(32) NULL, `last_error` VARCHAR(255) NULL, `last_request` MEDIUMTEXT NULL, `last_response` TEXT NULL, `created_at`, `updated_at`, `sent_at` NULL | (`status`,`next_retry_at`), (`entity_id`,`event_type`,`status`), (`created_at`) |
 | `smaily_connect_ingest_queue` | Engine ingest (section 8.11): `catalog`, `catalog_remove`, `customers`, `orders` wait for the flush; `catalog_manifest` is the Log's record of a nightly list | `id` BIGINT PK, `id_connection` INT, `domain` VARCHAR(16), `entity_key` VARCHAR(80), `payload` MEDIUMTEXT NULL (every row is a marker: what goes out is built at the flush, see `woo:docs/LESSONS.md` §2.24; the payload holds only what the event alone knew, the removed combinations of a catalog row and the record of a "Send again"), the status, attempt, claim and error columns as above, `last_request`, `last_response`, `created_at`, `updated_at`, `sent_at` | (`domain`,`status`,`next_retry_at`), (`entity_key`,`domain`,`status`), (`created_at`) |
-| `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
+| `smaily_connect_job` | Imports: contacts import, catalog import, history import, daily refresh. Story 2.4 writes the types `contacts_import` and `contacts_refresh` (section 6.5), Story 5.3 the types `engine_catalog`, `engine_customers` and `engine_orders`, with `id_connection` and `import_id` (section 8.12). | `id` PK, `type` VARCHAR(32), `id_shop` INT, `id_connection` INT NULL, `status` (`queued`,`running`,`done`,`failed`,`cancelled`), `cursor` VARCHAR(255), `counts` TEXT JSON, `import_id` VARCHAR(64) NULL, `started_at`, `updated_at`, `finished_at`, `last_error` | (`status`,`type`) |
 | `smaily_connect_account` | Smaily accounts per shop and language | `id` PK, `id_shop` INT (0 = all shops), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = the shop's account, or the fallback account in mode A), `subdomain` VARCHAR(63), `username` VARCHAR(128), `password_enc` TEXT NOT NULL, `date_add`, `date_upd` | UNIQUE (`id_shop`,`language`) |
 | `smaily_connect_automation_mapping` | (shop, trigger, language, account) → workflow | `id` PK, `id_shop` INT (0 = all shops), `trigger` VARCHAR(32) (`welcome`,`first_order`,`abandoned_cart`), `language` CHAR(2) NOT NULL DEFAULT '' (`''` = no language), `account_key` VARCHAR(16) (`default` or a language), `workflow_id` INT NULL (NULL with `optin_trigger=1` = the 2.x generic opt-in, decision 5; NULL with `optin_trigger=0` at a shop = "no workflow here", which hides the shared row of the same key from that shop, sections 5.2 and 10.9), `optin_trigger` TINYINT, `is_default_fallback` TINYINT, `date_upd` | UNIQUE (`id_shop`,`trigger`,`language`,`account_key`) |
 | `smaily_connect_cart` | Abandoned-cart tracker and reminder state (section 7) | `id_cart` INT PK, `id_shop` INT, `id_customer` INT NULL, `email` VARCHAR(255) NULL, `id_lang` INT, `status` VARCHAR(16) (`open`, `mailed`, `skipped` and `erased` are the values that `Automation\AbandonedCart\CartTracker` writes; `erased` by a privacy erasure, section 11.2), `last_activity_at` DATETIME, `mailed_at` DATETIME NULL, `checkout_optin` TINYINT, `event_id` BIGINT NULL, `skip_reason` VARCHAR(64) NULL | (`status`,`last_activity_at`), (`email`) |
@@ -2193,7 +2193,8 @@ Every request carries the headers `User-Agent: SmailyConnect-PrestaShopModule/<v
 in separate stores (the same rule as `Scope::setupShopId()`). In separate stores the installation
 itself cannot connect. A row of another layout is not read for a shop, but the health check and the
 uninstall still cover it, because the engine still takes its key. What a layout change does with the
-connections is not built (Story 5.3).
+connections is not built (the second part of Story 5.3; owner, 2026-11-23: the selected or default
+shop's connection is carried, the others are ended).
 
 **Storage.** The API key is encrypted with `Smaily\Crypto`, as the Smaily password is (section 2.3);
 a key that does not decrypt reads as no key, and the connection then needs a new setup link. The
@@ -2261,8 +2262,9 @@ it can name a shopper (`woo:docs/LESSONS.md` §2.32). The client retries nothing
 line: the health check comes again in 15 minutes, the exchange is the merchant's click, and the
 disconnect is one attempt.
 
-**Not built here.** The `X-Engine-Version` notice of the contract's "Versioning" (a screen, Story
-5.3); what a layout change does with the connections (Story 5.3). The sending gate for a refused
+**Not built here.** The `X-Engine-Version` notice of the contract's "Versioning" (not built; the
+Intelligence tab shows the engine's version beside the store's name); what a layout change does
+with the connections (the second part of Story 5.3). The sending gate for a refused
 connection is built with the ingest (section 8.11).
 
 ### 8.10 The storefront (as built in Story 5.5)
@@ -2270,7 +2272,8 @@ connection is built with the ingest (section 8.11).
 Story 5.5 built sections 8.4 to 8.7 and section 9: three front controllers, four scripts, the
 recommendations block, the order's attribution and the store-created visitor token. Nothing of it
 runs in a shop without a Campaign Intelligence connection, and browse tracking and the block also
-wait for the visitor's consent (section 9). No screen switches the consent setting yet (Story 5.3).
+wait for the visitor's consent (section 9). The merchant switches the consent setting on Settings >
+Intelligence and on step 4 of the Initial setup (section 10.11).
 
 **What a storefront page gets** (`Storefront\PageScripts`, `actionFrontControllerSetMedia`). A shop
 with a stored connection gets `consent.js` and `attribution.js`; while the engine takes the
@@ -2456,14 +2459,14 @@ once a day (section 4.1).
 "beacon". While the schema version is not current, each answers 404. Every answer carries
 `Cache-Control: no-store, private`.
 
-**Not built here.** The Settings switch for the consent setting and its help text (Story 5.3); the
-identity merge and the order's row to the engine (Story 5.2).
+**Not built here.** The Settings switch for the consent setting and its help text (Story 5.3,
+section 10.11); the identity merge and the order's row to the engine (Story 5.2).
 
 ### 8.11 Ingest: catalog, customers, orders and the identity merge (as built in Story 5.2)
 
 Story 5.2 sends what changes in the store to Campaign Intelligence: products (contract §3), removed
 products (§3b), the nightly product list (§3c), customers (§4), orders (§5) and the identity merge
-(§7). The history import and the catalog import are Story 5.3; browse events are the
+(§7). The history import and the catalog import are Story 5.3 (section 8.12); browse events are the
 storefront's (section 8.10), and take their product key from here.
 
 **Gates.** Nothing is noted and nothing is sent for a shop without a stored connection
@@ -2611,9 +2614,10 @@ sent again, once, to that connection (`ProfilingConsent::resendOptOuts()`, Magen
 `OptOutReplay`): the engine keeps an opt-out only for a shopper it holds, and a customer or order
 row carries no consent (section 11.2).
 
-**Not built here.** The catalog and history imports, the pause of the nightly list while an import
-runs, the Dashboard's sentence about a suppressed list, and what a layout change does with the
-rows of a connection (Story 5.3). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
+**Not built here.** The catalog and history imports (section 8.12; the nightly list waits while
+an import's catalog markers wait, as for any catalog row), the Dashboard's sentence about a
+suppressed list, and what a layout change does with the rows of a connection (the second part of
+Story 5.3). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
 the next nightly list leaves it out.
 
 ### 8.12 The history import (as built in Story 5.3)
@@ -2648,7 +2652,7 @@ none of its markers waits; its `sent` and `failed` are what the engine took and 
 
 **The history import** is the connection's newest orders import (as on the Magento connector):
 its window is fixed when it begins, which is before the catalog import ahead of it sends a row,
-and `import_id` is `ps-<date>-<job id>`. `Engine\History\HistoryProgress` reports it (§25
+and `import_id` is `presta-<date>-<job id>`. `Engine\History\HistoryProgress` reports it (§25
 "Sender rules"): `started`; `start_part_complete` once the start part's orders are delivered and
 neither the catalog nor the customers import is still to run; `complete` once the orders import
 is done; the counts at most every 5 minutes in between; a failed call again after 5 minutes. An
@@ -2679,10 +2683,11 @@ visitor's prior consent under ePrivacy rules.
 As built in Story 5.5 (section 8.10): `views/js/front/consent.js` is the rule of item 4, and
 `window.smailyConnect.consentGiven()` answers it in the browser's console. A store whose banner
 changes its answer on an open page fires the DOM event `smaily:consent-changed` on `document`. The
-switch of item 1 has no screen yet (Story 5.3); `Config\EngineSettings::setConsentConfirmed()` writes
-it. The setting alone also decides what happens when a customer signs in or registers: the
-store-created visitor token and the customer's row to Campaign Intelligence (owner, 2026-11-23;
-sections 8.10, "The visitor token and marketing consent", and 8.11, group (c)).
+switch of item 1 is the checkbox of the Intelligence panel (section 10.11), saved without a question
+(owner, 2026-11-23); `Config\EngineSettings::setConsentConfirmed()` writes it. The setting alone
+also decides what happens when a customer signs in or registers: the store-created visitor token
+and the customer's row to Campaign Intelligence (owner, 2026-11-23; sections 8.10, "The visitor
+token and marketing consent", and 8.11, group (c)).
 
 **[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
 
@@ -3188,6 +3193,65 @@ the request for real sends that stays in test mode, an automation added and remo
 between two page loads, a per-language setup of another connector, a refused field, and the card
 in Estonian.
 
+### 10.11 The Intelligence panel (as built in Story 5.3)
+
+Settings > Intelligence and step 4 of the Initial setup draw one panel
+(`views/templates/admin/panel/intelligence.html.twig`, `Admin\Setup\IntelligencePanel`), as
+Magento's `panel/intelligence.phtml`. The owner approved its sketch against the Magento,
+WooCommerce and Shopify screens on 2026-11-23, with these decisions: the imports start by
+themselves on Connect, with "Hold back the import"; a Disconnect button beside "Check again", with
+WooCommerce's question; one checkbox for the cookie banner, saved without a question; the three
+imports have a "Stalled" state; the module words every refusal itself.
+
+**Scope.** The panel reads and writes the Initial setup's scope (`SetupScope::targetShop()`): the
+installation-wide connection in one store, whichever shop is selected, and the tab says so on a
+multishop store ("Campaign Intelligence is one connection for the whole installation …"); the
+selected shop's own connection, confirmation and imports in separate stores; and the "pick a shop"
+card there while "All shops" is selected. The tab has no switch "Use its own … on this shop".
+
+**No reload.** The page holds every part of the panel, and `views/js/admin/intelligence.js` shows
+the parts of the state it is given: `none`, `connected`, `not_active`, `key_refused` or
+`update_required` (from the connection's last health check, section 8.9). Every endpoint answers
+the panel's whole state (`IntelligencePanel::values()`: the store's name, the engine's version,
+the state, the confirmation and the three imports as counts and codes), and the script draws it
+again. While an import is queued or running, the Settings tab asks for the state every 5 seconds.
+
+| Endpoint (`Admin\Api`) | Right | Does |
+|---|---|---|
+| `EngineExchange` | update | Exchanges the pasted setup link (section 8.9) and queues the three imports (section 8.12). A link that is not taken answers 422 `link_refused` with the module's sentence. |
+| `EnginePing` | update | "Check again": `HealthCheck::check()` now; answers a sentence when the engine refuses the store or does not answer. Settings only. |
+| `EngineDisconnect` | update | "Disconnect": `Disconnector::disconnect()`, after the page's question. Settings only. |
+| `BackfillState` | read | The panel's state, for the cards of an open page. Settings only. |
+| `BackfillAction` | update | `start` or `cancel` of one import; "Hold back the import" is a cancel of the catalog import. |
+| `Settings\SaveTab` (`intelligence`), `Setup\SaveStep` (`intelligence`) | update | The cookie-banner confirmation (section 9). On the Initial setup, Finish saves it for a connected store and then ends the setup. |
+
+**A link that is not taken.** The page shows the module's own sentence for the reason, by the
+error code alone, never the engine's text: an empty field; not an https address on
+`intelligence.smaily.com`; a link already used (`setup_token_expired_or_used`); an unknown link
+(`setup_token_not_found`); a link of another Smaily account (`account_mismatch`); an answer with
+another address (`host_not_allowed`); a newer module needed (`plugin_update_required`); no answer;
+and one sentence for every other refusal.
+
+**The connection's state.** Connected shows "Connected: <store name> (engine <version>)", also
+while the engine does not answer for the moment. `not_active` (the engine answered
+`tenant_inactive`) shows Magento's red notice, "Check again" and the link to the Smaily account,
+and in place of the import cards the sentence that imports are unavailable. `key_refused` (the
+key does not read, or the engine refuses it) and `update_required` show their notice, and
+`key_refused` shows the setup field again. The Initial setup's step has no "Check again", no
+"Disconnect", no recommendations card and no import cards, as Magento's; its Overview lists the
+connection with its state, the confirmation and the three imports.
+
+**The invitation card** of the sibling connectors ("Connect your store with Smaily …", "Contact
+Smaily") stands above the setup field while the scope has no connection. Its place on the
+Dashboard and on the other tabs, with a dismissal for 30 days, is the second part of Story 5.3.
+
+**Visible differences that PrestaShop forces.** "The next run of the background tasks" stands
+where Magento says "cron run". The checkbox is the merchant's own confirmation with its
+responsibility sentence, not Magento's "Enable storefront browse tracking" (section 9). The
+recommendations card names Design > Positions and the widget tag. The Catalog card counts
+products, of which the engine gets one row per combination. No "Open Campaign Intelligence" and
+no "Try Intelligence free" (out of 3.0.0).
+
 ---
 
 ## 11. Installation report, privacy, retention, uninstall, new-version check
@@ -3658,7 +3722,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | New-version check, backend (Linear CON-380) | Done (section 11.5) | `update:` |
 | 2.3 Capture hooks | Done (section 6.3), with the enqueue flush (section 4.3) and the module's own newsletter box (section 6.1) | `contacts:`, `tests:` |
 | 3.1 Admin shell | Done: the menu, the four pages' shell, the upgrade banner with "Finish upgrade", the notices (section 3.6), the logos and colours, the 8.2.8 translator (section 10.1) | `admin:`, `module:`, `migration:`, `runtime:`, `install:`, `tests:` |
-| 3.2 Initial setup and Dashboard | Done for the steps Connect, Contacts and Overview and for the Dashboard. Story 4.1 built the Automations step; the Intelligence step waits for Story 5.3. | `admin:`, `scope:`, `config:`, `module:`, `tests:` |
+| 3.2 Initial setup and Dashboard | Done for the steps Connect, Contacts and Overview and for the Dashboard. Story 4.1 built the Automations step; Story 5.3 built the Intelligence step. | `admin:`, `scope:`, `config:`, `module:`, `tests:` |
 | 3.3 Settings: Connection, Contacts, RSS, shop switches | Done, with the owner's decisions of 2026-11-20 on the layout change and the confirmations (sections 5.1 and 15). The RSS feed stays the 2.x classes; no `src/src/Rss/` was created (below). | `admin:`, `rss-feed:`, `module:`, `tests:` |
 | 3.4 Log | Done (section 10.8). Its two refusals beyond Magento's left on 2026-11-21 (section 15). | `log:`, `queue:`, `admin:`, `customer-sync:`, `translations:` |
 | 3.5 Translation sweep | Not started. The XLIFF holds 220 units: the 2.x units and the units that single commits added, among them the texts of the Log and of the Automations screens. | — |
@@ -3673,8 +3737,9 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in their own currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and is not agreed with the engine team (section 8.2, Linear INT-306): nothing that sends a key is released before that. The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
 | 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows are covered since Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
 | 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
+| 5.3 History import and the Intelligence tab | First part done (sections 8.12 and 10.11): the Intelligence tab and step, the connection made, checked and ended on the screen, the cookie-banner confirmation, the three imports with their cards and the §25 progress. Open: the invitation card on the Dashboard and the other tabs, the Dashboard's Campaign Intelligence state, what a layout change does with the connections. | `admin/…/intelligence`, `Engine/History/` |
 | 5.4 Engine-run automations | Done (section 10.10): the card "Campaign Intelligence Automations" on Settings > Automations lists the engine's catalogue of that moment and saves on its own; nothing is stored in the module. | `engine:`, `admin:`, `translations:`, `tests:`, `docs:` |
-| Story 5.3, and stage 6 | Not started | — |
+| Stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -3973,7 +4038,7 @@ has one owner:
   Dashboard's verdict, connection cards, tiles and Recent activity (`Admin\Dashboard\`, section
   4.3 for the Background tasks card). The Initial setup was walked in a browser on 8.0.0 and 9.2.0
   against the Smaily mock.
-- **Left open.** The setup's Intelligence step (Story 5.3); Story 4.1 built the Automations step.
+- **Left open.** Nothing: Story 4.1 built the Automations step and Story 5.3 the Intelligence step.
   The Dashboard's Campaign Intelligence and tracking cards always read "Not connected" and "Disabled",
   and it shows no Catalog items tile, until stage 5.
 
@@ -4145,12 +4210,15 @@ has one owner:
 - **Done.** As built: section 8.11, with the keys of section 8.2 and the money of section 8.3;
   `src/src/Runtime/Provider/EngineIngestProvider.php`; the Log's ingest rows (section 10.8), the
   retention sweep (section 11.3) and the privacy coverage of the ingest rows (section 11.2).
-- **Left open.** The imports (Story 5.3). `ps-` waits for the engine team (section 14, row 1).
+- **Left open.** The imports came with Story 5.3 (section 8.12). `ps-` waits for the engine team (section 14, row 1).
 
 ### Story 5.3 — History import and the Intelligence tab
 
 - **Goal.** First data load (§25) with progress, and the Intelligence screens.
 - **Owns.** `src/src/Engine/History/`, `src/src/Admin/Api/{EngineExchange,EnginePing,BackfillState}.php`, `src/views/templates/admin/{settings/intelligence,setup/intelligence}.html.twig`.
+  As built, also: `src/src/Admin/Api/{EngineDisconnect,BackfillAction}.php`,
+  `src/src/Admin/Setup/IntelligencePanel.php`, `src/views/templates/admin/panel/intelligence.html.twig`
+  and `src/views/js/admin/intelligence.js` (sections 8.12 and 10.11).
 - **Depends on.** 5.2, 3.2, 3.3.
 - **Acceptance.**
   1. Orders go newest first: 18 months, then to 60 months; progress calls follow the §25 sender rules.

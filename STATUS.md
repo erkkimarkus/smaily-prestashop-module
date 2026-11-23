@@ -33,6 +33,14 @@ browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One th
 psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
 (2026-11-23): the Log's "Privacy request" form is always shown, also beside psgdpr, and capability 13 counts.
 
+**Story 5.3, first part, on another worker branch (2026-11-23, not merged, not pushed):** Settings > Intelligence
+and step 4 of the Initial setup connect a store to Campaign Intelligence, check and end the connection, hold the
+merchant's cookie-banner confirmation, and show the catalog, customers and orders imports, which a connection starts
+and the tick job `engine_import` runs (ARCHITECTURE 8.12 and 10.11). Walked in a browser against the engine mock
+on 8.2.8 and 9.2.0, with one shop and with two (separate stores, one store), in English and Estonian; screenshots in
+`build/screens-5.3/`. Runs on that branch: in-shop suite 1971 tests on 8.2.8 (10619 assertions) and on 9.2.0
+(10624 assertions); host 1971 tests, 3250 assertions, 1038 skipped; PHP CS Fixer 0 of 333 files.
+
 **Last runs** (2026-11-23, on the merged tip: the installation report, the privacy walk's fixes and the Log's form):
 in-shop suite 2090 tests on 8.2.8 (11210 assertions) and on 9.2.0 (11216), with debug on and with debug off, each
 lane on a shop made from scratch behind the egress guard; host 2090 tests, 3715 assertions, 1045 skipped; PHP CS Fixer
@@ -52,12 +60,13 @@ is shown by tests, not by a browser upgrade.
 
 ## Next, in this order
 
-1. Story 5.3: the history import and the Intelligence tab (Settings and Initial setup), with the switch "My store's
-   cookie banner covers Smaily tracking" and the screen that makes a connection. A sketch against Magento's screens
-   goes to the owner first. Story 5.4, the card "Campaign Intelligence Automations" on Settings > Automations, is
-   built (ARCHITECTURE 10.10).
-2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 with a
-   connection made on the screen of 5.3.
+1. Story 5.3, second part (the first part is on a worker branch, above): the Campaign Intelligence invitation card
+   on the Dashboard and the other tabs with its 30-day dismissal, the Dashboard's Campaign Intelligence and Browse
+   tracking cards and Catalog tile, and what a store-layout change does with the connections (owner, 2026-11-23:
+   the selected or default shop's connection is carried, the others are ended). Story 5.4, the card "Campaign
+   Intelligence Automations" on Settings > Automations, is built (ARCHITECTURE 10.10).
+2. Capability walks on the merged `v3`: 8, 10 and 11 now that the connection, the imports and the consent switch
+   have their screen (Story 5.3, first part); 9 with a connection made on that screen.
 3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
 4. A full install check (zip content, uninstall) on the tip.
 
@@ -88,15 +97,15 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 - [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only — HTTP, 8.0.0, 9.2.0.
 - [x] 6. Contact sync both ways, first import, and a Log with retry — walked on 8.2.8 and 9.2.0.
 - [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
-- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — the connection and the live
-  changes are built (5.1, 5.2); the imports and the screen wait for 5.3.
+- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — built (5.1, 5.2, 5.3 first
+  part: the Intelligence tab and step, the three imports); waits: its walk on the merged `v3`.
 - [ ] 9. Campaign Intelligence automations, listed from the engine — built (5.4): the Story's own walk ran in a
   browser on 8.2.8 and 9.2.0 against the engine mock, with a connection made by script. Waits: the capability walk on
   the merged `v3`.
-- [ ] 10. Browse tracking and attribution of email clicks to orders — built (5.5, 5.2); waits: the merchant's consent
-  switch (5.3) and a walk on the merged `v3`.
-- [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); waits: the same
-  walk, and the product feed.
+- [ ] 10. Browse tracking and attribution of email clicks to orders — built (5.5, 5.2), and the merchant's consent
+  switch has its screen (5.3 first part); waits: a walk on the merged `v3`.
+- [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); the product
+  feed is the RSS feed of Settings > RSS (owner, 2026-11-23: no second feed); waits: the same walk.
 - [x] 12. Installation report (phone-home) — Story 6.1, walked on its branch on 8.2.8 and 9.2.0 against a mock
   receiver: the tick URL, saves in a browser, the console's uninstall. The real service was never called.
 - [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
@@ -125,5 +134,5 @@ engine team for the answer on INT-306 (`ps-`) and for the `source` value of Pres
 store; have a native speaker read the Estonian.
 
 Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400
-and CON-401 done; 5.3 and 5.4 not filed yet), CON-402 (privacy, done); cross-connector analysis CON-397 (with CON-394,
+and CON-401 done; 5.3 is CON-405; 5.4 not filed yet), CON-402 (privacy, done); cross-connector analysis CON-397 (with CON-394,
 CON-395, CON-396); engine INT-306; subscription SUB-28 (answered). Gauge: 9/14.

@@ -262,7 +262,9 @@ answers the contract's errors (per-item `errors[]`, `validation_failed`,
 it took is in the state under `catalog`, `customers`, `orders`,
 `manifests`, `merges`, `bound_tokens` and `event_ids`, per engine store; `fail` and `delay` take
 the names `catalog`, `catalog_remove`, `catalog_manifest`, `customers`, `orders` and
-`identity_merge`. It answers the automation routes too (`mock-engine/automations.php`, written
+`identity_merge`. It answers the history import's progress too (contract §25): `history` holds
+each connection's import with its phase and stop reason, `history_calls` every call.
+It answers the automation routes too (`mock-engine/automations.php`, written
 from the contract's text: §11 catalogue, §12 configuration, §13 save with its all-or-nothing
 check and its `errors[]`). `automations` lists the emails the engine offers (a walk changes it
 between two page loads; without it the mock offers two), `automation_configs` holds the saved
@@ -273,11 +275,12 @@ and `delay` take the names `automations_catalog`, `automations_config` and `auto
 The card of Settings > Automations is asked of the engine after the page has loaded: a walk
 waits for it before it reads the card. Any token
 that the mock has not seen works once as a setup link
-(`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
-No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls
-`Services::instance()->get(Engine\Setup::class)->connect($idShop, $link)` from a PHP script that
-boots the shop (`require 'config/config.inc.php'`) and runs with the proxy variables below. The
-health check then runs with the tick. `install.sh` keeps an engine state that exists, so a shop's
+(`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404,
+one listed under `used_tokens` answers 410, and with `smaily_subdomain` set to another account the
+module refuses the link. A walk connects a shop on Settings > Intelligence or on step 4 of the
+Initial setup. The three imports then run with the tick, one after another: a walk that does not
+wait a minute between two ticks removes `engine_import` and `ingest_flush` from the `jobs` of
+`SMAILY_CONNECT_TICK_STATE` before each tick. The health check runs with the tick too. `install.sh` keeps an engine state that exists, so a shop's
 stored connections stay known to the mock when the guard is installed again.
 
 **The installation report** (ARCHITECTURE 11.1). `docker-compose.yaml` and the two Compose files of
@@ -331,10 +334,10 @@ off needs no such step: 22 console upgrades from 2.2.0 ran behind the guard in o
 
 ## 4b. Walking the storefront: the consent gate, the block and the cache (verified on 8.2.8 and 9.2.0)
 
-Nothing of the storefront runs before the shop has a connection (section 4a). No screen confirms
-the consent setting yet (Story 5.3); a walk writes it from a PHP script that boots the shop:
-
-    Services::instance()->get(Config\EngineSettings::class)->setConsentConfirmed(true, 0);
+Nothing of the storefront runs before the shop has a connection (section 4a). The merchant confirms
+the consent setting on Settings > Intelligence ("My store's cookie banner covers Smaily tracking",
+then Save), and a walk does the same. The block shows from the page after the landing on: the
+landing stores the visitor token, and the next page asks for the recommendations with it.
 
 **Probe the consent gate in a real browser, in both states.** A gate that fails closed looks the
 same as a tracker that works and has nothing to send. On any storefront page, in the console:
