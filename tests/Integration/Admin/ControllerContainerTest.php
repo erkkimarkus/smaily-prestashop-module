@@ -59,6 +59,9 @@ final class ControllerContainerTest extends IntegrationTestCase
     /** An Automations save that is refused before anything is written or asked of Smaily. */
     private const CART_DELAY_TOO_SHORT = ['triggers' => ['abandoned_cart' => ['enabled' => true]], 'cart_delay' => '9'];
 
+    /** PrestaShop's GDPR module, whose own screens run the same two privacy requests. */
+    private const GDPR_MODULE = 'psgdpr';
+
     private ?string $setupState = null;
 
     /** @var array<string, mixed> what the page handed to Twig */
@@ -78,7 +81,7 @@ final class ControllerContainerTest extends IntegrationTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
-            \Cache::clean('Module::isEnabled' . PrivacyExport::GDPR_MODULE);
+            \Cache::clean('Module::isEnabled' . self::GDPR_MODULE);
             self::db()->delete(EventQueue::TABLE);
             \Configuration::deleteByName(MigrationNotices::KEY);
             if ($this->setupState === null) {
@@ -379,7 +382,6 @@ final class ControllerContainerTest extends IntegrationTestCase
         $id = 'smaily-' . $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'x']);
         $route = ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log'];
 
-        $this->gdprModule(false);
         $body = ['id' => $id, 'ids' => [$id], 'email' => 'shopper1@example.test'];
         foreach ([LogDetails::class, SendAgain::class, MassRetry::class, PrivacyExport::class, PrivacyErase::class] as $action) {
             self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), $body, $route));
@@ -402,8 +404,6 @@ final class ControllerContainerTest extends IntegrationTestCase
         $sent = $this->queueRow();
         $waiting = $this->queueRow(['status' => 'pending']);
 
-        // A store without PrestaShop's GDPR module: the form's two requests run.
-        $this->gdprModule(false);
         foreach ([PrivacyExport::class, PrivacyErase::class] as $action) {
             self::assertError(400, 'invalid_email', 'Enter a valid email address.', $this->execute(new $action(), $this->locator(), ['email' => 'not an address'], $route));
             self::assertError(400, 'invalid_email', 'Enter a valid email address.', $this->execute(new $action(), $this->locator(), [], $route));
@@ -425,26 +425,40 @@ final class ControllerContainerTest extends IntegrationTestCase
         );
         $rows = array_column((array) self::db()->executeS('SELECT `id`, `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`', true, false), 'entity_id', 'id');
         self::assertSame([$kept => 'shopper2@example.test', $sent => '[erased]'], $rows, 'the waiting row ' . $waiting . ' is gone, the delivered one cleared, the other shopper\'s untouched');
-
-        // With that module enabled, its own screens run the requests, and the form's do not.
-        $this->gdprModule(true);
-        foreach ([PrivacyExport::class, PrivacyErase::class] as $action) {
-            self::assertError(404, 'not_available', 'Privacy requests are handled by the store\'s GDPR module.', $this->execute(new $action(), $this->locator(), ['email' => 'shopper2@example.test'], $route));
-        }
-        self::assertSame('shopper2@example.test', self::db()->getValue('SELECT `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '` WHERE `id` = ' . $kept));
     }
 
-    public function testTheLogShowsThePrivacyRequestFormOnlyWithoutTheGdprModule(): void
+    public function testTheLogsPrivacyRequestFormRunsBesideTheGdprModule(): void
     {
-        foreach ([[false, true], [true, false]] as [$gdprModule, $form]) {
+        $route = ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log_privacy'];
+        $sent = $this->queueRow();
+
+        // psgdpr 1.4.3 cannot show a customer in its admin screen on PrestaShop 9: the form is the export there.
+        $this->gdprModule(true);
+        $answer = json_decode((string) $this->execute(new PrivacyExport(), $this->locator(), ['email' => 'shopper1@example.test'], $route)->getContent(), true);
+        self::assertTrue($answer['ok']);
+        self::assertCount(1, $answer['data']['export']['store']['queue']);
+
+        $answer = json_decode((string) $this->execute(new PrivacyErase(), $this->locator(), ['email' => 'shopper1@example.test'], $route)->getContent(), true);
+        self::assertTrue($answer['ok']);
+        self::assertSame('[erased]', self::db()->getValue('SELECT `entity_id` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '` WHERE `id` = ' . $sent));
+    }
+
+    public function testTheLogShowsThePrivacyRequestFormWithAndWithoutTheGdprModule(): void
+    {
+        foreach ([false, true] as $gdprModule) {
             $this->gdprModule($gdprModule);
             $controller = new LogController();
             $controller->setContainer($this->locator());
 
             $controller->index(new Request());
 
-            self::assertSame($form, $this->rendered['smaily_log']['privacy_form']);
+            self::assertTrue($this->rendered['smaily_log']['can_update']);
+            self::assertArrayNotHasKey('privacy_form', $this->rendered['smaily_log'], 'the page has no switch that hides the form');
         }
+        // The template shows the form to every employee who may change the Log.
+        $template = (string) file_get_contents(__DIR__ . '/../../../src/views/templates/admin/log/list.html.twig');
+        self::assertSame(1, preg_match('/\{% if ([^%]+) %\}\s*(?:\{#[^#]*#\}\s*)?<div class="smaily-card smaily-log__privacy"/', $template, $condition));
+        self::assertSame('log.can_update', $condition[1]);
     }
 
     /**
@@ -564,7 +578,7 @@ final class ControllerContainerTest extends IntegrationTestCase
      */
     private function gdprModule(bool $enabled): void
     {
-        \Cache::store('Module::isEnabled' . PrivacyExport::GDPR_MODULE, $enabled);
+        \Cache::store('Module::isEnabled' . self::GDPR_MODULE, $enabled);
     }
 
     /**

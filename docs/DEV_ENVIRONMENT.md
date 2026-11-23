@@ -364,7 +364,11 @@ psgdpr itself (facts file 6.13); walk the customer's own export page and the add
 there. The customer's CSV file is UTF-16. The console's `prestashop:module install psgdpr`
 enables it in the default shop only. A cart that a walk leaves open is picked up by the
 abandoned-cart job after its delay, so "this shopper's rows did not change" is compared row by
-row, not by count.
+row, not by count. The Log's "Privacy request" form is shown beside psgdpr too. A back-office page
+that is opened more than 60 seconds after the last tick runs the fallback tick, which sends the
+queued rows: a walk that checks what one request sent runs the tick over its URL just before.
+On a machine that runs other stacks, the first back-office page after a cleared cache took over a
+minute on 8.2.8: a script opens a page to build the cache before its timed steps.
 
 **A walk over HTTP** (`curl` with a cookie jar; verified in shops with one language). With debug
 mode on, a page asked for as `index.php?controller=order` answers "[Debug] This page has moved"

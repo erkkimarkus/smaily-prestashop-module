@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-23. Gauge 7/14 (capability 13 is walked and waits for the owner's word, open question 7)._
+_Last updated: 2026-11-23. Gauge 9/14._
 
 ## Next session opens with
 
@@ -21,7 +21,7 @@ Estonian round, the Marketplace structural rules, the database gateway) with the
 - 5.2 ingest: product, customer and order changes, removals, the nightly product list, the identity merge;
 - 5.5 storefront: consent-gated browse tracking through the store's relay, click attribution stored with the order,
   the "Recommended for you" block as a widget;
-- 5.6 privacy: export and erasure through PrestaShop's GDPR module or a form on the Log, the customer's
+- 5.6 privacy: export and erasure through PrestaShop's GDPR module and a form on the Log, the customer's
   Personalization page.
 
 The key namespace `ps-` is one constant (`Engine\Payload\Keys`) and is **not agreed with the engine team** (INT-306):
@@ -30,7 +30,8 @@ nothing that sends a key ships before the answer.
 **Since then, on a worker branch (2026-11-23, not merged, not pushed):** a later migration run keeps the display hook
 a merchant gave the recommendations block (ARCHITECTURE 3.7), and capability 13 was walked on the merged code in a
 browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One thing could not be shown: an export in
-psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13).
+psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
+(2026-11-23): the Log's "Privacy request" form is always shown, also beside psgdpr, and capability 13 counts.
 
 **Last runs** (2026-11-23, on the worker branch with the hooks fix): in-shop suite 1960 tests on 8.2.8 (10540
 assertions) and on 9.2.0 (10546), debug on, each on a fresh shop behind the egress guard; host 1960 tests, 3245
@@ -43,7 +44,8 @@ used a mock); GitHub Actions on the fork are not enabled, so CI has never run; M
 the official `9.2.0-8.1` image; PrestaShop's online validator; the multishop screens in Estonian; one unexplained PHP
 8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: capabilities 10 and 11 have no walk of their own on
 the merged `v3` (the walk of 13 used the landing, the relay, the order's attribution and the ingest, and did not judge
-them); an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there); "tracking is off after an upgrade"
+them); an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there; the Log's form is the export
+on 9.x); "tracking is off after an upgrade"
 is shown by tests, not by a browser upgrade.
 
 ## Next, in this order
@@ -70,7 +72,7 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
   tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive; the 1.6.x hidden-tab
   removal never ran on a real 1.6.2.
 
-## First-release checklist (gauge: 7 / 14 demonstrated)
+## First-release checklist (gauge: 9 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; the line names how. Decisions: ARCHITECTURE 15.
 
@@ -91,10 +93,11 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
   walk, and the product feed.
 - [x] 12. Installation report (phone-home) — Story 6.1, walked on its branch on 8.2.8 and 9.2.0 against a mock
   receiver: the tick URL, saves in a browser, the console's uninstall. The real service was never called.
-- [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
-  on 8.2.8 and 9.2.0, with ingest and storefront rows: psgdpr's admin screen (8.2.8: export and erasure; 9.2.0: the
-  erasure by address, and the export from the customer's own page), the Log's form, the Personalization page. Waits:
-  the owner's word, as psgdpr's admin screen shows no export on 9.2.0 (open question 7).
+- [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
+  on 8.2.8 and 9.2.0, with ingest and storefront rows: the Log's form (export and erasure, with psgdpr enabled and
+  disabled), the customer's own export page, the Personalization page, and psgdpr's admin screen. That screen's export
+  is shown on 8.2.8 only: psgdpr 1.4.3 cannot show a customer on 9.2.0 (its own defect), where it erases by address
+  and the Log's form is the back-office export.
 - [ ] 14. Administration screens in English and Estonian — all strings in Estonian, walked on 8.2.8 and 9.2.0; waits:
   the multishop screens, a native reader, the stage 5 screens.
 
@@ -112,11 +115,6 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 2. A guest-checkout customer's store-made visitor token still needs the checkout's newsletter box beside the
    merchant's confirmation; the decision of 2026-11-23 named the signed-in customer only (ARCHITECTURE 14, row 48).
 
-7. Privacy on PrestaShop 9: psgdpr 1.4.3, which 9.2.0 ships, cannot search or show a customer in its admin screen
-   (its own defect, facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled. A 9.x
-   merchant then has no export in the back office and erases by address only. Show the Log's form beside psgdpr? And
-   does capability 13 count as walked (8/14) with psgdpr's admin export shown on 8.2.8 only?
-
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
 shows whether the real service takes an installation report); ask the
 engine team for the answer on INT-306 (`ps-`) and for the `source` value of PrestaShop's browse events; choose a pilot
@@ -124,4 +122,4 @@ store; have a native speaker read the Estonian.
 
 Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400
 and CON-401 done; 5.3 and 5.4 not filed yet), CON-402 (privacy, done); cross-connector analysis CON-397 (with CON-394,
-CON-395, CON-396); engine INT-306; subscription SUB-28 (answered). Gauge: 7/14.
+CON-395, CON-396); engine INT-306; subscription SUB-28 (answered). Gauge: 9/14.

@@ -41,21 +41,15 @@ use Symfony\Component\HttpFoundation\Request;
  * module's tables and each Campaign Intelligence connection hold of that one address
  * (Privacy\PrivacyRequest), and nothing of anybody else.
  *
- * The form is for a store without PrestaShop's GDPR module, whose own screens run the same export
- * with the customer's other data: where that module is enabled the endpoint answers 404. The
- * address travels in the request body, never in a page address.
+ * The form is there whether or not PrestaShop's GDPR module is enabled, whose own screens run the
+ * same export with the customer's other data: on PrestaShop 9 that module's admin screen cannot
+ * show a customer. The address travels in the request body, never in a page address.
  */
 final class PrivacyExport extends AbstractJsonAction
 {
-    /** PrestaShop's GDPR module, which runs the export and the erasure where it is enabled. */
-    public const GDPR_MODULE = 'psgdpr';
-
     protected function handle(Request $request, int $idShop)
     {
         $email = self::email($this->body($request));
-        if (!self::formAvailable()) {
-            return $this->error('not_available', $this->trans('Privacy requests are handled by the store\'s GDPR module.', BaseController::DOMAIN), 404);
-        }
         if ($email === null) {
             return $this->error('invalid_email', $this->trans('Enter a valid email address.', BaseController::DOMAIN), 400);
         }
@@ -66,15 +60,6 @@ final class PrivacyExport extends AbstractJsonAction
                 + Services::instance()->get(PrivacyRequest::class)->export($email),
             'message' => $this->trans('The export was saved as a file.', BaseController::DOMAIN),
         ];
-    }
-
-    /**
-     * Whether the Log shows the form: only while PrestaShop's GDPR module is not installed and
-     * enabled in the shop of the request.
-     */
-    public static function formAvailable(): bool
-    {
-        return !\Module::isEnabled(self::GDPR_MODULE);
     }
 
     /**

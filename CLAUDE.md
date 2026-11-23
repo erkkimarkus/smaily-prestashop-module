@@ -265,7 +265,8 @@ ask (Linear discipline below).
   data joins `Privacy\LocalData` for the export and the erasure. No log line, stored reason or
   screen holds an engine's text: the HTTP status and the error code only. psgdpr 1.4.3, which
   PrestaShop 9.2.0 ships, cannot search or show a customer in its admin screen there (facts file
-  6.13): on 9.x it erases by address, and its export is the customer's own page.
+  6.13): on 9.x it erases by address, and its export is the customer's own page. The Log's
+  "Privacy request" form is therefore always shown, also beside psgdpr (owner, 2026-11-23).
 - **The storefront** (ARCHITECTURE 8.10, 9). Browse tracking and the recommendations run only with
   the browser's consent rule (`consent.js`: the store's `consentOverride()`, else the merchant's
   setting, which is off until confirmed); the three landing cookies are not gated, and nothing else
@@ -472,4 +473,5 @@ content is written in English.
   real flow, out of 14 (read from the checklist in STATUS.md). Dates: none
   — Erkki 2026-11-20: "no deadline — show progress over time". Values:
   2026-11-20 (start): 0/14; 2026-11-20 (stage 1 done): 1/14; 2026-11-21
-  (capabilities 3, 4, 6 and 7 walked): 7/14.
+  (capabilities 3, 4, 6 and 7 walked): 7/14; 2026-11-23 (capabilities 12 and
+  13 walked): 9/14.

@@ -189,8 +189,8 @@
     {% endif %}
   </div>
 
-  {% if log.privacy_form and log.can_update %}
-    {# For a store without PrestaShop's GDPR module, whose own screens run the same two requests. #}
+  {% if log.can_update %}
+    {# Shown beside PrestaShop's GDPR module too, whose own screens run the same two requests. #}
     <div class="smaily-card smaily-log__privacy" data-smaily-log-privacy
          data-api-export="{{ path('smailyforprestashop_api_log_privacy_export') }}"
          data-api-erase="{{ path('smailyforprestashop_api_log_privacy_erase') }}"

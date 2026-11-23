@@ -206,11 +206,13 @@ A customer can ask for a copy of their personal data, or to have it erased. Smai
 
 **With PrestaShop's Official GDPR compliance module** (`psgdpr`) the module needs no setup: the export and the deletion of that module include Smaily Connect. A customer who downloads their data on the store's **GDPR - Personal data** page gets the module's part in the same file, and "Remove data" in the GDPR module's Personal data management erases it.
 
-**Without that module**, the **Log** page has the form **Privacy request** under the list, for an employee who may change the Log:
+**On the Log page**, with or without that module, the form **Privacy request** is under the list, for an employee who may change the Log:
 
 1. Type the customer's **Email address**.
 2. **Export** saves a file with what the module holds about that address, and nothing of anybody else.
 3. **Erase** asks for confirmation and then erases it. It cannot be undone.
+
+On PrestaShop 9 the GDPR module's own Personal data management screen cannot find a customer or show a customer's data: a defect of that module (1.4.3, as PrestaShop 9.2.0 ships it), not of Smaily Connect. There the form on the Log page is the way to export a customer's data from the back office.
 
 The form handles the module's data only. The customer account, the orders and the Smaily contact stay as they are: delete or anonymize the account in PrestaShop, and the contact in Smaily. A customer whose account stays in the store is sent again with their next change: to Smaily by the consent mode, and to Campaign Intelligence, for example with their next order.
 

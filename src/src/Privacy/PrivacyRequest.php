@@ -41,7 +41,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 /**
  * A privacy request for one shopper: the export and the erasure, over the store's own tables
  * (LocalData) and Campaign Intelligence. PrestaShop's GDPR module calls both through its hooks
- * (GdprHooks); a store without that module calls them from the Log's "Privacy request" form.
+ * (GdprHooks); the Log's "Privacy request" form calls them in every store.
  *
  * - **Export.** The module's own rows, and what each connection's engine store holds (contract
  *   §8): one attempt per connection, no retry. An engine that does not answer leaves

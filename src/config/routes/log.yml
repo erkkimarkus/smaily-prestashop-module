@@ -22,7 +22,7 @@ smailyforprestashop_api_log_retry:
     _legacy_controller: AdminSmailyConnectLog
 
 # The "Privacy request" form of the Log (Admin\Log\PrivacyExport, PrivacyErase): an export and an
-# erasure for one email address, for a store without the GDPR module. Both need the right to change
+# erasure for one email address, with or without the GDPR module. Both need the right to change
 # the Log.
 smailyforprestashop_api_log_privacy_export:
   path: /smailyforprestashop/api/log/privacy-export

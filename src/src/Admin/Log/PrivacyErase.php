@@ -41,17 +41,13 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * The erasure covers the module's own data in every shop and queues the deletion at each Campaign
  * Intelligence connection. It leaves PrestaShop's customer and orders and the Smaily contact: the
- * merchant handles those in PrestaShop and in Smaily. As the export, the endpoint answers 404
- * where PrestaShop's GDPR module is enabled.
+ * merchant handles those in PrestaShop and in Smaily.
  */
 final class PrivacyErase extends AbstractJsonAction
 {
     protected function handle(Request $request, int $idShop)
     {
         $email = PrivacyExport::email($this->body($request));
-        if (!PrivacyExport::formAvailable()) {
-            return $this->error('not_available', $this->trans('Privacy requests are handled by the store\'s GDPR module.', BaseController::DOMAIN), 404);
-        }
         if ($email === null) {
             return $this->error('invalid_email', $this->trans('Enter a valid email address.', BaseController::DOMAIN), 400);
         }

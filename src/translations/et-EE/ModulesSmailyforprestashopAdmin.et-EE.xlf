@@ -2552,11 +2552,6 @@
         <target>Neid eelmise versiooni faile ei õnnestunud mooduli kaustast kustutada: %files%. Kustuta need käsitsi; moodul neid ei kasuta.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="21370b2e745e14f97492b57a149942db">
-        <source>Privacy requests are handled by the store's GDPR module.</source>
-        <target>Privaatsuspäringuid käsitleb poe GDPR-moodul.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="d68c7cd2cdc561bc55a5b8e6d8c4dd6c">
         <source>Enter a valid email address.</source>
         <target>Sisesta kehtiv e-posti aadress.</target>

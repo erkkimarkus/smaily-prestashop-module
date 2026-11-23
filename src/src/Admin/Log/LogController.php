@@ -107,7 +107,6 @@ final class LogController extends BaseController
             'from' => $total === 0 ? 0 : ($page - 1) * self::PER_PAGE + 1,
             'to' => ($page - 1) * self::PER_PAGE + count($list),
             'can_update' => $this->isGranted('update', $tab),
-            'privacy_form' => PrivacyExport::formAvailable(),
         ]], self::TEMPLATE);
     }
 

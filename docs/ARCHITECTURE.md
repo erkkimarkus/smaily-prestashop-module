@@ -2927,15 +2927,15 @@ again" and "Retry" need the right to change it. Each endpoint also needs the pag
 shop selection the page was drawn for (`Admin\Api\AbstractJsonAction`, section 10.1).
 
 **The "Privacy request" form** (Story 5.6; `Admin\Log\PrivacyExport`, `PrivacyErase`). Under the
-list, for an employee who may change the Log, while PrestaShop's GDPR module is not enabled in the
-shop of the request (`Module::isEnabled('psgdpr')`: installed and enabled; in "All shops" the
-default shop): where that module runs, its own screens run the same two requests with the
-customer's other data. The form takes one email address. **Export** saves a JSON file with what
+list, for an employee who may change the Log, in every store, also while PrestaShop's GDPR module
+is enabled (owner, 2026-11-23; section 15). That module's own screens run the same two requests
+with the customer's other data, but its admin screen cannot show a customer on PrestaShop 9
+(section 11.2), so the form is never hidden. The form takes one email address. **Export** saves a JSON file with what
 the module's tables and each connection hold of that address (section 11.2) and of nobody else;
 the file's name holds a time, not the address. **Erase** asks first ("Erase the data of this
 address?") and then answers what was erased. Both endpoints need the right to change the Log,
 the page's token and the shop selection, take the address in the request body, never in a page
-address, refuse an invalid address, and answer 404 where the GDPR module is enabled. Both cover
+address, and refuse an invalid address. Both cover
 every shop of the installation: a shopper is an address. The erasure leaves PrestaShop's
 customer and orders and the Smaily contact; the form's text says so.
 
@@ -3159,7 +3159,7 @@ the contract's rules. Not verified: the real service.
 | Erasure (psgdpr `actionDeleteGDPRCustomer`) | Deletes the queue rows that can still be sent; clears the payload, the stored request and answer and the entity of every queue row that is kept, whose entity reads `[erased]` (`Log\ResendGuard::ERASED_ENTITY`), which the Log refuses to send again; marks tracker rows `erased`; removes the unused discount codes; queues §9 per connection as a durable row with retries. Smaily contacts are not deleted: Smaily owns them (sibling rule). |
 | Profiling opt-out (§10) | My Account "Personalization" page, shown only with a connection; writes the local record first, then queues §10; the newest choice wins; a marketing unsubscribe also stops profiling (Magento parity audit R1–R3). |
 | Discount codes (section 7) | Both requests cover them through `Discount\IssuedCodes`: the codes of the customer accounts (`ofCustomer()`) and the codes that the address's automation rows of the event queue still hold (`ofAddress()`, read before the erasure clears those rows); the erasure removes the unused ones (`removeUnused()`). A used code and a remainder voucher stay. |
-| Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address (section 10.8). |
+| The Log's form | The same two operations run from the Log screen's "Privacy request" form for an address, with or without psgdpr (section 10.8). |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
 | Installation report | While a Smaily account is connected, the module sends Smaily the installation report of section 11.1: the shop addresses, the versions, the connected Smaily accounts, the switched-on features and whether each connection works. It holds no customer, subscriber, order or admin-user data, so an export and an erasure have nothing of it to list or remove. The merchant guide, the README and the changelog carry the sentence. |
 
@@ -3225,8 +3225,9 @@ customer or show a customer's data in its admin screen there: its own requests f
 6.13). On 9.2.0 its admin screen therefore offers only the block of a typed address with "Remove
 data", which calls this module's erasure with the address alone and leaves the customer account;
 the export of psgdpr runs from the customer's own page ("GDPR - Personal data"). The Log's form
-stays hidden while psgdpr is enabled, so such a store has no export in the back office (section
-14, row 51).
+is therefore shown beside psgdpr too, on every PrestaShop version (owner, 2026-11-23; section
+15): it is the export in the back office of a 9.x store, also for an address without an account.
+Until that day the form was hidden while psgdpr was enabled.
 
 **The personalization opt-out** (`Privacy\ProfilingConsent`, `ProfilingRecord`). The model is
 opt-out, as in the sibling connectors: a shopper without a record is profiled.
@@ -3298,6 +3299,15 @@ the tracker, the attribution and the discount codes held their rows:
   held the engine's message, the address or the names afterwards;
 - the Personalization page: off, on, two quick choices, and an older choice that the engine
   refused and that was retried after a newer one.
+
+The Log's form beside psgdpr (2026-11-23, after the owner's decision), in a browser on 8.2.8 and
+9.2.0, in the same kind of store and for such shoppers, behind the egress guard. With psgdpr
+enabled as the image ships it, and again with psgdpr disabled, the Log shows the form. Its export
+file lists the shopper's rows of both queues, the carts, the order's attribution and the three
+discount codes, and one answer per connection ("not_available" with a failing engine, "no_data"
+for a shopper whom the engine does not know). Its erasure says what it erased, leaves the customer
+account and the used code, and queues one deletion per connection; the engine answered HTTP 503
+first, and a later tick delivered both.
 
 ### 11.3 Retention
 
@@ -4132,7 +4142,6 @@ has one owner:
 | 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). Not changed, and open: a guest-checkout customer's token still also needs the newsletter box of the checkout. | Owner |
 | 49 | An order that a payment provider's server confirms | **Decided and built** (owner, 2026-11-23; Linear CON-407): the click and the visitor token are kept with the cart in `smaily_connect_cart_attribution`, and an order whose request has no shopper's cookies takes them from there (section 8.10). Left: a row is kept a day after the shopper's last page with the cart, so a confirmation that comes later than that gets no cookie credit; a checkout whose every step runs outside PrestaShop's page controllers keeps only what the earlier pages kept. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
-| 51 | No export in the back office on PrestaShop 9 with psgdpr | psgdpr 1.4.3's admin screen cannot search or show a customer on 9.2.0 (facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled (section 11.2). A merchant on 9.x then exports only through the customer's own page, cannot export for an address without an account, and erases by address. Not decided: whether the Log shows its form beside psgdpr. | Owner |
 | 52 | Where the line of a report that was not taken in goes | It goes to PrestaShop's log (Advanced Parameters > Logs), as the siblings write theirs to a log file, and not to the module's Log page: that page lists deliveries that can be sent again, and a report is never queued (section 11.1). Confirm that this is "the Log" that Linear CON-404 means. | Owner |
 | 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
 | 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
@@ -4143,7 +4152,8 @@ more), row 24 (mode `a` and the workflow of no language) and row 38 (the cron li
 tasks card) on 2026-11-21; they moved to section 15. So did rows 23 (a late unsubscribe after a newer
 subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription check covers one
 shop), answered together on 2026-11-21, row 25 (a newsletter-block subscriber without an
-account) and row 31 (the welcome email repeats).
+account) and row 31 (the welcome email repeats). Row 51 (no export in the back office on
+PrestaShop 9 with psgdpr) was answered on 2026-11-23 and moved to section 15.
 
 ## 15. Decisions
 
@@ -4308,3 +4318,8 @@ Decisions of 2026-11-23:
 - A store whose connection the engine refuses keeps noting changes (confirmed as built). They
   wait, and go out once the engine accepts the connection again, with no age limit, as on the
   Magento and WooCommerce connectors (sections 8.9 and 8.11).
+- The Log's "Privacy request" form is always shown, also while PrestaShop's GDPR module is
+  enabled, on every PrestaShop version (owner, 2026-11-23). psgdpr 1.4.3, which PrestaShop 9.2.0
+  ships, cannot search or show a customer in its admin screen (facts file 6.13), so a 9.x store
+  had no export in the back office while the form was hidden beside psgdpr (sections 10.8 and
+  11.2).
