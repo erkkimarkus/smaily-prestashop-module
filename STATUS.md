@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-21 (session end). Gauge 7/14. Nothing in flight; no worker branch or worktree is left._
+_Last updated: 2026-11-23. Gauge 7/14 (capability 13 is walked and waits for the owner's word, open question 7)._
 
 ## Next session opens with
 
@@ -27,17 +27,24 @@ Estonian round, the Marketplace structural rules, the database gateway) with the
 The key namespace `ps-` is one constant (`Engine\Payload\Keys`) and is **not agreed with the engine team** (INT-306):
 nothing that sends a key ships before the answer.
 
-**Last runs** (on `0c38f0b`, by the last worker on its rebased branch, 2026-11-21): in-shop suite 1957 tests on 8.2.8
-and on 9.2.0 with debug on and off; `tests/ci/validate.sh` 10 of 10 on both flashlight images; host 1957 tests,
-3245 assertions, 1024 skipped; `node --test tests/js/` 43 pass. The zip content and the uninstall check last ran on
-`0d4425e`, long before stage 5.
+**Since then, on a worker branch (2026-11-23, not merged, not pushed):** a later migration run keeps the display hook
+a merchant gave the recommendations block (ARCHITECTURE 3.7), and capability 13 was walked on the merged code in a
+browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One thing could not be shown: an export in
+psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13).
+
+**Last runs** (2026-11-23, on the worker branch with the hooks fix): in-shop suite 1960 tests on 8.2.8 (10540
+assertions) and on 9.2.0 (10546), debug on, each on a fresh shop behind the egress guard; host 1960 tests, 3245
+assertions, 1027 skipped; PHP CS Fixer 0 of 323 files. Last run on `0c38f0b` (2026-11-21, 1957 tests): the suite with
+debug off, `tests/ci/validate.sh` 10 of 10 on both flashlight images, `node --test tests/js/` 43 pass. The zip content
+and the uninstall check last ran on `0d4425e`, long before stage 5.
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
 the official `9.2.0-8.1` image; PrestaShop's online validator; the multishop screens in Estonian; one unexplained PHP
-8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: Stories 5.2, 5.5 and 5.6 were each walked on their own
-branch, never together in a browser on the merged `v3`; the erasure of PrestaShop's GDPR module ran through its
-function, not its admin button; "tracking is off after an upgrade" is shown by tests, not by a browser upgrade.
+8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: capabilities 10 and 11 have no walk of their own on
+the merged `v3` (the walk of 13 used the landing, the relay, the order's attribution and the ingest, and did not judge
+them); an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there); "tracking is off after an upgrade"
+is shown by tests, not by a browser upgrade.
 
 ## Next, in this order
 
@@ -45,8 +52,8 @@ function, not its admin button; "tracking is off after an upgrade" is shown by t
    cookie banner covers Smaily tracking" and the screen that makes a connection. A sketch against Magento's screens
    goes to the owner first. Then 5.4 engine automations. 6.1 installation report can run beside them (SUB-28 is
    answered: report contract v1.2.0).
-2. Capability walks on the merged `v3`: 13 now (with the GDPR module's admin button); 10 and 11 once the consent
-   switch has a screen; 8 after 5.3; 9 after 5.4; 12 after 6.1.
+2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 after 5.4;
+   12 after 6.1.
 3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
 4. A full install check (zip content, uninstall) on the tip.
 
@@ -85,8 +92,10 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 - [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); waits: the same
   walk, and the product feed.
 - [ ] 12. Installation report (phone-home) — Story 6.1.
-- [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out — built and walked on its branch (5.6);
-  waits: a walk on the merged `v3` with the GDPR module's admin button and the ingest rows.
+- [ ] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
+  on 8.2.8 and 9.2.0, with ingest and storefront rows: psgdpr's admin screen (8.2.8: export and erasure; 9.2.0: the
+  erasure by address, and the export from the customer's own page), the Log's form, the Personalization page. Waits:
+  the owner's word, as psgdpr's admin screen shows no export on 9.2.0 (open question 7).
 - [ ] 14. Administration screens in English and Estonian — all strings in Estonian, walked on 8.2.8 and 9.2.0; waits:
   the multishop screens, a native reader, the stage 5 screens.
 
@@ -109,6 +118,11 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 6. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
+
+7. Privacy on PrestaShop 9: psgdpr 1.4.3, which 9.2.0 ships, cannot search or show a customer in its admin screen
+   (its own defect, facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled. A 9.x
+   merchant then has no export in the back office and erases by address only. Show the Log's form beside psgdpr? And
+   does capability 13 count as walked (8/14) with psgdpr's admin export shown on 8.2.8 only?
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk; ask the
 engine team for the answer on INT-306 (`ps-`) and for the `source` value of PrestaShop's browse events; choose a pilot

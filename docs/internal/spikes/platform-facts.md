@@ -657,3 +657,30 @@ after the failed load `ContactsSettings::syncActive()` and `AutomationSettings::
 `SqlException`; `Schema::isCurrent()` answers false and `TickSettings::storedToken()` an empty
 token, as both read `Configuration` directly: the runtime stays inert and the door closed.
 `tests/Integration/Config/TickSettingsTest.php` holds the case.
+
+### 6.13 psgdpr 1.4.3's admin screen on 9.2.0 cannot search or show a customer's data
+
+**Observed** on 9.2.0 (flashlight, debug mode on), 2026-11-23, in a browser; the search runs no
+code of this module: in PrestaShop's GDPR module (Module Manager > psgdpr >
+Configure > Personal data management) every key press in "Search for a customer name OR email"
+answers HTTP 500, "Attempted to call an undefined method named "ajaxDie"", and so does a click on
+a block (the data view). **Read from code:** psgdpr 1.4.3 calls `$this->ajaxDie()` in
+`AdminAjaxPsgdprController` (`SearchCustomers`, `GetCustomerData`, `DownloadInvoicesByCustomer`)
+and in `FrontAjaxGdpr`; PrestaShop 9.2.0's controller classes have `ajaxRender()` and no
+`ajaxDie()`, which 8.2.8 still has. The flashlight image `9.2.0-nginx` and the official image
+`prestashop/prestashop:9.2.0-8.1` ship the same psgdpr 1.4.3.
+
+So on 9.2.0, with the psgdpr that PrestaShop ships:
+
+- the admin screen lists no customer. For text that is an email address it draws the block of the
+  address, because the search did not answer;
+- a click on that block calls the modules' `actionExportGDPRData` (this module asks the engine)
+  and then fails with the same error: the screen shows no data of any module;
+- "Remove data" on that block works (`DeleteCustomer` does not call `ajaxDie()`): psgdpr calls
+  the modules' `actionDeleteGDPRCustomer` with the address alone, and does not delete the
+  customer account, which it does only for a customer that its search listed;
+- the customer's own export works: My account > "GDPR - Personal data" > "GET MY DATA TO CSV"
+  (a UTF-16 file) lists the modules' rows.
+
+On 8.2.8 the same psgdpr works: the search lists the customer, the block shows every module's
+rows, and "Remove data" calls the modules and then deletes the customer account.

@@ -85,13 +85,13 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 1957 tests on 8.2.8 (10518 assertions) and on 9.2.0 (10523
-assertions; one test checks more where PrestaShop has discount types), each on a reset shop behind
-the egress guard (2026-11-21, with the ingest of Story 5.2; 8.2.8
-runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12; on 9.2.0 once with debug mode on and once with it off,
-with the same counts); 8.0.0 last
+Last verified results, all passing: 1960 tests on 8.2.8 (10540 assertions) and on 9.2.0 (10546
+assertions; some tests check more on 9.2.0), each on a fresh shop behind
+the egress guard (2026-11-23, with debug mode on; 8.2.8
+runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12; the run with debug mode off last ran on 2026-11-21 with
+1957 tests, on 9.2.0 with the same counts as with it on); 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (1957 tests, 3245 assertions, 1024 skipped). The storefront scripts have
+and skips the integration tests (1960 tests, 3245 assertions, 1027 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -329,6 +329,16 @@ uses another token or customer, or clears PrestaShop's cache. A limit's count en
 
 **The checkout.** The flashlight shops offer their payment modules to one country only; a walk
 that orders from another country adds that country in Payment > Preferences first.
+
+**A privacy request through psgdpr** (walked on 2026-11-23). Its admin screen is Module Manager >
+psgdpr > Configure > Personal data management. Every key press in its search field starts a
+request, and a late answer redraws the blocks and empties an open one: a script waits until those
+requests are quiet before it clicks a block. On 9.2.0 that search and the data view fail in
+psgdpr itself (facts file 6.13); walk the customer's own export page and the address's block
+there. The customer's CSV file is UTF-16. The console's `prestashop:module install psgdpr`
+enables it in the default shop only. A cart that a walk leaves open is picked up by the
+abandoned-cart job after its delay, so "this shopper's rows did not change" is compared row by
+row, not by count.
 
 ## 5. PrestaShop 8
 

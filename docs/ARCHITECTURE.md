@@ -3064,6 +3064,14 @@ code and a remainder voucher that the module's erasure left are gone after psgdp
 `registerGDPRConsent` has no listener: the hook lists a module on psgdpr's consent screen, and
 the module has no form of its own that needs a consent box.
 
+**psgdpr on PrestaShop 9.** psgdpr 1.4.3, which PrestaShop 9.2.0 ships, cannot search for a
+customer or show a customer's data in its admin screen there: its own requests fail (facts file
+6.13). On 9.2.0 its admin screen therefore offers only the block of a typed address with "Remove
+data", which calls this module's erasure with the address alone and leaves the customer account;
+the export of psgdpr runs from the customer's own page ("GDPR - Personal data"). The Log's form
+stays hidden while psgdpr is enabled, so such a store has no export in the back office (section
+14, row 51).
+
 **The personalization opt-out** (`Privacy\ProfilingConsent`, `ProfilingRecord`). The model is
 opt-out, as in the sibling connectors: a shopper without a record is profiled.
 
@@ -3117,6 +3125,23 @@ the egress guard: a customer's own export from psgdpr's page with two connection
 failing engine, an erasure through psgdpr with the engine down and the deletion delivered by the
 next tick, the Log's form in a store without psgdpr, and the opt-out page with two quick choices,
 an unsubscribe and a new subscription.
+
+Walked again on the merged `v3` (2026-11-23) in a browser, on 8.2.8 and 9.2.0, in a store of two
+shops run as separate stores with a connection each, for shoppers who had come from an email
+link, browsed with consent, registered, been reminded of a cart and ordered, so that both queues,
+the tracker, the attribution and the discount codes held their rows:
+
+- psgdpr's admin screen on 8.2.8: the customer's block lists the module's rows and one row per
+  connection ("Not available" with a failing engine), and "Remove data" erases them;
+- psgdpr on 9.2.0, as far as psgdpr itself works there (above): the customer's own export, and
+  "Remove data" on the address's block;
+- the Log's form in a store without psgdpr: the export file, and the erasure, with a used
+  discount code that stays;
+- every erasure with the engine answering HTTP 503 first: the two deletion rows wait with the
+  status and the error code as their reason and go out on a later tick; no table, log or screen
+  held the engine's message, the address or the names afterwards;
+- the Personalization page: off, on, two quick choices, and an older choice that the engine
+  refused and that was retried after a newer one.
 
 ### 11.3 Retention
 
@@ -3930,6 +3955,7 @@ has one owner:
 | 48 | Marketing consent for a store-created visitor token | The contract asks for a shopper's marketing consent (§5, §7). The siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API). PrestaShop has neither, so the module asks for both the merchant's consent setting and the customer's `newsletter` (section 8.10). Confirm, or name another rule for all connectors. | Owner; cross-connector analysis (Linear CON-397) |
 | 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
+| 51 | No export in the back office on PrestaShop 9 with psgdpr | psgdpr 1.4.3's admin screen cannot search or show a customer on 9.2.0 (facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled (section 11.2). A merchant on 9.x then exports only through the customer's own page, cannot export for an address without an account, and erases by address. Not decided: whether the Log shows its form beside psgdpr. | Owner |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or

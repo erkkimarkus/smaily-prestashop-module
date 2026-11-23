@@ -262,7 +262,9 @@ ask (Linear discipline below).
 - **Privacy** (ARCHITECTURE 11.2). A shopper is an address: the address, its keyed hash
   (`Queue\ContactEntity::key()`) and its customer accounts. Every table that holds a person's
   data joins `Privacy\LocalData` for the export and the erasure. No log line, stored reason or
-  screen holds an engine's text: the HTTP status and the error code only.
+  screen holds an engine's text: the HTTP status and the error code only. psgdpr 1.4.3, which
+  PrestaShop 9.2.0 ships, cannot search or show a customer in its admin screen there (facts file
+  6.13): on 9.x it erases by address, and its export is the customer's own page.
 - **The storefront** (ARCHITECTURE 8.10, 9). Browse tracking and the recommendations run only with
   the browser's consent rule (`consent.js`: the store's `consentOverride()`, else the merchant's
   setting, which is off until confirmed); the three landing cookies are not gated, and nothing else
