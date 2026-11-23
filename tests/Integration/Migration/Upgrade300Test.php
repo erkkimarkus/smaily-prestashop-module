@@ -694,6 +694,55 @@ final class Upgrade300Test extends IntegrationTestCase
         ];
     }
 
+    /**
+     * How the store came to be, and the step that stopped its upgrade (null: the upgrade completed
+     * and the store lost its schema version since).
+     *
+     * @return array<string, array{string|null, string|null}>
+     */
+    public function laterRuns(): array
+    {
+        return [
+            'installed by 3.0.0, the schema version lost' => [null, null],
+            'upgraded from 2.2.0, the schema version lost' => ['2.2.0-configured.sql', null],
+            'an upgrade from 2.2.0 that stopped after the hooks step' => ['2.2.0-configured.sql', 'carts'],
+        ];
+    }
+
+    /**
+     * The merchant gave the recommendations block a place in Design > Positions: a display hook
+     * that HookList does not name. A later migration run keeps that place.
+     *
+     * @dataProvider laterRuns
+     */
+    public function testALaterRunKeepsThePlaceAMerchantGaveTheBlock(?string $fixture, ?string $stoppedAt): void
+    {
+        if ($fixture === null) {
+            Schema::markCurrent();
+        } else {
+            LegacyStore::loadFixture($fixture);
+            $this->recordModuleVersion('2.2.0');
+            $first = $this->upgrade(static function (string $step) use ($stoppedAt): void {
+                if ($step === $stoppedAt) {
+                    throw new \LogicException('injected');
+                }
+            });
+            self::assertSame($stoppedAt === null, $first->runPending());
+        }
+        try {
+            // As the Positions screen does.
+            self::assertTrue((bool) self::module()->registerHook('displayHome'));
+            \Configuration::deleteByName(Schema::VERSION_KEY);
+            LegacyStore::reloadConfiguration();
+
+            self::assertTrue($this->upgrade()->runPending());
+
+            self::assertContains('displayhome', $this->registeredHooks());
+        } finally {
+            self::module()->unregisterHook('displayHome');
+        }
+    }
+
     public function testAStoreWithoutTheMenuGetsItUnderCustomers(): void
     {
         LegacyStore::loadFixture('2.2.0-configured.sql');

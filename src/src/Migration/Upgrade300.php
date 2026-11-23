@@ -115,6 +115,9 @@ final class Upgrade300
 
     private string $from = '';
 
+    /** Whether the hooks step leaves the display hooks that HookList does not name in place. */
+    private bool $placedHooksStay = true;
+
     /**
      * @param callable(string): void|null $beforeStep called with each step's name before it runs
      */
@@ -199,6 +202,7 @@ final class Upgrade300
     private function restore(): bool
     {
         try {
+            $this->placedHooksStay = true;
             $this->stepTables();
             $this->stepHooks();
             self::check(Schema::markCurrent());
@@ -226,6 +230,7 @@ final class Upgrade300
             $this->saveState($state);
             $this->from = $state['from'];
             $this->plan = null;
+            $this->placedHooksStay = in_array('hooks', $state['done'], true);
 
             foreach (self::STEPS as $step) {
                 if (in_array($step, $state['done'], true) && !in_array($step, self::ALWAYS, true)) {
@@ -299,7 +304,9 @@ final class Upgrade300
 
     /**
      * Registers every hook of HookList and unregisters the ones it does not name, such as the
-     * display hooks of 1.6.x.
+     * display hooks of 1.6.x. A display hook leaves only with the first hooks step of an upgrade:
+     * on a later run it is the place a merchant gave the recommendations block in Design >
+     * Positions, which offers a widget every display hook.
      */
     private function stepHooks(): void
     {
@@ -314,9 +321,10 @@ final class Upgrade300
             . ' WHERE hm.`id_module` = ' . (int) $module->id
         );
         foreach (array_column($registered, 'name') as $hook) {
-            if (!in_array(strtolower($hook), $wanted, true)) {
-                self::check((bool) $module->unregisterHook($hook));
+            if (in_array(strtolower($hook), $wanted, true) || ($this->placedHooksStay && \Hook::isDisplayHookName($hook))) {
+                continue;
             }
+            self::check((bool) $module->unregisterHook($hook));
         }
     }
 

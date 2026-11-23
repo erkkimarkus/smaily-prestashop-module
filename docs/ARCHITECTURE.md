@@ -557,7 +557,7 @@ regenerates it) breaks decryption.
 | `override/modules/ps_emailsubscription/ps_emailsubscription.php` | `Migration\LegacyOverride` deletes it only when its SHA-256 equals the one hash in `LegacyOverride::SHIPPED_HASHES`: every 2.x tag from 2.0.0 to 2.2.0 shipped the same file. It then removes the folder when the folder is empty. Any other content stays, with the notice `override_left_in_place`. PrestaShop loads a module override by its path on each request and keeps no class index of it, so deleting the file is enough (facts file part 6). |
 | `NW_VERIFICATION_EMAIL`, `NW_CONFIRMATION_EMAIL`, `NW_VOUCHER_CODE` | Not touched. 3.0.0 never writes them. 2.x never kept the earlier values, so no code can restore them: where a 2.x save had the opt-in on, the migration leaves the notice `emailsubscription_emails_changed` (2.x switched off `ps_emailsubscription`'s verification and confirmation emails and cleared its voucher). Settings > Contacts shows a note when `ps_emailsubscription`'s own emails are on while the welcome automation is on. |
 | The files that 2.2.0 and 1.6.2 shipped in the module's folder and 3.0.0 does not ship (47 paths: the 2.x settings forms, `lib/`, `overrides/`, the old templates and scripts, the classes of the 2.x contact sync and cart reminder, the 1.6.x admin controller, templates and upgrade scripts) | `Migration\LegacyFiles` deletes them, with the 6 folders that they leave empty (migration step `files`, section 3.7). A file that cannot be deleted stays, with the notice `files_left_in_place`. `translations/et.php` of 1.6.x stays: PrestaShop writes a merchant's own translations to it. |
-| Hooks registered by 1.6.x (`footerBefore`, `leftColumn`, `rightColumn`, `backOfficeHeader`, `actionFrontControllerSetMedia`) or 2.x | The migration registers the 3.0.0 list, then unregisters every hook that `Install\HookList` does not name. |
+| Hooks registered by 1.6.x (`footerBefore`, `leftColumn`, `rightColumn`, `backOfficeHeader`, `actionFrontControllerSetMedia`) or 2.x | The migration registers the 3.0.0 list, then unregisters every hook that `Install\HookList` does not name. A display hook among them leaves only with the first `hooks` step of an upgrade (section 3.7). |
 | The hidden admin tab `AdminSmailyforprestashopAjax` of 1.6.x | Deleted through PrestaShop's `Tab` object, which also removes its authorization roles (migration step `tab`). |
 | The 2.x configuration page's tab `SmailyForPrestaShopConfiguration` | PrestaShop created it from the 2.x `config/routes.yml`. The 2.x page and its route are gone (Story 3.3), and no 3.0.0 code names the tab: whether an upgraded store keeps its row is not verified (section 14, row 15). |
 
@@ -841,7 +841,13 @@ version is missing, also on a store that is set up, so it is safe to run at any 
   was not finished stays, and `verify` does not compare a setting's value with the plan. `tokens`
   changes only an empty or missing token; `tick_token` creates a token only where none is stored;
   `carts` adds a row only for a cart that has none; `notices` stores a notice once per code and
-  parameters; `tables`, `hooks`, `menu`, `override` and `tab` are idempotent. `accounts` follows
+  parameters; `tables`, `hooks`, `menu`, `override` and `tab` are idempotent. `hooks` unregisters
+  a display hook that `Install\HookList` does not name (the 1.6.x form's `footerBefore`,
+  `leftColumn` and `rightColumn`) only on its first run of an upgrade. On every later run, and on
+  a store that has nothing to migrate, such a hook is the place a merchant gave the
+  recommendations block in Design > Positions (section 8.7), and it stays; the test is
+  PrestaShop's own for the hooks it offers a widget (`Hook::isDisplayHookName()`). A hook of
+  another kind that the list does not name leaves on every run. `accounts` follows
   the same rule (owner, 2026-11-21; section 15): it writes a legacy account only where the shop
   and language hold none, so an account that a merchant saves in Settings while the upgrade is
   not finished stays, and the 2.x account of that scope is not migrated. `verify` then passes on
@@ -1652,8 +1658,8 @@ daily refresh are rows of `smaily_connect_job`:
 `actionObjectCustomerDeleteAfter`, `actionCartSave` and `actionObjectCategoryUpdateAfter`; the main
 class has one one-line method for each. A row whose Story is not done (section 13) names a hook
 that is registered and has no listener yet. The upgrade's `hooks` step unregisters every hook that
-the list does not name (section 3.7), so a store that ran a development build with 32 hooks holds
-30 after its next migration run.
+the list does not name (section 3.7; a display hook only on its first run), so a store that ran a
+development build with 32 hooks holds 30 after its next migration run.
 
 **The store automations as built** (Stories 4.1 to 4.3, `Automation\`). The queue holds one event
 type per automation: `automation.welcome`, `automation.first_order` and `automation.abandoned_cart`
@@ -2111,7 +2117,8 @@ As built: section 8.10, "The recommendations block".
 container `<div data-smaily-connect-recs>`, the same for every visitor, and nothing without a
 connection. The merchant places it with Design > Positions on any display hook, or with
 `{widget name='smailyforprestashop'}` in a theme. The module registers no display hook for it, so
-nothing is placed automatically (Magento parity). `recommendations.js` loads after `load`, only with
+nothing is placed automatically (Magento parity). A later migration run keeps the merchant's place
+(section 3.7). `recommendations.js` loads after `load`, only with
 consent, calls the `recommendations` controller once per page, and fills every container.
 
 **Full-page cache.** PrestaShop core has no full-page cache, but cache modules exist (for example

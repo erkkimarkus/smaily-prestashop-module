@@ -54,8 +54,6 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
 ## Queue (technical, for the orchestrator)
 
-- Check first: a re-run of the 2.x to 3.0.0 migration unregisters hooks outside `HookList`; it must not remove the
-  place a merchant gave the recommendations block.
 - A `cart_add` of a product with combinations and no chosen combination gets a key that has no catalog row. A product
   that gets its first combination keeps its old row at the engine until the next nightly list.
 - An erased failed row still shows the Retry checkbox. "Sign up for our newsletter" (checkout box) has no Estonian
