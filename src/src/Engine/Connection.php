@@ -43,6 +43,18 @@ final class Connection
      */
     private const PREFIX_FORM = '/^c[1-9][0-9]{0,3}-$/D';
 
+    /** state(): the engine takes the connection, also while it does not answer. */
+    public const STATE_CONNECTED = 'connected';
+
+    /** state(): the engine refuses the connection because the account is not active. */
+    public const STATE_NOT_ACTIVE = 'not_active';
+
+    /** state(): the engine refuses the key, or the stored key does not read. */
+    public const STATE_KEY_REFUSED = 'key_refused';
+
+    /** state(): the engine asks for a newer version of the module. */
+    public const STATE_UPDATE_REQUIRED = 'update_required';
+
     private int $id;
 
     private int $idShop;
@@ -155,6 +167,17 @@ final class Connection
     }
 
     /**
+     * A number of months of the engine's `config.history` (`start_months`, `horizon_months`), or
+     * the fallback where the engine named none.
+     */
+    public function historyMonths(string $key, int $fallback): int
+    {
+        $history = $this->config()['history'] ?? null;
+
+        return is_array($history) && is_numeric($history[$key] ?? null) && (int) $history[$key] > 0 ? (int) $history[$key] : $fallback;
+    }
+
+    /**
      * The connection's code prefix, exactly as the engine gave it in `config.connection.prefix`:
      * every product and order key that the contract names is sent with it in front. It is the
      * engine's and opaque: nothing reads its parts, derives it or shows it. '' sends keys as they
@@ -186,6 +209,40 @@ final class Connection
     public function refusedAt(): string
     {
         return $this->string('refused_at');
+    }
+
+    /**
+     * Whether the engine takes the connection: its key reads, and no health check found it
+     * refused. Rows, requests of the storefront and automations go only to such a connection.
+     */
+    public function isTaken(): bool
+    {
+        return $this->apiKey !== '' && $this->refusedAt() === '';
+    }
+
+    /**
+     * What the admin pages show for the connection, from the health checks: connected (also while
+     * the engine does not answer), or why the engine refuses it (the reason of the last refusal,
+     * which a later check without an answer does not replace).
+     *
+     * @return string one of the STATE_ constants
+     */
+    public function state(): string
+    {
+        if ($this->apiKey === '') {
+            return self::STATE_KEY_REFUSED;
+        }
+        if ($this->refusedAt() === '') {
+            return self::STATE_CONNECTED;
+        }
+        switch ($this->settings['refused_error'] ?? $this->health()['error']) {
+            case 'tenant_inactive':
+                return self::STATE_NOT_ACTIVE;
+            case 'plugin_update_required':
+                return self::STATE_UPDATE_REQUIRED;
+            default:
+                return self::STATE_KEY_REFUSED;
+        }
     }
 
     /**

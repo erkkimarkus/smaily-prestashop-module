@@ -44,6 +44,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Pending;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
 
 /**
  * Sends the queued identity merges (contract §7), each through the connection of its row's shop,
@@ -158,7 +159,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
         if ($connection === null) {
             return new Skipped(self::SKIPPED_NO_CONNECTION);
         }
-        if (!IngestFlusher::maySend($connection)) {
+        if (!$connection->isTaken()) {
             return new Pending();
         }
         $customer = $this->scope->customer((int) $payload['id_customer']);
@@ -171,10 +172,10 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
 
         $confirmed = $this->scope->consents($connection, $customer);
         $consents = !empty($payload['send_customer']) && $confirmed;
-        $token = is_string($payload['visitor_token'] ?? null) && preg_match(IdentityCapture::VISITOR_TOKEN, $payload['visitor_token']) === 1
+        $token = is_string($payload['visitor_token'] ?? null) && Shape::isVisitorToken($payload['visitor_token'])
             ? $payload['visitor_token']
             : null;
-        if ($token !== null && strpos($token, 'vs_') === 0 && !$confirmed) {
+        if ($token !== null && Shape::isStoreVisitorToken($token) && !$confirmed) {
             // A token that the store created travels only with marketing consent (contract §7).
             $token = null;
         }
@@ -254,10 +255,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
         try {
             $answer = $this->client->identityMerge($connection, $body);
         } catch (EngineException $failure) {
-            $this->exchanges[(int) $event['id']] = [
-                'request' => $body,
-                'response' => $failure->httpStatus() > 0 ? ['http_status' => $failure->httpStatus(), 'body' => ['error' => $failure->errorCode()]] : null,
-            ];
+            $this->exchanges[(int) $event['id']] = ['request' => $body, 'response' => $failure->response()];
             if ($failure instanceof EngineRequestException && $failure->httpStatus() === 404 && $failure->errorCode() === self::NOT_FOUND) {
                 return false;
             }
@@ -311,11 +309,11 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
         if (!$failure instanceof EngineRequestException) {
             return Failure::temporary($failure->errorCode());
         }
-        if (in_array($failure->httpStatus(), [401, 403, 409], true) && $this->health->check($connection) === HealthCheck::REFUSED) {
+        if ($this->health->refuses($connection, $failure)) {
             return new Pending();
         }
 
-        return Failure::permanent(sprintf('permanent_http_%d: %s', $failure->httpStatus(), $failure->errorCode()));
+        return Failure::permanent($failure->permanentReason());
     }
 
     /**

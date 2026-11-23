@@ -127,6 +127,69 @@ final class HistoryImportTest extends IngestTestCase
         self::assertSame('done', $this->jobs()->progress($connection)['orders']['status']);
     }
 
+    public function testAnImportOfManyPagesStopsAtItsBacklogAndCountsEveryOrder(): void
+    {
+        $connection = $this->connect();
+        $buyer = $this->addCustomer($this->shop, 'history3@example.test', false, (int) \Configuration::get('PS_LANG_DEFAULT'));
+        $this->orders($buyer, '-1 month', 700);
+        $this->orders($buyer, '-30 months', 500);
+        $this->jobs()->start($connection, HistoryJobs::ORDERS);
+
+        // The first run: the start part in pages, then older orders until BACKLOG markers wait.
+        $this->import()->run($this->deadline());
+        $state = $this->state($connection, 'orders');
+        $start = $this->ordersBetween($state['start_from'], $state['until']);
+        $total = $start + $this->ordersBetween($state['horizon'], $state['start_from']);
+        self::assertGreaterThan(HistoryImport::BACKLOG - 2 * HistoryImport::PAGE, $start, 'the start part and one older page stay under the backlog');
+        self::assertLessThanOrEqual(HistoryImport::BACKLOG - HistoryImport::PAGE, $start, 'and a second older page reaches it');
+        self::assertGreaterThan($start + 2 * HistoryImport::PAGE, $total, 'orders are left for the next run');
+        $queued = $start + 2 * HistoryImport::PAGE;
+        self::assertSame(
+            [$total, $queued, 0, 0, 0, 'older', false],
+            [$state['total'], $state['queued'], $state['sent'], $state['failed'], $state['skipped'], $state['phase'], !empty($state['queued_all'])]
+        );
+        self::assertSame($queued, $state['last_row'] - $state['first_row'] + 1);
+        self::assertSame(array_fill(0, $queued, 'pending'), array_column(self::rows('orders'), 'status'));
+        self::assertSame(
+            ['status' => 'running', 'active' => true, 'total' => $total, 'sent' => 0, 'failed' => 0, 'phase' => 'older'],
+            array_intersect_key($this->jobs()->progress($connection)['orders'], array_flip(['status', 'active', 'total', 'sent', 'failed', 'phase']))
+        );
+
+        // The second run: the rest is queued, and what the flush sent is counted.
+        $this->flush();
+        $this->import()->run($this->deadline());
+        $state = $this->state($connection, 'orders');
+        self::assertSame(
+            [$total, $total, $queued, 0, 0, true],
+            [$state['total'], $state['queued'], $state['sent'], $state['failed'], $state['skipped'], !empty($state['queued_all'])]
+        );
+        self::assertSame(
+            ['status' => 'running', 'active' => true, 'total' => $total, 'sent' => $queued, 'failed' => 0, 'phase' => 'older'],
+            array_intersect_key($this->jobs()->progress($connection)['orders'], array_flip(['status', 'active', 'total', 'sent', 'failed', 'phase']))
+        );
+
+        // The third run: every marker is delivered, and the import ends.
+        $this->flush();
+        $this->import()->run($this->deadline());
+        $state = $this->state($connection, 'orders');
+        self::assertSame([$total, $total, 0, 0], [$state['queued'], $state['sent'], $state['failed'], $state['skipped']]);
+        self::assertSame(
+            ['status' => 'done', 'active' => false, 'total' => $total, 'sent' => $total, 'failed' => 0],
+            array_intersect_key($this->jobs()->progress($connection)['orders'], array_flip(['status', 'active', 'total', 'sent', 'failed']))
+        );
+        self::assertCount($total, $this->sent(self::ORDERS, 'orders'));
+
+        $calls = $this->calls();
+        self::assertSame(['started', 'start_part_complete', 'complete'], array_column($calls, 'phase'));
+        self::assertSame(
+            [[0, $total], [$queued, $total], [$total, $total]],
+            array_map(static fn (array $call): array => [$call['entities']['orders']['sent'], $call['entities']['orders']['expected']], $calls)
+        );
+
+        $this->import()->run($this->deadline());
+        self::assertCount(3, $this->calls(), 'nothing is reported after "complete"');
+    }
+
     public function testHoldBackBeforeTheFirstRunSendsNothing(): void
     {
         $connection = $this->connect();
@@ -264,6 +327,66 @@ final class HistoryImportTest extends IngestTestCase
         $paths = array_column($this->engine->requests(), 'path');
 
         return (int) array_search($path, array_slice($paths, 1), true);
+    }
+
+    /**
+     * The number of the shop's orders placed from $from and before $before.
+     */
+    private function ordersBetween(string $from, string $before): int
+    {
+        return (int) self::db()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'orders` WHERE `id_shop` = ' . $this->shop
+            . ' AND `date_add` >= \'' . pSQL($from) . '\' AND `date_add` < \'' . pSQL($before) . '\'',
+            false
+        );
+    }
+
+    /**
+     * Adds $count orders of one age, each with one line, in two statements.
+     */
+    private function orders(int $idCustomer, string $age, int $count): void
+    {
+        $placedAt = date('Y-m-d H:i:s', (int) strtotime($age, $this->now));
+        $reference = 'T' . substr(md5($age), 0, 8);
+        self::db()->insert('orders', array_fill(0, $count, [
+            'reference' => $reference,
+            'id_shop_group' => (int) \Shop::getGroupFromShop($this->shop),
+            'id_shop' => $this->shop,
+            'id_carrier' => 0,
+            'id_lang' => (int) \Configuration::get('PS_LANG_DEFAULT'),
+            'id_customer' => $idCustomer,
+            'id_cart' => 0,
+            'id_currency' => (int) \Configuration::get('PS_CURRENCY_DEFAULT'),
+            'id_address_delivery' => 0,
+            'id_address_invoice' => 0,
+            'current_state' => (int) \Configuration::get('PS_OS_PAYMENT'),
+            'payment' => 'test',
+            'total_paid' => 0,
+            'total_paid_tax_incl' => 23.9,
+            'invoice_date' => $placedAt,
+            'delivery_date' => $placedAt,
+            'date_add' => $placedAt,
+            'date_upd' => $placedAt,
+        ]));
+        $ids = array_map('intval', array_column(
+            self::db()->executeS('SELECT `id_order` FROM `' . _DB_PREFIX_ . 'orders` WHERE `reference` = \'' . pSQL($reference) . '\'', true, false) ?: [],
+            'id_order'
+        ));
+        self::assertCount($count, $ids);
+        array_push($this->orders, ...$ids);
+        self::db()->insert('order_detail', array_map(fn (int $id): array => [
+            'id_order' => $id,
+            'id_shop' => $this->shop,
+            'product_id' => 1,
+            'product_attribute_id' => 1,
+            'product_name' => 'Test line',
+            'product_quantity' => 1,
+            'product_price' => 23.9,
+            'unit_price_tax_incl' => 23.9,
+            'unit_price_tax_excl' => 23.9,
+            'total_price_tax_incl' => 23.9,
+            'total_price_tax_excl' => 23.9,
+        ], $ids));
     }
 
     private function order(int $idCustomer, string $age): int

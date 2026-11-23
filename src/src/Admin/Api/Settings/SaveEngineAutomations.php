@@ -72,12 +72,6 @@ final class SaveEngineAutomations extends AbstractSettingsAction
             ];
         }
 
-        $response = new JsonResponse([
-            'ok' => false,
-            'error' => ['code' => $result['code'], 'message' => $result['message'], 'fields' => $result['fields']],
-        ], 422);
-        $response->headers->set('Cache-Control', 'no-store');
-
-        return $response;
+        return $this->error($result['code'], $result['message'], 422, $result['fields']);
     }
 }

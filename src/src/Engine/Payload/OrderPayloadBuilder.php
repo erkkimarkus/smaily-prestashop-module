@@ -32,6 +32,8 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\ConnectionShops;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
 
 /**
  * An order as the orders row of a connection (contract §5), built from the order as the store
@@ -53,7 +55,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\ConnectionShops;
  * - A line names its product by the key of its catalog row (Keys), also when the product was
  *   deleted since: the line keeps the ids.
  * - `smaily_rec_id`, `smaily_visitor_token` and `smaily_rec_ctx` come from the order's
- *   attribution row, each only in the contract's form; a field without a stored value is left
+ *   attribution row, each only in the contract's form (Storefront\Shape); a field without a stored value is left
  *   out, never sent empty.
  * - `website` names the order's shop for a connection that serves two or more shops.
  *
@@ -69,13 +71,6 @@ class OrderPayloadBuilder
     public const STATUS_CANCELLED = 'cancelled';
 
     public const STATUS_REFUNDED = 'refunded';
-
-    private const UUID = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD';
-
-    /** An engine token (`vt_`) or a token the store created (`vs_`), contract "ID formats". */
-    private const VISITOR_TOKEN = '/^(?:vt_[A-Za-z0-9]{1,61}|vs_[A-Za-z0-9]{22})$/D';
-
-    private const CONTEXT = '/^[A-Za-z0-9._-]{1,64}$/D';
 
     /**
      * @return array<string, mixed>|null null when the store holds no such order, or the order's
@@ -219,16 +214,16 @@ class OrderPayloadBuilder
     private function attribution(int $idOrder): array
     {
         $stored = Sql::row(
-            'SELECT `rec_id`, `context`, `visitor_token` FROM `' . _DB_PREFIX_ . 'smaily_connect_order_attribution` WHERE `id_order` = ' . $idOrder
+            'SELECT `rec_id`, `context`, `visitor_token` FROM `' . _DB_PREFIX_ . OrderAttribution::TABLE . '` WHERE `id_order` = ' . $idOrder
         );
         $fields = [];
-        if (preg_match(self::UUID, (string) ($stored['rec_id'] ?? '')) === 1) {
+        if (Shape::isRecId((string) ($stored['rec_id'] ?? ''))) {
             $fields['smaily_rec_id'] = (string) $stored['rec_id'];
         }
-        if (preg_match(self::VISITOR_TOKEN, (string) ($stored['visitor_token'] ?? '')) === 1) {
+        if (Shape::isVisitorToken((string) ($stored['visitor_token'] ?? ''))) {
             $fields['smaily_visitor_token'] = (string) $stored['visitor_token'];
         }
-        if (preg_match(self::CONTEXT, (string) ($stored['context'] ?? '')) === 1) {
+        if (Shape::isContext((string) ($stored['context'] ?? ''))) {
             $fields['smaily_rec_ctx'] = (string) $stored['context'];
         }
 

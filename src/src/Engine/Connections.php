@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
 
 /**
  * The rows of the connection table: the Campaign Intelligence connections of the installation, one
@@ -47,10 +48,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
  * connection it holds now, so a write of the settings and a removal touch the row only while it
  * still holds the connection that was read: a health check that started before a reconnect does
  * not write the old engine store's state over the new one.
+ *
+ * Every write tells the storefront, which reads a shop's connection once in a request
+ * (Storefront\ActiveConnection::reset()).
  */
 final class Connections
 {
-    private const TABLE = 'smaily_connect_connection';
+    public const TABLE = 'smaily_connect_connection';
 
     private Crypto $crypto;
 
@@ -121,6 +125,7 @@ final class Connections
             . ' ON DUPLICATE KEY UPDATE `smaily_subdomain` = VALUES(`smaily_subdomain`), `tenant_id` = VALUES(`tenant_id`),'
             . ' `api_key_enc` = VALUES(`api_key_enc`), `settings` = VALUES(`settings`), `date_upd` = VALUES(`date_upd`)'
         );
+        ActiveConnection::reset();
         $connection = $this->find($idShop);
         if ($connection === null) {
             throw new \LogicException('The connection that was stored cannot be read.');
@@ -141,6 +146,7 @@ final class Connections
             . ' SET `settings` = \'' . pSQL(self::encode($settings), true) . '\', `date_upd` = NOW()'
             . ' WHERE ' . self::same($connection)
         );
+        ActiveConnection::reset();
     }
 
     /**
@@ -155,6 +161,7 @@ final class Connections
             . ' SET `id_shop` = ' . $idShop . ', `date_upd` = NOW()'
             . ' WHERE ' . self::same($connection)
         );
+        ActiveConnection::reset();
     }
 
     /**
@@ -163,6 +170,7 @@ final class Connections
     public function delete(Connection $connection): void
     {
         Sql::delete(self::TABLE, self::same($connection));
+        ActiveConnection::reset();
     }
 
     private static function select(): string

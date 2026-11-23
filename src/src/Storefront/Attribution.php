@@ -79,6 +79,28 @@ final class Attribution
     }
 
     /**
+     * What the attribution row of a cart or an order holds for the values read, or null when
+     * they give no row: nothing without a recommendation id or a visitor token, and the context
+     * only beside a recommendation id, because the two describe one landing.
+     *
+     * @param array{rec_id: ?string, context: ?string, visitor_token: ?string} $read
+     *
+     * @return array{rec_id: ?string, context: ?string, visitor_token: ?string}|null
+     */
+    public static function rowValues(array $read): ?array
+    {
+        if ($read['rec_id'] === null && $read['visitor_token'] === null) {
+            return null;
+        }
+
+        return [
+            'rec_id' => $read['rec_id'],
+            'context' => $read['rec_id'] === null ? null : $read['context'],
+            'visitor_token' => $read['visitor_token'],
+        ];
+    }
+
+    /**
      * A visitor token as it may be sent for a shopper, or null: an engine token as it is, a
      * store-created one only with marketing consent, any other value never. The rule of a token
      * from a cookie, and of one that was kept with the cart (CartAttribution).

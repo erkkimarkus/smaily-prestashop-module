@@ -57,6 +57,15 @@ final class ContactEntity
      */
     public static function key(string $email): string
     {
-        return hash_hmac('sha256', 'smaily-connect-address|' . strtolower(trim($email)), _NEW_COOKIE_KEY_);
+        return hash_hmac('sha256', 'smaily-connect-address|' . self::address($email), _NEW_COOKIE_KEY_);
+    }
+
+    /**
+     * An address as the keyed hash and every request to Campaign Intelligence spell it: trimmed,
+     * in lower case.
+     */
+    public static function address(string $email): string
+    {
+        return strtolower(trim($email));
     }
 }

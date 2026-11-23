@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 
 /**
@@ -44,9 +45,17 @@ final class ConnectionShops
      */
     public static function of(Connection $connection): array
     {
-        if ($connection->idShop() > 0) {
-            return [$connection->idShop()];
-        }
+        return $connection->idShop() > 0 ? [$connection->idShop()] : self::all();
+    }
+
+    /**
+     * The shops that the installation serves, lowest id first: every active shop, or the default
+     * shop alone while multistore is off.
+     *
+     * @return list<int>
+     */
+    public static function all(): array
+    {
         if (!\Shop::isFeatureActive()) {
             return [(int) \Configuration::get('PS_SHOP_DEFAULT')];
         }
@@ -54,6 +63,28 @@ final class ConnectionShops
         sort($shops);
 
         return $shops;
+    }
+
+    /**
+     * The start of a query on the products of the connection's shops: the table `product_shop`
+     * with the condition that keeps its rows to those shops. A product of two shops has two rows.
+     */
+    public static function products(Connection $connection): string
+    {
+        return '`' . _DB_PREFIX_ . 'product_shop` WHERE `id_shop` IN (' . implode(', ', self::of($connection)) . ')';
+    }
+
+    /**
+     * Up to $limit ids of the products of the connection's shops above $afterId, lowest first.
+     *
+     * @return list<int>
+     */
+    public static function productIds(Connection $connection, int $afterId, int $limit): array
+    {
+        return array_map('intval', array_column(Sql::rows(
+            'SELECT DISTINCT `id_product` FROM ' . self::products($connection)
+            . ' AND `id_product` > ' . $afterId . ' ORDER BY `id_product` LIMIT ' . $limit
+        ), 'id_product'));
     }
 
     /**

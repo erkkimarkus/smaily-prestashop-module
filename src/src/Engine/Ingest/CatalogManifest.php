@@ -130,7 +130,7 @@ final class CatalogManifest
         if ($this->connections->keyOf(max(1, $connection->idShop())) !== $connection->idShop()) {
             return false;
         }
-        if (!IngestFlusher::maySend($connection) || self::suppressed($connection, $connections)) {
+        if (!$connection->isTaken() || self::suppressed($connection, $connections)) {
             return false;
         }
         $now = ($this->now)();
@@ -177,7 +177,7 @@ final class CatalogManifest
      */
     public function nightsUnsent(Connection $connection, array $connections): int
     {
-        if (!IngestFlusher::maySend($connection) || self::suppressed($connection, $connections)) {
+        if (!$connection->isTaken() || self::suppressed($connection, $connections)) {
             return 0;
         }
         $last = $this->queue->newestSent($connection->id(), IngestQueue::DOMAIN_MANIFEST);
@@ -186,16 +186,13 @@ final class CatalogManifest
         if ($nights === 0) {
             return 0;
         }
-        $hasProduct = Sql::value(
-            'SELECT 1 FROM `' . _DB_PREFIX_ . 'product_shop` WHERE `id_shop` IN (' . implode(', ', ConnectionShops::of($connection)) . ')'
-        );
+        $hasProduct = Sql::value('SELECT 1 FROM ' . ConnectionShops::products($connection));
 
         return $hasProduct === null ? 0 : $nights;
     }
 
     private function send(Connection $connection, Deadline $deadline): void
     {
-        $shops = implode(', ', ConnectionShops::of($connection));
         $items = [];
         $after = 0;
         do {
@@ -203,11 +200,7 @@ final class CatalogManifest
                 // No partial list: the next run builds it again.
                 return;
             }
-            $ids = array_map('intval', array_column(Sql::rows(
-                'SELECT DISTINCT `id_product` FROM `' . _DB_PREFIX_ . 'product_shop`'
-                . ' WHERE `id_shop` IN (' . $shops . ') AND `id_product` > ' . $after
-                . ' ORDER BY `id_product` LIMIT ' . self::PAGE_SIZE
-            ), 'id_product'));
+            $ids = ConnectionShops::productIds($connection, $after, self::PAGE_SIZE);
             if ($ids !== []) {
                 $after = max($ids);
                 array_push($items, ...$this->catalog->manifestItems($connection, $ids));
@@ -233,10 +226,8 @@ final class CatalogManifest
                 IngestQueue::DOMAIN_MANIFEST,
                 '',
                 $request,
-                $failure->httpStatus() > 0 ? ['http_status' => $failure->httpStatus(), 'body' => ['error' => $failure->errorCode()]] : null,
-                $failure instanceof EngineRequestException
-                    ? sprintf('permanent_http_%d: %s', $failure->httpStatus(), $failure->errorCode())
-                    : $failure->errorCode()
+                $failure->response(),
+                $failure instanceof EngineRequestException ? $failure->permanentReason() : $failure->errorCode()
             );
 
             return;

@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 
 /**
  * The Intelligence panel of Story 5.3 against the engine mock: a connection starts the three
@@ -40,7 +41,7 @@ final class IntelligencePanelTest extends EngineTestCase
 
         self::assertNull($result['error']);
         $values = $result['values'];
-        self::assertSame([true, 'Mock Store', '1.0.0', IntelligencePanel::STATE_CONNECTED], [$values['connected'], $values['name'], $values['engine_version'], $values['state']]);
+        self::assertSame([true, 'Mock Store', '1.0.0', Connection::STATE_CONNECTED], [$values['connected'], $values['name'], $values['engine_version'], $values['state']]);
         self::assertSame(['catalog' => 'queued', 'customers' => 'queued', 'orders' => 'queued'], array_map(static fn (array $import): string => $import['status'], $values['imports']));
         self::assertStringNotContainsString('sk_', (string) json_encode($values), 'no key reaches the page');
 
@@ -81,19 +82,19 @@ final class IntelligencePanelTest extends EngineTestCase
 
         $this->engine->set('tenant_inactive', true);
         $check = $this->panel()->check($this->scope());
-        self::assertSame([IntelligencePanel::STATE_NOT_ACTIVE, 'Campaign Intelligence still reports that this account is not active.'], [$check['values']['state'], $check['message']]);
+        self::assertSame([Connection::STATE_NOT_ACTIVE, 'Campaign Intelligence still reports that this account is not active.'], [$check['values']['state'], $check['message']]);
 
         $this->engine->set('tenant_inactive', false);
         $this->engine->fail('ping', 503);
         $check = $this->panel()->check($this->scope());
-        self::assertSame([IntelligencePanel::STATE_NOT_ACTIVE, 'Could not reach Campaign Intelligence.'], [$check['values']['state'], $check['message']], 'no answer keeps what was known');
+        self::assertSame([Connection::STATE_NOT_ACTIVE, 'Could not reach Campaign Intelligence.'], [$check['values']['state'], $check['message']], 'no answer keeps what was known');
 
         $this->engine->set('fail', []);
         $check = $this->panel()->check($this->scope());
-        self::assertSame([IntelligencePanel::STATE_CONNECTED, ''], [$check['values']['state'], $check['message']]);
+        self::assertSame([Connection::STATE_CONNECTED, ''], [$check['values']['state'], $check['message']]);
 
         $this->engine->revokeKeys();
-        self::assertSame(IntelligencePanel::STATE_KEY_REFUSED, $this->panel()->check($this->scope())['values']['state']);
+        self::assertSame(Connection::STATE_KEY_REFUSED, $this->panel()->check($this->scope())['values']['state']);
 
         $values = $this->panel()->disconnect($this->scope());
         self::assertFalse($values['connected']);

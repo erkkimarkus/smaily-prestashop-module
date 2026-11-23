@@ -57,14 +57,6 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 final class IntelligencePanel
 {
-    public const STATE_CONNECTED = 'connected';
-
-    public const STATE_NOT_ACTIVE = 'not_active';
-
-    public const STATE_KEY_REFUSED = 'key_refused';
-
-    public const STATE_UPDATE_REQUIRED = 'update_required';
-
     private Connections $connections;
 
     private Setup $setup;
@@ -91,7 +83,7 @@ final class IntelligencePanel
     }
 
     /**
-     * @return array{connected: bool, name: string, engine_version: string, state: string, account_url: string, consent: bool, imports: array<string, array<string, mixed>|null>|null}|null null when the scope saves nothing
+     * @return array{connected: bool, name: string, engine_version: string, state: string, account_url: string, consent: bool, imports: array<string, array<string, mixed>|null>|null}|null null when the scope saves nothing; `state` is Connection::state(), '' without a connection
      */
     public function values(SetupScope $scope): ?array
     {
@@ -106,7 +98,7 @@ final class IntelligencePanel
             'connected' => $connection !== null,
             'name' => is_string($settings['tenant_name'] ?? null) ? $settings['tenant_name'] : '',
             'engine_version' => is_string($settings['engine_version'] ?? null) ? $settings['engine_version'] : '',
-            'state' => $connection === null ? '' : self::state($connection),
+            'state' => $connection === null ? '' : $connection->state(),
             'account_url' => $connection !== null && $connection->smailySubdomain() !== '' ? 'https://' . $connection->smailySubdomain() . '.sendsmaily.net' : '',
             'consent' => $this->settings->consentConfirmed($shop),
             'imports' => $connection === null ? null : $this->jobs->progress($connection),
@@ -156,7 +148,7 @@ final class IntelligencePanel
             $connection = $this->connection($scope);
             if ($status === HealthCheck::UNREACHABLE) {
                 $message = $this->trans('Could not reach Campaign Intelligence.');
-            } elseif ($connection !== null && self::state($connection) === self::STATE_NOT_ACTIVE) {
+            } elseif ($connection !== null && $connection->state() === Connection::STATE_NOT_ACTIVE) {
                 $message = $this->trans('Campaign Intelligence still reports that this account is not active.');
             }
         }
@@ -225,29 +217,6 @@ final class IntelligencePanel
         $shop = $scope->targetShop();
 
         return $shop === null ? null : $this->connections->find($shop);
-    }
-
-    /**
-     * What the page shows for a stored connection, from the health checks: connected (also while
-     * the engine does not answer), or why the engine refuses it (the reason of the last refusal,
-     * which a later check without an answer does not replace).
-     */
-    public static function state(Connection $connection): string
-    {
-        if ($connection->apiKey() === '') {
-            return self::STATE_KEY_REFUSED;
-        }
-        if ($connection->refusedAt() === '') {
-            return self::STATE_CONNECTED;
-        }
-        switch ($connection->settings()['refused_error'] ?? $connection->health()['error']) {
-            case 'tenant_inactive':
-                return self::STATE_NOT_ACTIVE;
-            case 'plugin_update_required':
-                return self::STATE_UPDATE_REQUIRED;
-            default:
-                return self::STATE_KEY_REFUSED;
-        }
     }
 
     /** Why a setup link was not taken, in the module's own words. */

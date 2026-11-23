@@ -138,6 +138,25 @@ final class ResendGuard
     }
 
     /**
+     * Why a row of the Log may not be sent again, or null when it may: the answer above for a row
+     * of either queue; an import job is never sent again.
+     *
+     * @param array<string, mixed> $row a row of LogRows::find()
+     */
+    public function refusalOf(array $row): ?string
+    {
+        $id = (int) $row['id'];
+        switch ($row['kind']) {
+            case LogRows::SMAILY:
+                return $this->refusals([$id => $row])[$id] ?? null;
+            case LogRows::INTELLIGENCE:
+                return $this->ingestRefusals([$id => $row])[$id] ?? null;
+            default:
+                return self::REASON_NOT_FAILED;
+        }
+    }
+
+    /**
      * The EN source of the merchant's sentence for a refusal, or '' for an unknown reason.
      */
     public static function message(string $reason): string

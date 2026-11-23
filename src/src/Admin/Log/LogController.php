@@ -111,26 +111,6 @@ final class LogController extends BaseController
     }
 
     /**
-     * Why a row of the Log may not be sent again, or null when it may: the resend guard's answer
-     * for a row of either queue; an import job is never sent again.
-     *
-     * @param array<string, mixed> $row a row of LogRows::find()
-     */
-    public static function refusal(array $row): ?string
-    {
-        $guard = new ResendGuard();
-        $id = (int) $row['id'];
-        switch ($row['kind']) {
-            case LogRows::SMAILY:
-                return $guard->refusals([$id => $row])[$id] ?? null;
-            case LogRows::INTELLIGENCE:
-                return $guard->ingestRefusals([$id => $row])[$id] ?? null;
-            default:
-                return ResendGuard::REASON_NOT_FAILED;
-        }
-    }
-
-    /**
      * The Log's reads for the shops of PrestaShop's shop selector.
      */
     public static function rows(): LogRows

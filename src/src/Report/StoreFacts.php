@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\ConnectionShops;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 
 /**
@@ -47,13 +48,7 @@ class StoreFacts
      */
     public function shopIds(): array
     {
-        if (!\Shop::isFeatureActive()) {
-            return [$this->defaultShopId()];
-        }
-        $shops = array_map('intval', array_values(\Shop::getShops(true, null, true)));
-        sort($shops);
-
-        return $shops;
+        return ConnectionShops::all();
     }
 
     public function defaultShopId(): int

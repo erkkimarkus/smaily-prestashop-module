@@ -427,6 +427,30 @@ final class EventQueue
     }
 
     /**
+     * The rows of one event type that still wait under one of the entities (`pending`, or
+     * `processing` under a flush), oldest first.
+     *
+     * @param list<string> $entities
+     *
+     * @return list<array<string, string|null>> with `entity_id` and `payload`
+     */
+    public function waitingOfEntities(array $entities, string $eventType): array
+    {
+        if ($entities === []) {
+            return [];
+        }
+
+        return Sql::rows(sprintf(
+            'SELECT `entity_id`, `payload` FROM %s WHERE `entity_id` IN (%s) AND `event_type` = %s AND `status` IN (%s, %s) ORDER BY `id`',
+            self::table(),
+            implode(', ', array_map([self::class, 'quote'], $entities)),
+            self::quote($eventType),
+            self::quote(self::STATUS_PENDING),
+            self::quote(self::STATUS_PROCESSING)
+        ));
+    }
+
+    /**
      * Erases a contact from the rows $ids. A row that can still be sent (`pending`, or
      * `processing` under a flush) is deleted: nothing more goes out for the contact. A closed row
      * stays, as the store's record that something was sent, and loses what names the contact: its
@@ -534,6 +558,6 @@ final class EventQueue
 
     private static function quote(?string $value): string
     {
-        return $value === null ? 'NULL' : '\'' . pSQL($value, true) . '\'';
+        return Sql::quote($value, true);
     }
 }

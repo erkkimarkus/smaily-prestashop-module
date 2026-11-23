@@ -182,6 +182,17 @@ final class Sql
     }
 
     /**
+     * A text value as an SQL literal, or `NULL` for null.
+     *
+     * @param bool $keepTags pSQL()'s second argument: without it PrestaShop strips tags from the
+     *                       value
+     */
+    public static function quote(?string $value, bool $keepTags = false): string
+    {
+        return $value === null ? 'NULL' : '\'' . pSQL($value, $keepTags) . '\'';
+    }
+
+    /**
      * Makes every operation run through $connection, an object with the methods of PrestaShop's
      * Db that this class calls; null returns to PrestaShop's own. For tests, which make a chosen
      * query fail the way a live PrestaShop 9 store reports it.

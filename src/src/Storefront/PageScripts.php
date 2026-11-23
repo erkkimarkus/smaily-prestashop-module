@@ -92,7 +92,7 @@ final class PageScripts
         if ($connection === null) {
             return;
         }
-        $sending = ActiveConnection::isTaken($connection);
+        $sending = $connection->isTaken();
 
         \Media::addJsDef([self::JS_DEF => $this->definition($context, $controller, $connection, $sending)]);
         foreach ($sending ? ['consent', 'attribution', 'tracker', 'recommendations'] : ['consent', 'attribution'] as $index => $script) {

@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CustomerScope;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
 
 /**
  * Queues the identity merge (contract §7) when a shopper becomes known in the storefront: at a
@@ -64,9 +65,6 @@ final class IdentityCapture
 
     /** The contract's `merge_reason` of a guest who gave an address at the checkout. */
     public const REASON_CHECKOUT = 'email_provided_at_checkout';
-
-    /** An engine token (`vt_`) or a token of the store (`vs_`), contract "ID formats". */
-    public const VISITOR_TOKEN = '/^(?:vt_[A-Za-z0-9]{1,61}|vs_[A-Za-z0-9]{22})$/D';
 
     private Connections $connections;
 
@@ -135,7 +133,7 @@ final class IdentityCapture
 
         $consents = $this->scope->consents($connection, $customer);
         $token = $this->visitor->token($idShop, $consents);
-        if ($token !== null && (preg_match(self::VISITOR_TOKEN, $token) !== 1 || (!$consents && strpos($token, 'vs_') === 0))) {
+        if ($token !== null && (!Shape::isVisitorToken($token) || (!$consents && Shape::isStoreVisitorToken($token)))) {
             $token = null;
         }
         if (!$consents && $token === null) {

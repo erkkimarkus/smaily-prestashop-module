@@ -101,11 +101,14 @@ final class InstallationReport
     /**
      * A save of the setup: one `setup_saved` report DEBOUNCE_SECONDS from now, unless one already
      * waits. Never throws: a save never fails on its report.
+     *
+     * @param bool|null $connected whether a Smaily account is connected, when the caller read it
+     *                             already (SetupChange); null reads it here
      */
-    public function setupSaved(): void
+    public function setupSaved(?bool $connected = null): void
     {
         try {
-            if ($this->builder->mainCredentials() === null) {
+            if (!($connected ?? $this->builder->mainCredentials() !== null)) {
                 return;
             }
             $state = $this->settings->state();

@@ -29,7 +29,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\IntelligencePanel;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
@@ -68,7 +67,7 @@ final class EngineFacts
      * @param int|null $shop the setup whose connection shows; null for every shop of separate stores
      *
      * @return array<string, mixed> `per_shop` (no one connection shows), `connected`, `name`, `state`
-     *                              (one of IntelligencePanel's, '' without a connection),
+     *                              (Connection::state(), '' without a connection),
      *                              `unreachable`, `consent`, `catalog_items` (null without a
      *                              connection), `shared_store` and `unsent_nights`
      */
@@ -82,7 +81,7 @@ final class EngineFacts
             }
         }
         $shown = $shop === null ? $all : array_filter([$connection]);
-        $state = $connection === null ? '' : IntelligencePanel::state($connection);
+        $state = $connection === null ? '' : $connection->state();
         $settings = $connection === null ? [] : $connection->settings();
         $nights = array_map(fn (Connection $one): int => $this->manifest->nightsUnsent($one, $all), $shown);
 
@@ -91,7 +90,7 @@ final class EngineFacts
             'connected' => $connection !== null,
             'name' => is_string($settings['tenant_name'] ?? null) ? $settings['tenant_name'] : '',
             'state' => $state,
-            'unreachable' => $state === IntelligencePanel::STATE_CONNECTED && $connection->health()['status'] === HealthCheck::UNREACHABLE,
+            'unreachable' => $state === Connection::STATE_CONNECTED && $connection->health()['status'] === HealthCheck::UNREACHABLE,
             'consent' => $shop !== null && $this->settings->consentConfirmed($shop),
             'catalog_items' => $shown === [] ? null : $this->queries->catalogItems(
                 array_map(static fn (Connection $one): int => $one->id(), array_values($shown)),

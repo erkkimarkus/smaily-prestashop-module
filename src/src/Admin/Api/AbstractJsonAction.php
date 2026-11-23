@@ -101,9 +101,16 @@ abstract class AbstractJsonAction extends FrameworkBundleAdminController
         return self::noStore(new JsonResponse(['ok' => true, 'data' => (object) $data]));
     }
 
-    protected function error(string $code, string $message, int $status = 400): JsonResponse
+    /**
+     * @param list<array{field: string, message: string}>|null $fields the fields at fault, which
+     *                                                                 the page marks; null answers
+     *                                                                 no `fields`
+     */
+    protected function error(string $code, string $message, int $status = 400, ?array $fields = null): JsonResponse
     {
-        return self::noStore(new JsonResponse(['ok' => false, 'error' => ['code' => $code, 'message' => $message]], $status));
+        $error = ['code' => $code, 'message' => $message] + ($fields === null ? [] : ['fields' => $fields]);
+
+        return self::noStore(new JsonResponse(['ok' => false, 'error' => $error], $status));
     }
 
     /**

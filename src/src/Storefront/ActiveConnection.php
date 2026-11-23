@@ -38,11 +38,24 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
  *   it calls no engine.
  * - sending(): the engine also takes the connection (it is not refused, Engine\HealthCheck). The
  *   browse relay, the recommendations and their scripts work on it.
+ *
+ * A shop's connection is read once in a request: the page's scripts and the cart's attribution ask
+ * for the same one. Every write of a connection forgets what was read (Engine\Connections calls
+ * reset()), so a process that changes a connection reads it again.
  */
 final class ActiveConnection
 {
+    /** The number of reset() calls: what was read before the last one is read again. */
+    private static int $resets = 0;
+
     /** @var callable(int): ?Connection */
     private $forShop;
+
+    /** @var array<int, ?Connection> the stored connection of each shop asked, by shop */
+    private array $stored = [];
+
+    /** The value of $resets when $stored was started. */
+    private int $readAt = 0;
 
     /**
      * @param callable(int): ?Connection $forShop the stored connection that serves a shop
@@ -55,23 +68,30 @@ final class ActiveConnection
 
     public function stored(int $idShop): ?Connection
     {
-        $connection = ($this->forShop)($idShop);
+        if ($this->readAt !== self::$resets) {
+            $this->stored = [];
+            $this->readAt = self::$resets;
+        }
+        if (!array_key_exists($idShop, $this->stored)) {
+            $connection = ($this->forShop)($idShop);
+            $this->stored[$idShop] = $connection !== null && $connection->apiKey() !== '' ? $connection : null;
+        }
 
-        return $connection !== null && $connection->apiKey() !== '' ? $connection : null;
+        return $this->stored[$idShop];
+    }
+
+    /**
+     * Forgets the connections read so far, in every instance: a connection was written.
+     */
+    public static function reset(): void
+    {
+        ++self::$resets;
     }
 
     public function sending(int $idShop): ?Connection
     {
         $connection = $this->stored($idShop);
 
-        return $connection !== null && self::isTaken($connection) ? $connection : null;
-    }
-
-    /**
-     * Whether the engine takes the connection: no health check found it refused.
-     */
-    public static function isTaken(Connection $connection): bool
-    {
-        return $connection->refusedAt() === '';
+        return $connection !== null && $connection->isTaken() ? $connection : null;
     }
 }

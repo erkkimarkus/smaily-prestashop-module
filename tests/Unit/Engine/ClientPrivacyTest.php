@@ -9,7 +9,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
-use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+
+require_once __DIR__ . '/EngineClientFixture.php';
 
 /**
  * The three privacy calls of the engine client (contract §8, §9 and §10): the address stands in
@@ -18,13 +19,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
  */
 final class ClientPrivacyTest extends TestCase
 {
-    private const KEY = 'sk_not_a_real_key';
+    private const KEY = EngineClientFixture::KEY;
 
     private const REMOTE_TEXT = 'No customer with the email shopper1@example.test';
 
     public function testTheExportIsAGetOfTheAddressInThePath(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(200, '{"customer": {"email": "shopper1@example.test"}}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"customer": {"email": "shopper1@example.test"}}'));
 
         $answer = (new Client($transport, '3.0.0'))->customerExport(self::connection(), ' Shopper1+tag@Example.test ');
 
@@ -47,7 +48,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testTheDeletionIsADeleteWithTheConfirmation(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(200, '{"ok": true, "deleted": true}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"ok": true, "deleted": true}'));
 
         (new Client($transport, '3.0.0'))->customerDelete(self::connection(), 'shopper1@example.test');
 
@@ -59,7 +60,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testAnOptOutCarriesItsTimeAndAnOptInDoesNot(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(200, '{"ok": true}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"ok": true}'));
         $client = new Client($transport, '3.0.0');
 
         $client->customerOptOut(self::connection(), 'shopper1@example.test', true, '2026-11-21T10:15:23Z');
@@ -73,7 +74,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testAnEndpointThatTheStoredMapLacksFallsBackToItsPath(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(200, '{}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{}'));
         $connection = new Connection(1, 0, '', 'tenant', self::KEY, ['engine_base_url' => Client::BASE_URL, 'endpoints' => []]);
         $client = new Client($transport, '3.0.0');
 
@@ -90,7 +91,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testAnUnknownShopperIsARefusalWithTheStatusAndNeverTheEnginesText(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(404, (string) json_encode(['error' => 'customer_not_found', 'message' => self::REMOTE_TEXT])));
+        $transport = new EngineRecordingTransport(new Response(404, (string) json_encode(['error' => 'customer_not_found', 'message' => self::REMOTE_TEXT])));
 
         try {
             (new Client($transport, '3.0.0'))->customerDelete(self::connection(), 'shopper1@example.test');
@@ -104,7 +105,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testAnEngineThatIsDownIsATransportFailureWithoutItsText(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(503, (string) json_encode(['error' => 'A sentence, not a code', 'message' => self::REMOTE_TEXT])));
+        $transport = new EngineRecordingTransport(new Response(503, (string) json_encode(['error' => 'A sentence, not a code', 'message' => self::REMOTE_TEXT])));
 
         try {
             (new Client($transport, '3.0.0'))->customerExport(self::connection(), 'shopper1@example.test');
@@ -118,7 +119,7 @@ final class ClientPrivacyTest extends TestCase
 
     public function testAnAddressNeverTakesTheRequestToAnotherPathOrHost(): void
     {
-        $transport = new PrivacyRecordingTransport(new Response(200, '{}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{}'));
         $client = new Client($transport, '3.0.0');
 
         $client->customerExport(self::connection(), 'a/../../admin@example.test');
@@ -132,36 +133,10 @@ final class ClientPrivacyTest extends TestCase
 
     private static function connection(): Connection
     {
-        return new Connection(1, 0, 'demo', 'tenant', self::KEY, [
-            'engine_base_url' => Client::BASE_URL,
-            'endpoints' => [
-                'customer_export' => Client::BASE_URL . '/api/v1/customer/{email}/export',
-                'customer_delete' => Client::BASE_URL . '/api/v1/customer/{email}',
-                'customer_opt_out' => Client::BASE_URL . '/api/v1/customer/{email}/opt-out',
-            ],
+        return EngineClientFixture::connection([
+            'customer_export' => Client::BASE_URL . '/api/v1/customer/{email}/export',
+            'customer_delete' => Client::BASE_URL . '/api/v1/customer/{email}',
+            'customer_opt_out' => Client::BASE_URL . '/api/v1/customer/{email}/opt-out',
         ]);
-    }
-}
-
-/**
- * Records each request and answers every one with the same response.
- */
-final class PrivacyRecordingTransport implements Transport
-{
-    /** @var list<array{string, string, array<string, mixed>}> */
-    public array $requests = [];
-
-    private Response $answer;
-
-    public function __construct(Response $answer)
-    {
-        $this->answer = $answer;
-    }
-
-    public function request(string $method, string $url, array $options = []): Response
-    {
-        $this->requests[] = [$method, $url, $options];
-
-        return $this->answer;
     }
 }

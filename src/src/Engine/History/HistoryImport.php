@@ -35,7 +35,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\ConnectionShops;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CustomerScope;
-use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
@@ -114,7 +113,7 @@ final class HistoryImport
         $working = [];
         foreach ($this->jobs->active() as $job) {
             $connection = $connections[(int) $job['id_connection']] ?? null;
-            if ($connection === null || !IngestFlusher::maySend($connection)) {
+            if ($connection === null || !$connection->isTaken()) {
                 $this->jobs->end($job, JobStore::STATUS_CANCELLED, $connection === null ? HistoryJobs::REASON_NO_CONNECTION : HistoryJobs::REASON_NOT_ACTIVE);
                 continue;
             }
@@ -149,13 +148,13 @@ final class HistoryImport
     private function begin(array $job, Connection $connection): array
     {
         $now = ($this->now)();
-        $startMonths = self::months($connection, 'start_months', self::DEFAULT_START_MONTHS);
+        $startMonths = $connection->historyMonths('start_months', self::DEFAULT_START_MONTHS);
         $job['state'] = [
             'until' => date('Y-m-d H:i:s', $now),
             'start_from' => date('Y-m-d H:i:s', (int) strtotime('-' . $startMonths . ' months', $now)),
             'horizon' => $this->scope->horizon($connection),
             'start_months' => $startMonths,
-            'horizon_months' => self::months($connection, 'horizon_months', CustomerScope::DEFAULT_HORIZON_MONTHS),
+            'horizon_months' => $connection->historyMonths('horizon_months', CustomerScope::DEFAULT_HORIZON_MONTHS),
             'phase' => self::PHASE_START,
         ] + $job['state'];
         $job['import_id'] = sprintf('presta-%s-%d', gmdate('Y-m-d', $now), (int) $job['id']);
@@ -185,7 +184,7 @@ final class HistoryImport
 
         $cursor = (string) $job['cursor'];
         while (empty($state['queued_all']) && !$deadline->passed()) {
-            if ($this->tally($job, $state)['waiting'] >= self::BACKLOG) {
+            if ($this->waiting($job, $state) >= self::BACKLOG) {
                 break;
             }
             $current = $this->jobs->find((int) $job['id']);
@@ -253,21 +252,38 @@ final class HistoryImport
     }
 
     /**
+     * The `waiting` of tally() alone, asked before every page: it reads the waiting markers, not
+     * every marker that the import wrote so far.
+     *
+     * @param array<string, mixed> $job
+     * @param array<string, mixed> $state
+     */
+    private function waiting(array $job, array $state): int
+    {
+        return isset($state['first_row']) ? $this->queue->countWaitingMarked(
+            (int) $job['id_connection'],
+            HistoryJobs::entityOf($job),
+            [self::MARKER => (int) $job['id']],
+            (int) $state['first_row'],
+            (int) $state['last_row']
+        ) : 0;
+    }
+
+    /**
      * The number of products, customers or orders in the import's scope.
      *
      * @param array<string, mixed> $state
      */
     private function total(string $entity, Connection $connection, array $state): int
     {
-        $shops = implode(', ', ConnectionShops::of($connection));
         switch ($entity) {
             case HistoryJobs::CATALOG:
-                return (int) Sql::value('SELECT COUNT(DISTINCT `id_product`) FROM `' . _DB_PREFIX_ . 'product_shop` WHERE `id_shop` IN (' . $shops . ')');
+                return (int) Sql::value('SELECT COUNT(DISTINCT `id_product`) FROM ' . ConnectionShops::products($connection));
             case HistoryJobs::CUSTOMERS:
                 return $this->scope->count($connection);
             default:
                 return (int) Sql::value(
-                    'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'orders` WHERE `id_shop` IN (' . $shops . ')'
+                    'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'orders` WHERE `id_shop` IN (' . implode(', ', ConnectionShops::of($connection)) . ')'
                     . ' AND `date_add` >= \'' . pSQL($state['horizon']) . '\' AND `date_add` < \'' . pSQL($state['until']) . '\''
                 );
         }
@@ -287,15 +303,10 @@ final class HistoryImport
         if ($entity === HistoryJobs::CUSTOMERS) {
             return array_map(static fn (int $id): array => [$id, (string) $id], $this->scope->page($connection, (int) $cursor, self::PAGE));
         }
-        $shops = implode(', ', ConnectionShops::of($connection));
         if ($entity === HistoryJobs::CATALOG) {
-            $ids = array_column(Sql::rows(
-                'SELECT DISTINCT `id_product` FROM `' . _DB_PREFIX_ . 'product_shop` WHERE `id_shop` IN (' . $shops . ')'
-                . ' AND `id_product` > ' . (int) $cursor . ' ORDER BY `id_product` LIMIT ' . self::PAGE
-            ), 'id_product');
-
-            return array_map(static fn ($id): array => [(int) $id, (string) $id], $ids);
+            return array_map(static fn (int $id): array => [$id, (string) $id], ConnectionShops::productIds($connection, (int) $cursor, self::PAGE));
         }
+        $shops = implode(', ', ConnectionShops::of($connection));
 
         [$from, $before] = $state['phase'] === self::PHASE_START ? [$state['start_from'], $state['until']] : [$state['horizon'], $state['start_from']];
         $after = '';
@@ -310,13 +321,5 @@ final class HistoryImport
         );
 
         return array_map(static fn (array $row): array => [(int) $row['id_order'], $row['date_add'] . '|' . $row['id_order']], $rows);
-    }
-
-    /** A number of months of the connection's `config.history`, or the contract's fallback. */
-    private static function months(Connection $connection, string $key, int $fallback): int
-    {
-        $history = $connection->config()['history'] ?? null;
-
-        return is_array($history) && is_numeric($history[$key] ?? null) && (int) $history[$key] > 0 ? (int) $history[$key] : $fallback;
     }
 }

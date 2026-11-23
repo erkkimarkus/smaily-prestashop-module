@@ -64,7 +64,7 @@ final class SetupChange
     public function before(): array
     {
         try {
-            return ['accounts' => $this->builder->accountKeys(), 'main' => $this->builder->mainCredentials()];
+            return $this->builder->accounts();
         } catch (\Throwable $error) {
             return ['accounts' => [], 'main' => null];
         }
@@ -77,15 +77,15 @@ final class SetupChange
     public function after(array $before, bool $saved = true): void
     {
         try {
-            $removed = array_diff($before['accounts'], $this->builder->accountKeys());
+            $now = $this->builder->accounts();
         } catch (\Throwable $error) {
-            $removed = [];
+            $now = null;
         }
-        if ($removed !== []) {
+        if ($now !== null && array_diff($before['accounts'], $now['accounts']) !== []) {
             $this->eventReport->send(ReportBuilder::EVENT_DISCONNECTED, [], $before['main']);
         }
         if ($saved) {
-            $this->installationReport->setupSaved();
+            $this->installationReport->setupSaved($now === null ? null : $now['main'] !== null);
         }
     }
 }

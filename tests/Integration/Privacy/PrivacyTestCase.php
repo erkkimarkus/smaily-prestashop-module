@@ -42,10 +42,6 @@ abstract class PrivacyTestCase extends DiscountTestCase
 
     private int $tokens = 0;
 
-    private ?Services $global = null;
-
-    private bool $swapped = false;
-
     protected function setUp(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
@@ -59,9 +55,7 @@ abstract class PrivacyTestCase extends DiscountTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
-            if ($this->swapped) {
-                self::instance()->setValue(null, $this->global);
-            }
+            $this->restoreShopRuntime();
             self::emptyTables();
         }
         parent::tearDown();
@@ -100,11 +94,7 @@ abstract class PrivacyTestCase extends DiscountTestCase
      */
     protected function hooksUseTheMocks(): void
     {
-        if (!$this->swapped) {
-            $this->global = self::instance()->getValue();
-            $this->swapped = true;
-        }
-        self::instance()->setValue(null, $this->services);
+        $this->useAsShopRuntime($this->services);
     }
 
     /**
@@ -188,14 +178,6 @@ abstract class PrivacyTestCase extends DiscountTestCase
     protected static function makeDue(): void
     {
         self::db()->execute('UPDATE `' . _DB_PREFIX_ . EventQueue::TABLE . '` SET `next_retry_at` = NULL WHERE `status` = \'pending\'');
-    }
-
-    private static function instance(): \ReflectionProperty
-    {
-        $property = new \ReflectionProperty(Services::class, 'instance');
-        self::accessible($property);
-
-        return $property;
     }
 
     private static function emptyTables(): void

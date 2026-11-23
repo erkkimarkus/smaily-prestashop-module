@@ -77,18 +77,23 @@
       });
     }
 
+    /* Takes the messages and the marks off the fields inside `scope`. */
+    function clearFieldErrors(scope) {
+      scope.querySelectorAll('.smaily-field-error').forEach(function (node) {
+        node.parentNode.removeChild(node);
+      });
+      scope.querySelectorAll('.is-invalid').forEach(function (node) {
+        node.classList.remove('is-invalid');
+        node.removeAttribute('aria-invalid');
+      });
+    }
+
     function clearErrors() {
       var banner = body.querySelector('[data-smaily-engine-errors]');
       if (banner) {
         banner.hidden = true;
       }
-      body.querySelectorAll('.smaily-field-error').forEach(function (node) {
-        node.parentNode.removeChild(node);
-      });
-      body.querySelectorAll('.is-invalid').forEach(function (node) {
-        node.classList.remove('is-invalid');
-        node.removeAttribute('aria-invalid');
-      });
+      clearFieldErrors(body);
       body.querySelectorAll('[data-smaily-engine-trigger]').forEach(applyOpen);
     }
 
@@ -168,13 +173,7 @@
       if (trigger && /\.enabled$/.test(input.getAttribute('data-smaily-engine-field') || '')) {
         if (!input.checked) {
           // A row that is switched off needs no workflow: its messages go, and it closes.
-          trigger.querySelectorAll('.smaily-field-error').forEach(function (node) {
-            node.parentNode.removeChild(node);
-          });
-          trigger.querySelectorAll('.is-invalid').forEach(function (node) {
-            node.classList.remove('is-invalid');
-            node.removeAttribute('aria-invalid');
-          });
+          clearFieldErrors(trigger);
         }
         applyOpen(trigger);
       }

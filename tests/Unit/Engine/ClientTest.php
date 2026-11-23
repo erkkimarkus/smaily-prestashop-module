@@ -11,8 +11,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestExceptio
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
-use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
+
+require_once __DIR__ . '/EngineClientFixture.php';
 
 /**
  * The engine client calls the engine's own host only, sends the connection's key as a Bearer
@@ -20,7 +21,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
  */
 final class ClientTest extends TestCase
 {
-    private const KEY = 'sk_not_a_real_key';
+    private const KEY = EngineClientFixture::KEY;
 
     private const REMOTE_TEXT = 'No customer with email shopper@example.test';
 
@@ -295,10 +296,7 @@ final class ClientTest extends TestCase
 
     private static function connection(): Connection
     {
-        return new Connection(1, 0, 'demo', 'tenant', self::KEY, [
-            'engine_base_url' => Client::BASE_URL,
-            'endpoints' => ['ingest_ping' => Client::BASE_URL . '/api/v1/ingest/ping'],
-        ]);
+        return EngineClientFixture::connection(['ingest_ping' => Client::BASE_URL . '/api/v1/ingest/ping']);
     }
 }
 
@@ -317,35 +315,5 @@ final class EngineHealthSpy extends ConnectionHealth
     public function recordEngine(string $tenantId, string $errorCode, bool $wrote): void
     {
         $this->told[] = [$tenantId, $errorCode, $wrote];
-    }
-}
-
-/**
- * Records each request and answers every one with the same response or failure.
- */
-final class EngineRecordingTransport implements Transport
-{
-    /** @var list<array{string, string, array<string, mixed>}> */
-    public array $requests = [];
-
-    /** @var Response|\Throwable */
-    private $answer;
-
-    /**
-     * @param Response|\Throwable $answer
-     */
-    public function __construct($answer)
-    {
-        $this->answer = $answer;
-    }
-
-    public function request(string $method, string $url, array $options = []): Response
-    {
-        $this->requests[] = [$method, $url, $options];
-        if ($this->answer instanceof \Throwable) {
-            throw $this->answer;
-        }
-
-        return $this->answer;
     }
 }

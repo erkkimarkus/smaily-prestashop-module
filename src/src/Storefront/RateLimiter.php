@@ -41,6 +41,8 @@ if (!defined('_PS_VERSION_')) {
  */
 final class RateLimiter
 {
+    private const WINDOW_SECONDS = 60;
+
     private Store $store;
 
     /** @var callable(): string */
@@ -68,15 +70,15 @@ final class RateLimiter
      * Counts one request of the caller's address to $endpoint in the current window when the
      * address has had fewer than $limit; a refused request is not counted.
      */
-    public function allow(string $endpoint, int $limit, int $windowSeconds = 60): bool
+    public function allow(string $endpoint, int $limit): bool
     {
-        $window = intdiv(($this->clock)(), $windowSeconds);
+        $window = intdiv(($this->clock)(), self::WINDOW_SECONDS);
         $key = 'limit:' . $endpoint . ':' . hash_hmac('sha256', (string) ($this->address)(), $this->secret) . ':' . $window;
         $count = (int) $this->store->get($key);
         if ($count >= $limit) {
             return false;
         }
-        $this->store->set($key, (string) ($count + 1), 2 * $windowSeconds);
+        $this->store->set($key, (string) ($count + 1), 2 * self::WINDOW_SECONDS);
 
         return true;
     }

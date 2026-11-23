@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 
@@ -62,9 +64,6 @@ class ReportSender
     /** No answer came: DNS, connection, TLS or a timeout. */
     public const NETWORK_ERROR = 'network_error';
 
-    /** The form of the error code in the service's answers, and of this class's own codes. */
-    private const CODE_PATTERN = '/^[a-z0-9_]{1,64}$/D';
-
     private Transport $transport;
 
     private string $userAgent;
@@ -75,7 +74,7 @@ class ReportSender
     public function __construct(Transport $transport, string $moduleVersion)
     {
         $this->transport = $transport;
-        $this->userAgent = 'SmailyConnect-PrestaShopModule/' . $moduleVersion;
+        $this->userAgent = Client::USER_AGENT . $moduleVersion;
     }
 
     public function send(Report $report): SendResult
@@ -112,7 +111,7 @@ class ReportSender
         }
 
         $answer = json_decode($response->body(), true);
-        $error = is_array($answer) && is_string($answer['error'] ?? null) && preg_match(self::CODE_PATTERN, $answer['error']) === 1
+        $error = is_array($answer) && is_string($answer['error'] ?? null) && preg_match(EngineException::CODE_PATTERN, $answer['error']) === 1
             ? $answer['error']
             : '';
         if ($status >= 300 && $status < 400) {

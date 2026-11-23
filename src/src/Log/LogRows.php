@@ -31,6 +31,8 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
@@ -57,15 +59,13 @@ final class LogRows
 
     public const JOB = 'job';
 
-    private const CONNECTION_TABLE = 'smaily_connect_connection';
-
     /** The rows of the event queue that go to Campaign Intelligence. */
     private const ENGINE_EVENTS = '`event_type` LIKE \'engine.%\'';
 
     /** The table, the type column and the entity column of each queue. */
     private const QUEUES = [
         self::SMAILY => [EventQueue::TABLE, 'event_type', 'entity_id'],
-        self::INTELLIGENCE => ['smaily_connect_ingest_queue', 'domain', 'entity_key'],
+        self::INTELLIGENCE => [IngestQueue::TABLE, 'domain', 'entity_key'],
     ];
 
     private const JOB_STATUSES = [
@@ -391,7 +391,7 @@ final class LogRows
             case self::SMAILY:
                 return '`id_shop` IN (' . $shops . ')';
             case self::INTELLIGENCE:
-                return '`id_connection` IN (SELECT `id` FROM ' . self::table(self::CONNECTION_TABLE) . ' WHERE `id_shop` IN (0, ' . $shops . '))';
+                return '`id_connection` IN (SELECT `id` FROM ' . self::table(Connections::TABLE) . ' WHERE `id_shop` IN (0, ' . $shops . '))';
             default:
                 return '`id_shop` IN (0, ' . $shops . ')';
         }

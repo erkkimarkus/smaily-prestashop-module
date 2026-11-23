@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 
 /**
  * Which customers Campaign Intelligence gets (contract §4 "Which customers to send"), and no
@@ -104,7 +105,7 @@ class CustomerScope
             'id_customer' => (int) $row['id_customer'],
             'id_shop' => (int) $row['id_shop'],
             'id_lang' => (int) $row['id_lang'],
-            'email' => strtolower(trim((string) $row['email'])),
+            'email' => ContactEntity::address((string) $row['email']),
             'firstname' => trim((string) $row['firstname']),
             'lastname' => trim((string) $row['lastname']),
             'newsletter' => (int) $row['newsletter'] === 1,
@@ -197,10 +198,7 @@ class CustomerScope
      */
     public function horizon(Connection $connection): string
     {
-        $history = $connection->config()['history'] ?? null;
-        $months = is_array($history) && is_numeric($history['horizon_months'] ?? null) && (int) $history['horizon_months'] > 0
-            ? (int) $history['horizon_months']
-            : self::DEFAULT_HORIZON_MONTHS;
+        $months = $connection->historyMonths('horizon_months', self::DEFAULT_HORIZON_MONTHS);
 
         return date('Y-m-d H:i:s', (int) strtotime('-' . $months . ' months', ($this->now)()));
     }

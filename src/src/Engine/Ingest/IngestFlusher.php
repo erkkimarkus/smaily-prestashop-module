@@ -54,7 +54,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
  * (CustomerScope), or its product still exists (a removal). The reasons are the SKIPPED_ codes.
  *
  * Gates. Rows are sent only for a stored connection whose key reads and that the engine does not
- * refuse (Connection::refusedAt()): a refused connection's rows wait as they are. A row whose
+ * refuse (Connection::isTaken()): a refused connection's rows wait as they are. A row whose
  * connection is no longer stored is closed (IngestQueue::closeOrphans()).
  *
  * Outcomes, as the Magento connector's flush decides them:
@@ -153,7 +153,7 @@ final class IngestFlusher
         $this->queue->requeueStale();
         $this->queue->closeOrphans(array_map(static fn (Connection $connection): int => $connection->id(), $connections));
 
-        $sending = array_values(array_filter($connections, [self::class, 'maySend']));
+        $sending = array_values(array_filter($connections, static fn (Connection $connection): bool => $connection->isTaken()));
         $this->stopped = [];
         $this->halted = [];
         do {
@@ -170,14 +170,6 @@ final class IngestFlusher
                 }
             }
         } while ($claimed);
-    }
-
-    /**
-     * Whether rows go to the connection: its key reads, and the engine does not refuse it.
-     */
-    public static function maySend(Connection $connection): bool
-    {
-        return $connection->apiKey() !== '' && $connection->refusedAt() === '';
     }
 
     /**
@@ -237,10 +229,7 @@ final class IngestFlusher
 
                 return array_map(fn (array $item): array => ['event_id' => self::eventId($connection, $row, (string) $item['sku'])] + $item, $items);
             case IngestQueue::DOMAIN_CATALOG_REMOVE:
-                $held = Sql::value(
-                    'SELECT 1 FROM `' . _DB_PREFIX_ . 'product_shop` WHERE `id_product` = ' . $id
-                    . ' AND `id_shop` IN (' . implode(', ', ConnectionShops::of($connection)) . ')'
-                );
+                $held = Sql::value('SELECT 1 FROM ' . ConnectionShops::products($connection) . ' AND `id_product` = ' . $id);
 
                 return $held !== null ? self::SKIPPED_PRODUCT_EXISTS : [Keys::productId($connection->prefix(), $id)];
             case IngestQueue::DOMAIN_CUSTOMERS:
@@ -355,6 +344,7 @@ final class IngestFlusher
             }
         }
         $notFound = array_map('strval', is_array($answer['not_found'] ?? null) ? $answer['not_found'] : []);
+        $sent = [];
         foreach ($entries as $entry) {
             $id = $entry['items'][0];
             $body = isset($refused[$id])
@@ -364,9 +354,10 @@ final class IngestFlusher
             if (isset($refused[$id])) {
                 $this->queue->markFailed($entry['row'], Failure::permanent(self::FAILED_ITEM_REFUSED));
             } else {
-                $this->queue->markSent([$entry['row']]);
+                $sent[] = $entry['row'];
             }
         }
+        $this->queue->markSent($sent);
     }
 
     /**
@@ -391,7 +382,7 @@ final class IngestFlusher
 
         $this->halted[$connection->id() . ':' . $domain] = true;
         // A key the engine no longer takes is the connection's state, not these rows' fault.
-        if (in_array($failure->httpStatus(), [401, 403, 409], true) && $this->health->check($connection) === HealthCheck::REFUSED) {
+        if ($this->health->refuses($connection, $failure)) {
             $this->stopped[$connection->id()] = true;
             $this->queue->release($rows);
 
@@ -399,7 +390,7 @@ final class IngestFlusher
         }
         foreach ($unsent as $entry) {
             $this->record($entry, $failure);
-            $this->queue->markFailed($entry['row'], Failure::permanent(sprintf('permanent_http_%d: %s', $failure->httpStatus(), $failure->errorCode())));
+            $this->queue->markFailed($entry['row'], Failure::permanent($failure->permanentReason()));
         }
     }
 
@@ -408,11 +399,7 @@ final class IngestFlusher
      */
     private function record(array $entry, EngineException $failure): void
     {
-        $this->queue->recordExchange(
-            $entry['row'],
-            $entry['request'],
-            $failure->httpStatus() > 0 ? ['http_status' => $failure->httpStatus(), 'body' => ['error' => $failure->errorCode()]] : null
-        );
+        $this->queue->recordExchange($entry['row'], $entry['request'], $failure->response());
     }
 
     /**

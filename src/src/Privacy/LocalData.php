@@ -37,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
 
 /**
  * The store's half of a privacy request: what the module's own tables hold of one shopper, for
@@ -72,8 +73,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
  */
 class LocalData
 {
-    private const ATTRIBUTION_TABLE = 'smaily_connect_order_attribution';
-
     private EventQueue $queue;
 
     private CartTracker $tracker;
@@ -203,7 +202,7 @@ class LocalData
             Sql::write(sprintf(
                 'UPDATE `%s%s` SET `visitor_token` = NULL WHERE `id_order` IN (%s)',
                 _DB_PREFIX_,
-                self::ATTRIBUTION_TABLE,
+                OrderAttribution::TABLE,
                 implode(', ', $orders)
             ));
         }
@@ -288,7 +287,7 @@ class LocalData
             'SELECT a.`id_order`, a.`rec_id`, a.`context`, a.`visitor_token`, a.`created_at` FROM `%1$s%2$s` a'
             . ' INNER JOIN `%1$sorders` o ON o.`id_order` = a.`id_order` WHERE o.`id_customer` IN (%3$s) ORDER BY a.`id_order`',
             _DB_PREFIX_,
-            self::ATTRIBUTION_TABLE,
+            OrderAttribution::TABLE,
             implode(', ', $customers)
         ));
     }

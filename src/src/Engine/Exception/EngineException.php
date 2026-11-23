@@ -39,7 +39,11 @@ if (!defined('_PS_VERSION_')) {
  */
 class EngineException extends \RuntimeException
 {
-    /** A plain code: what the engine's `error` field holds, and nothing that could be a sentence. */
+    /**
+     * A plain code: what the engine's `error` field holds, and nothing that could be a sentence.
+     * The installation report's service names its errors in the same form (Report\ReportSender,
+     * Report\ConnectionHealth).
+     */
     public const CODE_PATTERN = '/^[a-z0-9_]{1,64}$/D';
 
     private string $errorCode;
@@ -66,5 +70,24 @@ class EngineException extends \RuntimeException
     public function httpStatus(): int
     {
         return $this->getCode();
+    }
+
+    /**
+     * The stored reason of a row that this failure parks for good: the HTTP status and the code.
+     */
+    public function permanentReason(): string
+    {
+        return sprintf('permanent_http_%d: %s', $this->httpStatus(), $this->errorCode);
+    }
+
+    /**
+     * What a row keeps as the answer of the failed request: the HTTP status and the code, or null
+     * when no answer arrived.
+     *
+     * @return array{http_status: int, body: array{error: string}}|null
+     */
+    public function response(): ?array
+    {
+        return $this->httpStatus() > 0 ? ['http_status' => $this->httpStatus(), 'body' => ['error' => $this->errorCode]] : null;
     }
 }

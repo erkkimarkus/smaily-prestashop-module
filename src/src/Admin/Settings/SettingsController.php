@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
@@ -97,10 +98,8 @@ final class SettingsController extends BaseController
                 'connection_notes' => $shared->multishop() ? $this->connectionNotes($panels, $shared->separateStores(), $promoted) : [],
                 'own' => $own,
                 'invitation' => $connection !== null && $connection['subdomain'] === '',
-                // The siblings' rule, as on the Dashboard: a connected Smaily account and no
-                // Campaign Intelligence connection.
-                'intelligence_invitation' => $intelligence !== null && !$intelligence['connected']
-                    && $account !== null && $account->hasCredentials() && self::pendingUpgrade() === null,
+                'intelligence_invitation' => AdminSettings::invitesToIntelligence($intelligence['connected'] ?? null, $account !== null && $account->hasCredentials())
+                    && self::pendingUpgrade() === null,
                 'connection' => $connection,
                 'languages' => $connectionScope->languages(),
                 'language_modes' => $context->languageModes(),

@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -126,6 +127,18 @@ final class HealthCheck
         $this->connections->saveSettings($connection, $settings);
 
         return $status;
+    }
+
+    /**
+     * Whether a failed request means that the engine no longer takes the connection: a 401, 403
+     * or 409 that a check now confirms and records with the connection. Such a failure is the
+     * connection's state, not the fault of what the request carried.
+     */
+    public function refuses(Connection $connection, EngineException $failure): bool
+    {
+        return $failure instanceof EngineRequestException
+            && in_array($failure->httpStatus(), [401, 403, 409], true)
+            && $this->check($connection) === self::REFUSED;
     }
 
     /**

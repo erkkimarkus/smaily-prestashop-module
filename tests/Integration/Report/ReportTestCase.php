@@ -106,8 +106,6 @@ abstract class ReportTestCase extends IntegrationTestCase
 
     protected Services $services;
 
-    private ?Services $global = null;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -116,14 +114,13 @@ abstract class ReportTestCase extends IntegrationTestCase
         $this->services = Services::fromProviders(Services::PROVIDERS);
         $transport = $this->transport;
         $this->services->set(Transport::class, static fn (): Transport => $transport);
-        $this->global = self::instance()->getValue();
-        self::instance()->setValue(null, $this->services);
+        $this->useAsShopRuntime($this->services);
     }
 
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
-            self::instance()->setValue(null, $this->global);
+            $this->restoreShopRuntime();
             LegacyStore::restore();
         }
         parent::tearDown();
@@ -216,13 +213,5 @@ abstract class ReportTestCase extends IntegrationTestCase
         foreach ([self::PASSWORD, 'api-user', 'sk_not_a_real_key'] as $secret) {
             self::assertStringNotContainsString($secret, $json);
         }
-    }
-
-    private static function instance(): \ReflectionProperty
-    {
-        $property = new \ReflectionProperty(Services::class, 'instance');
-        self::accessible($property);
-
-        return $property;
     }
 }

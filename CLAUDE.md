@@ -286,6 +286,10 @@ ask (Linear discipline below).
   request has no shopper's cookies; the order takes the row once per request and deletes it. The
   cache is files in its own folder under PrestaShop's cache folder (the uninstall deletes it); an engine answer stays an hour. PrestaShop initialises a front controller once per
   process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
+  The storefront reads a shop's connection once in a request (`Storefront\ActiveConnection`):
+  `Engine\Connections` forgets it on every write, and the integration tests' base at each test's
+  start; a test that writes the connection table itself and then asks the storefront calls
+  `ActiveConnection::reset()`.
 - **Campaign Intelligence keys and prices** (ARCHITECTURE 8.2, 8.3, 8.11). Every product and
   order key comes from `Engine\Payload\Keys`; the namespace literal is its one constant, and a
   unit test fails on a second one in `src/`. A catalog price comes from

@@ -91,15 +91,10 @@ final class OrderAttribution
         if ($read['rec_id'] === null && $read['visitor_token'] === null && $kept !== null) {
             $read = ['visitor_token' => $this->attribution->visitorToken((string) $kept['visitor_token'], $connection)] + $kept;
         }
-        if ($read['rec_id'] === null && $read['visitor_token'] === null) {
+        $values = Attribution::rowValues($read);
+        if ($values === null) {
             return;
         }
-        $values = [
-            'rec_id' => $read['rec_id'],
-            'context' => $read['rec_id'] === null ? null : $read['context'],
-            'visitor_token' => $read['visitor_token'],
-        ];
-        $quoted = array_map(static fn (?string $value): string => $value === null ? 'NULL' : '\'' . pSQL($value) . '\'', $values);
 
         Sql::write(sprintf(
             'INSERT INTO `%s%s` (`id_order`, `rec_id`, `context`, `visitor_token`, `created_at`) VALUES (%d, %s, %s, %s, \'%s\')'
@@ -107,9 +102,9 @@ final class OrderAttribution
             _DB_PREFIX_,
             self::TABLE,
             (int) $order->id,
-            $quoted['rec_id'],
-            $quoted['context'],
-            $quoted['visitor_token'],
+            Sql::quote($values['rec_id']),
+            Sql::quote($values['context']),
+            Sql::quote($values['visitor_token']),
             pSQL(gmdate('Y-m-d H:i:s'))
         ));
     }

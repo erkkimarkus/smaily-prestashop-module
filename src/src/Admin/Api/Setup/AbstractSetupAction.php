@@ -72,12 +72,6 @@ abstract class AbstractSetupAction extends AbstractJsonAction
      */
     protected function fieldErrors(array $fields): JsonResponse
     {
-        $response = new JsonResponse([
-            'ok' => false,
-            'error' => ['code' => 'invalid_fields', 'message' => $fields[0]['message'], 'fields' => $fields],
-        ], 422);
-        $response->headers->set('Cache-Control', 'no-store');
-
-        return $response;
+        return $this->error('invalid_fields', $fields[0]['message'], 422, $fields);
     }
 }

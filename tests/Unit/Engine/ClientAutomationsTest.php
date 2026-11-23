@@ -8,7 +8,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
-use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+
+require_once __DIR__ . '/EngineClientFixture.php';
 
 /**
  * The three automation calls of the engine client (contract §11, §12 and §13): each is one attempt
@@ -17,13 +18,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
  */
 final class ClientAutomationsTest extends TestCase
 {
-    private const KEY = 'sk_not_a_real_key';
+    private const KEY = EngineClientFixture::KEY;
 
     private const REMOTE_TEXT = 'automation_map.fallback on nõutav';
 
     public function testTheCatalogueIsAGetWithTheConnectionsKey(): void
     {
-        $transport = new AutomationsRecordingTransport(new Response(200, '{"triggers": []}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"triggers": []}'));
 
         $answer = (new Client($transport, '3.0.0'))->automationsCatalog(self::connection());
 
@@ -46,7 +47,7 @@ final class ClientAutomationsTest extends TestCase
 
     public function testTheConfigurationIsReadFromTheAddressOfTheEndpointsMap(): void
     {
-        $transport = new AutomationsRecordingTransport(new Response(200, '{"configs": []}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"configs": []}'));
         $connection = new Connection(1, 0, 'demo', 'tenant', self::KEY, [
             'engine_base_url' => Client::BASE_URL,
             'endpoints' => ['automations_config' => Client::BASE_URL . '/api/v2/automations/config'],
@@ -61,7 +62,7 @@ final class ClientAutomationsTest extends TestCase
 
     public function testASaveIsAPutOfTheRowsUnderConfigs(): void
     {
-        $transport = new AutomationsRecordingTransport(new Response(200, '{"ok": true, "upserted": 1}'));
+        $transport = new EngineRecordingTransport(new Response(200, '{"ok": true, "upserted": 1}'));
         $rows = [['trigger_key' => 'replenish_due', 'enabled' => false]];
 
         $answer = (new Client($transport, '3.0.0'))->saveAutomationsConfig(self::connection(), $rows);
@@ -75,7 +76,7 @@ final class ClientAutomationsTest extends TestCase
 
     public function testARefusedSaveNamesItsFieldsAndNeverTheEnginesText(): void
     {
-        $transport = new AutomationsRecordingTransport(new Response(422, (string) json_encode([
+        $transport = new EngineRecordingTransport(new Response(422, (string) json_encode([
             'error' => 'validation_failed',
             'errors' => [
                 ['index' => 0, 'trigger_key' => 'replenish_due', 'field' => 'automation_map', 'message' => self::REMOTE_TEXT],
@@ -107,7 +108,7 @@ final class ClientAutomationsTest extends TestCase
 
     public function testARefusalWithoutErrorsNamesNoField(): void
     {
-        $transport = new AutomationsRecordingTransport(new Response(403, '{"error": "tenant_inactive", "message": "text"}'));
+        $transport = new EngineRecordingTransport(new Response(403, '{"error": "tenant_inactive", "message": "text"}'));
 
         try {
             (new Client($transport, '3.0.0'))->automationsCatalog(self::connection());
@@ -120,26 +121,6 @@ final class ClientAutomationsTest extends TestCase
 
     private static function connection(): Connection
     {
-        return new Connection(1, 0, 'demo', 'tenant', self::KEY, ['engine_base_url' => Client::BASE_URL, 'endpoints' => []]);
-    }
-}
-
-final class AutomationsRecordingTransport implements Transport
-{
-    /** @var list<array{string, string, array<string, mixed>}> */
-    public array $requests = [];
-
-    private Response $answer;
-
-    public function __construct(Response $answer)
-    {
-        $this->answer = $answer;
-    }
-
-    public function request(string $method, string $url, array $options = []): Response
-    {
-        $this->requests[] = [$method, $url, $options];
-
-        return $this->answer;
+        return EngineClientFixture::connection();
     }
 }

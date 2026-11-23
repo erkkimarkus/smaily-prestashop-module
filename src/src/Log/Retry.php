@@ -75,28 +75,45 @@ final class Retry
      */
     public function retry(LogFilter $filter, ?array $ids, array $ingestIds = []): array
     {
+        $events = $this->drain(
+            fn (int $after): array => $this->rows->failedEventIds($filter, $ids, $after, self::BATCH_SIZE),
+            fn (array $batch): array => $this->guard->refusals($this->rows->eventRows($batch)),
+            fn (array $batch): int => $this->queue->retry($batch)
+        );
+        $ingest = $this->ingest;
+        if ($ingest === null) {
+            return $events;
+        }
+        $rows = $this->drain(
+            fn (int $after): array => $this->rows->failedIngestIds($filter, $ids === null ? null : $ingestIds, $after, self::BATCH_SIZE),
+            fn (array $batch): array => $this->guard->ingestRefusals($this->rows->ingestRows($batch)),
+            static fn (array $batch): int => $ingest->retry($batch)
+        );
+
+        return [$events[0] + $rows[0], $events[1] + $rows[1]];
+    }
+
+    /**
+     * Retries the failed rows of one queue, batch after batch by ascending id.
+     *
+     * @param callable(int): list<int> $next the ids of the next batch above an id
+     * @param callable(list<int>): array<int, string> $refusals the guard's refusals of a batch, by id
+     * @param callable(list<int>): int $retry returns rows to pending and answers how many
+     *
+     * @return array{0: int, 1: int} the rows queued for retry, and the rows the guard refused
+     */
+    private function drain(callable $next, callable $refusals, callable $retry): array
+    {
         $retried = 0;
         $skipped = 0;
         $after = 0;
         do {
-            $batch = $this->rows->failedEventIds($filter, $ids, $after, self::BATCH_SIZE);
+            $batch = $next($after);
             if ($batch === []) {
                 break;
             }
-            $refused = $this->guard->refusals($this->rows->eventRows($batch));
-            $retried += $this->queue->retry(array_values(array_diff($batch, array_keys($refused))));
-            $skipped += count($refused);
-            $after = max($batch);
-        } while (count($batch) === self::BATCH_SIZE);
-
-        $after = 0;
-        do {
-            $batch = $this->ingest === null ? [] : $this->rows->failedIngestIds($filter, $ids === null ? null : $ingestIds, $after, self::BATCH_SIZE);
-            if ($batch === []) {
-                break;
-            }
-            $refused = $this->guard->ingestRefusals($this->rows->ingestRows($batch));
-            $retried += $this->ingest->retry(array_values(array_diff($batch, array_keys($refused))));
+            $refused = $refusals($batch);
+            $retried += $retry(array_values(array_diff($batch, array_keys($refused))));
             $skipped += count($refused);
             $after = max($batch);
         } while (count($batch) === self::BATCH_SIZE);

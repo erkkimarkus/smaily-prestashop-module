@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestExceptio
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 
 /**
@@ -57,6 +58,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 class Client
 {
     public const HOST = 'intelligence.smaily.com';
+
+    /** The start of the module's User-Agent to Smaily's services; the module's version follows. */
+    public const USER_AGENT = 'SmailyConnect-PrestaShopModule/';
 
     public const BASE_URL = 'https://' . self::HOST;
 
@@ -110,7 +114,7 @@ class Client
     public function __construct(Transport $transport, string $moduleVersion, ?ConnectionHealth $health = null)
     {
         $this->transport = $transport;
-        $this->userAgent = 'SmailyConnect-PrestaShopModule/' . $moduleVersion;
+        $this->userAgent = self::USER_AGENT . $moduleVersion;
         $this->health = $health;
     }
 
@@ -345,7 +349,7 @@ class Client
      */
     private static function customerUrl(Connection $connection, string $key, string $fallbackPath, string $email): string
     {
-        $address = str_replace('..', '.%2E', rawurlencode(strtolower(trim($email))));
+        $address = str_replace('..', '.%2E', rawurlencode(ContactEntity::address($email)));
 
         return str_replace('{email}', $address, $connection->endpoint($key, $fallbackPath));
     }

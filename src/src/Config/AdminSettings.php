@@ -86,6 +86,18 @@ final class AdminSettings extends Settings
         return $this->set(self::INVITATION_DISMISSED_AT, (string) $now);
     }
 
+    /**
+     * The siblings' rule for that invitation, on the Dashboard and on the Settings tabs: the setup
+     * that the page shows has a connected Smaily account and no Campaign Intelligence connection.
+     *
+     * @param bool|null $connected whether that setup holds a Campaign Intelligence connection;
+     *                             null while the page shows no one setup
+     */
+    public static function invitesToIntelligence(?bool $connected, bool $accountConnected): bool
+    {
+        return $connected === false && $accountConnected;
+    }
+
     public function isIntelligenceInvitationDismissed(int $now): bool
     {
         $at = (int) $this->get(self::INTELLIGENCE_INVITATION_DISMISSED_AT);

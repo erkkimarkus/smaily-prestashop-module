@@ -158,12 +158,23 @@ class ReportBuilder
      */
     public function accountKeys(): array
     {
+        return $this->accounts()['accounts'];
+    }
+
+    /**
+     * accountKeys() and mainCredentials() from one read of the connected accounts.
+     *
+     * @return array{accounts: list<string>, main: ?Credentials}
+     */
+    public function accounts(): array
+    {
+        $accounts = $this->connectedAccounts();
         $keys = [];
-        foreach ($this->connectedAccounts() as $account) {
+        foreach ($accounts as $account) {
             $keys[$account['credentials']->subdomain()] = true;
         }
 
-        return array_map('strval', array_keys($keys));
+        return ['accounts' => array_map('strval', array_keys($keys)), 'main' => $this->main($accounts)];
     }
 
     /**
@@ -319,9 +330,7 @@ class ReportBuilder
         if ($engine !== null) {
             $connection['intelligence'] = [
                 'tenant_id' => $engine->tenantId(),
-                // The engine takes the connection: its key can be read, and no health check found
-                // it refused (Engine\Ingest\IngestFlusher::maySend()).
-                'connected' => $engine->apiKey() !== '' && $engine->refusedAt() === '',
+                'connected' => $engine->isTaken(),
             ] + self::healthBlock($this->health->engine($engine->tenantId()));
         }
 

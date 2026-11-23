@@ -210,7 +210,7 @@ final class HistoryJobs
             'UPDATE %s SET `status` = \'%s\', `last_error` = %s, `finished_at` = \'%s\', `updated_at` = \'%s\' WHERE `id` = %d AND `status` IN (%s)',
             self::table(),
             pSQL($status),
-            $reason === null ? 'NULL' : '\'' . pSQL($reason) . '\'',
+            Sql::quote($reason),
             $now,
             $now,
             (int) $job['id'],

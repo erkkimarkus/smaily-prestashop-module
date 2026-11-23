@@ -99,6 +99,31 @@ final class AccountStore
     }
 
     /**
+     * The stored accounts of the shops that the Campaign Intelligence connection of an id_shop
+     * serves: every account for the installation-wide connection (0), the shop's own for the
+     * connection of a separate store. By shop, the account of no language before a language's.
+     *
+     * @return list<Account>
+     */
+    public function servedBy(int $idShop): array
+    {
+        $scopes = $this->scopes();
+        usort($scopes, static fn (array $a, array $b): int => [(int) $a['id_shop'], (string) $a['language']] <=> [(int) $b['id_shop'], (string) $b['language']]);
+        $accounts = [];
+        foreach ($scopes as $scope) {
+            if ($idShop > 0 && (int) $scope['id_shop'] !== $idShop) {
+                continue;
+            }
+            $account = $this->find((int) $scope['id_shop'], (string) $scope['language']);
+            if ($account !== null) {
+                $accounts[] = $account;
+            }
+        }
+
+        return $accounts;
+    }
+
+    /**
      * The shop and language of each stored account.
      *
      * @return list<array{id_shop: string, language: string}>

@@ -72,13 +72,12 @@ final class Disconnector
 
     private EngineSettings $settings;
 
-    private ?EventReport $report;
+    private EventReport $report;
 
     /**
-     * @param EventReport|null $report sends the installation report's `disconnected` event; null
-     *                                 sends none
+     * @param EventReport $report sends the installation report's `disconnected` event
      */
-    public function __construct(Client $client, Connections $connections, EngineSettings $settings, ?EventReport $report = null)
+    public function __construct(Client $client, Connections $connections, EngineSettings $settings, EventReport $report)
     {
         $this->client = $client;
         $this->connections = $connections;
@@ -94,9 +93,7 @@ final class Disconnector
      */
     public function disconnect(Connection $connection): string
     {
-        if ($this->report !== null) {
-            $this->report->send(ReportBuilder::EVENT_DISCONNECTED, [$connection->id()]);
-        }
+        $this->report->send(ReportBuilder::EVENT_DISCONNECTED, [$connection->id()]);
         $outcome = $this->tell($connection);
         $this->settings->rememberPrefix($connection->idShop(), $connection->prefix());
         $this->connections->delete($connection);

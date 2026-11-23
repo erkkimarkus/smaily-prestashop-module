@@ -100,8 +100,8 @@ final class JobStore
         $finished = in_array($status, self::ACTIVE, true) ? null : $now;
         Sql::write(
             'INSERT INTO ' . self::table() . ' (`type`, `id_shop`, `status`, `counts`, `started_at`, `updated_at`, `finished_at`, `last_error`)'
-            . ' VALUES (' . self::quote($type) . ', ' . $idShop . ', ' . self::quote($status) . ', ' . self::quote((string) json_encode($counts))
-            . ', ' . self::quote($finished) . ', ' . self::quote($now) . ', ' . self::quote($finished) . ', ' . self::quote($lastError) . ')'
+            . ' VALUES (' . Sql::quote($type) . ', ' . $idShop . ', ' . Sql::quote($status) . ', ' . Sql::quote((string) json_encode($counts))
+            . ', ' . Sql::quote($finished) . ', ' . Sql::quote($now) . ', ' . Sql::quote($finished) . ', ' . Sql::quote($lastError) . ')'
         );
 
         return Sql::insertId();
@@ -121,7 +121,7 @@ final class JobStore
         }
         $assignments = [];
         foreach ($columns as $column => $value) {
-            $assignments[] = '`' . $column . '` = ' . self::quote($value === null ? null : (string) $value);
+            $assignments[] = '`' . $column . '` = ' . Sql::quote($value === null ? null : (string) $value);
         }
         Sql::write(
             'UPDATE ' . self::table() . ' SET ' . implode(', ', $assignments) . ' WHERE `id` = ' . $id
@@ -139,16 +139,11 @@ final class JobStore
         return '`' . _DB_PREFIX_ . self::TABLE . '`';
     }
 
-    private static function quote(?string $value): string
-    {
-        return $value === null ? 'NULL' : '\'' . pSQL($value) . '\'';
-    }
-
     /**
      * @param list<string> $values
      */
     private static function quoteAll(array $values): string
     {
-        return implode(', ', array_map([self::class, 'quote'], $values));
+        return implode(', ', array_map([Sql::class, 'quote'], $values));
     }
 }

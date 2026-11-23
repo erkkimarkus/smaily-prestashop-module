@@ -85,11 +85,11 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 2231 tests on 8.2.8 (11924 assertions with debug mode on,
-11923 with it off) and on 9.2.0 (11929 assertions; one test checks more where PrestaShop has
+Last verified results, all passing: 2232 tests on 8.2.8 (11942 assertions with debug mode on,
+11941 with it off) and on 9.2.0 (11947 assertions; one test checks more where PrestaShop has
 discount types), with debug mode on and with debug mode off, the two runs of a version on one
-shop made from scratch behind the egress guard (2026-11-23, with the fix batch of that day;
-8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
+shop made from scratch behind the egress guard (2026-11-23, with the simplification batch of
+that day; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
 prints deprecation notices of modules that the image ships and of PrestaShop itself (191 lines
 in that run); none names the module's code or its tests. A test opens a private member through
 `IntegrationTestCase::accessible()`, which calls `setAccessible()` only on PHP 8.0, where it is
@@ -99,7 +99,7 @@ booted later than the 3 seconds the test gave it then, on a machine that ran oth
 test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of
 a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2231 tests, 3932 assertions, 1131 skipped). The storefront scripts have
+and skips the integration tests (2232 tests, 3932 assertions, 1132 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -383,8 +383,12 @@ for that token.
 hour: a walk that changes the mock's recommendations for a shopper who was already asked about
 uses another token or customer, or clears PrestaShop's cache. A limit's count ends with its minute.
 
-**The checkout.** The flashlight shops offer their payment modules to one country only; a walk
-that orders from another country adds that country in Payment > Preferences first.
+**The checkout.** The flashlight shops offer their payment modules to one country only (France);
+a walk that orders from another country adds that country in Payment > Preferences first. On
+8.2.8 the address form starts with the country of the browser's language: a headless browser
+with a US English locale gets the United States and then no payment option, so a script gives
+its storefront context a French locale (seen on 2026-11-23; 9.2.0 started with France either
+way).
 
 **A privacy request through psgdpr** (walked on 2026-11-23). Its admin screen is Module Manager >
 psgdpr > Configure > Personal data management. Every key press in its search field starts a

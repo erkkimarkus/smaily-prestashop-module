@@ -29,7 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\IntelligencePanel;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 
@@ -129,10 +130,9 @@ final class DashboardView
 
         return [
             'invitation' => $facts['upgrade'] === null && !$facts['any_account'] && $facts['can_open_settings'],
-            // The siblings' rule: a store whose Smaily account is connected and that has no
-            // Campaign Intelligence connection, to an admin who may open Settings.
-            'intelligence_invitation' => $engine !== null && !$engine['per_shop'] && !$engine['connected']
-                && ($facts['account']['connected'] ?? false) && $facts['can_open_settings'],
+            // To an admin who may open Settings.
+            'intelligence_invitation' => AdminSettings::invitesToIntelligence($engine === null || $engine['per_shop'] ? null : (bool) $engine['connected'], (bool) ($facts['account']['connected'] ?? false))
+                && $facts['can_open_settings'],
             'verdict' => $this->verdict($verdict, $facts),
             'failed_banner' => $failed > 0 && !in_array($verdict, [self::VERDICT_UPGRADE, self::VERDICT_INCOMPLETE, self::VERDICT_DISCONNECTED], true)
                 ? [
@@ -268,11 +268,11 @@ final class DashboardView
             return self::card(false, $this->trans('Not connected'), 'off', $this->trans('Off'));
         }
         switch ($engine['state']) {
-            case IntelligencePanel::STATE_NOT_ACTIVE:
+            case Connection::STATE_NOT_ACTIVE:
                 return self::card(false, $this->trans('Account not active on the Smaily side'), 'failed', $this->trans('Not active'));
-            case IntelligencePanel::STATE_KEY_REFUSED:
+            case Connection::STATE_KEY_REFUSED:
                 return self::card(false, $this->trans('Campaign Intelligence rejected the stored API key.'), 'failed', $this->trans('Key rejected'));
-            case IntelligencePanel::STATE_UPDATE_REQUIRED:
+            case Connection::STATE_UPDATE_REQUIRED:
                 return self::card(false, $this->trans('Campaign Intelligence needs a newer version of Smaily Connect.'), 'failed', $this->trans('Update needed'));
         }
         if ($engine['unreachable']) {
@@ -324,9 +324,9 @@ final class DashboardView
     private function refusal(string $state): string
     {
         switch ($state) {
-            case IntelligencePanel::STATE_KEY_REFUSED:
+            case Connection::STATE_KEY_REFUSED:
                 return $this->trans('Campaign Intelligence rejected the stored API key.') . ' ' . $this->trans('The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.');
-            case IntelligencePanel::STATE_UPDATE_REQUIRED:
+            case Connection::STATE_UPDATE_REQUIRED:
                 return $this->trans('Campaign Intelligence needs a newer version of Smaily Connect.') . ' ' . $this->trans('Update the module, then press Check again.');
             default:
                 return $this->trans('Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.');
@@ -334,13 +334,13 @@ final class DashboardView
     }
 
     /**
-     * Whether the engine refuses the stored connection (Admin\Setup\IntelligencePanel::state()).
+     * Whether the engine refuses the stored connection (Engine\Connection::state()).
      *
      * @param array<string, mixed> $engine
      */
     private static function refused(array $engine): bool
     {
-        return $engine['connected'] && $engine['state'] !== IntelligencePanel::STATE_CONNECTED;
+        return $engine['connected'] && $engine['state'] !== Connection::STATE_CONNECTED;
     }
 
     /**

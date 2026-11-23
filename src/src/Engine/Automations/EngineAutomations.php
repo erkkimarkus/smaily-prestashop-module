@@ -63,7 +63,7 @@ final class EngineAutomations
     /** The shop has no connection, or its stored key does not decrypt. */
     public const NOT_CONNECTED = 'not_connected';
 
-    /** The engine does not take the connection (Connection::refusedAt()). */
+    /** The engine does not take the connection (Connection::isTaken()). */
     public const REFUSED = 'refused';
 
     /** The catalogue or the configuration could not be read. */
@@ -122,6 +122,18 @@ final class EngineAutomations
      */
     public function view(int $idShop, string $language): array
     {
+        return $this->read($idShop, $language, null);
+    }
+
+    /**
+     * view(), with the workflow list of the connection's account when the caller read it already.
+     *
+     * @param array{workflows: list<array{id: int, name: string}>, error: string|null}|null $list
+     *
+     * @return array<string, mixed>
+     */
+    private function read(int $idShop, string $language, ?array $list): array
+    {
         $connection = $this->connection($idShop);
         if (is_string($connection)) {
             return ['state' => $connection];
@@ -134,9 +146,9 @@ final class EngineAutomations
                 $language
             );
         } catch (EngineException $failure) {
-            return $this->refuses($connection, $failure) ? ['state' => self::REFUSED] : ['state' => self::UNAVAILABLE, 'failure' => $failure];
+            return $this->health->refuses($connection, $failure) ? ['state' => self::REFUSED] : ['state' => self::UNAVAILABLE, 'failure' => $failure];
         }
-        $list = $this->workflows->of($this->account($connection));
+        $list = $list ?? $this->workflows->of($this->account($connection));
 
         return [
             'state' => self::READY,
@@ -200,7 +212,7 @@ final class EngineAutomations
                 $rows
             ));
         } catch (EngineRequestException $refusal) {
-            if ($this->refuses($connection, $refusal)) {
+            if ($this->health->refuses($connection, $refusal)) {
                 return ['outcome' => self::REFUSED];
             }
             foreach ($refusal->fields() as $field) {
@@ -215,7 +227,7 @@ final class EngineAutomations
             return ['outcome' => self::FAILED, 'failure' => $failure];
         }
 
-        $view = $this->view($idShop, $language);
+        $view = $this->read($idShop, $language, $list);
         $stored = array_column($view['rows'] ?? [], null, 'key');
         $keptInTest = false;
         foreach ($rows as $row) {
@@ -238,18 +250,7 @@ final class EngineAutomations
             return self::NOT_CONNECTED;
         }
 
-        return $connection->refusedAt() === '' ? $connection : self::REFUSED;
-    }
-
-    /**
-     * Whether a failure means that the engine no longer takes the connection: a 401, 403 or 409
-     * that the health check confirms and records with the connection.
-     */
-    private function refuses(Connection $connection, EngineException $failure): bool
-    {
-        return $failure instanceof EngineRequestException
-            && in_array($failure->httpStatus(), [401, 403, 409], true)
-            && $this->health->check($connection) === HealthCheck::REFUSED;
+        return $connection->isTaken() ? $connection : self::REFUSED;
     }
 
     /**
@@ -264,14 +265,8 @@ final class EngineAutomations
         if ($subdomain === '') {
             return $this->accounts->find($connection->idShop());
         }
-        $scopes = $this->accounts->scopes();
-        usort($scopes, static fn (array $a, array $b): int => [(int) $a['id_shop'], (string) $a['language']] <=> [(int) $b['id_shop'], (string) $b['language']]);
-        foreach ($scopes as $scope) {
-            if ($connection->idShop() > 0 && (int) $scope['id_shop'] !== $connection->idShop()) {
-                continue;
-            }
-            $account = $this->accounts->find((int) $scope['id_shop'], (string) $scope['language']);
-            if ($account !== null && strtolower(trim($account->subdomain())) === $subdomain) {
+        foreach ($this->accounts->servedBy($connection->idShop()) as $account) {
+            if (strtolower(trim($account->subdomain())) === $subdomain) {
                 return $account;
             }
         }

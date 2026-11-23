@@ -121,14 +121,12 @@ final class IngestMarkers
     {
         $markers = $this->markers;
         $this->markers = [];
-        foreach ($markers as $marker) {
-            $this->queue->enqueue(
-                $marker['id_connection'],
-                $marker['domain'],
-                (string) $marker['id'],
-                $marker['removed'] === [] ? [] : [IngestFlusher::REMOVED => $marker['removed']]
-            );
-        }
+        $this->queue->enqueueMany(array_map(static fn (array $marker): array => [
+            'id_connection' => $marker['id_connection'],
+            'domain' => $marker['domain'],
+            'entity_key' => (string) $marker['id'],
+            'payload' => $marker['removed'] === [] ? [] : [IngestFlusher::REMOVED => $marker['removed']],
+        ], array_values($markers)));
 
         return count($markers);
     }

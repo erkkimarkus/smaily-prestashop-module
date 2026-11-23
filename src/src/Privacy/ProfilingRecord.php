@@ -91,6 +91,28 @@ class ProfilingRecord
     }
 
     /**
+     * The opt-outs that the store holds for these addresses, in one read.
+     *
+     * @param list<string> $emails
+     *
+     * @return array<string, string> the UTC time of each opt-out, by the address's keyed hash
+     */
+    public function optOuts(array $emails): array
+    {
+        if ($emails === []) {
+            return [];
+        }
+        $keys = array_map(static fn (string $email): string => '\'' . pSQL(ContactEntity::key($email)) . '\'', $emails);
+
+        return array_column(Sql::rows(sprintf(
+            'SELECT `address_key`, `changed_at` FROM `%s%s` WHERE `address_key` IN (%s) AND `opted_out` = 1',
+            _DB_PREFIX_,
+            self::TABLE,
+            implode(', ', $keys)
+        )), 'changed_at', 'address_key');
+    }
+
+    /**
      * Whether the store holds an opt-out for the address.
      */
     public function optedOut(string $email): bool

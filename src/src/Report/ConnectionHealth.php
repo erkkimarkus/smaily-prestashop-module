@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ReportSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 
 /**
  * The last answer each connection got: what the installation report says about a connection's
@@ -65,9 +66,6 @@ class ConnectionHealth
 
     /** A success that changes nothing but the time is written at most this often. */
     public const WRITE_EVERY_SECONDS = 300;
-
-    /** The contract's code rule; any other code is stored as UNKNOWN_CODE. */
-    public const CODE_PATTERN = '/^[a-z0-9_]{1,64}$/D';
 
     /** The most entries kept per group; the oldest go first. */
     public const MAX_ENTRIES = 50;
@@ -142,7 +140,7 @@ class ConnectionHealth
             $entry = is_array($entries[$key] ?? null) ? $entries[$key] : [];
 
             $now = ($this->now)();
-            $code = $errorCode === '' || preg_match(self::CODE_PATTERN, $errorCode) === 1 ? $errorCode : self::UNKNOWN_CODE;
+            $code = $errorCode === '' || preg_match(EngineException::CODE_PATTERN, $errorCode) === 1 ? $errorCode : self::UNKNOWN_CODE;
             $old = isset($entry['error_code']) ? (string) $entry['error_code'] : null;
             $last = (int) ($entry['last_sync_at'] ?? 0);
 

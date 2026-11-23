@@ -51,14 +51,15 @@ Estonian; screenshots in `build/screens-5.3b/`.
 **Last runs** (2026-11-23): the full install check on the merged tip `5117054`, with its three fixes (`composer
 package` keeps `build/`, a test teardown, the cache folder at uninstall). `tests/ci/validate.sh` with the packaged zip:
 10 of 10 on flashlight 8.2.8 and 9.2.0 (debug off), and again with the fix batch of that day, whose Compose files
-keep the shop from GitHub. In-shop suite with that batch, on shops made from scratch behind the egress guard: 2231
-tests with debug on and off, on 8.2.8 (11924 and 11923 assertions) and 9.2.0 (11929). Host: 2231 tests, 3932
-assertions, 1131 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 and 8.5.12 lint
-of the 17 changed PHP files, no failure (all 356 module and 215 test files on `5117054`). The batch's browser walk
-(the Dashboard's counts with Campaign Intelligence deliveries, the erased Log row, the Log's table in Estonian and
-English, step 1's footer): 62 of 62 checks on 8.2.8 and on 9.2.0, screenshots in `build/fix-log/`,
-`build/fix-dashboard/` and `build/fix-setup/` of the worker's worktree. The zip (454 files) passes the content check
-of `docs/MARKETPLACE.md` 6. On both
+keep the shop from GitHub. In-shop suite with the simplification batch of that day, on shops made from scratch
+behind the egress guard: 2232 tests with debug on and off, on 8.2.8 (11942 and 11941 assertions) and 9.2.0
+(11947). Host: 2232 tests, 3932 assertions, 1132 skipped; `node --test tests/js/` 43 pass;
+PHP CS Fixer 0 of 355 files; PHP 8.0.30 and 8.5.12 lint of the 64 changed PHP files, no failure (all 356 module and
+215 test files on `5117054`). That batch's browser smoke against the mocks (the connection on Settings >
+Intelligence, the three imports on the tick with the mock's counts, the automations card, the Dashboard, a refused
+"Send again", the relay and the block, an order's attribution): 36 of 36 checks on 8.2.8 and on 9.2.0, screenshots in
+`build/simp/smoke/out/` of the worker's worktree. The zip of the fix batch before it (454 files; not built again)
+passes the content check of `docs/MARKETPLACE.md` 6. On both
 versions from the zip: upload in Module Manager, setup, one tick, a console uninstall that leaves nothing (keys,
 tables, tabs, hooks, roles, cache folder) and a reinstall; a genuine 2.2.0 took the zip by upload and ended `done`
 (`docs/DEV_ENVIRONMENT.md` 6, 7 and 7a). The capability walks of 8 to 11 ran on `82fc312`
@@ -89,8 +90,11 @@ colleague's choice (the walk record of capability 14, section 7); none blocks a 
 
 - A `cart_add` of a product with combinations and no chosen combination gets a key that has no catalog row. A product
   that gets its first combination keeps its old row at the engine until the next nightly list.
-- The Smaily client's own failure messages show in English in the Log. A simplification review of the Log,
-  Automations and stage 5 code is due.
+- The Smaily client's own failure messages show in English in the Log.
+- After 3.0.0, from the simplification review: a shared base of the two queues (`IngestQueue`, `EventQueue`); index
+  use in the ingest queue's sweeps (`requeueStale`, `closeOrphans`), to be weighed against the rule on locking by
+  primary key (ARCHITECTURE 4.3); a prefetch of product facts at the catalog flush; a cache of the connections; a
+  cache of Smaily's workflow list; `HistoryJobs` through `JobStore`; `ReportSettings` through `Settings::setJson()`.
 - The Initial setup's first answer to "How are your shops run?" runs no layout change, so a store that held
   settings or a connection before it got a second shop keeps them under "all shops" (ARCHITECTURE 8.9).
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron

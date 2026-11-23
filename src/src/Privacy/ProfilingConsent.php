@@ -144,28 +144,29 @@ class ProfilingConsent
      */
     public function resendOptOuts(array $emails, Connection $connection, int $idShop): int
     {
-        $queued = 0;
-        $addresses = array_unique(array_filter(array_map(static fn (string $email): string => strtolower(trim($email)), $emails)));
-        foreach ($addresses as $address) {
-            $record = $this->record->find($address);
-            if ($record === null || !$record['opted_out']) {
-                continue;
+        $addresses = array_values(array_unique(array_filter(array_map([ContactEntity::class, 'address'], $emails))));
+        $optOuts = $this->record->optOuts($addresses);
+        if ($optOuts === []) {
+            return 0;
+        }
+        // The shoppers whose opt-out already waits for the connection, by keyed hash.
+        $waiting = [];
+        foreach ($this->queue->waitingOfEntities(array_map('strval', array_keys($optOuts)), self::EVENT_TYPE) as $row) {
+            $payload = json_decode((string) $row['payload'], true);
+            if (is_array($payload) && (int) ($payload['connection'] ?? 0) === $connection->id() && ($payload['opt_out'] ?? null) === true) {
+                $waiting[strtolower((string) $row['entity_id'])] = true;
             }
+        }
+        $queued = 0;
+        foreach ($addresses as $address) {
             $key = ContactEntity::key($address);
-            foreach ($this->queue->ofEntities([$key]) as $row) {
-                $payload = json_decode((string) $row['payload'], true);
-                if (
-                    $row['event_type'] === self::EVENT_TYPE
-                    && in_array($row['status'], [EventQueue::STATUS_PENDING, EventQueue::STATUS_PROCESSING], true)
-                    && is_array($payload) && (int) ($payload['connection'] ?? 0) === $connection->id() && ($payload['opt_out'] ?? null) === true
-                ) {
-                    continue 2;
-                }
+            if (!isset($optOuts[$key]) || isset($waiting[$key])) {
+                continue;
             }
             $this->queue->enqueue(
                 self::EVENT_TYPE,
                 $connection->idShop() > 0 ? $connection->idShop() : $idShop,
-                ['connection' => $connection->id(), 'email' => $address, 'opt_out' => true, 'opted_out_at' => str_replace(' ', 'T', $record['changed_at']) . 'Z'],
+                ['connection' => $connection->id(), 'email' => $address, 'opt_out' => true, 'opted_out_at' => str_replace(' ', 'T', $optOuts[$key]) . 'Z'],
                 $key
             );
             ++$queued;
@@ -184,7 +185,7 @@ class ProfilingConsent
      */
     private function queueForEngine(string $email, bool $optOut, string $at, int $idShop): int
     {
-        $address = strtolower(trim($email));
+        $address = ContactEntity::address($email);
         $queued = 0;
         foreach ($this->connections->all() as $connection) {
             $payload = ['connection' => $connection->id(), 'email' => $address, 'opt_out' => $optOut];

@@ -96,29 +96,27 @@ final class CartAttribution
         if ($connection === null || $cookies === null) {
             return;
         }
-        $read = $this->attribution->read($cookies, $connection);
-        if ($read['rec_id'] === null && $read['visitor_token'] === null) {
+        $values = Attribution::rowValues($this->attribution->read($cookies, $connection));
+        if ($values === null) {
             return;
         }
-        $values = [$read['rec_id'], $read['rec_id'] === null ? null : $read['context'], $read['visitor_token']];
 
         $now = ($this->now)();
         $stored = Sql::row(sprintf('SELECT `rec_id`, `context`, `visitor_token`, `updated_at` FROM %s WHERE `id_cart` = %d', self::table(), (int) $cart->id));
         if ($stored !== null
-            && [$stored['rec_id'], $stored['context'], $stored['visitor_token']] === $values
+            && [$stored['rec_id'], $stored['context'], $stored['visitor_token']] === array_values($values)
             && (string) $stored['updated_at'] > gmdate('Y-m-d H:i:s', $now - self::REFRESH_SECONDS)
         ) {
             return;
         }
-        $quoted = array_map(static fn (?string $value): string => $value === null ? 'NULL' : '\'' . pSQL($value) . '\'', $values);
         Sql::write(sprintf(
             'INSERT INTO %s (`id_cart`, `rec_id`, `context`, `visitor_token`, `updated_at`) VALUES (%d, %s, %s, %s, \'%s\')'
             . ' ON DUPLICATE KEY UPDATE `rec_id` = VALUES(`rec_id`), `context` = VALUES(`context`), `visitor_token` = VALUES(`visitor_token`), `updated_at` = VALUES(`updated_at`)',
             self::table(),
             (int) $cart->id,
-            $quoted[0],
-            $quoted[1],
-            $quoted[2],
+            Sql::quote($values['rec_id']),
+            Sql::quote($values['context']),
+            Sql::quote($values['visitor_token']),
             pSQL(gmdate('Y-m-d H:i:s', $now))
         ));
     }
@@ -140,7 +138,7 @@ final class CartAttribution
             if ($row !== null) {
                 Sql::write(sprintf('DELETE FROM %s WHERE `id_cart` = %d', self::table(), $idCart));
             }
-            $this->taken[$idCart] = $row === null ? null : ['rec_id' => $row['rec_id'], 'context' => $row['context'], 'visitor_token' => $row['visitor_token']];
+            $this->taken[$idCart] = $row;
         }
 
         return $this->taken[$idCart];

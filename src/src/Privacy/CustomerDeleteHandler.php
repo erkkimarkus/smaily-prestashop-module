@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
@@ -90,7 +91,7 @@ final class CustomerDeleteHandler implements HandlerInterface
      */
     public static function payload(Crypto $crypto, Connection $connection, string $email): array
     {
-        return ['connection' => $connection->id(), self::ADDRESS => $crypto->encrypt(strtolower(trim($email)))];
+        return ['connection' => $connection->id(), self::ADDRESS => $crypto->encrypt(ContactEntity::address($email))];
     }
 
     public function handle(array $events): array

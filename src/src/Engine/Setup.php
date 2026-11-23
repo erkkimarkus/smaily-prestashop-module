@@ -80,13 +80,13 @@ final class Setup
 
     private string $moduleVersion;
 
-    private ?InstallationReport $report;
+    private InstallationReport $report;
 
     /**
-     * @param InstallationReport|null $report told that the setup changed, as after a save of the
-     *                                        Settings; null tells nobody
+     * @param InstallationReport $report told that the setup changed, as after a save of the
+     *                                   Settings
      */
-    public function __construct(Client $client, Connections $connections, EngineSettings $settings, StoreLayout $layout, AccountStore $accounts, string $moduleVersion, ?InstallationReport $report = null)
+    public function __construct(Client $client, Connections $connections, EngineSettings $settings, StoreLayout $layout, AccountStore $accounts, string $moduleVersion, InstallationReport $report)
     {
         $this->client = $client;
         $this->connections = $connections;
@@ -140,9 +140,7 @@ final class Setup
             $connection['api_key'],
             $connection['settings']
         );
-        if ($this->report !== null) {
-            $this->report->setupSaved();
-        }
+        $this->report->setupSaved();
 
         return $stored;
     }
@@ -255,12 +253,8 @@ final class Setup
     private function ownAccounts(int $key): array
     {
         $own = [];
-        foreach ($this->accounts->scopes() as $scope) {
-            if ($key > 0 && (int) $scope['id_shop'] !== $key) {
-                continue;
-            }
-            $account = $this->accounts->find((int) $scope['id_shop'], (string) $scope['language']);
-            if ($account !== null && trim($account->subdomain()) !== '') {
+        foreach ($this->accounts->servedBy($key) as $account) {
+            if (trim($account->subdomain()) !== '') {
                 $own[] = strtolower(trim($account->subdomain()));
             }
         }

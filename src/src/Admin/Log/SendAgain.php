@@ -56,7 +56,7 @@ final class SendAgain extends AbstractJsonAction
         if ($row === null) {
             return $this->error('not_found', $this->trans('This log row no longer exists — it has likely been pruned by retention.', BaseController::DOMAIN), 404);
         }
-        $reason = LogController::refusal($row);
+        $reason = (new ResendGuard())->refusalOf($row);
         if ($reason !== null) {
             return $this->error('refused', $this->trans(ResendGuard::message($reason), BaseController::DOMAIN), 409);
         }

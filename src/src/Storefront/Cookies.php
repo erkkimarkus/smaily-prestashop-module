@@ -88,11 +88,6 @@ final class Cookies
         return is_string($value) ? trim($value) : null;
     }
 
-    public function path(): string
-    {
-        return $this->path;
-    }
-
     /**
      * Sets a cookie for a number of days, or deletes it when $value is ''.
      *

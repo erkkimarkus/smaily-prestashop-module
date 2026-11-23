@@ -2363,7 +2363,9 @@ Intelligence and on step 4 of the Initial setup (section 10.11).
 
 **What a storefront page gets** (`Storefront\PageScripts`, `actionFrontControllerSetMedia`). A shop
 with a stored connection gets `consent.js` and `attribution.js`; while the engine takes the
-connection it also gets `tracker.js` and `recommendations.js`. The scripts read one JavaScript
+connection it also gets `tracker.js` and `recommendations.js`. The storefront reads a shop's
+connection once in a request (`Storefront\ActiveConnection`); every write of a connection
+(`Engine\Connections`) forgets what was read. The scripts read one JavaScript
 definition, `smailyConnectStorefront` (`Media::addJsDef()`): the merchant's consent setting, the three
 endpoint addresses, the cookie and link parameter names with the cookies' lifetimes, the shop's
 cookie path, and the page's context (`type`, and `productId` with `productAttributeId`,
@@ -2570,7 +2572,7 @@ storefront's (section 8.10), and take their product key from here.
 connection exists only after the merchant pasted a setup link (section 8.9), so there is no
 separate on/off switch. While the engine refuses a connection (`Connection::refusedAt()`, section
 8.9) or its key does not read, its rows are still noted and wait as they are
-(`IngestFlusher::maySend()`), as on the Magento and WooCommerce connectors; they go once a ping is
+(`Connection::isTaken()`), as on the Magento and WooCommerce connectors; they go once a ping is
 answered again, whatever their age: the janitor never deletes a waiting row (owner, 2026-11-23;
 section 15).
 Every request goes through `Engine\Client`, which calls the engine's host only.
@@ -2739,7 +2741,9 @@ row with the payload builders, the outcomes, the retries and the Log of every ot
 and no second builder exists. A marker of an import carries the job's id in its payload
 (`{"import": <id>}`); `IngestQueue::countMarked()` counts the job's markers by status inside the
 range of ingest rows the job wrote, a plain read. At most `HistoryImport::BACKLOG` (1000) markers
-of an import wait at a time; a page is 200 ids. An import is `done` once every id is queued and
+of an import wait at a time; a page is 200 ids. Before each page the import counts only the
+markers that still wait (`IngestQueue::countWaitingMarked()`, through the index on domain and
+status), and all of them once at the end of its run. An import is `done` once every id is queued and
 none of its markers waits; its `sent` and `failed` are what the engine took and refused for good.
 
 | Import | Reads | Counts |
@@ -3343,7 +3347,8 @@ card there while "All shops" is selected. The tab has no switch "Use its own …
 
 **No reload.** The page holds every part of the panel, and `views/js/admin/intelligence.js` shows
 the parts of the state it is given: `none`, `connected`, `not_active`, `key_refused` or
-`update_required` (from the connection's last health check, section 8.9). Every endpoint answers
+`update_required` (`Engine\Connection::state()`, from the connection's last health check, section
+8.9; the Dashboard reads the same). Every endpoint answers
 the panel's whole state (`IntelligencePanel::values()`: the store's name, the engine's version,
 the state, the confirmation and the three imports as counts and codes), and the script draws it
 again. While an import is queued or running, the Settings tab asks for the state every 5 seconds.
@@ -3514,7 +3519,7 @@ opt-out and no admin notice, as in the siblings; it adds no screen and no transl
   a shop with a workflow per language (mode `b`) is asked for each of its languages.
   `intelligence` is the connection that serves the shop (`Engine\Connections::forShop()`):
   `connected` is true while its key can be read and no health check found it refused
-  (`IngestFlusher::maySend()`); never the key.
+  (`Connection::isTaken()`); never the key.
 - **Main account.** The account set up for all shops (`id_shop` 0) when a connection names it,
   else the first connection's; separate stores have no shared account. Its API user and password
   go into the `Authorization` header (HTTP Basic) and nowhere else.

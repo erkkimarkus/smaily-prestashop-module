@@ -91,6 +91,9 @@ final class IngestQueue
 
     private const ERROR_LENGTH = 255;
 
+    /** The rows that one INSERT of enqueueMany() carries. */
+    private const INSERT_ROWS = 500;
+
     /** The bytes that the column last_response holds (TEXT). */
     private const RESPONSE_BYTES = 65535;
 
@@ -129,6 +132,34 @@ final class IngestQueue
         ));
 
         return Sql::insertId();
+    }
+
+    /**
+     * Adds the markers of one request, in their order, as enqueue() adds one: one statement for
+     * every INSERT_ROWS of them.
+     *
+     * @param list<array{id_connection: int, domain: string, entity_key: string, payload: array<string, mixed>}> $markers
+     */
+    public function enqueueMany(array $markers): void
+    {
+        $now = $this->time(0);
+        foreach (array_chunk($markers, self::INSERT_ROWS) as $chunk) {
+            $values = array_map(static fn (array $marker): string => sprintf(
+                '(%d, %s, %s, %s, %s, 0, %s, %s)',
+                $marker['id_connection'],
+                self::quote($marker['domain']),
+                self::quote($marker['entity_key']),
+                $marker['payload'] === [] ? 'NULL' : self::quote(self::json($marker['payload'])),
+                self::quote(EventQueue::STATUS_PENDING),
+                $now,
+                $now
+            ), $chunk);
+            Sql::write(sprintf(
+                'INSERT INTO %s (`id_connection`, `domain`, `entity_key`, `payload`, `status`, `attempts`, `created_at`, `updated_at`) VALUES %s',
+                self::table(),
+                implode(', ', $values)
+            ));
+        }
     }
 
     /**
@@ -415,6 +446,28 @@ final class IngestQueue
     }
 
     /**
+     * How many of the markers that countMarked() counts still wait: pending, or being sent. The
+     * domain and the two statuses come first, so the (`domain`, `status`) index answers it from
+     * the waiting rows of the domain, however many rows the import wrote before them.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function countWaitingMarked(int $idConnection, string $domain, array $payload, int $fromId, int $toId): int
+    {
+        return Sql::count(sprintf(
+            'SELECT COUNT(*) FROM %s WHERE `domain` = %s AND `status` IN (%s, %s) AND `id` BETWEEN %d AND %d AND `id_connection` = %d AND `payload` = %s',
+            self::table(),
+            self::quote($domain),
+            self::quote(EventQueue::STATUS_PENDING),
+            self::quote(EventQueue::STATUS_PROCESSING),
+            $fromId,
+            $toId,
+            $idConnection,
+            self::quote(self::json($payload))
+        ));
+    }
+
+    /**
      * The UTC time of the newest row of a domain for a connection, in any state; null for none.
      */
     public function newest(int $idConnection, string $domain): ?string
@@ -611,6 +664,6 @@ final class IngestQueue
 
     private static function quote(?string $value): string
     {
-        return $value === null ? 'NULL' : '\'' . pSQL($value, true) . '\'';
+        return Sql::quote($value, true);
     }
 }
