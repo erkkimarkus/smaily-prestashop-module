@@ -228,8 +228,9 @@ final class IntelligencePanel
     }
 
     /**
-     * What the page shows for a stored connection, from the last health check: connected (also
-     * while the engine does not answer), or why the engine refuses it.
+     * What the page shows for a stored connection, from the health checks: connected (also while
+     * the engine does not answer), or why the engine refuses it (the reason of the last refusal,
+     * which a later check without an answer does not replace).
      */
     private static function state(Connection $connection): string
     {
@@ -239,7 +240,7 @@ final class IntelligencePanel
         if ($connection->refusedAt() === '') {
             return self::STATE_CONNECTED;
         }
-        switch ($connection->health()['error']) {
+        switch ($connection->settings()['refused_error'] ?? $connection->health()['error']) {
             case 'tenant_inactive':
                 return self::STATE_NOT_ACTIVE;
             case 'plugin_update_required':

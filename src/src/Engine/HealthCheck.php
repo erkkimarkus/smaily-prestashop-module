@@ -108,12 +108,16 @@ final class HealthCheck
             $status = self::CONNECTED;
             $settings = self::withAnswer($settings, $answer);
             $settings['refused_at'] = '';
+            unset($settings['refused_error']);
             $settings['health'] = self::health($status, '', 200, $now);
         } catch (EngineRequestException $refusal) {
             $status = self::REFUSED;
             if ($connection->refusedAt() === '') {
                 $settings['refused_at'] = $now;
             }
+            // Why the engine refuses, kept with the refusal: a later check without an answer
+            // replaces the health record, and the Intelligence tab still has to say why.
+            $settings['refused_error'] = $refusal->errorCode();
             $settings['health'] = self::health($status, $refusal->errorCode(), $refusal->httpStatus(), $now);
         } catch (EngineTransportException $failure) {
             $status = self::UNREACHABLE;
