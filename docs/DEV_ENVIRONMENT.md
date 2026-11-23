@@ -85,13 +85,13 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 2224 tests on 8.2.8 (11900 assertions) and on 9.2.0 (11905
-assertions; one test checks more where PrestaShop has discount types), with debug mode on and
-with debug mode off, each of the four runs on a shop made from scratch behind the egress guard
-(2026-11-23, on the merged `v3` with every stage 5 and stage 6 Story and the fixes of the install
-check; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
-prints deprecation notices of modules that the image ships and of PrestaShop itself; none names
-the module's code or its tests. A test opens a private member through
+Last verified results, all passing: 2231 tests on 8.2.8 (11924 assertions with debug mode on,
+11923 with it off) and on 9.2.0 (11929 assertions; one test checks more where PrestaShop has
+discount types), with debug mode on and with debug mode off, the two runs of a version on one
+shop made from scratch behind the egress guard (2026-11-23, with the fix batch of that day;
+8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
+prints deprecation notices of modules that the image ships and of PrestaShop itself (191 lines
+in that run); none names the module's code or its tests. A test opens a private member through
 `IntegrationTestCase::accessible()`, which calls `setAccessible()` only on PHP 8.0, where it is
 needed: PHP 8.5 deprecates the call, and a unit test fails on a direct one. One
 run of that day on 8.2.8 failed `ConcurrentFlushTest` alone, as one earlier run had: a worker
@@ -99,7 +99,7 @@ booted later than the 3 seconds the test gave it then, on a machine that ran oth
 test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of
 a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2224 tests, 3914 assertions, 1130 skipped). The storefront scripts have
+and skips the integration tests (2231 tests, 3932 assertions, 1131 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
@@ -497,6 +497,9 @@ Results on 2026-11-20:
 - On 2026-11-23, on the merged `v3` with Campaign Intelligence, the installation report and the
   fixes of the install check: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged zip,
   and 2224 tests in the shop on each (11900 assertions on 8.2.8, 11905 on 9.2.0).
+- On 2026-11-23, with `api.github.com` resolved inside the shop and the fixes of that day up
+  to the Log's retry checkbox: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged
+  zip, and 2230 tests in the shop on each (11922 assertions on 8.2.8, 11927 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
@@ -636,6 +639,17 @@ its own worktree:
     MAILHOG_PORT=8126
 
 The same holds for `tests/ci/validate.sh` with `COMPOSE_PROJECT_NAME` and `CI_PORT` (section 6).
+
+**Two shops in one browser.** A browser keeps one set of cookies per host name, whatever the port,
+so two dev shops that are both opened at `localhost` share their cookies: a sign-in to the back
+office of one signs the employee out of the other. Open the second shop at `127.0.0.1` and give
+it that domain, with a second Compose file that changes only the shop's domain (the two test
+shops of 2026-11-23 ran this way, one at `localhost` and one at `127.0.0.1`):
+
+    # second.yaml:  services: {prestashop: {environment: ["PS_DOMAIN=127.0.0.1:${PS_PORT:-8080}"]}}
+    docker compose -f docker-compose.yaml -f second.yaml up -d prestashop
+
+Every later `docker compose` call of that stack names the same two files.
 
 Run one shop at a time when memory is short: one shop with its database takes about 0.5 GiB.
 

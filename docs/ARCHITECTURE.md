@@ -2099,7 +2099,7 @@ connection that lost its prefix reads it from the ping.
 | `external_order_id` | `<prefix><id_order>` |
 | `customer_external_id` | `<id_customer>`, no prefix (the contract prefixes no customer id). |
 | `website` / `websites` key | **[D]** The shop id as a string (`"1"`). The contract settles this: the connector names its own stable website code, 1–64 characters, compared exactly as sent (contract "Base context", v1.21.0). PrestaShop shops have no code; the id is stable. Sent only by a connection that serves 2+ shops. |
-| History `import_id` | `ps-<YYYY-MM-DD>-<job id>` (the connector's own id, §25). |
+| History `import_id` | `presta-<YYYY-MM-DD>-<job id>` (the connector's own id, §25; section 8.12). It is no product or order key and carries neither the prefix nor the namespace. |
 
 Why one row per combination: the contract's `sku` is the variant-level key, and a §6c stock-alert
 request names one variant (section 8.8). One row per product would need a key change, and a key change
@@ -3948,7 +3948,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 3.2 Initial setup and Dashboard | Done for the steps Connect, Contacts and Overview and for the Dashboard. Story 4.1 built the Automations step; Story 5.3 built the Intelligence step. | `admin:`, `scope:`, `config:`, `module:`, `tests:` |
 | 3.3 Settings: Connection, Contacts, RSS, shop switches | Done, with the owner's decisions of 2026-11-20 on the layout change and the confirmations (sections 5.1 and 15). The RSS feed stays the 2.x classes; no `src/src/Rss/` was created (below). | `admin:`, `rss-feed:`, `module:`, `tests:` |
 | 3.4 Log | Done (section 10.8). Its two refusals beyond Magento's left on 2026-11-21 (section 15). | `log:`, `queue:`, `admin:`, `customer-sync:`, `translations:` |
-| 3.5 Translation sweep | Not started. The XLIFF holds 220 units: the 2.x units and the units that single commits added, among them the texts of the Log and of the Automations screens. | — |
+| 3.5 Translation sweep | Done without a sweep of its own: each Story wrote the Estonian units of its screens, and the Estonian rounds of 2026-11-21 and 2026-11-23 completed and walked them (section 10.4; `docs/internal/walks/2026-11-23-capability-14-estonian.md`). The catalogues hold 682 back-office and 8 storefront units. What is left is the native speaker's read. | `translations:` |
 | 4.1 Automation routing, mapping and the Automations tab | Done (section 10.9) | `automations:`, `automation:`, `admin:`, `tests:`, `docs:` |
 | 4.2 Welcome and first order | Done (section 7); the Automations tab of Story 4.1 switches them on and picks their workflows. | `automation:`, `tests:` |
 | 4.3 Abandoned cart | Done (section 7): the sweep, the send, the checkout capture, the delay's bounds and the upgrade's cap. Switched on in the Automations tab, as 4.2. | `automation:`, `abandoned-cart:`, `tests:` |
