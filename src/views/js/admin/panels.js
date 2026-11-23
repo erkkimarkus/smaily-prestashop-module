@@ -198,6 +198,12 @@
       post('test', data).then(function (answer) {
         if (answer.connected) {
           show(testResult, label(data.language === '' ? connectedLabel : 'connected'), true);
+          // The Initial setup's footer still says that an earlier Continue failed: once no field
+          // of the panel shows an error, that message is stale.
+          var stale = root.querySelector('.smaily-footer [data-smaily-result].is-error');
+          if (stale && !panel('connection').querySelector('.smaily-field-error')) {
+            show(stale, '', true);
+          }
         } else {
           show(testResult, answer.error || label('failed'), false);
         }
