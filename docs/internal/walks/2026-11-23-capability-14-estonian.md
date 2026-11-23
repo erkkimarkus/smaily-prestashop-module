@@ -183,3 +183,61 @@ catalogue).
 - `QUESTIONS.md`: 27 wordings the walk is unsure of, each with its alternatives.
 
 `composer package` deletes all of `build/`: copy the folder before the next packaging.
+
+## 7. The read, and the wordings the walk was unsure of
+
+The owner, a native speaker, read the package on 2026-11-23: the texts are fine; the doubtful
+wordings follow the sibling connectors, and what stays doubtful after that goes to a colleague.
+Each of the 27 wordings of `QUESTIONS.md` was looked up in the Estonian catalogues of the Magento
+connector (`i18n/et_EE.csv`, 687 strings), the WooCommerce plugin (`languages/smaily-connect-et.po`,
+771) and the Shopify app (`app/i18n/resources/et/`, 461). The rule: where the siblings carry the
+same or the plainly corresponding English, their Estonian is used, Magento's first; where they
+carry nothing, or differ without a better one, the wording stays.
+
+Three units changed, each in one unit of the back-office catalogue; 24 wordings stay, 4 of them
+for a colleague to settle.
+
+| # | English | Before | After | Source |
+|---|---|---|---|---|
+| 1 | Create a connection with Campaign Intelligence (optional) | Loo ühendus Campaign Intelligence’ga (valikuline) | Loo ühendus Campaign Intelligence'iga (valikuline) | Changed. Magento and WooCommerce carry the old form in this one unit and "Intelligence'iga" in all their others, as this catalogue did (4 units); the old form lacks the linking vowel. The siblings' unit is a finding for them. |
+| 2 | %retried% event(s) queued for retry. (and its form with %skipped%) | %retried% sündmus(t) pandi uuesti proovimiseks järjekorda. | the same | Magento: the same English and Estonian. |
+| 3 | Test Emails; "these test emails" | Test-aadressid; neid test-aadresse | the same | Magento ("Test Emails"), WooCommerce and Shopify ("Test addresses"): all three "Test-aadressid". |
+| 4 | Visitor token | Külastaja tunnus | Külastajatunnus | Changed. No sibling has the text; the Log's reason of this catalogue reads "külastajatunnus", and one thing has one term. |
+| 5 | "… select it in the log and press Retry" (2 units) | … vali rida logis ja vajuta Proovi uuesti | the same | Magento: the same two units without quotation marks, its newer units with them, as here. |
+| 6 | Hold back the import; Held back: …; Paused; Stopped; Stalled | Peata import; Peatatud: …; Peatatud; Peatunud; Seiskunud | the same | Magento (it has no "Paused"); WooCommerce "Peata import", "Impordid peatatud". |
+| 7 | deliveries; View failed deliveries; delivered, last 30 days; Delivered | saadetised; Vaata ebaõnnestunud saatmisi; edastatud, viimased 30 päeva; Kohale toimetatud | the same | Magento: each of the four. |
+| 8 | under Settings > …; in Settings > … | jaotises Seaded > … (3 units), menüüs Seaded > … (10), lehel Seaded (4), Seaded > … after a colon (5) | the same | Kept: Magento writes "jaotises" and "menüüs" in the same units, so the siblings give no one form. |
+| 9 | cookie banner | küpsiseteade | the same | Kept, still doubtful. Shopify words "cookie banner" so; Magento has "küpsiste nõusoleku bänner" (cookie consent banner) and "küpsiste teade" (cookie notice), WooCommerce "nõusolekubänner" and "nõusolekuriba" (consent banner). |
+| 10 | Browse tracking | Sirvimise jälgimine | the same | Magento, WooCommerce, Shopify. |
+| 11 | engine | mootor | the same | Magento, WooCommerce, Shopify. |
+| 12 | Cooldown (days) | Puhkeaeg (päevades) | the same | Magento; WooCommerce "Puhkeaeg"; Shopify "Ooteaeg". |
+| 13 | Daily Cap; No cap | Päevalimiit; Limiiti pole | the same | Magento. |
+| 14 | deliveries are deduplicated on the receiving side | saadetised dedubleeritakse vastuvõtja poolel | the same | Magento. |
+| 15 | Privacy request | Privaatsuspäring | the same | Kept, still doubtful: no sibling has the text. |
+| 16 | Order attribution; Cart attribution | Tellimuse omistamine; Ostukorvi omistamine; tellimuste omistamise andmed | the same | Kept, still doubtful: Magento and WooCommerce have no such text; Shopify words "Recommendation attribution" as "Soovituste atribueerimine". |
+| 17 | Stopped before an error — %sent% of %total% synced so far. | Peatus enne viga — seni sünkroonitud %sent% / %total%. | the same | Magento; Shopify "… töödeldud enne viga". |
+| 18 | Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold. | Saatmata: poes on üle 50 000 tooterea, rohkem öine tootenimekiri ei mahuta. | Ei saadetud: poes on üle 50 000 tooterea, aga öine tootenimekiri mahutab neid kõige rohkem 50 000. | Changed: Magento's sentence for "… 50,000 enabled products …", with "tooterea" for its "lubatud toote". WooCommerce words it otherwise ("Saatmata: … see on suurim arv, mida öine tooteloend mahutab."). |
+| 19 | The Campaign Intelligence connection of this shop then serves all shops: %shop%. | Seejärel teenindab kõiki poode selle poe Campaign Intelligence'i ühendus: %shop%. | the same | Kept, still doubtful: no sibling has the text. |
+| 20 | Dismiss | Peida | the same | Magento, WooCommerce; Shopify "Sulge". |
+| 21 | Delivered — no retries needed. | Kohale toimetatud — kordusi pole vaja. | the same | Magento. |
+
+Wordings 22 to 27 are not strings of the catalogue (the form of dates, `[erased]` and
+`[redacted]`, the event types, the Smaily client's failure text, PrestaShop's own ten words, the
+engine's automation names), and nothing of them changed. What the siblings do: Magento and
+WooCommerce store the same `[erased]`; Magento shows dates in the form of the admin's locale, and
+its catalogue words the Smaily client's failure texts ("Smaily API päring ebaõnnestus (HTTP %1)").
+
+**Still doubtful, for a colleague of Smaily's marketing or support:** "küpsiseteade" (9; or
+"küpsiste nõusoleku bänner", "nõusolekubänner", "küpsisebänner"), "Privaatsuspäring" (15; or
+"Isikuandmete päring", "Andmekaitsepäring"), "omistamine" (16; or "atribueerimine" as Shopify,
+"Tellimuse seos e-kirjaga"), and the sentence of 19 (or "Pärast muudatust kasutavad kõik poed
+selle poe Campaign Intelligence'i ühendust: %shop%.").
+
+**Seen on a screen** (9.2.0, a shop made from scratch behind the egress guard, an employee who
+reads Estonian; the stack removed afterwards): the step list of the Initial setup with "Loo
+ühendus Campaign Intelligence'iga (valikuline)" at 1440, 1100 and 800 pixels, and a staged Log
+row of the nightly product list with the new sentence in the table and in Details. Nothing is
+cut and no placeholder shows. "Külastajatunnus" is a column name of the export file, not of a
+screen: the shop's translator gave it for both attribution rows. Host suite: 2231 tests, 3932
+assertions, 1131 skipped; the in-shop suite did not run, as only three targets of the catalogue
+changed.

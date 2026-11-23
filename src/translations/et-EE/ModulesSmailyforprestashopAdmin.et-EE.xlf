@@ -1434,7 +1434,7 @@
       </trans-unit>
       <trans-unit id="3eb99dea2c525b3d9a2485e6403b60d8">
         <source>Create a connection with Campaign Intelligence (optional)</source>
-        <target>Loo ühendus Campaign Intelligence’ga (valikuline)</target>
+        <target>Loo ühendus Campaign Intelligence'iga (valikuline)</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="e7ae4c6b54767c3ea2a2e0033d677cdf">
@@ -2664,7 +2664,7 @@
       </trans-unit>
       <trans-unit id="89d3aa90d44231874dcc361502338627">
         <source>Visitor token</source>
-        <target>Külastaja tunnus</target>
+        <target>Külastajatunnus</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="aa74397584da0fd719c7f349ba31e399">
@@ -2779,7 +2779,7 @@
       </trans-unit>
       <trans-unit id="bafed62f1ccec1f9151592870787013d">
         <source>Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold.</source>
-        <target>Saatmata: poes on üle 50 000 tooterea, rohkem öine tootenimekiri ei mahuta.</target>
+        <target>Ei saadetud: poes on üle 50 000 tooterea, aga öine tootenimekiri mahutab neid kõige rohkem 50 000.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="c1c9c2830a1964c1588e934cd5fa5adc">
