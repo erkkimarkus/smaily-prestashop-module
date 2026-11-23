@@ -57,7 +57,7 @@ tables, tabs, hooks, roles, cache folder) and a reinstall; a genuine 2.2.0 took 
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
-the official `9.2.0-8.1` image; PrestaShop's online validator; the multishop screens in Estonian; one unexplained PHP
+the official `9.2.0-8.1` image; PrestaShop's online validator; one unexplained PHP
 8.0.30 segfault report (not reproduced in 113 runs, nor in the install check's 7 suite runs on 8.2.8). Of the
 install check: Module Manager's own Uninstall and Reset buttons, an upload over 1.6.2 on this tip, a store with two
 shops. Of stage 5: the capability walks of 8 to 11
@@ -70,6 +70,12 @@ export on 9.x).
 
 1. Capability 14: the native speaker's read of `build/estonian-read/` (in the main checkout), then the wordings it
    corrects.
+2. The owner walks the two test shops of `build/testkeskkond/` (guide `JUHEND.md` there, mocks only); what the walk
+   finds comes back as fixes.
+3. The Dashboard's counts include Campaign Intelligence deliveries (Linear CON-415); `ConcurrentFlushTest` gives its
+   workers more than 3 seconds to start.
+4. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
+   team answers INT-306.
 
 Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
