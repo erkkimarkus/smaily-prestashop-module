@@ -4142,7 +4142,6 @@ has one owner:
 | 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). Not changed, and open: a guest-checkout customer's token still also needs the newsletter box of the checkout. | Owner |
 | 49 | An order that a payment provider's server confirms | **Decided and built** (owner, 2026-11-23; Linear CON-407): the click and the visitor token are kept with the cart in `smaily_connect_cart_attribution`, and an order whose request has no shopper's cookies takes them from there (section 8.10). Left: a row is kept a day after the shopper's last page with the cart, so a confirmation that comes later than that gets no cookie credit; a checkout whose every step runs outside PrestaShop's page controllers keeps only what the earlier pages kept. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
-| 52 | Where the line of a report that was not taken in goes | It goes to PrestaShop's log (Advanced Parameters > Logs), as the siblings write theirs to a log file, and not to the module's Log page: that page lists deliveries that can be sent again, and a report is never queued (section 11.1). Confirm that this is "the Log" that Linear CON-404 means. | Owner |
 | 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
 | 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
 
@@ -4153,7 +4152,8 @@ tasks card) on 2026-11-21; they moved to section 15. So did rows 23 (a late unsu
 subscription), 27 (two Log rules beyond Magento) and 28 (the stale-subscription check covers one
 shop), answered together on 2026-11-21, row 25 (a newsletter-block subscriber without an
 account) and row 31 (the welcome email repeats). Row 51 (no export in the back office on
-PrestaShop 9 with psgdpr) was answered on 2026-11-23 and moved to section 15.
+PrestaShop 9 with psgdpr) and row 52 (where the line of a report that was not taken in goes) were
+answered on 2026-11-23 and moved to section 15.
 
 ## 15. Decisions
 
@@ -4323,3 +4323,7 @@ Decisions of 2026-11-23:
   ships, cannot search or show a customer in its admin screen (facts file 6.13), so a 9.x store
   had no export in the back office while the form was hidden beside psgdpr (sections 10.8 and
   11.2).
+- An installation report that Smaily does not take in leaves its one line in PrestaShop's own log
+  (Advanced Parameters > Logs), not on the module's Log page (orchestrator, 2026-11-23, settled by
+  sibling parity: the siblings write theirs to a log file). The module's Log lists deliveries that
+  can be sent again, and a report is never queued (section 11.1).

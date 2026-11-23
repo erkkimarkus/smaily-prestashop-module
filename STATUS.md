@@ -107,8 +107,6 @@ The workers' full notes are in ARCHITECTURE section 14; the owner's decisions of
 questions of the stage 5 Stories are in section 15. Before recommending on a behaviour rule, look up what the sibling
 connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 
-6. Installation report: a report that Smaily does not take in leaves its line in PrestaShop's log (Advanced
-   Parameters > Logs), not on the module's Log page (ARCHITECTURE 14, row 51): confirm.
 1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
