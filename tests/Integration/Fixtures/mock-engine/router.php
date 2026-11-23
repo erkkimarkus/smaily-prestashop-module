@@ -49,6 +49,8 @@
  *   names for `fail` and `delay` are `customer_export`, `customer_delete` and `customer_opt_out`.
  * - POST /api/v1/ingest/browse     §6. Validates each event on its own; an `event_id` counts once.
  * - POST /api/v1/recommendations/customer  §15.
+ * - GET /api/v1/automations/catalog, GET and PUT /api/v1/automations/config  §11, §12, §13
+ *   (automations.php).
  * - Anything else: HTTP 404.
  *
  * An authenticated call needs a key that an exchange of this mock issued and that is not revoked
@@ -123,6 +125,12 @@ $now = gmdate('Y-m-d\TH:i:s\Z');
 // The ingest routes (§3, §3b, §3c, §4, §5, §7) answer in ingest.php, which lists them and their
 // switches.
 if ((require __DIR__ . '/ingest.php') === true) {
+    return true;
+}
+
+// The automation routes (§11, §12, §13) answer in automations.php, which lists them and their
+// switches.
+if ((require __DIR__ . '/automations.php') === true) {
     return true;
 }
 

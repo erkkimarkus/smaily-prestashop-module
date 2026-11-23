@@ -226,7 +226,35 @@ class Client
             throw new EngineTransportException($code, $status);
         }
 
-        throw new EngineRequestException($code, $status);
+        throw new EngineRequestException($code, $status, self::refusedFields($answer));
+    }
+
+    /**
+     * The fields that a refusal's `errors[]` names (§13: `{index?, trigger_key?, field, message}`):
+     * the position, the key and the field's path of each entry, where they are plain values. The
+     * entry's `message` is the engine's text and is not read.
+     *
+     * @param mixed $answer the refusal's body
+     *
+     * @return list<array{index: int|null, key: string, field: string}>
+     */
+    private static function refusedFields($answer): array
+    {
+        $fields = [];
+        foreach (is_array($answer) && is_array($answer['errors'] ?? null) ? $answer['errors'] : [] as $error) {
+            $field = is_array($error) ? ($error['field'] ?? null) : null;
+            if (!is_string($field) || preg_match('/^[A-Za-z0-9_.]{1,64}$/D', $field) !== 1) {
+                continue;
+            }
+            $key = $error['trigger_key'] ?? null;
+            $fields[] = [
+                'index' => is_int($error['index'] ?? null) ? $error['index'] : null,
+                'key' => is_string($key) && preg_match('/^[A-Za-z0-9_.-]{1,64}$/D', $key) === 1 ? $key : '',
+                'field' => $field,
+            ];
+        }
+
+        return $fields;
     }
 
     /**
@@ -470,6 +498,70 @@ class Client
             self::INGEST_TIMEOUT_SECONDS,
             $connection,
             $body
+        );
+    }
+
+    // --- The engine's automated emails (Story 5.4): the catalogue (§11), the store's
+    // configuration rows (§12) and their save (§13). Each is one attempt: the merchant's page asks.
+
+    /** The endpoints map key and the fallback path of the automation catalogue (§11). */
+    public const ENDPOINT_AUTOMATIONS_CATALOG = 'automations_catalog';
+    public const PATH_AUTOMATIONS_CATALOG = '/api/v1/automations/catalog';
+
+    /** The endpoints map key and the fallback path of the automation configuration (§12, §13). */
+    public const ENDPOINT_AUTOMATIONS_CONFIG = 'automations_config';
+    public const PATH_AUTOMATIONS_CONFIG = '/api/v1/automations/config';
+
+    /** Seconds an automation call may take: the merchant's page waits for it. */
+    public const AUTOMATIONS_TIMEOUT_SECONDS = 10;
+
+    /**
+     * The automated emails that the engine offers this store now (§11).
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function automationsCatalog(Connection $connection): array
+    {
+        return $this->request(
+            'GET',
+            $connection->endpoint(self::ENDPOINT_AUTOMATIONS_CATALOG, self::PATH_AUTOMATIONS_CATALOG),
+            self::AUTOMATIONS_TIMEOUT_SECONDS,
+            $connection
+        );
+    }
+
+    /**
+     * The store's automation configuration as the engine holds it (§12).
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function automationsConfig(Connection $connection): array
+    {
+        return $this->request(
+            'GET',
+            $connection->endpoint(self::ENDPOINT_AUTOMATIONS_CONFIG, self::PATH_AUTOMATIONS_CONFIG),
+            self::AUTOMATIONS_TIMEOUT_SECONDS,
+            $connection
+        );
+    }
+
+    /**
+     * Saves automation configuration rows (§13). The engine checks all rows before it writes any:
+     * a refusal is an EngineRequestException whose fields() name what it refused, and nothing was
+     * saved.
+     *
+     * @param list<array<string, mixed>> $rows 1 to 50 rows in the contract's shape
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function saveAutomationsConfig(Connection $connection, array $rows): array
+    {
+        return $this->request(
+            'PUT',
+            $connection->endpoint(self::ENDPOINT_AUTOMATIONS_CONFIG, self::PATH_AUTOMATIONS_CONFIG),
+            self::AUTOMATIONS_TIMEOUT_SECONDS,
+            $connection,
+            ['configs' => $rows]
         );
     }
 }

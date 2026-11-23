@@ -262,7 +262,16 @@ answers the contract's errors (per-item `errors[]`, `validation_failed`,
 it took is in the state under `catalog`, `customers`, `orders`,
 `manifests`, `merges`, `bound_tokens` and `event_ids`, per engine store; `fail` and `delay` take
 the names `catalog`, `catalog_remove`, `catalog_manifest`, `customers`, `orders` and
-`identity_merge`. Any token
+`identity_merge`. It answers the automation routes too (`mock-engine/automations.php`, written
+from the contract's text: §11 catalogue, §12 configuration, §13 save with its all-or-nothing
+check and its `errors[]`). `automations` lists the emails the engine offers (a walk changes it
+between two page loads; without it the mock offers two), `automation_configs` holds the saved
+rows per engine store (a walk writes a row there to play another connector or a Smaily
+operator), `automations_live` lists per engine store the emails whose real sends are on (a save
+that asks for real sends keeps test mode for every other email, as the engine does), and `fail`
+and `delay` take the names `automations_catalog`, `automations_config` and `automations_save`.
+The card of Settings > Automations is asked of the engine after the page has loaded: a walk
+waits for it before it reads the card. Any token
 that the mock has not seen works once as a setup link
 (`https://intelligence.smaily.com/setup/<token>`); a token that starts with `notfound` answers 404.
 No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls

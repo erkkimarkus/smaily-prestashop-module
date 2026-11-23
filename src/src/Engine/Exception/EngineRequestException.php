@@ -35,4 +35,30 @@ if (!defined('_PS_VERSION_')) {
  */
 class EngineRequestException extends EngineException
 {
+    /** @var list<array{index: int|null, key: string, field: string}> */
+    private array $fields;
+
+    /**
+     * @param list<array{index: int|null, key: string, field: string}> $fields the fields that the
+     *                                                                         engine names in its
+     *                                                                         refusal (fields())
+     */
+    public function __construct(string $errorCode, int $httpStatus = 0, array $fields = [])
+    {
+        parent::__construct($errorCode, $httpStatus);
+        $this->fields = $fields;
+    }
+
+    /**
+     * The fields at fault that a refusal names in its `errors[]` (contract §13): each entry's
+     * position in the request (`index`, null when the engine names none), the row's natural key
+     * (`key`, '' when the engine names none) and the field's path within the row. Never the
+     * entry's message: it is the engine's text.
+     *
+     * @return list<array{index: int|null, key: string, field: string}>
+     */
+    public function fields(): array
+    {
+        return $this->fields;
+    }
 }
