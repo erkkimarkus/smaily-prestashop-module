@@ -46,10 +46,15 @@ Estonian; screenshots in `build/screens-5.3b/`.
 
 **Last runs** (2026-11-23): the full install check on the merged tip `5117054`, with its three fixes (`composer
 package` keeps `build/`, a test teardown, the cache folder at uninstall). `tests/ci/validate.sh` with the packaged zip:
-10 of 10 on flashlight 8.2.8 and 9.2.0 (debug off). In-shop suite on shops made from scratch behind the egress guard:
-2224 tests with debug on and off, on 8.2.8 (11900 assertions) and 9.2.0 (11905). Host: 2224 tests, 3914 assertions,
-1130 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 and 8.5.12 lint of 356 module
-and 215 test files, no failure. The zip (454 files) passes the content check of `docs/MARKETPLACE.md` 6. On both
+10 of 10 on flashlight 8.2.8 and 9.2.0 (debug off), and again with the fix batch of that day, whose Compose files
+keep the shop from GitHub. In-shop suite with that batch, on shops made from scratch behind the egress guard: 2231
+tests with debug on and off, on 8.2.8 (11924 and 11923 assertions) and 9.2.0 (11929). Host: 2231 tests, 3932
+assertions, 1131 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 and 8.5.12 lint
+of the 17 changed PHP files, no failure (all 356 module and 215 test files on `5117054`). The batch's browser walk
+(the Dashboard's counts with Campaign Intelligence deliveries, the erased Log row, the Log's table in Estonian and
+English, step 1's footer): 62 of 62 checks on 8.2.8 and on 9.2.0, screenshots in `build/fix-log/`,
+`build/fix-dashboard/` and `build/fix-setup/` of the worker's worktree. The zip (454 files) passes the content check
+of `docs/MARKETPLACE.md` 6. On both
 versions from the zip: upload in Module Manager, setup, one tick, a console uninstall that leaves nothing (keys,
 tables, tabs, hooks, roles, cache folder) and a reinstall; a genuine 2.2.0 took the zip by upload and ended `done`
 (`docs/DEV_ENVIRONMENT.md` 6, 7 and 7a). The capability walks of 8 to 11 ran on `82fc312`
