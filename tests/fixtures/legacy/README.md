@@ -157,8 +157,13 @@ no file needed a correction.
   hookFooterBefore has not been defined" after it wrote the `module` row and the tab. Part 2 of the
   file then supplies the version, the hooks and the tab. Loaded this way, the six hooks resolve to
   `displayBackOfficeHeader`, `displayFooterBefore`, `displayLeftColumn`, `displayRightColumn`,
-  `actionFrontControllerSetMedia` and `actionCustomerAccountAdd`, as the file assumes. Without debug
-  mode the install was not tried.
+  `actionFrontControllerSetMedia` and `actionCustomerAccountAdd`, as the file assumes. With debug
+  mode off for the install command, 1.6.2 installs by itself on 8.2.8 and 9.2.0 (walked on
+  2026-11-23): its installer writes the `module` row, the hidden tab, the table and the keys, and
+  registers its hooks under the names it passes. On these versions the rows are named
+  `backOfficeHeader`, `footerBefore`, `leftColumn` and `rightColumn`, not `display…` as part 2 has
+  them; a store that came from PrestaShop 1.7 may hold either. A walk that wants the installer's
+  own state loads part 1 of the file only.
 - The 2.2.0 install copied the override file on both versions; it matched the hash of the
   `override-2.x…` file.
 - `2.2.0-multistore-off-two-shops.sql` was loaded on 2026-11-21 into a 2.2.0 store on 8.2.8 and on

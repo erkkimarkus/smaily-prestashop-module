@@ -531,6 +531,8 @@ commands below follow those walks; they were not run again for this document.
 
    1.6.2 has no Composer step. 1.6.2 does not install with debug mode on (the flashlight default);
    part 2 of `1.6.2-configured.sql` supplies its version, tab and hooks instead (fixture README).
+   With debug mode off for the install command (the prepend file of section 4a), 1.6.2's own
+   installer runs to the end (verified on 8.2.8 and 9.2.0, 2026-11-23).
 3. **Install the legacy release** in a shop whose module folder is not the mounted `src/` (the CI shop
    with `KEEP=1`, section 7): uninstall the module, unpack the legacy zip into `modules/`, and run
    `prestashop:module install smailyforprestashop`.
@@ -539,7 +541,9 @@ commands below follow those walks; they were not run again for this document.
    - Module Manager > Upload a module with `dist/smailyforprestashop.zip`. On the flashlight 8.0.0 and
      8.2.8 images the upload fails until the web server can write its upload folder:
      `docker compose exec -u root prestashop chown www-data /tmp/client_body` (use the CI Compose file
-     and project for the CI shop).
+     and project for the CI shop). Behind the egress guard the upload works with debug mode on
+     (verified in a browser on 8.2.8 and 9.2.0, 2026-11-23, over 2.2.0 and over 1.6.2), where the
+     console upgrade needs debug mode off (section 4a).
    - A scripted upload: log in to the admin, then post the zip to
      `/admin-dev/index.php/improve/modules/import` with the session.
    - The console: replace the module folder with the 3.0.0 files (section 7) and run
@@ -552,6 +556,19 @@ commands below follow those walks; they were not run again for this document.
      runs the tick (ARCHITECTURE section 3.7).
 6. **Check** `SMAILY_CONNECT_MIGRATION` (`status` `done`), `SMAILY_CONNECT_SCHEMA_VERSION`, the
    account, mapping and cart rows, and that the legacy keys except the two tokens are gone.
+
+Seen in the walks of 2026-11-23 (8.2.8 and 9.2.0), on a machine that ran two other stacks:
+
+- The flashlight web server gives a page 30 seconds (`fastcgi_read_timeout` in
+  `/etc/nginx/nginx.conf`), and the first back-office pages after an upgrade took longer: they
+  answered 504. A walk shop raises the two timeouts and reloads nginx, and its scripts wait
+  minutes, not seconds, for a back-office page.
+- With debug mode on, a PHP error of a front controller comes with HTTP 200 and the error's text
+  (2.2.0's cart cron on a field list that is not JSON): judge such a request by its text.
+- A shopper who signs in from another browser gets a new cart (the demo data does not switch
+  "Re-display cart at login" on). A walk that changes a cart again keeps the shopper's cookies.
+- A script that holds the migration's lock from a `mariadb` session ends that session with
+  `KILL <id>`: stopping `docker compose exec` leaves it running in the container.
 
 ## 8. Stopping, restarting and resetting
 
