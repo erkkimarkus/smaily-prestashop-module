@@ -84,15 +84,16 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 - The Smaily client's own failure messages show in English in the Log; its Last Error column is narrow for a sentence.
   A simplification review of the Log, Automations and stage 5 code is due.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron
-  tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive; the 1.6.x hidden-tab
-  removal never ran on a real 1.6.2.
+  tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive.
 
 ## First-release checklist (gauge: 9 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; the line names how. Decisions: ARCHITECTURE 15.
 
 - [x] 1. Upgrade in place from 2.x, including settings left by 1.6.x — genuine 2.2.0 and 1.6.2 stores on 8.0.0, 8.2.8,
-  9.2.0. Still waits: "Finish upgrade" (3.1); the pilot store.
+  9.2.0. Walked in a browser on 8.2.8 and 9.2.0 (2026-11-23): no second reminder for a cart 2.x reminded, 1.6.x
+  settings under 2.2.0 code with their notices in English and Estonian, and "Finish upgrade". Still waits: the pilot
+  store.
 - [x] 2. Smaily account connection, with an invitation for a new store — browser, 8.0.0 and 9.2.0.
 - [x] 3. Store mode by language (four modes) — walked in a browser on 8.2.8 and 9.2.0.
 - [x] 4. Store mode by shop: one shared setup, or one per shop — two shops walked on 8.2.8 and 9.2.0.

@@ -913,6 +913,33 @@ on the old schema).
   - A console install and uninstall with debug mode on, in dev shops: 30 hooks after the install,
     none after the uninstall.
 
+- On 8.2.8 and 9.2.0 (2026-11-23), each in a shop made from scratch behind the egress guard, in a
+  browser and over the store's cron URLs
+  (`docs/internal/walks/2026-11-23-upgrade-reminded-carts-legacy-rows-finish-upgrade.md`):
+  - **Reminded carts** (section 3.5). A genuine 2.2.0, whose own cart cron had reminded two carts
+    against the Smaily mock, took the 3.0.0 zip through Module Manager > Upload a module. Both
+    carts then changed and passed the delay again, and the check, run over the store's 2.x cart
+    cron URL, sent nothing for them. A cart that 2.x never reminded got one reminder through the
+    migrated account and workflow, and none on the next check. Another cart of the shopper whom
+    2.x had reminded within 24 hours was skipped (`recently_reminded`); another cart of the
+    shopper whose 2.x reminder was three days old was reminded.
+  - **1.6.x rows under 2.x code** (section 3.3). A 1.6.2 that its own installer installed, with
+    the fixture's 1.6.x settings, took the 2.2.0 zip and then the 3.0.0 zip through the Module
+    Manager. Under 2.2.0 the store sent the opt-in only: the customer cron answered that the
+    synchronization is disabled, and the cart cron stopped with a `TypeError`. After the upgrade
+    the welcome was on, contact sync and the abandoned cart were off, the Dashboard named both
+    with their reasons (`switch_not_read`, `field_list_not_json`) in English and in Estonian, and
+    the store sent the welcome only. The hidden tab and the hooks that the 1.6.2 installer wrote
+    were gone.
+  - **"Finish upgrade"** (section 3.6). A migration was stopped before `accounts` through the
+    failure seam, and another database session then held the migration's lock, so that no run
+    could finish it. PrestaShop's upgrade recorded 3.0.0, a 2.x cron URL answered "Waiting: the
+    upgrade of the module has not finished.", every other back-office page showed the line with
+    its link, and the Dashboard showed the banner. The button answered that the upgrade did not
+    finish while the lock was held, and finished the migration once it was free: `done`, every
+    2.2.0 setting carried over, the notices shown, and a registration delivered through the
+    carried-over account.
+
 **Limits:**
 
 - An FTP copy over 2.2.0 on a store without a cron line stays inert until the admin clicks Upgrade:
