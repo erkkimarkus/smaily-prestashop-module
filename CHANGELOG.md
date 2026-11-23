@@ -9,7 +9,7 @@
 - Runs the background tasks also when visitors open pages of the store, after the page is sent, so a store without a cron line still sends its contacts and automation emails. The Background tasks card then shows "Visitors only". On a server that cannot send a page before the work is done (PHP without PHP-FPM or LiteSpeed), the tasks need the cron line.
 - The upgrade deletes the files of versions 2.x and 1.6.x that 3.0.0 no longer uses from the module's folder: the old settings forms, templates, scripts and classes. A file that cannot be deleted stays, and a notice on the Smaily Connect pages names it, so that you can delete it by hand.
 - No longer installs an override of the Newsletter Subscription module (`ps_emailsubscription`). The upgrade removes the override file that 2.x installed, and leaves any other file in place.
-- Uninstall removes all module data: every setting, the cron tokens and the module's database tables.
+- Uninstall removes all module data: every setting, the cron tokens, the module's database tables and its cache files.
 - The module is named Smaily Connect in the back office (2.x: Smaily for PrestaShop). Its technical name `smailyforprestashop` and its folder stay as they are.
 - Replaces the 2.x configuration page with four pages under Customers > Smaily Connect: Dashboard, Initial setup, Settings and Log.
 - Settings has the tabs Connection, Contacts, Automations and RSS. The Connection tab holds the Smaily account, with Test connection and the connection's status; the Contacts tab holds contact synchronization, the consent mode, the extra fields and the first import; the RSS tab builds the product feed URL.

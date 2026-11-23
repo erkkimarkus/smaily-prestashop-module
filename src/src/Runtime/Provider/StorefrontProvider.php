@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\VisitorToken as Visitor
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -67,7 +68,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\VisitorToken;
  *   (`actionCustomerAccountAdd`) give the shopper a visitor token where the merchant confirmed
  *   the cookie banner (Storefront\VisitorToken), which also answers the identity merge's seam
  *   (Engine\Capture\VisitorToken).
- * - The job `storefront_cache` deletes the expired files of the storefront's cache once a day.
+ * - The job `storefront_cache` deletes the expired files of the storefront's cache once a day,
+ *   and the uninstall deletes the cache's folder.
  *
  * One seam lets another area answer without this one knowing it. PRODUCT_KEY is a list of
  * listeners (`Services::listen()`) that give the engine's `sku` of a product on a connection, for
@@ -180,5 +182,8 @@ final class StorefrontProvider implements ProviderInterface
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::CACHE_JOB, 86400, 5, static function (Deadline $deadline) use ($services): void {
             $services->get(Store::class)->prune($deadline);
         }));
+        $services->listen(Uninstaller::BEFORE_REMOVAL, static function () use ($services): void {
+            $services->get(Store::class)->clear();
+        });
     }
 }

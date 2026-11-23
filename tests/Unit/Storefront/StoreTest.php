@@ -76,6 +76,24 @@ final class StoreTest extends TestCase
         self::assertSame(0, $store->prune(new Deadline(0.0, static fn (): float => 1.0)), 'the deadline has passed');
     }
 
+    public function testClearDeletesEveryFileAndTheFolder(): void
+    {
+        $store = $this->fixture->store();
+        $store->set('expired', '1', 60);
+        $store->set('valid', '1', 3600);
+        $this->fixture->now += 120;
+
+        $store->clear();
+
+        self::assertDirectoryDoesNotExist($this->fixture->directory());
+        self::assertNull($store->get('valid'));
+        $store->clear();
+        self::assertDirectoryDoesNotExist($this->fixture->directory(), 'a missing folder is nothing to clear');
+
+        $store->set('again', '1', 60);
+        self::assertSame('1', $store->get('again'), 'the folder is made again when a value is stored');
+    }
+
     public function testAFolderThatCannotBeMadeReadsAsEmptyAndNothingFails(): void
     {
         $file = tempnam(sys_get_temp_dir(), 'smaily-not-a-folder-');

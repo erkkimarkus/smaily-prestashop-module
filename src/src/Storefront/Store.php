@@ -40,7 +40,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
  *   of a network address or of a shopper's identifier, never from the value itself (RateLimiter,
  *   Recommendations).
  * - A file's modification time is the time its value expires. A value past it reads as absent;
- *   prune() deletes such files, and the daily job `storefront_cache` runs it.
+ *   prune() deletes such files, and the daily job `storefront_cache` runs it. clear() deletes
+ *   the folder with every file, and the uninstall runs it.
  * - It is a cache: a folder that cannot be written reads as empty, and nothing fails.
  */
 final class Store
@@ -107,6 +108,22 @@ final class Store
         }
 
         return $deleted;
+    }
+
+    /**
+     * Deletes every file of the folder, and the folder.
+     */
+    public function clear(): void
+    {
+        if (!is_dir($this->directory)) {
+            return;
+        }
+        foreach (new \FilesystemIterator($this->directory, \FilesystemIterator::SKIP_DOTS) as $file) {
+            if ($file->isFile()) {
+                @unlink($file->getPathname());
+            }
+        }
+        @rmdir($this->directory);
     }
 
     private function file(string $key): string

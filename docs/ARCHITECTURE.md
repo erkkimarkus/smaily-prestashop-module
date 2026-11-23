@@ -2539,7 +2539,7 @@ PrestaShop's cache folder (`var/cache/<environment>/smaily_connect/`), named by 
 cache" empties it. A file's modification time is its expiry. The limit counts the requests of one
 network address (`Tools::getRemoteAddr()`) per endpoint and minute under an HMAC of the address with
 the shop's cookie key; no address is stored. The job `storefront_cache` deletes the expired files
-once a day (section 4.1).
+once a day (section 4.1), and the uninstall deletes the folder (section 11.4).
 
 **The endpoints' addresses.** The three endpoints are plain module front controllers
 (`…/module/smailyforprestashop/relay`); `moduleRoutes` adds no friendly URL, and none is named
@@ -3774,7 +3774,7 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 `parent::uninstall()`. The uninstaller:
 
 1. Runs every listener of `Uninstaller::BEFORE_REMOVAL`, while every key and table still exists. A
-   listener that throws is logged by its error class and stops nothing. Two are registered:
+   listener that throws is logged by its error class and stops nothing. Three are registered:
    - first the installation report's `deactivated` event (`ReportProvider`, section 11.1): one
      attempt of at most 5 s, with the connections as they are, and only from a store with a
      connected Smaily account. `ReportProvider` registers after `EngineProvider`, so it names its
@@ -3782,7 +3782,11 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
      registered so far; the order of the providers, and with it the order of the tick's jobs, is
      unchanged;
    - then the engine disconnect (`EngineProvider`: §16 per stored connection, one 3 s attempt
-     each, section 8.9), which sends no report of its own.
+     each, section 8.9), which sends no report of its own;
+   - then the storefront's cache (`StorefrontProvider`, section 8.10): `Storefront\Store::clear()`
+     deletes the folder `smaily_connect` with its files from the cache folder of the environment
+     that the uninstall runs in. A console uninstall on 8.2.8 left that folder behind before
+     (2026-11-23): PrestaShop did not empty its cache folder there.
 
    Whatever the service answers, the removal goes on: a report that was not taken in leaves one
    line in the shop's log.

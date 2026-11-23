@@ -7,7 +7,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Install\HookList;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\StorefrontProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\Store;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\Migration\LegacyStore;
 
@@ -99,6 +101,17 @@ final class UninstallTest extends IntegrationTestCase
 
         self::assertSame(['schema present', 'second'], $seen);
         self::assertFalse(Schema::isCurrent());
+    }
+
+    public function testDeletesTheStorefrontsCacheFolder(): void
+    {
+        $services = Services::fromProviders([StorefrontProvider::class]);
+        $services->get(Store::class)->set('limit:relay:192.0.2.10', '1', 60);
+        self::assertDirectoryExists(_PS_CACHE_DIR_ . 'smaily_connect');
+
+        self::assertTrue((new Uninstaller($services, new LegacyOverride(_PS_OVERRIDE_DIR_)))->uninstall());
+
+        self::assertDirectoryDoesNotExist(_PS_CACHE_DIR_ . 'smaily_connect');
     }
 
     public function testRemovesOnlyTheOverrideThat2xShipped(): void
