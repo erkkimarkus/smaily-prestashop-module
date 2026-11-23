@@ -8,7 +8,8 @@ covers what capability 14 still waited for: the multishop screens in both layout
 screens (Campaign Intelligence, the privacy form, the storefront's Personalization page and
 recommendations block) and, for the native speaker, a package to read.
 
-Gauge after this walk: 13 / 14. Capability 14 is not ticked: the native speaker's read remains.
+Gauge after this walk: 13 / 14: the native speaker's read remained. After the owner's read of
+the same day (section 7) capability 14 counts, and the gauge is 14 / 14.
 
 | | 9.2.0 | 8.2.8 |
 |---|---|---|

@@ -2953,7 +2953,10 @@ that the code uses (the record lists the rest). No string of the module shows in
 English is not a string of the catalogue: the ten words above in a shop without the Estonian
 language pack, the Smaily client's stored failure text, the stored words `[erased]` and
 `[redacted]`, and the event types. The package for a native speaker's read is
-`build/estonian-read/` (git ignores it); the read itself is what capability 14 still waits for.
+`build/estonian-read/` (git ignores it). The owner, a native speaker, read it on 2026-11-23 and
+found the texts fine; the 27 wordings the walk was unsure of were compared with the siblings'
+Estonian catalogues, three units changed, and four wordings wait for a colleague's choice (the
+record's section 7).
 
 ### 10.5 Logos
 

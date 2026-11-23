@@ -8,9 +8,13 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-23. Gauge 13/14._
+_Last updated: 2026-11-23. Gauge 14/14._
 
 ## Next session opens with
+
+**All 14 first-release capabilities are demonstrated (2026-11-23), every one against mocks.** That is not a release:
+the live Smaily service and the live engine were never called, the key namespace `ps-` is not agreed (INT-306), no
+pilot store has upgraded, and CI on the fork has never run (the list under "NOT verified" below).
 
 **On `v3`, landed and pushed to the fork** (`0c38f0b`): stages 1 to 4 (upgrade in place, connection, store modes,
 consent modes, contact sync, the Log, store automations with discount codes, Dashboard, Settings, Initial setup, the
@@ -73,14 +77,13 @@ export on 9.x).
 
 ## Next, in this order
 
-1. Capability 14: the native speaker's read of `build/estonian-read/` (in the main checkout), then the wordings it
-   corrects.
-2. The owner walks the two test shops of `build/testkeskkond/` (guide `JUHEND.md` there, mocks only); what the walk
+1. The owner walks the two test shops of `build/testkeskkond/` (guide `JUHEND.md` there, mocks only); what the walk
    finds comes back as fixes.
-3. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
+2. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
    team answers INT-306.
 
-Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
+Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0. Four Estonian wordings wait for a Smaily
+colleague's choice (the walk record of capability 14, section 7); none blocks a step above.
 
 ## Queue (technical, for the orchestrator)
 
@@ -93,7 +96,7 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron
   tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive.
 
-## First-release checklist (gauge: 13 / 14 demonstrated)
+## First-release checklist (gauge: 14 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; the line names how. Decisions: ARCHITECTURE 15.
 
@@ -131,11 +134,11 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
   disabled), the customer's own export page, the Personalization page, and psgdpr's admin screen. That screen's export
   is shown on 8.2.8 only: psgdpr 1.4.3 cannot show a customer on 9.2.0 (its own defect), where it erases by address
   and the Log's form is the back-office export.
-- [ ] 14. Administration screens in English and Estonian — every screen and state walked in Estonian in a browser
+- [x] 14. Administration screens in English and Estonian — every screen and state walked in Estonian in a browser
   on 8.2.8 and 9.2.0 (2026-11-23): one shop, two shops in both layouts with the layout change, the stage 5 screens,
-  the storefront's Personalization page and recommendations block; no string of the module left in English
-  (`docs/internal/walks/2026-11-23-capability-14-estonian.md`). Waits: the native speaker's read only, from
-  `build/estonian-read/` (`index.html`, `QUESTIONS.md`).
+  the storefront's Personalization page and recommendations block; no string of the module left in English. The
+  owner's native read on 2026-11-23 found the texts fine, and the 27 doubtful wordings were aligned with the sibling
+  connectors: 3 units changed, 4 wait for a colleague (`docs/internal/walks/2026-11-23-capability-14-estonian.md` 7).
 
 ## Open questions (for the owner)
 
@@ -150,9 +153,9 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
 shows whether the real service takes an installation report); ask the
 engine team for the answer on INT-306 (`ps-`) and for the `source` value of PrestaShop's browse events; choose a pilot
-store; have a native speaker read the Estonian.
+store.
 
 Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400,
 CON-401, CON-407, CON-408 and CON-409 done; 5.3 is CON-405; 5.4 is CON-406), CON-402 (privacy, done), CON-403
 (installation report: 6.1 is CON-404, built); cross-connector analysis CON-397 (with CON-394, CON-395, CON-396); engine
-INT-306; subscription SUB-28 (answered). Gauge: 13/14.
+INT-306; subscription SUB-28 (answered). Gauge: 14/14.
