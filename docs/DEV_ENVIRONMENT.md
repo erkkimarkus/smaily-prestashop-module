@@ -508,13 +508,10 @@ it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_
 its containers, volumes and network at the end; `KEEP=1` leaves the shop up.
 
 The script's shop is not behind the egress guard. A fresh install holds no account and no
-connection, so it calls no Smaily service; its storefront request runs the fallback tick, though,
-and with it the update check against the real GitHub (release data only, no store data). To keep
-a local run from that, name a second Compose file in `PS_COMPOSE` that resolves the host inside
-the shop, as the runs of 2026-11-23 did:
-
-    # override.yaml:  services: {prestashop: {extra_hosts: ["api.github.com:127.0.0.1"]}}
-    PS_COMPOSE="docker-compose.yaml -f /path/to/override.yaml" tests/ci/validate.sh
+connection, so it calls no Smaily service. Its storefront request runs the fallback tick, and
+with it the update check, which asks `api.github.com` for the newest release: the two Compose
+files of `tests/ci/` resolve that name to 127.0.0.1 inside the shop container (`extra_hosts`),
+so the check gets no answer and the script never reaches the real GitHub.
 
 ## 7. Installing or upgrading from a built zip
 

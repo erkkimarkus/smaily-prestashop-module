@@ -15,10 +15,12 @@ services:
       - ../..:/smaily
     ports:
       - ${CI_PORT:-8000}:80
-    # The shop never reaches the receiver of the installation report: the name answers inside the
-    # shop container.
+    # The shop never reaches the receiver of the installation report, nor GitHub, which the
+    # module's update check asks for the newest release: both names answer inside the shop
+    # container.
     extra_hosts:
       - subscription.smaily.com:127.0.0.1
+      - api.github.com:127.0.0.1
 
   mysql:
     image: mariadb:lts
