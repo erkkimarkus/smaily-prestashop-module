@@ -234,7 +234,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
         $erased = $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
 
         self::assertSame(3, $erased['attribution'], 'the order\'s token and the two carts\' rows');
-        self::assertSame([(string) $history['others_cart']], array_column(self::table(self::CART_ATTRIBUTION_TABLE, '`id_cart`'), 'id_cart'));
+        self::assertSame([$history['others_cart']], array_map('intval', array_column(self::table(self::CART_ATTRIBUTION_TABLE, '`id_cart`'), 'id_cart')));
         self::assertSame([], $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store']['cart_attribution']);
     }
 

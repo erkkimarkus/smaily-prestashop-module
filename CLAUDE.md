@@ -276,8 +276,8 @@ ask (Linear discipline below).
   alone, never the customer's `newsletter` (owner, 2026-11-23); only a guest-checkout customer's
   token also needs the checkout's newsletter box. The click and the visitor token also wait with the
   cart (`Storefront\CartAttribution`, by the rule of the order's own row) for an order whose
-  request has no shopper's cookies; the order takes the row once per request and deletes it. The cache is files in PrestaShop's
-  cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
+  request has no shopper's cookies; the order takes the row once per request and deletes it. The
+  cache is files in PrestaShop's cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per
   process: a test that renders theme templates shares one (`StorefrontTestCase::themedRequest()`).
 - **Campaign Intelligence keys and prices** (ARCHITECTURE 8.2, 8.3, 8.11). Every product and
   order key comes from `Engine\Payload\Keys`; the namespace literal is its one constant, and a

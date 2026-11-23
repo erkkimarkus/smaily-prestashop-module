@@ -366,6 +366,20 @@ enables it in the default shop only. A cart that a walk leaves open is picked up
 abandoned-cart job after its delay, so "this shopper's rows did not change" is compared row by
 row, not by count.
 
+**A walk over HTTP** (`curl` with a cookie jar; verified in shops with one language). With debug
+mode on, a page asked for as `index.php?controller=order` answers "[Debug] This page has moved"
+with HTTP 200 and runs no page hook: ask for the friendly address (`/order`,
+`/cart?action=show`). The landing endpoint takes a form post (`rec_id`, `context`,
+`visitor_token`), a sign-in is a post of `email`, `password` and `submitLogin=1` to the
+authentication controller, and the customer step of a guest checkout a post of the form's fields
+with `submitCreate=1` to `/order`.
+
+**An order that a payment provider's server confirms.** No shipped payment module validates an
+order without the shopper's session. A walk copies a throwaway payment module into the container
+(never into the repository) whose front controller calls `validateOrder()` for a cart id and the
+customer's `secure_key`, as a provider's webhook does, and asks for it without a cookie; the same
+address asked for with the shopper's cookie jar stands for an order in the shopper's own browser.
+
 ## 5. PrestaShop 8
 
 Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (PrestaShop 8.2.8 on PHP 8.0) or
