@@ -32,6 +32,10 @@ Generate an RSS feed with the 50 latest updated active products for easy import 
 
 When a Smaily account is connected, Smaily Connect sends Smaily an installation report when you save the setup or the Settings, once a day, and when you remove a connection or uninstall or reset the module, authenticated with the connected Smaily account's API credentials, which Smaily only checks and never stores: the shop addresses, the PrestaShop, PHP and module versions, the connected Smaily accounts, the switched-on features, whether each connection works (error codes only) and the time of the last successful sync — never customer, subscriber or order data.
 
+### New-version notice (from version 3.0.0)
+
+When a newer version of the module is out, the Smaily Connect pages say so, with links to download it and to read what is new. The module asks GitHub for the latest version once a day and sends no store data.
+
 ## Requirements
 
 Smaily for PrestaShop requires PHP 8.0+ (PrestaShop 9 itself needs PHP 8.1+). You'll also need to be running PrestaShop 8.0+ or 9.x.
