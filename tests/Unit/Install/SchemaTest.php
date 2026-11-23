@@ -22,6 +22,7 @@ final class SchemaTest extends TestCase
             'smaily_connect_cart',
             'smaily_connect_connection',
             'smaily_connect_order_attribution',
+            'smaily_connect_cart_attribution',
             'smaily_connect_privacy',
         ], Schema::tables());
     }

@@ -165,6 +165,14 @@ final class Schema
             `visitor_token` VARCHAR(64) NULL,
             `created_at` DATETIME NOT NULL,
             PRIMARY KEY (`id_order`)',
+        'smaily_connect_cart_attribution' => '
+            `id_cart` INT UNSIGNED NOT NULL,
+            `rec_id` CHAR(36) NULL,
+            `context` VARCHAR(64) NULL,
+            `visitor_token` VARCHAR(64) NULL,
+            `updated_at` DATETIME NOT NULL,
+            PRIMARY KEY (`id_cart`),
+            KEY `updated_at` (`updated_at`)',
         'smaily_connect_privacy' => '
             `address_key` CHAR(64) NOT NULL,
             `opted_out` TINYINT(1) UNSIGNED NOT NULL,
