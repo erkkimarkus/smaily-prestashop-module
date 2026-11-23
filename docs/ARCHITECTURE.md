@@ -105,6 +105,7 @@ src/
     Config/                   Settings (base: get/set, getJson/setJson, reload, storedValue,
                               removeShopValue), TickSettings, MigrationNotices, ContactsSettings,
                               UpdateSettings, AccountSettings, AutomationSettings, EngineSettings,
+                              ReportSettings (the installation report's health and schedule),
                               RssSettings (the RSS URL builder's defaults), AdminSettings (the
                               setup state, the invitation's dismissal)
     Migration/                LegacyState, LegacyReader, LegacyConfigMapper (pure), MigrationPlan,
@@ -122,6 +123,7 @@ src/
                               CustomerCapture, NewsletterBlockCapture, CheckoutBox,
                               CheckoutBoxSetting; Import/ContactImport, ContactSource, JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
+    Report/                   ConnectionHealth (section 11.1)
     Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector;
                               Exception/ (section 8.9)
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
@@ -176,7 +178,7 @@ src/
                               Recommendations, RecommendationsBlock, Widget, PageScripts (8.10)
     Privacy/                  PrivacyRequest, LocalData, ExportRows, GdprHooks, ProfilingRecord,
                               ProfilingConsent and its handler, CustomerDeleteHandler, AccountLink
-    Report/                   ReportBuilder, ReportSender, InstallationReport, ConnectionHealth
+    Report/                   ReportBuilder, ReportSender, InstallationReport
   views/templates/admin/      the Intelligence templates of the setup and Settings
   views/templates/front/      recommendations, personalization and its account link (Smarty, as
                               PrestaShop front; nothing lies in 2.x's views/templates/hook/)
@@ -441,7 +443,8 @@ writes.
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). The storefront reads it (`Config\EngineSettings::consentConfirmed()`, Story 5.5); no screen writes it yet (Story 5.3). |
 | `SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES` | global | JSON object, id_shop of a connection => the connection prefix it held when it was disconnected, exactly as the engine gave it (`Config\EngineSettings`). The next setup exchange of that shop reports it (section 8.9). Written only by a disconnect on request. |
-| `SMAILY_CONNECT_HEALTH`, `_REPORT_STATE` | global | Section 11. Not written yet. |
+| `SMAILY_CONNECT_HEALTH` | global | JSON `{"smaily": {"<subdomain>": {"error_code": "", "last_sync_at": <Unix time>}}, "engine": {"<tenant id>": {…}}}`: how the last request of each Smaily account and of each Campaign Intelligence engine store went, for the installation report (`Report\ConnectionHealth`, section 11.1). Error codes only; at most 50 entries a group. |
+| `SMAILY_CONNECT_REPORT_STATE` | global | Section 11. Not written yet. |
 | `SMAILY_CONNECT_UPDATE_CHECK` | global | JSON `{"version", "download_url", "release_url", "checked_at", "dismissed"}`: the latest release that the daily check found, and the newest version that the merchant dismissed (section 11.5). |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | as stored | **Kept with their legacy names.** They are the URL contract in merchants' crontabs. A door reads its token at the request's shop, then its shop group, then the global scope, as 2.x did. A token that no scope holds is created at the global scope on its first read. A token stored empty keeps its door closed; the migration replaces it (section 3.4). |
 
@@ -3003,7 +3006,7 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 | `connections[].store_url` | The shop's main URL |
 | `connections[].website` | **[D]** The shop id as a string (`"1"`), the same value that the module sends Campaign Intelligence as the website code (section 8.2). The contract requires it for PrestaShop since v1.1.0. |
 | `features` | `subscriber_sync` = contact sync on; an automation id when switched on **and** the Router resolves a workflow on this account; `campaign_intelligence`, `browse_tracking` while the shop's connection is connected |
-| `smaily`, `intelligence` | `Report\ConnectionHealth`, Magento's rules |
+| `smaily`, `intelligence` | `Report\ConnectionHealth`, Magento's rules. Built: `Smaily\Client::request()` tells the class's observer (`Client::observe()`, named by `ReportProvider`) and `Engine\Client::request()` the health it was built with how each request went: '' or an error code, and whether it wrote data. Codes only; a success that changes only the time is written at most every 5 minutes; recording never throws. |
 | Snapshots and events | `setup_saved` 5 min after a save; `daily`; `disconnected`; `deactivated` first in uninstall. One report per tick at most. |
 
 ### 11.2 Privacy

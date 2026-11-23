@@ -37,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
@@ -61,7 +62,8 @@ final class EngineProvider implements ProviderInterface
         $services->set(EngineSettings::class, fn (): EngineSettings => new EngineSettings());
         $services->set(Client::class, fn (Services $services): Client => new Client(
             $services->get(Transport::class),
-            UpdateProvider::moduleVersion()
+            UpdateProvider::moduleVersion(),
+            $services->get(ConnectionHealth::class)
         ));
         $services->set(Connections::class, fn (Services $services): Connections => new Connections(
             $services->get(Crypto::class),

@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\InvalidSubdomainException;
@@ -56,6 +57,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
  * request body (or the query of a read), and the answer's HTTP status with its JSON body, less any
  * `message` (Smaily's text can name a contact). An answer that is not JSON keeps its status only.
  * It never holds a credential.
+ *
+ * Every answer is also told to the observer (observe()), for the installation report's health of
+ * the account: the subdomain, '' or an error code, and whether the request wrote data. The clients
+ * are built per account all over the module, so the observer is the class's, not an instance's:
+ * no caller can leave it out.
  */
 class Client
 {
@@ -67,6 +73,9 @@ class Client
     private const PLAIN_SUBDOMAIN = '/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i';
 
     private const TIMEOUT_SECONDS = 30;
+
+    /** @var (callable(string, string, bool): void)|null */
+    private static $observer;
 
     private Transport $transport;
 
@@ -85,6 +94,24 @@ class Client
         $this->subdomain = $subdomain;
         $this->username = $username;
         $this->password = $password;
+    }
+
+    /**
+     * Names who is told how each request of every client went: the account's subdomain, '' for a
+     * success or the installation report's error code, and whether the request wrote data. Null
+     * tells nobody. The observer must not throw.
+     *
+     * @param (callable(string, string, bool): void)|null $observer
+     *
+     * @return (callable(string, string, bool): void)|null the observer named before, for a test
+     *                                                     to put back
+     */
+    public static function observe(?callable $observer): ?callable
+    {
+        $before = self::$observer;
+        self::$observer = $observer;
+
+        return $before;
     }
 
     /**
@@ -140,6 +167,7 @@ class Client
                 ]
             );
         } catch (NetworkException $exception) {
+            $this->tell(ConnectionHealth::UNREACHABLE);
             throw new TransportException(sprintf('Smaily API request failed: %s', $exception->getMessage()));
         }
 
@@ -149,8 +177,10 @@ class Client
 
         if ($status >= 400) {
             if (is_array($decoded) && (int) ($decoded['code'] ?? 0) === PlanBlockedException::SMAILY_CODE) {
+                $this->tell(ConnectionHealth::PLAN_BLOCKED);
                 throw new PlanBlockedException('Smaily refused the request: the account\'s package does not include API access.', $status);
             }
+            $this->tell($status !== 429 && $status < 500 ? ConnectionHealth::CREDENTIALS_REJECTED : ConnectionHealth::UNREACHABLE);
             if ($status === 401 || $status === 403) {
                 throw new AuthenticationException('Smaily API credentials were rejected', $status);
             }
@@ -163,13 +193,43 @@ class Client
         }
 
         if (!is_array($decoded)) {
+            $this->tell(ConnectionHealth::UNREACHABLE);
             throw new TransportException('Smaily API returned a malformed response body', $status);
         }
-        if (isset($decoded['code']) && (int) $decoded['code'] !== ApiException::CODE_SUCCESS) {
+        $refused = isset($decoded['code']) && (int) $decoded['code'] !== ApiException::CODE_SUCCESS;
+        // A write whose code refuses it is a failure; a read's code is an answer (206: no such
+        // contact), not a refusal.
+        $this->tell($refused && $method === 'POST' ? self::refusedWriteCode((int) $decoded['code']) : '', $method === 'POST' && !$refused);
+        if ($refused) {
             throw new ApiException((int) $decoded['code']);
         }
 
         return $decoded;
+    }
+
+    /**
+     * Tells the observer how this account's request went: '' or an error code, and whether it
+     * wrote data. The subdomain and a code only, never a credential or a message.
+     */
+    private function tell(string $errorCode, bool $wrote = false): void
+    {
+        if (self::$observer !== null) {
+            (self::$observer)($this->subdomain, $errorCode, $wrote);
+        }
+    }
+
+    /**
+     * The installation report's code for an HTTP 200 answer that refused a write: code 227 is the
+     * package, the permanent refusal (203, invalid data) is named by its code, any other may pass
+     * later.
+     */
+    private static function refusedWriteCode(int $smailyCode): string
+    {
+        if ($smailyCode === PlanBlockedException::SMAILY_CODE) {
+            return ConnectionHealth::PLAN_BLOCKED;
+        }
+
+        return $smailyCode === ApiException::CODE_INVALID_DATA ? 'permanent_envelope_' . $smailyCode : ConnectionHealth::UNREACHABLE;
     }
 
     /**

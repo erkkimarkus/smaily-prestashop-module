@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestExceptio
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 
 /**
  * The Campaign Intelligence engine client (docs/RECENGINE_API_CONTRACT.md): the setup exchange
@@ -49,6 +50,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
  *   message.
  * - Each call is one attempt with its own time limit. The client does not retry and writes no log
  *   line: the caller decides both.
+ * - Every answer to a connection's call is told to the installation report's health of its engine
+ *   store (Report\ConnectionHealth): '' or the error code, and whether an ingest request was
+ *   accepted. The setup exchange names no engine store and tells nothing.
  */
 class Client
 {
@@ -97,13 +101,17 @@ class Client
 
     private string $userAgent;
 
+    private ?ConnectionHealth $health;
+
     /**
      * @param string $moduleVersion the installed module's version, which the User-Agent names
+     * @param ConnectionHealth|null $health told how each connection's call went; null tells nobody
      */
-    public function __construct(Transport $transport, string $moduleVersion)
+    public function __construct(Transport $transport, string $moduleVersion, ?ConnectionHealth $health = null)
     {
         $this->transport = $transport;
         $this->userAgent = 'SmailyConnect-PrestaShopModule/' . $moduleVersion;
+        $this->health = $health;
     }
 
     /**
@@ -140,7 +148,7 @@ class Client
             'GET',
             $connection->endpoint(self::ENDPOINT_PING, self::PATH_PING),
             self::PING_TIMEOUT_SECONDS,
-            $connection->apiKey()
+            $connection
         );
     }
 
@@ -155,22 +163,25 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_STORE_UNINSTALL, self::PATH_STORE_UNINSTALL),
             self::DISCONNECT_TIMEOUT_SECONDS,
-            $connection->apiKey()
+            $connection
         );
     }
 
     /**
-     * @param string|null $apiKey the connection's key; null for the unauthenticated exchange
+     * @param Connection|null $connection the connection whose key the call carries; null for the
+     *                                    unauthenticated exchange
      * @param array<string, mixed>|null $body sent as JSON; null sends no body
      *
      * @return array<string, mixed>
      */
-    private function request(string $method, string $url, int $timeout, ?string $apiKey, ?array $body = null): array
+    private function request(string $method, string $url, int $timeout, ?Connection $connection, ?array $body = null): array
     {
         if (!self::isEngineUrl($url)) {
             throw new EngineRequestException(self::HOST_NOT_ALLOWED);
         }
+        $apiKey = $connection !== null ? $connection->apiKey() : null;
         if ($apiKey === '') {
+            $this->tell($connection, self::KEY_UNREADABLE);
             throw new EngineRequestException(self::KEY_UNREADABLE);
         }
 
@@ -190,6 +201,7 @@ class Client
         try {
             $response = $this->transport->request($method, $url, $options);
         } catch (NetworkException $exception) {
+            $this->tell($connection, self::NETWORK_ERROR);
             throw new EngineTransportException(self::NETWORK_ERROR);
         }
 
@@ -197,8 +209,10 @@ class Client
         $answer = json_decode($response->body(), true);
         if ($status >= 200 && $status < 300) {
             if (!is_array($answer)) {
+                $this->tell($connection, self::MALFORMED_ANSWER);
                 throw new EngineTransportException(self::MALFORMED_ANSWER, $status);
             }
+            $this->tell($connection, '', $method === 'POST' && strpos((string) parse_url($url, PHP_URL_PATH), '/ingest/') !== false);
 
             return $answer;
         }
@@ -207,11 +221,23 @@ class Client
         $code = is_string($error) && preg_match(EngineRequestException::CODE_PATTERN, $error) === 1
             ? $error
             : 'http_' . $status;
+        $this->tell($connection, $code);
         if ($status === 429 || $status >= 500) {
             throw new EngineTransportException($code, $status);
         }
 
         throw new EngineRequestException($code, $status);
+    }
+
+    /**
+     * Tells the installation report how a call of the connection's engine store went: '' or an
+     * error code, and whether an ingest request was accepted. Only a connection names a store.
+     */
+    private function tell(?Connection $connection, string $errorCode, bool $wrote = false): void
+    {
+        if ($this->health !== null && $connection !== null) {
+            $this->health->recordEngine($connection->tenantId(), $errorCode, $wrote);
+        }
     }
 
     /** The endpoints map keys and the fallback paths of the privacy calls (§8, §9, §10). */
@@ -237,7 +263,7 @@ class Client
             'GET',
             self::customerUrl($connection, self::ENDPOINT_CUSTOMER_EXPORT, self::PATH_CUSTOMER_EXPORT, $email),
             self::PRIVACY_TIMEOUT_SECONDS,
-            $connection->apiKey()
+            $connection
         );
     }
 
@@ -254,7 +280,7 @@ class Client
             'DELETE',
             self::customerUrl($connection, self::ENDPOINT_CUSTOMER_DELETE, self::PATH_CUSTOMER_DELETE, $email),
             self::PRIVACY_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             ['confirm' => true, 'reason' => 'user_request']
         );
     }
@@ -279,7 +305,7 @@ class Client
             'POST',
             self::customerUrl($connection, self::ENDPOINT_CUSTOMER_OPT_OUT, self::PATH_CUSTOMER_OPT_OUT, $email),
             self::PRIVACY_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             $body
         );
     }
@@ -325,7 +351,7 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_BROWSE, self::PATH_BROWSE),
             self::RELAY_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             ['events' => $events]
         );
     }
@@ -344,7 +370,7 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_RECOMMENDATIONS, self::PATH_RECOMMENDATIONS),
             self::RECOMMENDATIONS_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             $identifier + ['limit' => $limit]
         );
     }
@@ -389,7 +415,7 @@ class Client
     {
         [$endpoint, $path, $wrapper] = self::INGEST[$domain];
 
-        return $this->request('POST', $connection->endpoint($endpoint, $path), self::INGEST_TIMEOUT_SECONDS, $connection->apiKey(), [$wrapper => $items]);
+        return $this->request('POST', $connection->endpoint($endpoint, $path), self::INGEST_TIMEOUT_SECONDS, $connection, [$wrapper => $items]);
     }
 
     /**
@@ -405,7 +431,7 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_CATALOG_REMOVE, self::PATH_CATALOG_REMOVE),
             self::INGEST_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             ['product_ids' => $productIds]
         );
     }
@@ -423,7 +449,7 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_CATALOG_MANIFEST, self::PATH_CATALOG_MANIFEST),
             self::MANIFEST_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             ['products' => $products]
         );
     }
@@ -442,7 +468,7 @@ class Client
             'POST',
             $connection->endpoint(self::ENDPOINT_IDENTITY_MERGE, self::PATH_IDENTITY_MERGE),
             self::INGEST_TIMEOUT_SECONDS,
-            $connection->apiKey(),
+            $connection,
             $body
         );
     }

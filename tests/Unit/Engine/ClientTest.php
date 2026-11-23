@@ -12,6 +12,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportExcept
 use PrestaShop\Module\SmailyForPrestaShop\Http\NetworkException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 
 /**
  * The engine client calls the engine's own host only, sends the connection's key as a Bearer
@@ -226,12 +227,96 @@ final class ClientTest extends TestCase
         }
     }
 
+    /**
+     * @return array<string, array{string, Response|\Throwable, list<array{string, string, bool}>}>
+     */
+    public function healthAnswers(): array
+    {
+        return [
+            'an accepted ingest request is a sync' => ['ingest', new Response(200, '{"accepted": 1}'), [['tenant', '', true]]],
+            'the browse relay is an ingest request' => ['browse', new Response(202, '{"accepted": 1}'), [['tenant', '', true]]],
+            'a ping is an answer, not a sync' => ['ping', new Response(200, '{"ok": true}'), [['tenant', '', false]]],
+            'a privacy call is an answer, not a sync' => ['opt-out', new Response(200, '{"ok": true}'), [['tenant', '', false]]],
+            'a refusal carries the engine\'s code' => ['ingest', new Response(401, '{"error": "api_key_revoked", "message": "' . self::REMOTE_TEXT . '"}'), [['tenant', 'api_key_revoked', false]]],
+            'a refusal without a code carries the status' => ['ping', new Response(403, '<html>Forbidden</html>'), [['tenant', 'http_403', false]]],
+            'a throttled request' => ['ingest', new Response(429, '{"error": "rate_limit_exceeded"}'), [['tenant', 'rate_limit_exceeded', false]]],
+            'an answer that is not JSON' => ['ping', new Response(200, '<html>OK</html>'), [['tenant', 'malformed_answer', false]]],
+            'no answer' => ['ingest', new NetworkException('Idle timeout reached.'), [['tenant', 'network_error', false]]],
+        ];
+    }
+
+    /**
+     * @dataProvider healthAnswers
+     *
+     * @param Response|\Throwable $answer
+     * @param list<array{string, string, bool}> $told
+     */
+    public function testEveryAnswerToAConnectionsCallIsToldToItsEngineStoresHealth(string $call, $answer, array $told): void
+    {
+        $health = new EngineHealthSpy();
+        $client = new Client(new EngineRecordingTransport($answer), '3.0.0', $health);
+
+        try {
+            switch ($call) {
+                case 'ingest':
+                    $client->ingest(self::connection(), 'catalog', [['sku' => 'ps-1']]);
+                    break;
+                case 'browse':
+                    $client->relayBrowse(self::connection(), [['event_type' => 'product_view']]);
+                    break;
+                case 'opt-out':
+                    $client->customerOptOut(self::connection(), 'shopper@example.test', true);
+                    break;
+                default:
+                    $client->ping(self::connection());
+            }
+        } catch (EngineException $failure) {
+            // The failure is the caller's; the health was told before it.
+        }
+
+        self::assertSame($told, $health->told);
+    }
+
+    public function testTheExchangeNamesNoEngineStoreAndAnUnreadableKeyIsAFailure(): void
+    {
+        $health = new EngineHealthSpy();
+        $client = new Client(new EngineRecordingTransport(new Response(200, '{"tenant_id": "t"}')), '3.0.0', $health);
+
+        $client->setupExchange(Client::BASE_URL, ['setup_token' => 'tok']);
+        self::assertSame([], $health->told);
+
+        try {
+            $client->ping(new Connection(1, 0, 'demo', 'tenant', '', ['engine_base_url' => Client::BASE_URL]));
+            self::fail('a connection without a key asks nothing');
+        } catch (EngineRequestException $failure) {
+            self::assertSame([['tenant', 'key_unreadable', false]], $health->told);
+        }
+    }
+
     private static function connection(): Connection
     {
         return new Connection(1, 0, 'demo', 'tenant', self::KEY, [
             'engine_base_url' => Client::BASE_URL,
             'endpoints' => ['ingest_ping' => Client::BASE_URL . '/api/v1/ingest/ping'],
         ]);
+    }
+}
+
+/**
+ * Records what the engine client tells the installation report's health.
+ */
+final class EngineHealthSpy extends ConnectionHealth
+{
+    /** @var list<array{string, string, bool}> */
+    public array $told = [];
+
+    public function __construct()
+    {
+    }
+
+    public function recordEngine(string $tenantId, string $errorCode, bool $wrote): void
+    {
+        $this->told[] = [$tenantId, $errorCode, $wrote];
     }
 }
 
