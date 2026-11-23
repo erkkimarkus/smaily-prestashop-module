@@ -307,7 +307,10 @@
       buildFeedUrl();
     }
 
-    /* How the shops are run: Change opens the choice; to one store asks first. */
+    /*
+     * How the shops are run: Change opens the choice. The page asks before a change to one store,
+     * and before a change that carries or ends a Campaign Intelligence connection.
+     */
     var shape = panel('store-shape');
     var shapeChange = root.querySelector('[data-smaily-shape-change]');
     var shapePage = root.querySelector('[data-smaily-shape-page]');
@@ -364,9 +367,14 @@
         showShapeChoice(false);
       } else if (action === 'shape-save') {
         var chosen = checked(shapeChange, 'smaily-shape-change');
+        // What the change removes or ends: the other shops' settings, Campaign Intelligence connections.
+        var asked = [];
+        shapeChange.querySelectorAll('[data-smaily-shape-ask][data-smaily-shape-note="' + chosen + '"]').forEach(function (note) {
+          asked.push(note.textContent.trim());
+        });
         if (chosen === shape.getAttribute('data-shape')) {
           showShapeChoice(false);
-        } else if (chosen === 'separate' || window.confirm(shapeChange.querySelector('[data-smaily-shape-note="one"]').textContent.trim())) {
+        } else if (!asked.length || window.confirm(asked.join('\n\n'))) {
           saveLayout(target, chosen, shapeChange.querySelector('[data-smaily-shape-result]'));
         }
       } else if (action === 'save-shape') {

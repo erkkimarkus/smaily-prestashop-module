@@ -85,4 +85,23 @@ final class EngineSettings extends Settings
     {
         return $this->set(self::CONSENT_CONFIRMED, $confirmed ? '1' : '0', $idShop);
     }
+
+    /**
+     * A change of the shop layout: the confirmation never comes to cover visitors it was not
+     * given for. One store to separate stores: the confirmation given for all shops stays with
+     * one shop, as its own, and no other shop holds one. Separate stores to one store: no
+     * confirmation stays, because the one setup then covers the visitors of every shop, and the
+     * merchant confirms again for all of them.
+     *
+     * @param int|null $idShop the shop that keeps the confirmation given for all shops; null keeps none
+     */
+    public function keepConsentFor(?int $idShop): void
+    {
+        $confirmed = $idShop !== null && $this->get(self::CONSENT_CONFIRMED) === '1';
+        \Configuration::deleteByName(self::CONSENT_CONFIRMED);
+        $this->reload();
+        if ($confirmed) {
+            $this->setConsentConfirmed(true, $idShop);
+        }
+    }
 }

@@ -13,7 +13,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\LayoutConnections;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -223,10 +228,11 @@ final class SettingsShopsTest extends IntegrationTestCase
         \Configuration::updateValue(ContactsSettings::MODE, 'checkout_optin', false, null, $this->shopC);
         $before = $this->whatShopsRead();
         $change = $this->layoutChange();
+        $shop = $this->shopA;
 
         try {
-            FailingQueries::during(sprintf($failing, $this->shopC), static function () use ($change): void {
-                $change->toSeparateStores();
+            FailingQueries::during(sprintf($failing, $this->shopC), static function () use ($change, $shop): void {
+                $change->toSeparateStores($shop);
             });
             self::fail('The change went on without the shop\'s own values.');
         } catch (SqlException $error) {
@@ -235,7 +241,7 @@ final class SettingsShopsTest extends IntegrationTestCase
             self::assertSame('other', $this->accounts->find($this->shopC, '')->subdomain());
         }
 
-        $change->toSeparateStores();
+        $change->toSeparateStores($this->shopA);
         self::assertSame($before, $this->whatShopsRead());
         self::assertTrue((new StoreLayout())->separateStores());
     }
@@ -401,7 +407,7 @@ final class SettingsShopsTest extends IntegrationTestCase
         $this->oneStoreConfigured();
         (new AutomationSettings())->setEnabled('first_order', true, 0);
         $this->mappings->upsert(0, 'first_order', '', 'default', 43);
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
         $this->mappings->setNone($this->shopA, 'welcome', '', 'default');
         // A shared row that an upgrade left behind.
         $this->mappings->upsert(0, 'welcome', '', 'default', 42);
@@ -510,7 +516,7 @@ final class SettingsShopsTest extends IntegrationTestCase
         \Configuration::updateValue(ContactsSettings::MODE, 'checkout_optin', false, null, $this->shopC);
         $before = $this->whatShopsRead();
 
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
 
         self::assertTrue((new StoreLayout())->separateStores());
         self::assertSame($before, $this->whatShopsRead());
@@ -526,12 +532,48 @@ final class SettingsShopsTest extends IntegrationTestCase
         );
     }
 
+    /**
+     * The owner's decision of 2026-11-23: the Campaign Intelligence connection of the shop that the
+     * merchant looks at is carried over, in both directions (Engine\LayoutConnections).
+     */
+    public function testALayoutChangeCarriesTheCampaignIntelligenceConnectionOfTheChosenShop(): void
+    {
+        $this->oneStoreConfigured();
+        $connections = $this->services->get(Connections::class);
+        try {
+            $shared = $connections->save(0, 'demo', '550e8400-e29b-41d4-a716-446655440000', 'invented-key', []);
+
+            $this->layoutChange()->toSeparateStores($this->shopB);
+            self::assertNull($connections->find(0));
+            self::assertSame($shared->id(), $connections->find($this->shopB)->id(), 'to separate stores it becomes the chosen shop\'s own');
+
+            $this->layoutChange()->toOneStore($this->shopB);
+            self::assertNull($connections->find($this->shopB));
+            self::assertSame($shared->id(), $connections->find(0)->id(), 'to one store it serves all shops again');
+        } finally {
+            self::db()->delete('smaily_connect_connection');
+            \Configuration::deleteByName(EngineSettings::CONSENT_CONFIRMED);
+        }
+    }
+
+    public function testALayoutChangeIsRefusedForAShopThatTheStoreDoesNotHave(): void
+    {
+        $this->oneStoreConfigured();
+
+        try {
+            $this->layoutChange()->toSeparateStores(990);
+            self::fail('The change was made.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertFalse((new StoreLayout())->separateStores());
+        }
+    }
+
     public function testSeparateStoresToOneStoreRemovesEveryShopsOwnValues(): void
     {
         $this->oneStoreConfigured();
         // An account of a language that an earlier mode `a` left: every shop gets it as its own.
         $this->accounts->save(new Account(0, 'et', 'demo-et', self::USERNAME, self::PASSWORD));
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
         // In separate stores, shop C takes another account, per-language accounts and a workflow.
         $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
         $this->accounts->save(new Account($this->shopC, 'en', 'other', self::USERNAME, self::PASSWORD));
@@ -574,7 +616,7 @@ final class SettingsShopsTest extends IntegrationTestCase
     public function testSeparateStoresToOneStoreMergesTheWorkflowRowsAsMagentoDoes(): void
     {
         $this->oneStoreConfigured();
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
         // Shared rows that an upgrade left behind in separate stores.
         $this->mappings->upsert(0, 'first_order', '', 'default', 50);
         $this->mappings->upsert(0, 'welcome', '', 'default', 60);
@@ -613,7 +655,7 @@ final class SettingsShopsTest extends IntegrationTestCase
         $this->mappings->upsert($this->shopB, 'welcome', '', 'default', 43);
         $this->mappings->upsert($this->shopB, 'welcome', 'et', 'et', 70, false, true);
 
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
 
         $rows = static fn (array $rows): array => array_map(
             static fn (array $row): string => $row['trigger'] . '|' . $row['language'] . '|' . $row['account_key'] . ' ' . $row['workflow_id'] . ($row['is_default_fallback'] ? ' fallback' : ''),
@@ -627,7 +669,7 @@ final class SettingsShopsTest extends IntegrationTestCase
     public function testSeparateStoresToOneStoreNeverSharesAnAccountPerLanguage(): void
     {
         $this->oneStoreConfigured();
-        $this->layoutChange()->toSeparateStores();
+        $this->layoutChange()->toSeparateStores($this->shopA);
         $this->accounts->save(new Account($this->shopA, 'en', 'demo', self::USERNAME, self::PASSWORD));
         \Configuration::updateValue(StoreLayout::LANGUAGE_MODE, 'a', false, null, $this->shopA);
         \Configuration::updateValue(StoreLayout::FALLBACK_LANGUAGE, 'en', false, null, $this->shopA);
@@ -762,7 +804,12 @@ final class SettingsShopsTest extends IntegrationTestCase
     {
         $shops = [$this->shopA, $this->shopB, $this->shopC];
 
-        return new LayoutChange(new StoreLayout(), $this->overrides(), static fn (): array => $shops);
+        return new LayoutChange(new StoreLayout(), $this->overrides(), static fn (): array => $shops, new LayoutConnections(
+            $this->services->get(Connections::class),
+            $this->services->get(Disconnector::class),
+            $this->services->get(EngineSettings::class),
+            $this->services->get(HistoryJobs::class)
+        ));
     }
 
     private function resolver(): AccountResolver

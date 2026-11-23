@@ -126,9 +126,9 @@ src/
     Report/                   ReportBuilder, ReportSender, InstallationReport, EventReport,
                               SetupChange, ConnectionHealth, StoreFacts, Credentials, Report,
                               SendResult (section 11.1)
-    Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector;
-                              Exception/ (section 8.9); Automations/ (AutomationList, ConfigRow,
-                              EngineAutomations: section 10.10)
+    Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector,
+                              LayoutConnections; Exception/ (section 8.9); Automations/
+                              (AutomationList, ConfigRow, EngineAutomations: section 10.10)
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
                               TriggerSender, MarketingConsent, WorkflowResolverInterface;
                               Welcome/, FirstOrder/, AbandonedCart/ (with Capture/)
@@ -448,7 +448,7 @@ writes.
 | `SMAILY_CONNECT_TICK_TOKEN` | global | The tick URL's token, 32 hex characters. The upgrade creates it (section 3.7); on a fresh install the Dashboard's Background tasks card creates it when it asks for the cron line (section 4.3). A request to a door never creates a token. |
 | `SMAILY_CONNECT_TICK_STATE` | global | JSON tick state (section 4.3). |
 | `SMAILY_CONNECT_FALLBACK_TICK` | global | Section 4. Not written yet. |
-| `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). The storefront reads it (`Config\EngineSettings::consentConfirmed()`, Story 5.5); no screen writes it yet (Story 5.3). |
+| `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). The storefront reads it (`Config\EngineSettings::consentConfirmed()`, Story 5.5); Settings > Intelligence and step 4 of the Initial setup write it (section 10.11). A change of the shop layout keeps it for one shop or removes it (`EngineSettings::keepConsentFor()`, section 8.9). |
 | `SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES` | global | JSON object, id_shop of a connection => the connection prefix it held when it was disconnected, exactly as the engine gave it (`Config\EngineSettings`). The next setup exchange of that shop reports it (section 8.9). Written only by a disconnect on request. |
 | `SMAILY_CONNECT_HEALTH` | global | JSON `{"smaily": {"<subdomain>": {"error_code": "", "last_sync_at": <Unix time>}}, "engine": {"<tenant id>": {…}}}`: how the last request of each Smaily account and of each Campaign Intelligence engine store went, for the installation report (`Report\ConnectionHealth`, section 11.1). Error codes only; at most 50 entries a group. |
 | `SMAILY_CONNECT_REPORT_STATE` | global | JSON `{"setup_saved_at": <Unix time>\|null, "daily_at": <Unix time>, "retry": {"trigger", "attempt", "at"}\|null}`: when the next installation report is due (`Report\InstallationReport`, section 11.1). Absent, or `[]`, in a store without a connected Smaily account. `Config\ReportSettings` reads both keys as they are stored now, past the request's loaded configuration. |
@@ -1233,6 +1233,10 @@ mapping rows).
   "no workflow" removes the shared row of that key.
 - **The contacts confirmation** (`SMAILY_CONNECT_CONTACTS_CONFIRMED`) is not an own value. Neither
   direction copies or removes it, as in Magento, so a shop that synced keeps syncing.
+- **The Campaign Intelligence connection** of the same shop, the selected shop or the default
+  shop with "All shops" selected, is carried over in both directions, and every other connection
+  is ended (owner, 2026-11-23; `Engine\LayoutConnections`, section 8.9). It is the last step of
+  the change, and the page's question names the connections.
 - Removing a value deletes its row through `Config\Settings`; no step writes `NULL` (section 2.1).
 
 **[D]** The language axis follows Woo's multilingual modes (`woo:includes/Multilingual/Router.php`):
@@ -2219,9 +2223,55 @@ Every request carries the headers `User-Agent: SmailyConnect-PrestaShopModule/<v
 `Connections::keyOf($idShop)`: 0, the installation-wide connection, in one store; the shop's own id
 in separate stores (the same rule as `Scope::setupShopId()`). In separate stores the installation
 itself cannot connect. A row of another layout is not read for a shop, but the health check and the
-uninstall still cover it, because the engine still takes its key. What a layout change does with the
-connections is not built (the second part of Story 5.3; owner, 2026-11-23: the selected or default
-shop's connection is carried, the others are ended).
+uninstall would still cover it, because the engine still takes its key. A change of the layout
+leaves no such row.
+
+**A change of the shop layout** (owner, 2026-11-23, option B of the approved sketch;
+`Engine\LayoutConnections`, called last by `Admin\Settings\LayoutChange`). One connection is
+carried over into the new layout and every other stored connection is ended. The carried one is
+the connection of the shop that the merchant looks at: the shop of PrestaShop's shop selector, or
+the default shop with "All shops" selected (`LayoutChange::promotedShop()`, the shop whose settings
+the change to one store promotes).
+
+| Direction | Carried | Ended |
+|---|---|---|
+| One store → separate stores | The installation-wide connection (`id_shop` 0) becomes that shop's own. | A row that a shop still held. Every other shop then connects on its own, with its own setup link. |
+| Separate stores → one store | That shop's connection becomes the installation-wide one, which serves every shop. | Every other shop's connection. |
+
+- **Carried** means the row's `id_shop` changes (`Connections::move()`), and nothing else: the row
+  keeps its id, its key, its engine store and its prefix, so its ingest rows and its imports stay
+  its own and go on, the health check pings it as before, and nothing is asked of the engine. The
+  job rows of its imports get the new shop (`HistoryJobs::moveToShop()`), because the Log lists a
+  job by its shop. A shop without a connection carries none: every stored connection then ends.
+- **Ended** is a Disconnect (`Engine\Disconnector::disconnect()`, above): the installation
+  report's `disconnected` event (section 11.1), the engine told once with a limit of 3 seconds,
+  the row removed whatever the engine answered, the prefix remembered for that shop's next setup
+  link. Its imports are cancelled at the next background run (`no_connection`, section 8.12) and
+  its waiting ingest rows are closed (section 8.11), as after a Disconnect on the Intelligence
+  tab. A row that holds the carried connection's new `id_shop` ends first, since the table holds
+  one row per `id_shop`.
+- **Order.** The step runs once the new layout is in force, and the carried row moves before the
+  others end: each `disconnected` report then shows the carried connection where the new layout
+  reads it.
+- **The question before the change** names the shop that keeps the connection and the connections
+  that end, in plain words (`Admin\Settings\SettingsController::connectionNotes()`,
+  `panel/store-shape.html.twig`). The page now also asks before a change to separate stores when
+  it carries or ends a connection; without a connection that direction still asks nothing.
+- **The cookie-banner confirmation** (section 9) never comes to cover visitors it was not given
+  for (`Config\EngineSettings::keepConsentFor()`). To separate stores, the confirmation given for
+  all shops stays with the shop that keeps the connection, as its own, and no other shop holds
+  one. To one store, no confirmation stays: the one setup then covers the visitors of every
+  shop, so browse tracking and recommendations are off until the merchant confirms again for all
+  of them, and the question before the change says so where the shop had confirmed. This part is
+  the narrowest reading of "an upgrade never widens the audience"; the owner may overturn it
+  (section 14, row 58).
+- **Not built.** The engine is not told that the connection now serves other shops: `site_url`
+  and `customer_account_scope` are what the setup exchange sent (section 14, row 59). To one
+  store, the shops that the connection newly serves get no import of their own: their products,
+  customers and orders flow from their next change on, and "Run again" on the import cards sends
+  the whole of them. A store that answers the layout question for the first time in the Initial
+  setup (`Admin\Setup\StoreShapePanel`) runs no layout change, for its settings or its
+  connection.
 
 **Storage.** The API key is encrypted with `Smaily\Crypto`, as the Smaily password is (section 2.3);
 a key that does not decrypt reads as no key, and the connection then needs a new setup link. The
@@ -2290,9 +2340,8 @@ line: the health check comes again in 15 minutes, the exchange is the merchant's
 disconnect is one attempt.
 
 **Not built here.** The `X-Engine-Version` notice of the contract's "Versioning" (not built; the
-Intelligence tab shows the engine's version beside the store's name); what a layout change does
-with the connections (the second part of Story 5.3). The sending gate for a refused
-connection is built with the ingest (section 8.11).
+Intelligence tab shows the engine's version beside the store's name). The sending gate for a
+refused connection is built with the ingest (section 8.11).
 
 ### 8.10 The storefront (as built in Story 5.5)
 
@@ -3376,7 +3425,8 @@ opt-out and no admin notice, as in the siblings; it adds no screen and no transl
   due ends after that one read.
 - **Events** (`Report\EventReport`: at once, once, never thrown, one log line when it is not
   taken in). `disconnected` from `Engine\Disconnector::disconnect()`, before the engine is told
-  and the key deleted, with that connection's engine store left out; and from a save that removed
+  and the key deleted, with that connection's engine store left out, also for each connection
+  that a change of the shop layout ends (section 8.9); and from a save that removed
   a Smaily account (`Report\SetupChange` compares the connected subdomains before and after the
   save): the connections that remain, authenticated with the main account after the save, or
   with the one captured before it when no account remains, then with no connection. `deactivated`
@@ -4419,6 +4469,8 @@ has one owner:
 | 55 | Which keys a save of the engine's automations sends | Built as Magento does today: every row with all eight keys of contract §13, `automation_map`, `test_mode` and `test_emails` included (section 10.10). Since v1.15.0 the contract advises a connector to leave those three out unless the merchant set them here: a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored, a sent `test_mode: true` switches off real sends that were switched on there, and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored) and shows `test_mode` as the engine holds it, but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
 | 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
+| 58 | The cookie-banner confirmation at a layout change | Built as the narrowest reading of "never widen the audience" (section 8.9): to separate stores the confirmation given for all shops stays with the shop that keeps the connection; to one store no confirmation stays, so browse tracking and recommendations are off in every shop until the merchant confirms again for all of them. The owner decided what happens to the connections (2026-11-23), not this. The other reading, which carries one shop's confirmation over to all shops, keeps tracking running through the change and covers visitors of shops whose banner the merchant never confirmed. No sibling has this case. | Owner (a consent decision) |
+| 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team, with section 14 row 1 |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -4628,3 +4680,12 @@ Decisions of 2026-11-23:
     belongs to.
   - Creating or editing a workflow or an email design ("Edit design"), "Try Intelligence free"
     and the console link stay out of 3.0.0.
+- A change of the store layout carries the Campaign Intelligence connection of the selected
+  shop, or of the default shop with "All shops" selected, into the new layout and ends every
+  other connection (owner, 2026-11-23, question 5 of the sketch, option B). An ended connection
+  goes as on Disconnect: the installation report's `disconnected` event, the engine told once,
+  its imports stopped. The question before the change names the shop that keeps the connection
+  and the connections that end (sections 5.1 and 8.9).
+  - The cookie-banner confirmation at that change follows the narrowest reading (orchestrator's
+    rule "never widen the audience", built by the Story; the owner may overturn it, section 14,
+    row 58): it stays with the one shop to separate stores, and is removed to one store.

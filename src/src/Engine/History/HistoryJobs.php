@@ -186,6 +186,19 @@ final class HistoryJobs
     }
 
     /**
+     * Names the shop of every import of a connection again, once a change of the shop layout gave
+     * the connection to another id_shop (Engine\LayoutConnections): the Log lists a job by its
+     * shop. Nothing of an import's state changes.
+     */
+    public function moveToShop(int $idConnection, int $idShop): void
+    {
+        $ids = array_column(Sql::rows('SELECT `id` FROM ' . self::table() . ' WHERE `id_connection` = ' . $idConnection), 'id');
+        if ($ids !== []) {
+            Sql::write('UPDATE ' . self::table() . ' SET `id_shop` = ' . $idShop . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')');
+        }
+    }
+
+    /**
      * Ends an import that is still to run; one that already ended stays as it is.
      *
      * @param array<string, mixed> $job

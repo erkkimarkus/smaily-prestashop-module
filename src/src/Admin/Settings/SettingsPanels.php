@@ -32,11 +32,15 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\RssSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\EngineAutomations;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\LayoutConnections;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
@@ -92,7 +96,18 @@ final class SettingsPanels
         return new LayoutChange(
             $this->layout(),
             $this->overrides(),
-            static fn (): array => array_values(array_map('intval', \Shop::getShops(false, null, true)))
+            static fn (): array => array_values(array_map('intval', \Shop::getShops(false, null, true))),
+            $this->layoutConnections()
+        );
+    }
+
+    public function layoutConnections(): LayoutConnections
+    {
+        return new LayoutConnections(
+            $this->services->get(Connections::class),
+            $this->services->get(Disconnector::class),
+            $this->services->get(EngineSettings::class),
+            $this->services->get(HistoryJobs::class)
         );
     }
 

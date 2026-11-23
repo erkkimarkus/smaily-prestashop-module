@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ConnectionPanel;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\LayoutConnections;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
 /**
@@ -45,8 +46,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
  *   removed, as Magento removes every website's (owner, 2026-11-20). The page asks first. The
  *   contacts confirmation is not an own value and stays (ShopOverrides).
  *
- * The Campaign Intelligence connection is not moved (it is not built yet). A store that has not
- * said how its shops are run answers "one store" through Admin\Setup\StoreShapePanel, not here.
+ * The Campaign Intelligence connection of that same shop is carried over into the new layout, and
+ * every other connection is ended (Engine\LayoutConnections; owner, 2026-11-23): to separate
+ * stores the connection of all shops becomes that shop's, to one store that shop's becomes the
+ * connection of all shops. It is the last step, once the new layout is in force. A store that has
+ * not said how its shops are run answers "one store" through Admin\Setup\StoreShapePanel, not
+ * here.
  */
 final class LayoutChange
 {
@@ -57,41 +62,54 @@ final class LayoutChange
     /** @var callable(): list<int> */
     private $shops;
 
+    private LayoutConnections $connections;
+
     /**
      * @param callable(): list<int> $shops the ids of the store's shops
      */
-    public function __construct(StoreLayout $layout, ShopOverrides $overrides, callable $shops)
+    public function __construct(StoreLayout $layout, ShopOverrides $overrides, callable $shops, LayoutConnections $connections)
     {
         $this->layout = $layout;
         $this->overrides = $overrides;
         $this->shops = $shops;
+        $this->connections = $connections;
     }
 
     /**
-     * The shop whose values all shops use after a change to one store: the shop of PrestaShop's
-     * shop selector, or the default shop with "All shops" selected (0).
+     * The shop whose values all shops use after a change to one store, and which keeps the
+     * Campaign Intelligence connection in either direction: the shop of PrestaShop's shop
+     * selector, or the default shop with "All shops" selected (0).
      */
     public static function promotedShop(int $selectedShop): int
     {
         return $selectedShop > 0 ? $selectedShop : (int) \Configuration::get('PS_SHOP_DEFAULT');
     }
 
-    public function toSeparateStores(): void
+    /**
+     * @param int $idShop the shop that keeps the Campaign Intelligence connection of all shops
+     */
+    public function toSeparateStores(int $idShop): void
     {
         if ($this->layout->separateStores()) {
             return;
         }
+        $shops = ($this->shops)();
+        if (!in_array($idShop, $shops, true)) {
+            throw new \InvalidArgumentException('Not a shop of this store.');
+        }
         $takesMappings = [];
-        foreach (($this->shops)() as $idShop) {
-            $takesMappings[$idShop] = !$this->overrides->usesOtherAccount($idShop);
+        foreach ($shops as $shop) {
+            $takesMappings[$shop] = !$this->overrides->usesOtherAccount($shop);
         }
         $this->overrides->copySharedToShops($takesMappings);
         $this->overrides->removeShared();
         $this->layout->setSeparateStores(true);
+        $this->connections->change(0, $idShop);
     }
 
     /**
-     * @param int $idShop the shop whose values become the shared ones
+     * @param int $idShop the shop whose values become the shared ones, and whose Campaign
+     *                    Intelligence connection becomes the connection of all shops
      */
     public function toOneStore(int $idShop): void
     {
@@ -106,5 +124,6 @@ final class LayoutChange
         ConnectionPanel::shareLanguageMode($this->layout);
         $this->layout->setSeparateStores(false);
         $this->overrides->removeAllOwn($shops);
+        $this->connections->change($idShop, 0);
     }
 }

@@ -313,6 +313,14 @@ ask (Linear discipline below).
   with `pSQL($value, true)`. The tick's health check pings every stored
   connection: a test that stores one removes it
   (`tests/Integration/Engine/EngineTestCase.php`).
+- **A store-layout change and the connections** (owner, 2026-11-23;
+  ARCHITECTURE 8.9). `Admin\Settings\LayoutChange` ends with
+  `Engine\LayoutConnections`: the connection of the selected or default shop
+  is carried into the new layout (`Connections::move()`, the same row and
+  key), and every other one is ended through `Engine\Disconnector`. The
+  cookie-banner confirmation stays with that shop to separate stores and is
+  removed to one store (`EngineSettings::keepConsentFor()`): never copy a
+  confirmation to visitors it was not given for.
 - **Where a Log row goes** is its Source (`Log\LogRows::sourceOf()`): a row
   of the event queue whose type begins with `engine.` is Campaign
   Intelligence's, though its log id stays `smaily-<id>`. A new job reason

@@ -36,7 +36,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 /**
  * The rows of the connection table: the Campaign Intelligence connections of the installation, one
  * per separately set-up shop (ARCHITECTURE 5.3). One store has the installation-wide connection
- * (id_shop 0), which serves every shop; in separate stores each shop has its own.
+ * (id_shop 0), which serves every shop; in separate stores each shop has its own. A change of the
+ * layout carries one connection over and ends the others (LayoutConnections), so no row of the
+ * other layout stays.
  *
  * The API key is stored encrypted, as the Smaily password is. A key that does not decrypt reads as
  * '', and the connection then needs a new setup link.
@@ -137,6 +139,20 @@ final class Connections
         Sql::write(
             'UPDATE `' . _DB_PREFIX_ . self::TABLE . '`'
             . ' SET `settings` = \'' . pSQL(self::encode($settings), true) . '\', `date_upd` = NOW()'
+            . ' WHERE ' . self::same($connection)
+        );
+    }
+
+    /**
+     * Gives a connection to another id_shop, while its row still holds that connection: a change
+     * of the shop layout carries it over (LayoutConnections). The row keeps its id, so its queue
+     * rows and imports stay its own. No row may hold that id_shop.
+     */
+    public function move(Connection $connection, int $idShop): void
+    {
+        Sql::write(
+            'UPDATE `' . _DB_PREFIX_ . self::TABLE . '`'
+            . ' SET `id_shop` = ' . $idShop . ', `date_upd` = NOW()'
             . ' WHERE ' . self::same($connection)
         );
     }

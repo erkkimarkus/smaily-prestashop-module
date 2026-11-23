@@ -32,8 +32,11 @@
  # Takes `shape` (StoreShapePanel::values()) and `shop_name`. The Initial setup passes `setup`: in
  # one store it shows and saves the settings of all shops, and the bar says so (Magento's wizard
  # sets the whole store up, CON-179). Settings also passes `changeable`
- # (the bar's Change, which opens the choice of a layout change, Admin\Settings\LayoutChange) and
- # `promoted_shop` (the shop whose values all shops use after a change to one store).
+ # (the bar's Change, which opens the choice of a layout change, Admin\Settings\LayoutChange),
+ # `promoted_shop` (the shop whose values all shops use after a change to one store) and
+ # `connection_notes` (what the change to the other layout does with the Campaign Intelligence
+ # connections, sentences of Admin\Settings\SettingsController). The page asks before a change
+ # to one store, and before a change that carries or ends a connection ([data-smaily-shape-ask]).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if shape %}
@@ -102,7 +105,10 @@
           {% endfor %}
         </div>
         <p class="smaily-note smaily-note--strong" data-smaily-shape-note="separate" hidden>{{ 'Each shop keeps the settings it uses now, as its own. Change them for each shop afterwards.'|trans }}</p>
-        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="one" hidden>{{ 'All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. The other shops\' own settings are removed.'|trans({'%shop%': promoted_shop|default('')}) }}</p>
+        <p class="smaily-note smaily-note--strong" data-smaily-shape-note="one" data-smaily-shape-ask hidden>{{ 'All shops then use the settings of %shop%: its Smaily account, Contacts settings and automations. The other shops\' own settings are removed.'|trans({'%shop%': promoted_shop|default('')}) }}</p>
+        {% for note in connection_notes|default([]) %}
+          <p class="smaily-note smaily-note--strong" data-smaily-shape-note="{{ shape.shape == 'one' ? 'separate' : 'one' }}" data-smaily-shape-ask hidden>{{ note }}</p>
+        {% endfor %}
         <div class="smaily-actions">
           <button type="button" class="btn smaily-btn-primary" data-smaily-action="shape-save">{{ 'Save'|trans }}</button>
           <button type="button" class="btn btn-outline-secondary" data-smaily-action="shape-cancel">{{ 'Cancel'|trans }}</button>
