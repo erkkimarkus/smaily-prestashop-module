@@ -90,8 +90,10 @@ assertions; one test checks more where PrestaShop has discount types), with debu
 with debug mode off, each of the four runs on a shop made from scratch behind the egress guard
 (2026-11-23, on the merged `v3` with every stage 5 and stage 6 Story and the fixes of the install
 check; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
-prints deprecation notices: of modules that the image ships, of PrestaShop itself, and of the
-tests' own `setAccessible()` calls, which PHP 8.5 deprecates; none names the module's code. One
+prints deprecation notices of modules that the image ships and of PrestaShop itself; none names
+the module's code or its tests. A test opens a private member through
+`IntegrationTestCase::accessible()`, which calls `setAccessible()` only on PHP 8.0, where it is
+needed: PHP 8.5 deprecates the call, and a unit test fails on a direct one. One
 run of that day on 8.2.8 failed `ConcurrentFlushTest` alone, as one earlier run had: a worker
 booted later than the 3 seconds the test gave it then, on a machine that ran other stacks. The
 test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of

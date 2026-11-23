@@ -221,7 +221,7 @@ abstract class ReportTestCase extends IntegrationTestCase
     private static function instance(): \ReflectionProperty
     {
         $property = new \ReflectionProperty(Services::class, 'instance');
-        $property->setAccessible(true);
+        self::accessible($property);
 
         return $property;
     }

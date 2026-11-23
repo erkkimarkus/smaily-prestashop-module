@@ -152,9 +152,9 @@ final class ControllerContainerTest extends IntegrationTestCase
     {
         $services = Services::instance();
         $factories = new \ReflectionProperty(Services::class, 'factories');
-        $factories->setAccessible(true);
+        self::accessible($factories);
         $instances = new \ReflectionProperty(Services::class, 'instances');
-        $instances->setAccessible(true);
+        self::accessible($instances);
         $saved = [$factories->getValue($services), $instances->getValue($services)];
         $built = [];
         $recording = [];

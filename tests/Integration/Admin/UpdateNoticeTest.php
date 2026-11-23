@@ -134,7 +134,7 @@ final class UpdateNoticeTest extends IntegrationTestCase
     private static function call(object $object, string $method, ...$arguments)
     {
         $reflection = new \ReflectionMethod($object, $method);
-        $reflection->setAccessible(true);
+        self::accessible($reflection);
 
         return $reflection->invoke($object, ...$arguments);
     }

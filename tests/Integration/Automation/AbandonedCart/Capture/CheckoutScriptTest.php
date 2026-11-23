@@ -47,7 +47,7 @@ final class CheckoutScriptTest extends AbandonedCartTestCase
             \Context::getContext()->customer = $this->customer;
             \Context::getContext()->cart = $this->cart;
             $property = new \ReflectionProperty(\Media::class, 'js_def');
-            $property->setAccessible(true);
+            self::accessible($property);
             $property->setValue(null, $this->jsDef);
         }
         parent::tearDown();

@@ -68,7 +68,7 @@ abstract class StorefrontTestCase extends EngineTestCase
             }
             $_COOKIE = $this->savedCookies;
             $property = new \ReflectionProperty(\Media::class, 'js_def');
-            $property->setAccessible(true);
+            self::accessible($property);
             $property->setValue(null, $this->savedJsDef);
             \Configuration::deleteByName(EngineSettings::CONSENT_CONFIRMED);
             self::db()->delete(OrderAttribution::TABLE);
@@ -159,7 +159,7 @@ abstract class StorefrontTestCase extends EngineTestCase
         }
         $context->customer = new \Customer();
         $assign = new \ReflectionMethod(self::$page, 'assignGeneralPurposeVariables');
-        $assign->setAccessible(true);
+        self::accessible($assign);
         $assign->invoke(self::$page);
         $_COOKIE = $cookies;
 

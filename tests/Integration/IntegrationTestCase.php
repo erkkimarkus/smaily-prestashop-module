@@ -19,6 +19,19 @@ abstract class IntegrationTestCase extends TestCase
         }
     }
 
+    /**
+     * Opens a private or protected property or method to the test. PHP 8.0 needs the call; from
+     * PHP 8.1 reflection reads such a member without it, and PHP 8.5 deprecates the call.
+     *
+     * @param \ReflectionProperty|\ReflectionMethod $member
+     */
+    protected static function accessible($member): void
+    {
+        if (PHP_VERSION_ID < 80100) {
+            $member->setAccessible(true);
+        }
+    }
+
     protected static function db(): \Db
     {
         return \Db::getInstance();
