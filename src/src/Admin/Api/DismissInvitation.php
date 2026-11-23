@@ -33,13 +33,21 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Hides the invitation to connect a Smaily account on the Dashboard for 90 days, for every admin.
+ * Hides an invitation for every admin: POST {"card": …}. `intelligence` is the invitation to
+ * Campaign Intelligence on top of the Dashboard and of the Settings tabs, hidden for 30 days;
+ * anything else is the invitation to connect a Smaily account on the Dashboard, hidden for 90
+ * days.
  */
 final class DismissInvitation extends AbstractJsonAction
 {
     protected function handle(Request $request, int $idShop)
     {
-        (new AdminSettings())->dismissInvitation(time());
+        $settings = new AdminSettings();
+        if (($this->body($request)['card'] ?? '') === 'intelligence') {
+            $settings->dismissIntelligenceInvitation(time());
+        } else {
+            $settings->dismissInvitation(time());
+        }
 
         return [];
     }

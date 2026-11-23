@@ -1935,6 +1935,17 @@
   color: var(--smaily-accent);
 }
 
+/* The copy on top of the Dashboard and of the Settings tabs, which Dismiss closes. */
+.smaily-ui .smaily-ci-invite--top {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.smaily-ui .smaily-ci-invite--top.is-aside,
+.smaily-ui .smaily-ci-invite--top.is-connected {
+  display: none;
+}
+
 .smaily-ui .smaily-imports {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

@@ -31,23 +31,25 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 
 /**
- * The Dashboard's reads of the event queue and the job table: read-only SQL,
+ * The Dashboard's reads of the event queue, the ingest queue and the job table: read-only SQL,
  * each statement bounded by an index or by a row limit, so the page stays fast on a queue of a
  * million rows. The queue classes have no such reads; a later clean-up can move them there.
  *
- * - contactSyncs(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one pass.
+ * - contactSyncs(), catalogItems(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one
+ *   pass.
  * - queuedToday(): `status` = pending and `created_at` from midnight UTC; the index (`status`,
  *   `next_retry_at`) or (`created_at`), whichever the optimizer finds narrower.
  * - failedSince(): `status` = failed, through the index (`status`, `next_retry_at`).
- * - latestRows(), latestJobs(): the newest rows by primary key.
+ * - latestRows(), latestIngestRows(), latestJobs(): the newest rows by primary key.
  */
 final class DashboardQueries
 {
-    /** contactSyncs() reads at most this many of the newest queue rows. */
+    /** contactSyncs() and catalogItems() read at most this many of the newest rows of their queue. */
     public const SYNC_SCAN_ROWS = 50000;
 
     private const DAY = 86400;
@@ -61,15 +63,47 @@ final class DashboardQueries
      */
     public function contactSyncs(int $now): array
     {
+        return self::delivered(EventQueue::TABLE, '`event_type`', 't.`event_type` = ' . self::quote(ContactSyncHandler::EVENT_TYPE), $now);
+    }
+
+    /**
+     * The catalog rows that reached Campaign Intelligence over the given connections in the 30
+     * days before $now, counted as contactSyncs() counts.
+     *
+     * @param list<int> $connections the ids of the connections
+     *
+     * @return array{count: int, more: bool}
+     */
+    public function catalogItems(array $connections, int $now): array
+    {
+        return self::delivered(
+            IngestQueue::TABLE,
+            '`domain`, `id_connection`',
+            't.`domain` = ' . self::quote(IngestQueue::DOMAIN_CATALOG) . ' AND t.`id_connection` IN (' . implode(', ', array_map('intval', $connections ?: [0])) . ')',
+            $now
+        );
+    }
+
+    /**
+     * The rows of a queue that match $condition and were sent in the 30 days before $now, among
+     * the newest SYNC_SCAN_ROWS rows of the table.
+     *
+     * @param string $columns the columns of the table that $condition reads
+     *
+     * @return array{count: int, more: bool}
+     */
+    private static function delivered(string $table, string $columns, string $condition, int $now): array
+    {
         $since = gmdate('Y-m-d H:i:s', $now - 30 * self::DAY);
         $row = Sql::row(sprintf(
-            'SELECT SUM(t.`status` = %s AND t.`event_type` = %s AND t.`sent_at` >= %s) AS `delivered`,'
+            'SELECT SUM(t.`status` = %s AND %s AND t.`sent_at` >= %s) AS `delivered`,'
             . ' COUNT(*) AS `scanned`, MIN(t.`created_at`) AS `oldest`'
-            . ' FROM (SELECT `status`, `event_type`, `sent_at`, `created_at` FROM %s ORDER BY `id` DESC LIMIT %d) t',
+            . ' FROM (SELECT `status`, %s, `sent_at`, `created_at` FROM %s ORDER BY `id` DESC LIMIT %d) t',
             self::quote(EventQueue::STATUS_SENT),
-            self::quote(ContactSyncHandler::EVENT_TYPE),
+            $condition,
             self::quote($since),
-            self::table(EventQueue::TABLE),
+            $columns,
+            self::table($table),
             self::SYNC_SCAN_ROWS
         ));
 
@@ -120,14 +154,30 @@ final class DashboardQueries
     }
 
     /**
-     * The newest import jobs, newest first.
+     * The newest rows of the ingest queue, which go to Campaign Intelligence, newest first: no
+     * payload, no request, no error text.
      *
-     * @return list<array{type: string, status: string, counts: string|null, updated_at: string}>
+     * @return list<array{domain: string, entity_key: string, status: string, updated_at: string}>
+     */
+    public function latestIngestRows(int $limit): array
+    {
+        return self::rows(sprintf(
+            'SELECT `domain`, `entity_key`, `status`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
+            self::table(IngestQueue::TABLE),
+            $limit
+        ));
+    }
+
+    /**
+     * The newest import jobs, newest first. A job that names a connection is an import to Campaign
+     * Intelligence.
+     *
+     * @return list<array{type: string, id_connection: string|null, status: string, counts: string|null, updated_at: string}>
      */
     public function latestJobs(int $limit): array
     {
         return self::rows(sprintf(
-            'SELECT `type`, `status`, `counts`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
+            'SELECT `type`, `id_connection`, `status`, `counts`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
             self::table(JobStore::TABLE),
             $limit
         ));

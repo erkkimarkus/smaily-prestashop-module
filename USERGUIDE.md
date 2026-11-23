@@ -42,10 +42,16 @@ You can open the Initial setup again at any time under **Customers -> Smaily Con
 
 **Customers -> Smaily Connect -> Dashboard** shows at a glance whether everything works.
 
-1. The line at the top names the one thing that needs your attention, with a button that leads to it: an unfinished setup, a missing Smaily account, background tasks that are not running, or deliveries that failed in the last 24 hours.
+1. The line at the top names the one thing that needs your attention, with a button that leads to it where one helps: an unfinished setup, a missing Smaily account, background tasks that are not running, a Campaign Intelligence connection that Campaign Intelligence does not accept, deliveries that failed in the last 24 hours, a Campaign Intelligence that cannot be reached for the moment, or a nightly product list that has not gone out for three nights.
 2. The cards show the state of the **Smaily** connection, **Campaign Intelligence**, **Browse tracking** and **Background tasks**. In a store with several shops, pick a shop in the shop selector at the top of the page to see its connection.
-3. The tiles count the **Contact syncs** delivered in the last 30 days, the events **Queued today** that wait to be sent, and the events that **Failed** in the last 24 hours.
-4. **Recent activity** lists the latest deliveries; **View full log** opens the Log.
+   - **Campaign Intelligence** reads **Not connected**, **Connected** with the name of your Campaign Intelligence store, **Currently unreachable** (what waits is sent once it answers again), **Account not active on the Smaily side** (ask Smaily to make the account active), or that the stored key was rejected or the module needs an update; **Settings -> Intelligence** has the way out of each.
+   - **Browse tracking** is **On** ("Script live on storefront") once you have ticked **My store's cookie banner covers Smaily tracking** and the store is connected to Campaign Intelligence. While it is off, the card says what it waits for.
+3. The tiles count the **Contact syncs** delivered in the last 30 days, the **Catalog items** that reached Campaign Intelligence in the last 30 days (shown once the store is connected to it), the events **Queued today** that wait to be sent, and the events that **Failed** in the last 24 hours.
+4. **Recent activity** lists the latest deliveries with their **Source**, Smaily or Campaign Intelligence; **View full log** opens the Log.
+
+A store that has a Smaily account and no Campaign Intelligence connection sees the **Campaign Intelligence** card on top of the Dashboard and of the Settings tabs: **Contact Smaily** asks Smaily for a setup link, and **Dismiss** hides the card for 30 days, for every administrator. The card stays above the setup link field of **Settings -> Intelligence**, and goes for good once the store is connected.
+
+Where two shops that are run as separate stores are connected to the same Campaign Intelligence store, the Dashboard says that the nightly product list is not sent for them. Product changes still reach Campaign Intelligence as they happen; a deleted product or a stock change that was missed arrives with the product's next change.
 
 When a newer version of the module is out, the Smaily Connect pages say so, with links to download it and to read what is new. The module asks GitHub for the latest version once a day and sends no store data.
 

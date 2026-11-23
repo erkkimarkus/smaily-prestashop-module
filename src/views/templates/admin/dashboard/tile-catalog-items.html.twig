@@ -21,8 +21,8 @@
  * @license   GPL3
  *#}
 {#
- # Catalog items: as Magento, only with a Campaign Intelligence connection, which the module does not
- # make yet. Until then the marker hides the frame's tile (admin.css, Dashboard block).
+ # Catalog items: as Magento, only with a Campaign Intelligence connection. Without one the marker
+ # hides the frame's tile (admin.css, Dashboard block).
  #}
 {% if smaily_dashboard is defined %}
   {% set tile = smaily_dashboard.tiles.catalog_items %}

@@ -116,6 +116,11 @@
       panel.querySelectorAll('[data-ci-show]').forEach(function (part) {
         part.hidden = part.getAttribute('data-ci-show').split(' ').indexOf(current) === -1;
       });
+      // The invitation on top of the Settings tabs is for a store without a connection.
+      var invitation = root.querySelector('[data-smaily-invitation="intelligence"]');
+      if (invitation) {
+        invitation.classList.toggle('is-connected', current !== 'none');
+      }
       panel.querySelector('[data-ci-connected-text]').textContent = state.engine_version
         ? word('connected', {name: state.name, version: state.engine_version})
         : word('connected-plain', {name: state.name});

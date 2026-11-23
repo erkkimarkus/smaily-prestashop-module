@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -84,6 +85,7 @@ final class SettingsController extends BaseController
         /** @var ContactImport $import */
         $import = $services->get(ContactImport::class);
         $intelligence = $setup->intelligence()->values($shared);
+        $account = $services->get(AccountResolver::class)->for($selected, '');
         $promoted = LayoutChange::promotedShop($selected);
 
         return $this->renderPage('settings', [
@@ -95,6 +97,10 @@ final class SettingsController extends BaseController
                 'connection_notes' => $shared->multishop() ? $this->connectionNotes($panels, $shared->separateStores(), $promoted) : [],
                 'own' => $own,
                 'invitation' => $connection !== null && $connection['subdomain'] === '',
+                // The siblings' rule, as on the Dashboard: a connected Smaily account and no
+                // Campaign Intelligence connection.
+                'intelligence_invitation' => $intelligence !== null && !$intelligence['connected']
+                    && $account !== null && $account->hasCredentials() && self::pendingUpgrade() === null,
                 'connection' => $connection,
                 'languages' => $connectionScope->languages(),
                 'language_modes' => $context->languageModes(),

@@ -31,15 +31,16 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
  * Reads the facts that DashboardView words, from stored state only: the configuration that the
- * request loaded, the account table, the event queue and the job table. It writes nothing and calls
- * no outside service. While the upgrade is not finished it reads no table of the module, which may
- * not exist yet.
+ * request loaded, the account table, the two queues, the job table and, through EngineFacts, the
+ * connection table. It writes nothing and calls no outside service. While the upgrade is not
+ * finished it reads no table of the module, which may not exist yet.
  */
 final class DashboardFacts
 {
@@ -60,13 +61,16 @@ final class DashboardFacts
 
     private TickSettings $ticks;
 
+    private EngineFacts $engine;
+
     public function __construct(
         DashboardQueries $queries,
         ContactsSettings $contacts,
         StoreLayout $layout,
         AccountResolver $resolver,
         AccountStore $accounts,
-        TickSettings $ticks
+        TickSettings $ticks,
+        EngineFacts $engine
     ) {
         $this->queries = $queries;
         $this->contacts = $contacts;
@@ -74,6 +78,7 @@ final class DashboardFacts
         $this->resolver = $resolver;
         $this->accounts = $accounts;
         $this->ticks = $ticks;
+        $this->engine = $engine;
     }
 
     /**
@@ -95,6 +100,7 @@ final class DashboardFacts
             'contacts_confirmed' => $this->contacts->confirmed($idShop),
             'tick' => $this->ticks->state(),
             'now' => $now,
+            'engine' => null,
             'contact_syncs' => null,
             'queued_today' => null,
             'failed_24h' => null,
@@ -111,6 +117,8 @@ final class DashboardFacts
         return [
             'account' => $account === null ? null : ['subdomain' => $account->subdomain(), 'connected' => $account->hasCredentials()],
             'any_account' => ($account !== null && $account->hasCredentials()) || $this->anyAccount(),
+            // The setup of the Intelligence tab: no one shop's while "All shops" of separate stores shows.
+            'engine' => $this->engine->collect($facts['separate_stores'] && $multishop ? ($idShop > 0 ? $idShop : null) : 0, $now),
             'contact_syncs' => $this->queries->contactSyncs($now),
             'queued_today' => $this->queries->queuedToday($now),
             'failed_24h' => $this->queries->failedSince($now - self::DAY),
@@ -131,7 +139,8 @@ final class DashboardFacts
     }
 
     /**
-     * The newest queue rows and import jobs together, newest change first.
+     * The newest rows of the two queues and the newest import jobs together, newest change first.
+     * `source` says where a row goes, as the Log says it (Log\LogRows).
      *
      * @return list<array<string, mixed>>
      */
@@ -141,8 +150,19 @@ final class DashboardFacts
         foreach ($this->queries->latestRows(self::ACTIVITY_ROWS) as $row) {
             $rows[] = [
                 'kind' => 'queue',
+                'source' => LogRows::sourceOf(LogRows::SMAILY, (string) $row['event_type']),
                 'type' => (string) $row['event_type'],
                 'entity' => EntityLabel::forDisplay($row['entity_id']),
+                'status' => (string) $row['status'],
+                'updated_at' => self::unixTime((string) $row['updated_at']),
+            ];
+        }
+        foreach ($this->queries->latestIngestRows(self::ACTIVITY_ROWS) as $row) {
+            $rows[] = [
+                'kind' => 'queue',
+                'source' => LogRows::INTELLIGENCE,
+                'type' => (string) $row['domain'],
+                'entity' => EntityLabel::forDisplay($row['entity_key']),
                 'status' => (string) $row['status'],
                 'updated_at' => self::unixTime((string) $row['updated_at']),
             ];
@@ -151,6 +171,7 @@ final class DashboardFacts
             $counts = json_decode((string) $job['counts'], true);
             $rows[] = [
                 'kind' => 'job',
+                'source' => $job['id_connection'] === null ? LogRows::SMAILY : LogRows::INTELLIGENCE,
                 'type' => (string) $job['type'],
                 'total' => (int) ($counts['total'] ?? 0),
                 'status' => (string) $job['status'],

@@ -20,7 +20,7 @@
  * @copyright 2024 Smaily
  * @license   GPL3
  *#}
-{# The Browse tracking card: off until the module carries the tracking script. #}
+{# The Browse tracking card: on once the merchant confirmed the cookie banner and the store is connected. #}
 {% if smaily_dashboard is defined %}
   {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: smaily_dashboard.connections.tracking} only %}
 {% endif %}

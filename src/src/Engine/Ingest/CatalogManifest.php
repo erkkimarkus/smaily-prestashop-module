@@ -166,6 +166,33 @@ final class CatalogManifest
         return false;
     }
 
+    /**
+     * For how many nights no list of the connection has reached the engine: the whole days since
+     * the newest list that the engine took, or since the connection was made while none went
+     * out. 0 where the rules above send no list for the connection anyway (it is refused, it
+     * shares its engine store, its shops hold no product), and where no list went out and the
+     * engine named no time for the connection.
+     *
+     * @param list<Connection> $connections every stored connection
+     */
+    public function nightsUnsent(Connection $connection, array $connections): int
+    {
+        if (!IngestFlusher::maySend($connection) || self::suppressed($connection, $connections)) {
+            return 0;
+        }
+        $last = $this->queue->newestSent($connection->id(), IngestQueue::DOMAIN_MANIFEST);
+        $since = $last !== null ? strtotime($last . ' UTC') : strtotime((string) ($connection->settings()['issued_at'] ?? ''));
+        $nights = $since === false ? 0 : intdiv(max(0, ($this->now)() - $since), 86400);
+        if ($nights === 0) {
+            return 0;
+        }
+        $hasProduct = Sql::value(
+            'SELECT 1 FROM `' . _DB_PREFIX_ . 'product_shop` WHERE `id_shop` IN (' . implode(', ', ConnectionShops::of($connection)) . ')'
+        );
+
+        return $hasProduct === null ? 0 : $nights;
+    }
+
     private function send(Connection $connection, Deadline $deadline): void
     {
         $shops = implode(', ', ConnectionShops::of($connection));

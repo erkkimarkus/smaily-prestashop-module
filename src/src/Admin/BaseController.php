@@ -136,6 +136,7 @@ abstract class BaseController extends FrameworkBundleAdminController
         }
 
         $upgrade = self::pendingUpgrade();
+        $admin = new AdminSettings();
 
         return $this->render($template ?? sprintf(self::TEMPLATE, $page), $parameters + [
             'layoutTitle' => $this->pageTitle($page),
@@ -150,7 +151,8 @@ abstract class BaseController extends FrameworkBundleAdminController
                 'token' => $this->get('security.csrf.token_manager')->getToken(self::API_TOKEN_ID)->getValue(),
                 // The shop selection the page is drawn for; its requests name it again.
                 'scope' => AbstractJsonAction::pageScope(),
-                'invitation_dismissed' => (new AdminSettings())->isInvitationDismissed(time()),
+                'invitation_dismissed' => $admin->isInvitationDismissed(time()),
+                'intelligence_invitation_dismissed' => $admin->isIntelligenceInvitationDismissed(time()),
             ],
         ]);
     }

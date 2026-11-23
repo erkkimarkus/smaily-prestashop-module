@@ -3262,6 +3262,86 @@
         <target>Campaign Intelligence ei võtnud seda seadistuslinki vastu, seega ühendust ei salvestatud. Küsi Smailylt uus.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="8c3591107e7755ff57a06d68f810671b">
+        <source>Each shop has its own Campaign Intelligence connection.</source>
+        <target>Igal poel on oma Campaign Intelligence'i ühendus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="077903bead8a3f4bab1ec15fd7b2b1f2">
+        <source>Account not active on the Smaily side</source>
+        <target>Konto ei ole Smaily poolel aktiivne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1a00906908e7db02b48c62bb3eabd01e">
+        <source>Key rejected</source>
+        <target>Võti tagasi lükatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="76c7348316d59bcb6d3cb9e001e6675d">
+        <source>Update needed</source>
+        <target>Vajab uuendust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7bafb9b49e0fcf721c296d61c1221fea">
+        <source>Currently unreachable</source>
+        <target>Hetkel kättesaamatu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4bed942140642650ca78039de000796a">
+        <source>Unreachable</source>
+        <target>Kättesaamatu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="414ec5c28156cfa6626e2cc16a20ced4">
+        <source>Connected (%name%)</source>
+        <target>Ühendatud (%name%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="533ee2a8f046306c0d5a378b63d1b3e6">
+        <source>Each shop has its own setting.</source>
+        <target>Igal poel on oma seade.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ee837cd947459bd8b43ab1b361efdd77">
+        <source>Needs a Campaign Intelligence connection.</source>
+        <target>Vajab Campaign Intelligence'i ühendust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d361087f2fb4f2974b032cbfe9676988">
+        <source>Confirm in Settings &gt; Intelligence that your cookie banner covers Smaily tracking.</source>
+        <target>Kinnita menüüs Seaded &gt; Intelligence, et sinu poe küpsiseteade hõlmab Smaily jälgimist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fb4de5f5abb00865eb91fdc88f382874">
+        <source>Paused while Campaign Intelligence does not accept the connection of this store.</source>
+        <target>Peatatud, kuni Campaign Intelligence selle poe ühendust vastu ei võta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ab04de8cc67bec093b20240e7b6285e9">
+        <source>Script live on storefront</source>
+        <target>Skript on poes aktiivne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="239dd57eca0d15845e7ff686e9fe1e9f">
+        <source>Open Intelligence settings</source>
+        <target>Ava Intelligence'i seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bcf68baa47bdbd183c6c274da3691deb">
+        <source>Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.</source>
+        <target>Smaily Connect töötab, kuid Campaign Intelligence on hetkel kättesaamatu — andmed on kohalikus järjekorras ja sünkroonitakse, kui ühendus taastub.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="17328496f22bfb5af5146bc3b7c93a47">
+        <source>Smaily Connect is running, but no nightly product list has gone to Campaign Intelligence for %count% nights.</source>
+        <target>Smaily Connect töötab, kuid öist tootenimekirja pole Campaign Intelligence'ile saadetud %count% ööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1490a481c95df37ec73123b0e5c2f87f">
+        <source>Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.</source>
+        <target>Selle paigalduse kaks poodi jagavad üht Campaign Intelligence'i poodi, seega öist tootenimekirja nende kohta ei saadeta: kustutatud toode või laoseisu muutus jõuab Campaign Intelligence'i alles toote järgmise muudatusega.</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="ee1c9ea61c04ddfad47f47cd72c3f643">
         <source>%count% product</source>
         <target>%count% toode</target>

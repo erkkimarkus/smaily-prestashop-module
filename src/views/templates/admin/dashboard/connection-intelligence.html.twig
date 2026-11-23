@@ -20,7 +20,7 @@
  * @copyright 2024 Smaily
  * @license   GPL3
  *#}
-{# The Campaign Intelligence card: off until the module connects to Campaign Intelligence. #}
+{# The Campaign Intelligence card: the connection of the selected setup, as its last health check found it. #}
 {% if smaily_dashboard is defined %}
   {% include '@Modules/smailyforprestashop/views/templates/admin/dashboard/card.html.twig' with {card: smaily_dashboard.connections.intelligence} only %}
 {% endif %}

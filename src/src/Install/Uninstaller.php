@@ -95,6 +95,7 @@ final class Uninstaller
         'SMAILY_CONNECT_REPORT_STATE',
         'SMAILY_CONNECT_UPDATE_CHECK',
         'SMAILY_CONNECT_INVITATION_DISMISSED_AT',
+        'SMAILY_CONNECT_CI_INVITATION_DISMISSED_AT',
         // Legacy keys: the two cron tokens stay after the migration; the others stay while it is pending.
         'SMAILY_SUBDOMAIN',
         'SMAILY_USERNAME',

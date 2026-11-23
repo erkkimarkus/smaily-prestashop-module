@@ -1,0 +1,47 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # The invitation to Campaign Intelligence, as the sibling connectors draw it (Magento's
+ # panel/intelligence-banner.phtml): shown to a store that has no Campaign Intelligence connection,
+ # and gone once it has one. "Contact Smaily" opens Smaily's consultation page.
+ #
+ # In the Intelligence panel (the Intelligence tab and step 4 of the Initial setup) the card
+ # stands above the setup link field and cannot be closed; the panel's script shows it while the
+ # setup has no connection (`data-ci-show`).
+ #
+ # `dismissible` (on top of the Dashboard and of the Settings tabs): Dismiss hides the card there
+ # for 30 days for every admin. `aside` hides that copy while the Intelligence tab, which carries
+ # its own, is open (common.js); the panel's script hides it once the store is connected.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% set dismissible = dismissible|default(false) %}
+<div class="smaily-card smaily-ci-invite{% if dismissible %} smaily-ci-invite--top{% if aside|default(false) %} is-aside{% endif %}{% endif %}"
+     {% if dismissible %}data-smaily-invitation="intelligence"{% else %}data-ci-show="none" hidden{% endif %}>
+  {# The product name: not translated. #}
+  <strong class="smaily-ci-invite__title">{% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 24} %} Campaign <span>Intelligence</span></strong>
+  <p>{{ 'Connect your store with Smaily, and add personalized product recommendations to your campaigns, tailored to each customer’s interests.'|trans }}</p>
+  <a class="btn smaily-btn-primary" href="https://smaily.com/consultation/" target="_blank" rel="noopener noreferrer">{{ 'Contact Smaily'|trans }}</a>
+  {% if dismissible %}
+    <button type="button" class="smaily-invitation__dismiss" data-smaily-action="dismiss-invitation">{{ 'Dismiss'|trans }}</button>
+  {% endif %}
+</div>

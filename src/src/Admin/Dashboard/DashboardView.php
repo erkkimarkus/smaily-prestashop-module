@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\IntelligencePanel;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 
 /**
@@ -40,7 +42,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
  * One verdict names the most important problem, in this order: the upgrade is not finished (the
  * shell's banner above offers "Finish upgrade"); contact sync is on but not confirmed (Magento's
  * "Setup incomplete"); no Smaily account with credentials (Magento's "Not connected"); no tick for
- * BackgroundTasks::STOPPED_SECONDS; failed rows in the last 24 hours; else all is well.
+ * BackgroundTasks::STOPPED_SECONDS; Campaign Intelligence refuses the connection; failed rows in
+ * the last 24 hours; Campaign Intelligence does not answer; no nightly product list for
+ * UNSENT_PRODUCT_LIST_NIGHTS nights; two connections of the installation share one engine store,
+ * so neither sends that list (ARCHITECTURE 5.3; only PrestaShop has this case); else all is well.
  *
  * The facts:
  * - upgrade: null, or `pending` / `failed` while the migration is not finished;
@@ -51,10 +56,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
  * - any_account: some shop or the whole store has an account with credentials;
  * - contacts_enabled, contacts_confirmed: the selected scope's contact sync switch and confirmation;
  * - tick (TickState), now (Unix time);
+ * - engine: what EngineFacts::collect() reads of Campaign Intelligence for the selected setup; null
+ *   while the upgrade keeps the tables unread;
  * - contact_syncs: `count` and `more` (the count stopped at its bound), queued_today, failed_24h:
  *   null while the upgrade keeps the queue unread;
- * - activity: the latest rows, newest first: `kind` (`queue` or `job`), `type`, `status`,
- *   `updated_at` (Unix time), and `entity` (already an EntityLabel) or `total` (a job's contacts);
+ * - activity: the latest rows, newest first: `kind` (`queue` or `job`), `source` (Log\LogRows:
+ *   Smaily or Campaign Intelligence), `type`, `status`, `updated_at` (Unix time), and `entity`
+ *   (already an EntityLabel) or `total` (what a job counts);
  * - can_configure: the employee may change the settings (the cron line is theirs to see);
  *   can_open_settings: the employee may open Settings (the invitation is theirs to act on).
  */
@@ -70,7 +78,20 @@ final class DashboardView
 
     public const VERDICT_DEGRADED = 'degraded';
 
+    public const VERDICT_ENGINE_REFUSED = 'engine_refused';
+
+    public const VERDICT_ENGINE_UNREACHABLE = 'engine_unreachable';
+
+    public const VERDICT_NO_PRODUCT_LIST = 'no_product_list';
+
+    public const VERDICT_SHARED_ENGINE_STORE = 'shared_engine_store';
+
     public const VERDICT_OK = 'ok';
+
+    /** Nights in a row without a nightly product list before the Dashboard says so (as Magento). */
+    public const UNSENT_PRODUCT_LIST_NIGHTS = 3;
+
+    private const SETTINGS = 'smailyforprestashop_settings';
 
     private const LOG = 'smailyforprestashop_log';
 
@@ -104,10 +125,15 @@ final class DashboardView
         $background = BackgroundTasks::state($facts['tick'], $facts['now']);
         $verdict = $this->verdictState($facts, $background);
         $failed = $facts['failed_24h'];
+        $engine = $facts['engine'];
 
         return [
             'invitation' => $facts['upgrade'] === null && !$facts['any_account'] && $facts['can_open_settings'],
-            'verdict' => $this->verdict($verdict, (int) $failed),
+            // The siblings' rule: a store whose Smaily account is connected and that has no
+            // Campaign Intelligence connection, to an admin who may open Settings.
+            'intelligence_invitation' => $engine !== null && !$engine['per_shop'] && !$engine['connected']
+                && ($facts['account']['connected'] ?? false) && $facts['can_open_settings'],
+            'verdict' => $this->verdict($verdict, $facts),
             'failed_banner' => $failed > 0 && !in_array($verdict, [self::VERDICT_UPGRADE, self::VERDICT_INCOMPLETE, self::VERDICT_DISCONNECTED], true)
                 ? [
                     'title' => $failed === 1
@@ -118,8 +144,8 @@ final class DashboardView
                 : null,
             'connections' => [
                 'smaily' => $this->smailyCard($facts),
-                'intelligence' => self::card(false, $this->trans('Not connected'), 'off', $this->trans('Off')),
-                'tracking' => self::card(false, $this->trans('Disabled'), 'off', $this->trans('Off')),
+                'intelligence' => $this->intelligenceCard($engine),
+                'tracking' => $this->trackingCard($engine),
                 'background' => $this->backgroundCard($facts, $background),
             ],
             'tiles' => $this->tiles($facts),
@@ -147,25 +173,41 @@ final class DashboardView
         if ($background === BackgroundTasks::STOPPED) {
             return self::VERDICT_STOPPED;
         }
+        $engine = $facts['engine'];
+        if ($engine !== null && self::refused($engine)) {
+            return self::VERDICT_ENGINE_REFUSED;
+        }
         if ($facts['failed_24h'] > 0) {
             return self::VERDICT_DEGRADED;
+        }
+        if ($engine !== null && $engine['unreachable']) {
+            return self::VERDICT_ENGINE_UNREACHABLE;
+        }
+        if ($engine !== null && $engine['unsent_nights'] >= self::UNSENT_PRODUCT_LIST_NIGHTS) {
+            return self::VERDICT_NO_PRODUCT_LIST;
+        }
+        if ($engine !== null && $engine['shared_store']) {
+            return self::VERDICT_SHARED_ENGINE_STORE;
         }
 
         return self::VERDICT_OK;
     }
 
     /**
+     * @param array<string, mixed> $facts
+     *
      * @return array<string, mixed>
      */
-    private function verdict(string $state, int $failed): array
+    private function verdict(string $state, array $facts): array
     {
+        $failed = (int) $facts['failed_24h'];
         switch ($state) {
             case self::VERDICT_UPGRADE:
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect stays paused until the upgrade finishes.'), null);
             case self::VERDICT_INCOMPLETE:
                 return self::verdictOf($state, 'warning', $this->trans('Setup incomplete'), $this->trans('Setup is not finished yet — complete the initial setup to start syncing.'), $this->link($this->trans('Resume setup'), 'smailyforprestashop_setup'));
             case self::VERDICT_DISCONNECTED:
-                return self::verdictOf($state, 'danger', $this->trans('Not connected'), $this->trans('The Smaily credentials are missing or Smaily has not accepted them — check them in Settings > Connection and test the connection.'), $this->link($this->trans('Open Connection settings'), 'smailyforprestashop_settings', ['tab' => 'connection']));
+                return self::verdictOf($state, 'danger', $this->trans('Not connected'), $this->trans('The Smaily credentials are missing or Smaily has not accepted them — check them in Settings > Connection and test the connection.'), $this->link($this->trans('Open Connection settings'), self::SETTINGS, ['tab' => 'connection']));
             case self::VERDICT_STOPPED:
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Background tasks are not running — nothing goes to Smaily until they run again.'), ['label' => $this->trans('Add the cron line'), 'route' => null, 'params' => [], 'anchor' => 'smaily-background', 'danger' => false]);
             case self::VERDICT_DEGRADED:
@@ -174,6 +216,14 @@ final class DashboardView
                     : $this->trans('Smaily Connect is running, but %count% deliveries failed in the last 24 hours.', ['%count%' => $failed]);
 
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $text, $this->link($this->trans('Review failures'), self::LOG, self::LOG_FAILED, true));
+            case self::VERDICT_ENGINE_REFUSED:
+                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->refusal($facts['engine']['state']), $this->link($this->trans('Open Intelligence settings'), self::SETTINGS, ['tab' => 'intelligence']));
+            case self::VERDICT_ENGINE_UNREACHABLE:
+                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.'), null);
+            case self::VERDICT_NO_PRODUCT_LIST:
+                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect is running, but no nightly product list has gone to Campaign Intelligence for %count% nights.', ['%count%' => $facts['engine']['unsent_nights']]), null);
+            case self::VERDICT_SHARED_ENGINE_STORE:
+                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.'), null);
             default:
                 return self::verdictOf($state, 'success', $this->trans('All systems normal'), $this->trans('Everything is running — deliveries to Smaily are flowing normally.'), $this->link($this->trans('View full log'), self::LOG));
         }
@@ -198,6 +248,99 @@ final class DashboardView
         }
 
         return self::card(false, $this->trans('Credentials missing or invalid'), 'failed', $this->trans('Not connected'), $note);
+    }
+
+    /**
+     * The Campaign Intelligence card, Magento's four states (not connected, connected, unreachable,
+     * not active) and this module's own: a rejected key, a module too old for the engine, and
+     * "All shops" of separate stores, where each shop has its own connection.
+     *
+     * @param array<string, mixed>|null $engine
+     *
+     * @return array<string, mixed>
+     */
+    private function intelligenceCard(?array $engine): array
+    {
+        if ($engine !== null && $engine['per_shop']) {
+            return self::card(false, $this->trans('Each shop has its own Campaign Intelligence connection.'), 'off', $this->trans('Per shop'), $this->trans('Pick a shop in the shop selector to see its connection.'));
+        }
+        if ($engine === null || !$engine['connected']) {
+            return self::card(false, $this->trans('Not connected'), 'off', $this->trans('Off'));
+        }
+        switch ($engine['state']) {
+            case IntelligencePanel::STATE_NOT_ACTIVE:
+                return self::card(false, $this->trans('Account not active on the Smaily side'), 'failed', $this->trans('Not active'));
+            case IntelligencePanel::STATE_KEY_REFUSED:
+                return self::card(false, $this->trans('Campaign Intelligence rejected the stored API key.'), 'failed', $this->trans('Key rejected'));
+            case IntelligencePanel::STATE_UPDATE_REQUIRED:
+                return self::card(false, $this->trans('Campaign Intelligence needs a newer version of Smaily Connect.'), 'failed', $this->trans('Update needed'));
+        }
+        if ($engine['unreachable']) {
+            return self::card(false, $this->trans('Currently unreachable'), 'pending', $this->trans('Unreachable'));
+        }
+
+        return self::card(
+            true,
+            $engine['name'] === '' ? $this->trans('Connected') : $this->trans('Connected (%name%)', ['%name%' => $engine['name']]),
+            'active',
+            $this->trans('On')
+        );
+    }
+
+    /**
+     * The Browse tracking card: on once the merchant confirmed that the store's cookie banner
+     * covers the tracking (ARCHITECTURE section 9) and Campaign Intelligence takes the connection;
+     * else off, with what it waits for.
+     *
+     * @param array<string, mixed>|null $engine
+     *
+     * @return array<string, mixed>
+     */
+    private function trackingCard(?array $engine): array
+    {
+        $off = fn (?string $note): array => self::card(false, $this->trans('Disabled'), 'off', $this->trans('Off'), $note);
+        if ($engine === null) {
+            return $off(null);
+        }
+        if ($engine['per_shop']) {
+            return self::card(false, $this->trans('Each shop has its own setting.'), 'off', $this->trans('Per shop'));
+        }
+        if (!$engine['connected']) {
+            return $off($this->trans('Needs a Campaign Intelligence connection.'));
+        }
+        if (!$engine['consent']) {
+            return $off($this->trans('Confirm in Settings > Intelligence that your cookie banner covers Smaily tracking.'));
+        }
+        if (self::refused($engine)) {
+            return $off($this->trans('Paused while Campaign Intelligence does not accept the connection of this store.'));
+        }
+
+        return self::card(true, $this->trans('Script live on storefront'), 'active', $this->trans('On'));
+    }
+
+    /**
+     * Why Campaign Intelligence does not take the connection, in the Intelligence tab's words.
+     */
+    private function refusal(string $state): string
+    {
+        switch ($state) {
+            case IntelligencePanel::STATE_KEY_REFUSED:
+                return $this->trans('Campaign Intelligence rejected the stored API key.') . ' ' . $this->trans('The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.');
+            case IntelligencePanel::STATE_UPDATE_REQUIRED:
+                return $this->trans('Campaign Intelligence needs a newer version of Smaily Connect.') . ' ' . $this->trans('Update the module, then press Check again.');
+            default:
+                return $this->trans('Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.');
+        }
+    }
+
+    /**
+     * Whether the engine refuses the stored connection (Admin\Setup\IntelligencePanel::state()).
+     *
+     * @param array<string, mixed> $engine
+     */
+    private static function refused(array $engine): bool
+    {
+        return $engine['connected'] && $engine['state'] !== IntelligencePanel::STATE_CONNECTED;
     }
 
     /**
@@ -253,15 +396,18 @@ final class DashboardView
     {
         $syncs = $facts['contact_syncs'];
         $failed = $facts['failed_24h'];
+        $catalog = $facts['engine']['catalog_items'] ?? null;
 
         return [
             'contact_syncs' => [
                 'value' => $syncs === null ? '—' : $syncs['count'] . ($syncs['more'] ? '+' : ''),
                 'caption' => $this->trans('delivered, last 30 days'),
             ],
-            // Magento shows Catalog items only with a Campaign Intelligence connection, which this
-            // module does not make yet.
-            'catalog_items' => null,
+            // As Magento, only with a Campaign Intelligence connection.
+            'catalog_items' => $catalog === null ? null : [
+                'value' => $catalog['count'] . ($catalog['more'] ? '+' : ''),
+                'caption' => $this->trans('delivered, last 30 days'),
+            ],
             'queued_today' => [
                 'value' => $facts['queued_today'] === null ? '—' : (string) $facts['queued_today'],
                 'caption' => $this->trans('events waiting to send'),
@@ -283,19 +429,12 @@ final class DashboardView
      */
     private function activityRow(array $row): array
     {
-        if ($row['kind'] === 'job') {
-            $total = (int) $row['total'];
-            $entity = $total === 1
-                ? $this->trans('%count% contact', ['%count%' => $total])
-                : $this->trans('%count% contacts', ['%count%' => $total]);
-        } else {
-            $entity = (string) $row['entity'];
-        }
-
         return [
-            'source' => $this->trans('Smaily'),
+            'source' => $row['source'] === LogRows::INTELLIGENCE ? $this->trans('Campaign Intelligence') : $this->trans('Smaily'),
             'type' => (string) $row['type'],
-            'entity' => $entity,
+            'entity' => $row['kind'] === 'job'
+                ? EntityLabel::ofJob((string) $row['type'], (int) $row['total'], $this->translate)
+                : (string) $row['entity'],
             'status' => [
                 'variant' => self::PILLS[$row['kind']][$row['status']] ?? 'neutral',
                 'label' => $this->statusLabel((string) $row['status']),

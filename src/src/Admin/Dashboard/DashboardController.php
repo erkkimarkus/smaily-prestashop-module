@@ -32,7 +32,10 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -56,13 +59,20 @@ final class DashboardController extends BaseController
         }
 
         $services = Services::instance();
+        $queries = new DashboardQueries();
         $facts = new DashboardFacts(
-            new DashboardQueries(),
+            $queries,
             $services->get(ContactsSettings::class),
             $services->get(StoreLayout::class),
             $services->get(AccountResolver::class),
             $services->get(AccountStore::class),
-            $services->get(TickSettings::class)
+            $services->get(TickSettings::class),
+            new EngineFacts(
+                $services->get(Connections::class),
+                $services->get(EngineSettings::class),
+                $services->get(CatalogManifest::class),
+                $queries
+            )
         );
         $settingsTab = self::PAGES['settings']['tab'];
         $translator = self::translator();
@@ -78,6 +88,7 @@ final class DashboardController extends BaseController
         return $this->renderPage('dashboard', [
             'smaily_dashboard' => $view,
             'smaily_invitation' => $view['invitation'],
+            'smaily_intelligence_invitation' => $view['intelligence_invitation'],
         ]);
     }
 }

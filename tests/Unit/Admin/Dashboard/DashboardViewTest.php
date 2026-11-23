@@ -47,6 +47,12 @@ final class DashboardViewTest extends TestCase
         $noAccount = ['account' => null, 'any_account' => false];
         $notConfirmed = ['contacts_confirmed' => false];
         $noTick = ['tick' => TickState::fromJson(null)];
+        $notActive = ['Needs attention', 'Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
+        $keyRefused = ['Needs attention', 'Campaign Intelligence rejected the stored API key. The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
+        $updateNeeded = ['Needs attention', 'Campaign Intelligence needs a newer version of Smaily Connect. Update the module, then press Check again.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
+        $unreachable = ['Needs attention', 'Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.', null, null];
+        $noList = ['Needs attention', 'Smaily Connect is running, but no nightly product list has gone to Campaign Intelligence for 4 nights.', null, null];
+        $sharedStore = ['Needs attention', 'Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.', null, null];
 
         return [
             'a healthy store' => array_merge([[], DashboardView::VERDICT_OK], $ok),
@@ -67,6 +73,20 @@ final class DashboardViewTest extends TestCase
             'stopped tasks outrank failures' => array_merge([$noTick + ['failed_24h' => 3], DashboardView::VERDICT_STOPPED], $stopped),
             'one failed delivery' => array_merge([['failed_24h' => 1], DashboardView::VERDICT_DEGRADED], $failedOne),
             'three failed deliveries' => array_merge([['failed_24h' => 3], DashboardView::VERDICT_DEGRADED], $failedMany),
+            'a healthy connection to Campaign Intelligence' => array_merge([self::engine(), DashboardView::VERDICT_OK], $ok),
+            'Campaign Intelligence: the account is not active' => array_merge([self::engine(['state' => 'not_active']), DashboardView::VERDICT_ENGINE_REFUSED], $notActive),
+            'Campaign Intelligence: the key is rejected' => array_merge([self::engine(['state' => 'key_refused']), DashboardView::VERDICT_ENGINE_REFUSED], $keyRefused),
+            'Campaign Intelligence: a newer module is needed' => array_merge([self::engine(['state' => 'update_required']), DashboardView::VERDICT_ENGINE_REFUSED], $updateNeeded),
+            'a refusal outranks failures' => array_merge([self::engine(['state' => 'not_active']) + ['failed_24h' => 3], DashboardView::VERDICT_ENGINE_REFUSED], $notActive),
+            'stopped tasks outrank a refusal' => array_merge([self::engine(['state' => 'not_active']) + $noTick, DashboardView::VERDICT_STOPPED], $stopped),
+            'the Smaily connection outranks a refusal' => array_merge([self::engine(['state' => 'not_active']) + $noAccount, DashboardView::VERDICT_DISCONNECTED], $disconnected),
+            'Campaign Intelligence does not answer' => array_merge([self::engine(['unreachable' => true]), DashboardView::VERDICT_ENGINE_UNREACHABLE], $unreachable),
+            'failures outrank an engine that does not answer' => array_merge([self::engine(['unreachable' => true]) + ['failed_24h' => 1], DashboardView::VERDICT_DEGRADED], $failedOne),
+            'no nightly product list for four nights' => array_merge([self::engine(['unsent_nights' => 4]), DashboardView::VERDICT_NO_PRODUCT_LIST], $noList),
+            'no nightly product list for two nights' => array_merge([self::engine(['unsent_nights' => 2]), DashboardView::VERDICT_OK], $ok),
+            'an engine that does not answer outranks the product list' => array_merge([self::engine(['unreachable' => true, 'unsent_nights' => 4]), DashboardView::VERDICT_ENGINE_UNREACHABLE], $unreachable),
+            'two shops share one engine store' => array_merge([self::engine(['shared_store' => true]), DashboardView::VERDICT_SHARED_ENGINE_STORE], $sharedStore),
+            'all shops of separate stores, two of them in one engine store' => array_merge([['all_shops' => true, 'separate_stores' => true, 'account' => null] + self::engine(['per_shop' => true, 'connected' => false, 'state' => '', 'shared_store' => true]), DashboardView::VERDICT_SHARED_ENGINE_STORE], $sharedStore),
         ];
     }
 
@@ -89,6 +109,7 @@ final class DashboardViewTest extends TestCase
     public function testEachLinkOpensWhatFixesTheProblem(): void
     {
         self::assertSame(['tab' => 'connection'], self::view(['account' => null, 'any_account' => false])['verdict']['action']['params']);
+        self::assertSame(['tab' => 'intelligence'], self::view(self::engine(['state' => 'key_refused']))['verdict']['action']['params']);
         self::assertSame(['status' => 'failed'], self::view(['failed_24h' => 2])['verdict']['action']['params']);
         self::assertSame('smaily-background', self::view(['tick' => TickState::fromJson(null)])['verdict']['action']['anchor']);
         self::assertTrue(self::view(['failed_24h' => 2])['verdict']['action']['danger']);
@@ -101,6 +122,8 @@ final class DashboardViewTest extends TestCase
         self::assertSame('warning', self::view(['failed_24h' => 1])['verdict']['tone']);
         self::assertSame('warning', self::view(['contacts_confirmed' => false])['verdict']['tone']);
         self::assertSame('danger', self::view(['account' => null, 'any_account' => false])['verdict']['tone']);
+        self::assertSame('warning', self::view(self::engine(['state' => 'not_active']))['verdict']['tone']);
+        self::assertSame('warning', self::view(self::engine(['shared_store' => true]))['verdict']['tone']);
     }
 
     public function testFailuresShowABannerUnlessSetupOrTheConnectionOutranksThem(): void
@@ -122,6 +145,18 @@ final class DashboardViewTest extends TestCase
         self::assertFalse(self::view(['account' => null, 'any_account' => false, 'can_open_settings' => false])['invitation']);
         self::assertFalse(self::view(['account' => null])['invitation'], 'another shop has an account');
         self::assertFalse(self::view(['account' => null, 'any_account' => false, 'upgrade' => 'pending'])['invitation'], 'the account is not read during the upgrade');
+    }
+
+    public function testTheIntelligenceInvitationShowsToAStoreWithASmailyAccountAndNoConnection(): void
+    {
+        self::assertTrue(self::view()['intelligence_invitation']);
+        self::assertFalse(self::view(self::engine())['intelligence_invitation'], 'connected');
+        self::assertFalse(self::view(self::engine(['state' => 'not_active']))['intelligence_invitation'], 'a refused connection is still a connection');
+        self::assertFalse(self::view(['account' => null, 'any_account' => false])['intelligence_invitation'], 'the Smaily invitation shows instead');
+        self::assertFalse(self::view(['account' => ['subdomain' => 'demo', 'connected' => false]])['intelligence_invitation']);
+        self::assertFalse(self::view(['can_open_settings' => false])['intelligence_invitation']);
+        self::assertFalse(self::view(['engine' => null, 'upgrade' => 'pending'])['intelligence_invitation'], 'nothing is read during the upgrade');
+        self::assertFalse(self::view(self::engine(['per_shop' => true, 'connected' => false, 'state' => '']))['intelligence_invitation'], 'no one shop is selected');
     }
 
     /**
@@ -158,12 +193,53 @@ final class DashboardViewTest extends TestCase
         self::assertSame(['variant' => $variant, 'label' => $label], $card['pill']);
     }
 
-    public function testIntelligenceAndBrowseTrackingAreOffUntilTheirStoryConnectsThem(): void
+    /**
+     * Each Campaign Intelligence card and its Browse tracking card: the engine facts that differ
+     * from a store without a connection (null: nothing was read), then each card's sub-line, note
+     * and pill; a card is on only where its pill is `active`.
+     *
+     * @return array<string, array{array<string, mixed>|null, array{string, ?string, string, string}, array{string, ?string, string, string}}>
+     */
+    public function engineCards(): array
     {
-        $cards = self::view()['connections'];
+        $connected = ['connected' => true, 'name' => 'Demo Store', 'state' => 'connected'];
+        $off = ['Not connected', null, 'off', 'Off'];
+        $on = ['Connected (Demo Store)', null, 'active', 'On'];
+        $disabled = static fn (?string $note): array => ['Disabled', $note, 'off', 'Off'];
+        $live = ['Script live on storefront', null, 'active', 'On'];
+        $needsConnection = $disabled('Needs a Campaign Intelligence connection.');
+        $confirm = $disabled('Confirm in Settings > Intelligence that your cookie banner covers Smaily tracking.');
+        $paused = $disabled('Paused while Campaign Intelligence does not accept the connection of this store.');
 
-        self::assertSame(['on' => false, 'sub' => 'Not connected', 'note' => null, 'pill' => ['variant' => 'off', 'label' => 'Off']], $cards['intelligence']);
-        self::assertSame(['on' => false, 'sub' => 'Disabled', 'note' => null, 'pill' => ['variant' => 'off', 'label' => 'Off']], $cards['tracking']);
+        return [
+            'nothing read during the upgrade' => [null, $off, $disabled(null)],
+            'not connected' => [[], $off, $needsConnection],
+            'not connected, the banner confirmed' => [['consent' => true], $off, $needsConnection],
+            'connected' => [$connected, $on, $confirm],
+            'connected, the banner confirmed' => [$connected + ['consent' => true], $on, $live],
+            'connected, a store without a name' => [['name' => ''] + $connected, ['Connected', null, 'active', 'On'], $confirm],
+            'unreachable' => [$connected + ['unreachable' => true, 'consent' => true], ['Currently unreachable', null, 'pending', 'Unreachable'], $live],
+            'not active' => [['state' => 'not_active'] + $connected + ['consent' => true], ['Account not active on the Smaily side', null, 'failed', 'Not active'], $paused],
+            'the key is rejected' => [['state' => 'key_refused'] + $connected + ['consent' => true], ['Campaign Intelligence rejected the stored API key.', null, 'failed', 'Key rejected'], $paused],
+            'a newer module is needed' => [['state' => 'update_required'] + $connected, ['Campaign Intelligence needs a newer version of Smaily Connect.', null, 'failed', 'Update needed'], $confirm],
+            'all shops of separate stores' => [['per_shop' => true], ['Each shop has its own Campaign Intelligence connection.', 'Pick a shop in the shop selector to see its connection.', 'off', 'Per shop'], ['Each shop has its own setting.', null, 'off', 'Per shop']],
+        ];
+    }
+
+    /**
+     * @dataProvider engineCards
+     *
+     * @param array<string, mixed>|null $engine
+     * @param array{string, ?string, string, string} $intelligence
+     * @param array{string, ?string, string, string} $tracking
+     */
+    public function testTheIntelligenceAndBrowseTrackingCardsShowTheConnectionsRealState(?array $engine, array $intelligence, array $tracking): void
+    {
+        $cards = self::view($engine === null ? ['engine' => null, 'upgrade' => 'pending'] : self::engine($engine + ['connected' => false, 'name' => '', 'state' => '']))['connections'];
+
+        foreach (['intelligence' => $intelligence, 'tracking' => $tracking] as $name => [$sub, $note, $variant, $label]) {
+            self::assertSame(['on' => $variant === 'active', 'sub' => $sub, 'note' => $note, 'pill' => ['variant' => $variant, 'label' => $label]], $cards[$name], $name);
+        }
     }
 
     /**
@@ -225,6 +301,10 @@ final class DashboardViewTest extends TestCase
 
         self::assertSame(['value' => '12', 'caption' => 'delivered, last 30 days'], $tiles['contact_syncs']);
         self::assertNull($tiles['catalog_items'], 'hidden without a Campaign Intelligence connection, as Magento does');
+        self::assertSame(
+            ['value' => '1840', 'caption' => 'delivered, last 30 days'],
+            self::view(self::engine(['catalog_items' => ['count' => 1840, 'more' => false]]))['tiles']['catalog_items']
+        );
         self::assertSame(['value' => '2', 'caption' => 'events waiting to send'], $tiles['queued_today']);
         self::assertSame(['value' => '0', 'caption' => 'last 24 hours', 'attention' => false, 'badge' => null, 'link' => null], $tiles['failed']);
     }
@@ -232,6 +312,7 @@ final class DashboardViewTest extends TestCase
     public function testACountThatStoppedAtItsBoundSaysSo(): void
     {
         self::assertSame('50000+', self::view(['contact_syncs' => ['count' => 50000, 'more' => true]])['tiles']['contact_syncs']['value']);
+        self::assertSame('50000+', self::view(self::engine(['catalog_items' => ['count' => 50000, 'more' => true]]))['tiles']['catalog_items']['value']);
     }
 
     public function testTheFailedTileLinksToTheFailedRows(): void
@@ -255,10 +336,15 @@ final class DashboardViewTest extends TestCase
     public function testRecentActivityListsQueueRowsAndImportJobs(): void
     {
         $activity = self::view(['activity' => [
-            ['kind' => 'queue', 'type' => 'contact.sync', 'entity' => '0a1b2c3d4e5f…', 'status' => 'processing', 'updated_at' => self::NOW - 10],
-            ['kind' => 'job', 'type' => 'contacts_import', 'total' => 1, 'status' => 'running', 'updated_at' => self::NOW - 20],
-            ['kind' => 'job', 'type' => 'contacts_refresh', 'total' => 250, 'status' => 'done', 'updated_at' => self::NOW - 30],
-            ['kind' => 'queue', 'type' => 'automation.welcome', 'entity' => '—', 'status' => 'skipped', 'updated_at' => self::NOW - 40],
+            ['kind' => 'queue', 'source' => 'smaily', 'type' => 'contact.sync', 'entity' => '0a1b2c3d4e5f…', 'status' => 'processing', 'updated_at' => self::NOW - 10],
+            ['kind' => 'job', 'source' => 'smaily', 'type' => 'contacts_import', 'total' => 1, 'status' => 'running', 'updated_at' => self::NOW - 20],
+            ['kind' => 'job', 'source' => 'smaily', 'type' => 'contacts_refresh', 'total' => 250, 'status' => 'done', 'updated_at' => self::NOW - 30],
+            ['kind' => 'queue', 'source' => 'smaily', 'type' => 'automation.welcome', 'entity' => '—', 'status' => 'skipped', 'updated_at' => self::NOW - 40],
+            ['kind' => 'queue', 'source' => 'intelligence', 'type' => 'catalog', 'entity' => '412', 'status' => 'sent', 'updated_at' => self::NOW - 50],
+            ['kind' => 'queue', 'source' => 'intelligence', 'type' => 'engine.identity_merge', 'entity' => '0a1b2c3d4e5f…', 'status' => 'sent', 'updated_at' => self::NOW - 60],
+            ['kind' => 'job', 'source' => 'intelligence', 'type' => 'engine_catalog', 'total' => 19, 'status' => 'done', 'updated_at' => self::NOW - 70],
+            ['kind' => 'job', 'source' => 'intelligence', 'type' => 'engine_customers', 'total' => 1, 'status' => 'cancelled', 'updated_at' => self::NOW - 80],
+            ['kind' => 'job', 'source' => 'intelligence', 'type' => 'engine_orders', 'total' => 0, 'status' => 'queued', 'updated_at' => self::NOW - 90],
         ]])['activity'];
 
         self::assertSame('No deliveries yet. Once contacts, orders or catalog changes start flowing, the latest queue rows show up here.', $activity['empty']);
@@ -267,6 +353,11 @@ final class DashboardViewTest extends TestCase
             ['source' => 'Smaily', 'type' => 'contacts_import', 'entity' => '1 contact', 'status' => ['variant' => 'pending', 'label' => 'Running'], 'updated' => '2025-11-20 11:59:40'],
             ['source' => 'Smaily', 'type' => 'contacts_refresh', 'entity' => '250 contacts', 'status' => ['variant' => 'sent', 'label' => 'Done'], 'updated' => '2025-11-20 11:59:30'],
             ['source' => 'Smaily', 'type' => 'automation.welcome', 'entity' => '—', 'status' => ['variant' => 'neutral', 'label' => 'Skipped'], 'updated' => '2025-11-20 11:59:20'],
+            ['source' => 'Campaign Intelligence', 'type' => 'catalog', 'entity' => '412', 'status' => ['variant' => 'sent', 'label' => 'Sent'], 'updated' => '2025-11-20 11:59:10'],
+            ['source' => 'Campaign Intelligence', 'type' => 'engine.identity_merge', 'entity' => '0a1b2c3d4e5f…', 'status' => ['variant' => 'sent', 'label' => 'Sent'], 'updated' => '2025-11-20 11:59:00'],
+            ['source' => 'Campaign Intelligence', 'type' => 'engine_catalog', 'entity' => '19 products', 'status' => ['variant' => 'sent', 'label' => 'Done'], 'updated' => '2025-11-20 11:58:50'],
+            ['source' => 'Campaign Intelligence', 'type' => 'engine_customers', 'entity' => '1 customer', 'status' => ['variant' => 'neutral', 'label' => 'Cancelled'], 'updated' => '2025-11-20 11:58:40'],
+            ['source' => 'Campaign Intelligence', 'type' => 'engine_orders', 'entity' => '0 orders', 'status' => ['variant' => 'pending', 'label' => 'Queued'], 'updated' => '2025-11-20 11:58:30'],
         ], $activity['rows']);
     }
 
@@ -294,13 +385,36 @@ final class DashboardViewTest extends TestCase
      */
     public function testEachStatusHasItsLabelAndPill(string $kind, string $status, string $expected): void
     {
-        $row = self::view(['activity' => [['kind' => $kind, 'type' => 't', 'entity' => '—', 'total' => 0, 'status' => $status, 'updated_at' => self::NOW]]])['activity']['rows'][0];
+        $row = self::view(['activity' => [['kind' => $kind, 'source' => 'smaily', 'type' => 't', 'entity' => '—', 'total' => 0, 'status' => $status, 'updated_at' => self::NOW]]])['activity']['rows'][0];
 
         self::assertSame($expected, $row['status']['variant'] . ' ' . $row['status']['label']);
     }
 
     /**
-     * @param array<string, mixed> $facts the facts that differ from a healthy store
+     * The fact `engine` of a store with a healthy Campaign Intelligence connection, changed by $engine.
+     *
+     * @param array<string, mixed> $engine
+     *
+     * @return array{engine: array<string, mixed>}
+     */
+    private static function engine(array $engine = []): array
+    {
+        return ['engine' => $engine + [
+            'per_shop' => false,
+            'connected' => true,
+            'name' => 'Demo Store',
+            'state' => 'connected',
+            'unreachable' => false,
+            'consent' => false,
+            'catalog_items' => ['count' => 0, 'more' => false],
+            'shared_store' => false,
+            'unsent_nights' => 0,
+        ]];
+    }
+
+    /**
+     * @param array<string, mixed> $facts the facts that differ from a healthy store without a
+     *                                    Campaign Intelligence connection
      *
      * @return array<string, mixed>
      */
@@ -318,6 +432,7 @@ final class DashboardViewTest extends TestCase
             'contacts_confirmed' => true,
             'tick' => TickState::fromJson(null)->withTick('tick', self::NOW - 30),
             'now' => self::NOW,
+            'engine' => self::engine(['connected' => false, 'name' => '', 'state' => '', 'catalog_items' => null])['engine'],
             'contact_syncs' => ['count' => 0, 'more' => false],
             'queued_today' => 0,
             'failed_24h' => 0,

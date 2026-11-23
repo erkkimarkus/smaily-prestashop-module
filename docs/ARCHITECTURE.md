@@ -139,7 +139,7 @@ src/
     Admin/                    BaseController, ContextTranslation, EntryController, Menu,
                               NoticeMessages, BackOfficeNotice
     Admin/Dashboard/          DashboardController, DashboardFacts, DashboardQueries, DashboardView,
-                              BackgroundTasks, CronLine, EntityLabel
+                              BackgroundTasks, CronLine, EntityLabel, EngineFacts (section 10.12)
     Admin/Setup/              SetupController, SetupPanels, SetupScope, SetupProgress,
                               ConnectionPanel, ContactsPanel, AutomationsPanel (section 10.9),
                               StoreShapePanel, SmailyCheck
@@ -431,6 +431,7 @@ writes.
 | `SMAILY_CONNECT_SCHEMA_VERSION` | global | The schema version the install or the migration completed. Only `Install\Schema` reads and writes it. While it differs from `Install\Schema::VERSION`, the runtime runs only what section 3.7 names. |
 | `SMAILY_CONNECT_SETUP_STATE` | global | `new` or `upgraded`, written by the migration; `done`, written when the Initial setup is finished (`Config\AdminSettings`, section 10). A fresh install stores none, which reads as a new store. |
 | `SMAILY_CONNECT_INVITATION_DISMISSED_AT` | global | The Unix time at which an admin dismissed the invitation to create a Smaily account; the invitation stays away for 90 days, for every admin (`Config\AdminSettings`). |
+| `SMAILY_CONNECT_CI_INVITATION_DISMISSED_AT` | global | The Unix time at which an admin dismissed the invitation to Campaign Intelligence on top of the Dashboard and of the Settings tabs; it stays away for 30 days, for every admin, as the Magento connector keeps it at its default scope (`Config\AdminSettings`, section 10.12). |
 | `SMAILY_CONNECT_MIGRATION` | global | JSON `{"from": "<previous version>", "status": "pending"\|"failed"\|"done", "done": ["<step>", …], "failure": {"step": "<step>", "error": "<error class>"}\|null}` (section 3.7). |
 | `SMAILY_CONNECT_NOTICES` | global | JSON list `[{"id": "<12 hex>", "code": "<code>", "params": {…}}]` in the order the notices came; `Config\MigrationNotices` adds a code with the same parameters once, and `dismiss($id)` removes it (section 3.6). |
 | `SMAILY_CONNECT_SEPARATE_STORES` | global | `0` one store in several versions, `1` separate stores. |
@@ -1323,9 +1324,9 @@ shop, for parity with Magento CON-190 (the admin lists them).
   for a connection whose `tenant_id` another connection of the installation shares while either holds
   the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. Lifting this needs
   the engine team's answer (section 14). As built: `Engine\Ingest\CatalogManifest::suppressed()`
-  (section 8.11); the Dashboard's sentence is Story 5.3's, which reads the same method. A
-  connection of the other layout (the installation-wide one in separate stores, a shop's own in one
-  store) serves no shop and sends no list either.
+  (section 8.11); the Dashboard says so, reading the same method (section 10.12). A connection
+  of the other layout (the installation-wide one in separate stores, a shop's own in one store)
+  would serve no shop and sends no list either; a change of the layout leaves none (section 8.9).
 
 ### 5.4 What the upgrade infers
 
@@ -2700,11 +2701,13 @@ sent again, once, to that connection (`ProfilingConsent::resendOptOuts()`, Magen
 `OptOutReplay`): the engine keeps an opt-out only for a shopper it holds, and a customer or order
 row carries no consent (section 11.2).
 
-**Not built here.** The catalog and history imports (section 8.12; the nightly list waits while
-an import's catalog markers wait, as for any catalog row), the Dashboard's sentence about a
-suppressed list, and what a layout change does with the rows of a connection (the second part of
-Story 5.3). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
-the next nightly list leaves it out.
+**Built by Story 5.3.** The catalog and history imports (section 8.12; the nightly list waits
+while an import's catalog markers wait, as for any catalog row), the Dashboard's sentence about a
+suppressed list (section 10.12), and a change of the shop layout, which carries a connection with
+its rows or ends it (section 8.9).
+
+**Not built.** A product that gets its first combination keeps its old row (`ps-<id>`) at the
+engine until the next nightly list leaves it out.
 
 ### 8.12 The history import (as built in Story 5.3)
 
@@ -2861,7 +2864,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
-| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). |
+| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
 | Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
@@ -3334,8 +3337,9 @@ key does not read, or the engine refuses it) and `update_required` show their no
 connection with its state, the confirmation and the three imports.
 
 **The invitation card** of the sibling connectors ("Connect your store with Smaily …", "Contact
-Smaily") stands above the setup field while the scope has no connection. Its place on the
-Dashboard and on the other tabs, with a dismissal for 30 days, is the second part of Story 5.3.
+Smaily") stands above the setup field while the scope has no connection, and cannot be closed
+there. The same card stands on top of the Dashboard and of the other Settings tabs, where it can
+be dismissed for 30 days (section 10.12).
 
 **Visible differences that PrestaShop forces.** "The next run of the background tasks" stands
 where Magento says "cron run". The checkbox is the merchant's own confirmation with its
@@ -3343,6 +3347,85 @@ responsibility sentence, not Magento's "Enable storefront browse tracking" (sect
 recommendations card names Design > Positions and the widget tag. The Catalog card counts
 products, of which the engine gets one row per combination. No "Open Campaign Intelligence" and
 no "Try Intelligence free" (out of 3.0.0).
+
+### 10.12 Campaign Intelligence on the Dashboard, the invitation and the Log (as built in Story 5.3, second part)
+
+The owner approved the Dashboard's sketch (section 4 of the Campaign Intelligence sketch) and the
+invitation's place (question 3, option C) on 2026-11-23.
+
+**The invitation to Campaign Intelligence** (`views/templates/admin/layout/intelligence-invitation.html.twig`,
+one partial for every place; Magento's `panel/intelligence-banner.phtml`, CON-363, and the
+WooCommerce plugin's CON-350). It shows to a store that has no connection, and never to a
+connected one.
+
+| Place | Shown | Dismiss |
+|---|---|---|
+| Settings > Intelligence and step 4 of the Initial setup, above the setup link field | While the setup has no connection. | None: it always stays. |
+| On top of the Dashboard, and of the Settings tabs between the tab strip and the panels | While the selected setup has no connection, the Smaily account of the selection has credentials (without one, the invitation to a Smaily account shows instead), the upgrade is finished, and the employee may open Settings. Not while "All shops" of separate stores is selected: no one shop could connect there. | "Dismiss" hides it for 30 days, for every admin. |
+
+The dismissal is Magento's: one Unix time for the whole installation
+(`SMAILY_CONNECT_CI_INVITATION_DISMISSED_AT`, section 2.1; Magento keeps
+`ci_banner_dismissed_at` at its default scope), written by `Admin\Api\DismissInvitation` with
+`{"card": "intelligence"}`, apart from the 90 days of the invitation to a Smaily account. After
+30 days the card shows again. On Settings the copy on top steps aside while the Intelligence tab
+is open, which carries its own (`common.js`), and goes without a reload once the panel connects
+the store (`intelligence.js`); after a Disconnect it comes back with the next page load. The
+card's one action is "Contact Smaily" (Smaily's consultation page); "Try Intelligence free", the
+plan upsell and the console link are out of 3.0.0.
+
+**The Dashboard** reads Campaign Intelligence from stored state alone (`Admin\Dashboard\EngineFacts`):
+the connection of the selected setup with what its last health check left (section 8.9), the
+cookie-banner confirmation, the ingest queue and the nightly product list. It asks the engine
+nothing. The setup is the Intelligence tab's: the installation-wide connection in one store, the
+selected shop's in separate stores.
+
+| Card | State | Sub-line | Pill |
+|---|---|---|---|
+| Campaign Intelligence | no connection | Not connected | Off |
+| | connected | Connected (<store name>) | On |
+| | the engine did not answer the last ping | Currently unreachable | Unreachable |
+| | the engine answered `tenant_inactive` | Account not active on the Smaily side | Not active |
+| | the key does not read, or the engine refuses it | Campaign Intelligence rejected the stored API key. | Key rejected |
+| | the engine asks for a newer module | Campaign Intelligence needs a newer version of Smaily Connect. | Update needed |
+| | "All shops" of separate stores | Each shop has its own Campaign Intelligence connection. | Per shop |
+| Browse tracking | confirmed, and the engine takes the connection | Script live on storefront | On |
+| | else | Disabled, with what it waits for: a connection, the confirmation in Settings > Intelligence, or an engine that accepts the connection | Off |
+
+The first four states and the tracking card's two sub-lines are Magento's words
+(`ViewModel/Adminhtml/DashboardData.php`, `dashboard/index.phtml`); the two refusals beside "not
+active" use the Intelligence tab's sentences. Browse tracking stays "On" while the engine only
+does not answer, as the storefront keeps its scripts then (`Storefront\ActiveConnection::sending()`).
+
+- **The tile "Catalog items"** shows only with a connection, as in Magento: the catalog rows
+  that reached the engine over the connection in the last 30 days, counted as the Contact syncs
+  tile counts (`DashboardQueries::catalogItems()`, the newest 50 000 ingest rows in one pass).
+  With "All shops" of separate stores it counts every connection.
+- **The verdict** ("Needs attention") adds four problems, in Magento's order and words where
+  Magento has them: Campaign Intelligence refuses the connection (after stopped background
+  tasks, before failed deliveries; with a link to Settings > Intelligence); the engine is
+  unreachable (after failed deliveries); no nightly product list has reached the engine for 3
+  nights or more (`CatalogManifest::nightsUnsent()`: the whole days since the newest list that the
+  engine took, else since the connection was made; not counted for a refused connection, a
+  shared engine store or a shop without products); and, only in PrestaShop, two connections of
+  the installation share one engine store, so neither sends that list (section 5.3): "Two shops
+  of this installation share one Campaign Intelligence store, so the nightly product list is not
+  sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the
+  product's next change."
+- **Recent activity** lists the newest rows of both queues and the newest import jobs, with the
+  Log's Source (section 10.8) and, for an import job, what it counts.
+
+**The Log.** The Source of a row of the event queue that goes to the engine, the Entity of an
+import to Campaign Intelligence and the three reasons of such an import are in section 10.8. The
+reasons `stalled`, `engine_not_active` and `no_connection` (section 8.12) read as the module's
+sentences in the admin's language (`Log\FailureMessage::JOB_REASONS`).
+
+**Visible differences that PrestaShop forces.** The invitation's place on Settings is under the
+tab strip, where Magento prints it. The Dashboard's Catalog items tile, the Campaign Intelligence
+card and the Browse tracking card follow PrestaShop's shop selector. The sentence about two shops
+in one engine store, the "Per shop" cards and the question about connections before a layout
+change (section 8.9) have no sibling: only PrestaShop keeps several connections in one
+installation. Not built: Magento's second banner with the reason of the last night's missing
+product list, and its plan upsell.
 
 ---
 
@@ -4680,6 +4763,11 @@ Decisions of 2026-11-23:
     belongs to.
   - Creating or editing a workflow or an email design ("Edit design"), "Try Intelligence free"
     and the console link stay out of 3.0.0.
+- The Campaign Intelligence invitation card shows as on the Magento connector (CON-363) and the
+  WooCommerce plugin (CON-350) (owner, 2026-11-23, question 3 of the sketch, option C): above the
+  setup link on the Intelligence tab and on step 4, where it stays, and on top of the Dashboard
+  and of the other Settings tabs, where "Dismiss" hides it for 30 days for every admin. A
+  connected store never sees it. Its action is "Contact Smaily" (section 10.12).
 - A change of the store layout carries the Campaign Intelligence connection of the selected
   shop, or of the default shop with "All shops" selected, into the new layout and ends every
   other connection (owner, 2026-11-23, question 5 of the sketch, option B). An ended connection
@@ -4689,3 +4777,7 @@ Decisions of 2026-11-23:
   - The cookie-banner confirmation at that change follows the narrowest reading (orchestrator's
     rule "never widen the audience", built by the Story; the owner may overturn it, section 14,
     row 58): it stays with the one shop to separate stores, and is removed to one store.
+- The Dashboard shows Campaign Intelligence as the approved sketch draws it (owner, 2026-11-23):
+  Magento's four connection states and two tracking states in Magento's words, the Catalog items
+  tile only with a connection, and PrestaShop's own sentence for two shops in one engine store.
+  With "All shops" selected in separate stores the two cards read "Per shop" (section 10.12).

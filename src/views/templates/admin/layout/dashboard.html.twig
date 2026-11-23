@@ -22,13 +22,15 @@
  *#}
 {#
  # The Dashboard frame, top to bottom as the sibling connectors draw it: the invitation to a store
- # with no Smaily account, the status banner, the connection cards, the metric tiles, Recent
- # activity beside Quick links, and the version line.
+ # with no Smaily account, the invitation to Campaign Intelligence, the status banner, the
+ # connection cards, the metric tiles, Recent activity beside Quick links, and the version line.
  #
  # Each block draws its content from one template in dashboard/ that the Dashboard Story adds; a
  # missing template leaves the block empty. A page template that extends this one may also
  # override a block. `smaily_invitation` (true while no Smaily account is connected) shows the
- # invitation; its Dismiss hides it here for 90 days.
+ # invitation; its Dismiss hides it here for 90 days. `smaily_intelligence_invitation` (true while
+ # the store has a Smaily account and no Campaign Intelligence connection) shows the invitation to
+ # Campaign Intelligence; its Dismiss hides it here and on Settings for 30 days.
  #}
 {% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
@@ -47,6 +49,9 @@
     {% block smaily_dashboard_invitation %}
       {% if smaily_invitation|default(false) and not smaily.invitation_dismissed %}
         {% include '@Modules/smailyforprestashop/views/templates/admin/layout/invitation.html.twig' with {dismissible: true} %}
+      {% endif %}
+      {% if smaily_intelligence_invitation|default(false) and not smaily.intelligence_invitation_dismissed %}
+        {% include '@Modules/smailyforprestashop/views/templates/admin/layout/intelligence-invitation.html.twig' with {dismissible: true} only %}
       {% endif %}
     {% endblock %}
 

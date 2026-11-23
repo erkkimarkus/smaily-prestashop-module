@@ -31,7 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 /**
  * The admin screens' own state, global: how far the Initial setup is, and when an admin dismissed
- * the invitation to connect a Smaily account.
+ * the invitation to connect a Smaily account and the invitation to Campaign Intelligence.
  */
 final class AdminSettings extends Settings
 {
@@ -49,6 +49,16 @@ final class AdminSettings extends Settings
 
     /** The invitation stays dismissed this long, for every admin (the siblings' 90 days). */
     public const INVITATION_DISMISS_SECONDS = 90 * 86400;
+
+    /**
+     * When an admin dismissed the invitation to Campaign Intelligence on top of the Dashboard and
+     * of the Settings tabs: a Unix time, global, as the Magento connector keeps it at its default
+     * scope.
+     */
+    public const INTELLIGENCE_INVITATION_DISMISSED_AT = self::PREFIX . 'CI_INVITATION_DISMISSED_AT';
+
+    /** That invitation stays dismissed this long, for every admin (the siblings' 30 days). */
+    public const INTELLIGENCE_INVITATION_DISMISS_SECONDS = 30 * 86400;
 
     /**
      * The stored state of the Initial setup, null while none is stored: a fresh install stores
@@ -74,5 +84,17 @@ final class AdminSettings extends Settings
     public function dismissInvitation(int $now): bool
     {
         return $this->set(self::INVITATION_DISMISSED_AT, (string) $now);
+    }
+
+    public function isIntelligenceInvitationDismissed(int $now): bool
+    {
+        $at = (int) $this->get(self::INTELLIGENCE_INVITATION_DISMISSED_AT);
+
+        return $at > 0 && $now - $at < self::INTELLIGENCE_INVITATION_DISMISS_SECONDS;
+    }
+
+    public function dismissIntelligenceInvitation(int $now): bool
+    {
+        return $this->set(self::INTELLIGENCE_INVITATION_DISMISSED_AT, (string) $now);
     }
 }

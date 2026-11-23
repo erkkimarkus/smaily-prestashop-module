@@ -232,7 +232,7 @@ final class IntelligencePanel
      * the engine does not answer), or why the engine refuses it (the reason of the last refusal,
      * which a later check without an answer does not replace).
      */
-    private static function state(Connection $connection): string
+    public static function state(Connection $connection): string
     {
         if ($connection->apiKey() === '') {
             return self::STATE_KEY_REFUSED;

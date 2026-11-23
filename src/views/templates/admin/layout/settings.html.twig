@@ -23,7 +23,9 @@
 {#
  # The Settings frame: the tabs Connection, Contacts, Automations, Intelligence and RSS, and one
  # panel per tab with its title and line. The shop is the one of PrestaShop's shop selector in the
- # header; this page has no shop picker of its own.
+ # header; this page has no shop picker of its own. Between the tabs and the panels stands the
+ # invitation to Campaign Intelligence, while the store has a Smaily account and no connection
+ # (`smaily_settings.intelligence_invitation`).
  #
  # Each tab's content comes from one template in settings/ (connection, contacts, automations,
  # intelligence, rss), added by the Story that owns the tab; a missing template leaves the tab
@@ -50,6 +52,12 @@
                 data-tab="{{ id }}" aria-controls="smaily-panel-{{ id }}" aria-selected="{{ id == current ? 'true' : 'false' }}">{{ label }}</button>
       {% endfor %}
     </div>
+
+    {# The invitation to Campaign Intelligence on top of the tabs: Dismiss hides it for 30 days;
+       the Intelligence tab carries its own copy, so this one steps aside there. #}
+    {% if smaily_settings is defined and smaily_settings.intelligence_invitation and not smaily.intelligence_invitation_dismissed %}
+      {% include '@Modules/smailyforprestashop/views/templates/admin/layout/intelligence-invitation.html.twig' with {dismissible: true, aside: current == 'intelligence'} only %}
+    {% endif %}
 
     <section class="smaily-tab-panel" role="tabpanel" id="smaily-panel-connection" aria-labelledby="smaily-tab-connection" data-tab="connection" data-smaily-slot="settings/connection"{% if current != 'connection' %} hidden{% endif %}>
       <h2 class="smaily-tab-title">{{ 'Connection'|trans }}</h2>

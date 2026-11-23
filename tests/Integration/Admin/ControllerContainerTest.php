@@ -5,6 +5,7 @@ namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DismissInvitation;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\TestConnection;
@@ -289,6 +290,48 @@ final class ControllerContainerTest extends IntegrationTestCase
 
         self::assertError(403, 'forbidden', 'You do not have permission to do this.', $this->execute(new $action(), $this->locator(false), $body, $route));
         self::assertError(403, 'invalid_token', 'The page has expired. Reload it and try again.', $this->execute(new $action(), $this->locator(true, false), $body, $route));
+    }
+
+    /**
+     * The invitation to Campaign Intelligence on top of the Dashboard and of the Settings tabs is
+     * dismissed for 30 days, for every admin, apart from the invitation to a Smaily account, as
+     * the Magento connector keeps the two.
+     */
+    public function testTheInvitationToCampaignIntelligenceIsDismissedForThirtyDaysOnItsOwn(): void
+    {
+        $settings = new AdminSettings();
+        $route = ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_dismiss_invitation'];
+        $keys = [AdminSettings::INVITATION_DISMISSED_AT, AdminSettings::INTELLIGENCE_INVITATION_DISMISSED_AT];
+        array_map([\Configuration::class, 'deleteByName'], $keys);
+        try {
+            $now = time();
+            self::assertFalse($settings->isIntelligenceInvitationDismissed($now));
+
+            $response = $this->execute(new DismissInvitation(), $this->locator(), ['card' => 'intelligence'], $route);
+
+            self::assertSame(['ok' => true, 'data' => []], json_decode((string) $response->getContent(), true));
+            self::assertTrue($settings->isIntelligenceInvitationDismissed($now));
+            self::assertFalse($settings->isInvitationDismissed($now), 'the invitation to a Smaily account still shows');
+            self::assertTrue($settings->isIntelligenceInvitationDismissed($now + 30 * 86400 - 60));
+            self::assertFalse($settings->isIntelligenceInvitationDismissed($now + 30 * 86400 + 60), 'after 30 days it shows again');
+            self::assertSame(
+                [['SMAILY_CONNECT_CI_INVITATION_DISMISSED_AT', null, null]],
+                array_map('array_values', (array) self::db()->executeS('SELECT `name`, `id_shop_group`, `id_shop` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` LIKE \'SMAILY\\_CONNECT\\_%INVITATION\\_DISMISSED\\_AT\'', true, false)),
+                'one value for the whole installation'
+            );
+
+            $controller = new DashboardController();
+            $controller->setContainer($this->locator());
+            $controller->index(new Request());
+            self::assertTrue($this->rendered['smaily']['intelligence_invitation_dismissed']);
+            self::assertFalse($this->rendered['smaily']['invitation_dismissed']);
+            self::assertFalse($this->rendered['smaily_intelligence_invitation'], 'the test shop has no Smaily account, so the other invitation is the one to show');
+
+            $this->execute(new DismissInvitation(), $this->locator(), [], $route);
+            self::assertTrue($settings->isInvitationDismissed(time()), 'without a card name, the invitation to a Smaily account');
+        } finally {
+            array_map([\Configuration::class, 'deleteByName'], $keys);
+        }
     }
 
     public function testTheLogHandsItsFilteredListToTwig(): void

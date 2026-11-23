@@ -160,7 +160,8 @@
         });
       } else if (action === 'dismiss-invitation') {
         var invitation = target.closest('[data-smaily-invitation]');
-        smailyConnect.api(root.getAttribute('data-smaily-api-dismiss-invitation')).then(function () {
+        // The attribute names the card: `intelligence` is the invitation to Campaign Intelligence.
+        smailyConnect.api(root.getAttribute('data-smaily-api-dismiss-invitation'), {card: invitation.getAttribute('data-smaily-invitation')}).then(function () {
           invitation.parentNode.removeChild(invitation);
         }).catch(function (error) {
           window.alert(error.message);
@@ -172,7 +173,11 @@
     initSetup(root.querySelector('[data-smaily-setup]'));
   });
 
-  /* Settings: one tab shown at a time; the address keeps ?tab=<id> so a reload opens it again. */
+  /*
+   * Settings: one tab shown at a time; the address keeps ?tab=<id> so a reload opens it again. The
+   * invitation to Campaign Intelligence on top of the tabs steps aside on the Intelligence tab,
+   * which carries its own copy.
+   */
   function initTabs(container) {
     if (!container) {
       return;
@@ -191,6 +196,10 @@
       container.querySelectorAll('[role=tabpanel]').forEach(function (panel) {
         panel.hidden = panel.getAttribute('data-tab') !== id;
       });
+      var invitation = container.querySelector('[data-smaily-invitation="intelligence"]');
+      if (invitation) {
+        invitation.classList.toggle('is-aside', id === 'intelligence');
+      }
       var url = new URL(window.location.href);
       url.searchParams.set('tab', id);
       window.history.replaceState(null, '', url.toString());

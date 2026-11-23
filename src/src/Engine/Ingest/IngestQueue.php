@@ -428,6 +428,21 @@ final class IngestQueue
     }
 
     /**
+     * The UTC time of the newest row of a domain that the engine took for a connection; null for
+     * none.
+     */
+    public function newestSent(int $idConnection, string $domain): ?string
+    {
+        return Sql::value(sprintf(
+            'SELECT MAX(`sent_at`) FROM %s WHERE `domain` = %s AND `status` = %s AND `id_connection` = %d',
+            self::table(),
+            self::quote($domain),
+            self::quote(EventQueue::STATUS_SENT),
+            $idConnection
+        ));
+    }
+
+    /**
      * Deletes up to $limit rows, oldest first, that are in the closed status $status (sent, skipped
      * or failed) and last changed more than $ageSeconds ago.
      *
