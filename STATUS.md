@@ -17,7 +17,7 @@ consent modes, contact sync, the Log, store automations with discount codes, Das
 Estonian round, the Marketplace structural rules, the database gateway) with the owner's decisions of 2026-11-21
 (ARCHITECTURE section 15), and four Stories of stage 5, Campaign Intelligence, each exercised against an engine mock:
 
-- 5.1 the engine client and the connection (made through `Engine\Setup`; no screen makes one yet);
+- 5.1 the engine client and the connection (made on Settings > Intelligence and on step 4 of the Initial setup);
 - 5.2 ingest: product, customer and order changes, removals, the nightly product list, the identity merge;
 - 5.5 storefront: consent-gated browse tracking through the store's relay, click attribution stored with the order,
   the "Recommended for you" block as a widget;
@@ -33,21 +33,22 @@ browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One th
 psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
 (2026-11-23): the Log's "Privacy request" form is always shown, also beside psgdpr, and capability 13 counts.
 
-**Story 5.3, first part, on another worker branch (2026-11-23, rebased onto `v3` at `f947316`, not merged, not
-pushed):** Settings > Intelligence and step 4 of the Initial setup connect a store to Campaign Intelligence, check and
-end the connection, hold the merchant's cookie-banner confirmation, and show the catalog, customers and orders
-imports, which a connection starts and the tick job `engine_import` runs (ARCHITECTURE 8.12 and 10.11). Walked in a
-browser against the engine mock on 8.2.8 and 9.2.0 before the rebase, with one shop and with two (separate stores,
-one store), in English and Estonian; screenshots in `build/screens-5.3/`.
+**Story 5.3 (Linear CON-405), first part, merged and pushed on `v3`:** Settings > Intelligence and step 4 of the
+Initial setup connect a store to Campaign Intelligence, check and end the connection, hold the merchant's
+cookie-banner confirmation, and show the catalog, customers and orders imports (ARCHITECTURE 8.12 and 10.11).
 
-**Last runs** (2026-11-23, on that branch after the rebase: the installation report, Story 5.4 and the first part of
-Story 5.3 together): in-shop suite 2168 tests on 8.2.8 (11685 assertions) and on 9.2.0 (11690), with debug on, each
-lane on a shop made from scratch behind the egress guard; host 2168 tests, 3794 assertions, 1101 skipped;
-`node --test tests/js/` 43 pass; PHP CS Fixer 0 of 353 files. A browser smoke on both lanes, 18 checks each: a
-connection made on Settings > Intelligence and its three import cards, Settings > Automations with the store
-automations and the Campaign Intelligence card on that connection, the Dashboard, and a tick over its URL that ran
-`engine_import` and `installation_report` (the report reached the subscription mock with the connection in it);
-screenshots in `build/screens-5.3-merged/`. The suite with debug off last ran on `v3` before Story 5.4 (2090 tests).
+**Story 5.3, second part, on a worker branch (2026-11-23, `worktree-agent-a59b15fe0f730a9e6` on `82fc312`, not
+merged, not pushed):** the Campaign Intelligence invitation on top of the Dashboard and of the Settings tabs with its
+30-day dismissal; the Dashboard's Campaign Intelligence and Browse tracking cards, Catalog items tile and verdicts;
+the Log's source and job reasons; a layout change that carries the selected or default shop's connection and ends
+the others (ARCHITECTURE 8.9 and 10.12). Walked in a browser against the engine and subscription mocks on 8.2.8
+(114 checks) and 9.2.0 (114 checks), with one shop and with two, in English and Estonian; screenshots in
+`build/screens-5.3b/`.
+
+**Last runs** (2026-11-23, on that branch): in-shop suite 2222 tests on 8.2.8 (11893 assertions) and on 9.2.0
+(11898), with debug on, each lane on a shop made from scratch behind the egress guard; host 2222 tests, 3910
+assertions, 1129 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 lint of 356
+module files and 215 test files, no failure. The suite with debug off last ran on `v3` before Story 5.4 (2090 tests).
 Last run on `0c38f0b` (2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images. The zip
 content and the uninstall check last ran on `0d4425e`, long before stage 5.
 
@@ -62,13 +63,9 @@ is shown by tests, not by a browser upgrade.
 
 ## Next, in this order
 
-1. Story 5.3, second part (the first part is on a worker branch, above): the Campaign Intelligence invitation card
-   on the Dashboard and the other tabs with its 30-day dismissal, the Dashboard's Campaign Intelligence and Browse
-   tracking cards and Catalog tile, and what a store-layout change does with the connections (owner, 2026-11-23:
-   the selected or default shop's connection is carried, the others are ended). Story 5.4, the card "Campaign
-   Intelligence Automations" on Settings > Automations, is built (ARCHITECTURE 10.10).
+1. Merge the second part of Story 5.3 (above). Stories 5.3 and 5.4 are then built (ARCHITECTURE 10.10 to 10.12).
 2. Capability walks on the merged `v3`: 8, 10 and 11 now that the connection, the imports and the consent switch
-   have their screen (Story 5.3, first part); 9 with a connection made on that screen.
+   have their screen (Story 5.3); 9 with a connection made on that screen.
 3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
 4. A full install check (zip content, uninstall) on the tip.
 
@@ -83,6 +80,10 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 - `composer package` deletes the whole `build/` folder, the kept screenshots in `build/screens/` with it.
 - The Smaily client's own failure messages show in English in the Log; its Last Error column is narrow for a sentence.
   A simplification review of the Log, Automations and stage 5 code is due.
+- The Dashboard's Queued today and Failed tiles and its failures verdict count the event queue only, not the rows
+  that go to Campaign Intelligence (the Log's banner counts both). The Initial setup's first answer to "How are
+  your shops run?" runs no layout change, so a store that held settings or a connection before it got a second
+  shop keeps them under "all shops" (ARCHITECTURE 8.9).
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron
   tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive.
 
@@ -100,13 +101,13 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 - [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only — HTTP, 8.0.0, 9.2.0.
 - [x] 6. Contact sync both ways, first import, and a Log with retry — walked on 8.2.8 and 9.2.0.
 - [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
-- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — built (5.1, 5.2, 5.3 first
-  part: the Intelligence tab and step, the three imports); waits: its walk on the merged `v3`.
+- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — built (5.1, 5.2, 5.3: the
+  Intelligence tab and step, the three imports, the Dashboard's state); waits: its walk on the merged `v3`.
 - [ ] 9. Campaign Intelligence automations, listed from the engine — built (5.4): the Story's own walk ran in a
   browser on 8.2.8 and 9.2.0 against the engine mock, with a connection made by script. Waits: the capability walk on
   the merged `v3`.
 - [ ] 10. Browse tracking and attribution of email clicks to orders — built (5.5, 5.2), and the merchant's consent
-  switch has its screen (5.3 first part); waits: a walk on the merged `v3`.
+  switch has its screen (5.3), and the Dashboard says whether tracking is on; waits: a walk on the merged `v3`.
 - [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); the product
   feed is the RSS feed of Settings > RSS (owner, 2026-11-23: no second feed); waits: the same walk.
 - [x] 12. Installation report (phone-home) — Story 6.1, walked on its branch on 8.2.8 and 9.2.0 against a mock
@@ -125,7 +126,11 @@ The workers' full notes are in ARCHITECTURE section 14; the owner's decisions of
 questions of the stage 5 Stories are in section 15. Before recommending on a behaviour rule, look up what the sibling
 connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 
-1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
+1. The cookie-banner confirmation at a store-layout change (ARCHITECTURE 14, row 58). Built as the narrowest
+   reading: to separate stores it stays with the shop that keeps the connection; to one store it is removed, so
+   tracking and recommendations are off in every shop until the merchant confirms again. The other reading carries
+   one shop's confirmation over to all shops. A consent decision: the owner's.
+2. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
 
@@ -134,6 +139,7 @@ shows whether the real service takes an installation report); ask the
 engine team for the answer on INT-306 (`ps-`) and for the `source` value of PrestaShop's browse events; choose a pilot
 store; have a native speaker read the Estonian.
 
-Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400
-and CON-401 done; 5.3 is CON-405; 5.4 not filed yet), CON-402 (privacy, done); cross-connector analysis CON-397 (with CON-394,
-CON-395, CON-396); engine INT-306; subscription SUB-28 (answered). Gauge: 9/14.
+Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400,
+CON-401, CON-407, CON-408 and CON-409 done; 5.3 is CON-405; 5.4 is CON-406), CON-402 (privacy, done), CON-403
+(installation report: 6.1 is CON-404, built); cross-connector analysis CON-397 (with CON-394, CON-395, CON-396); engine
+INT-306; subscription SUB-28 (answered). Gauge: 9/14.

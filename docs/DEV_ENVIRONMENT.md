@@ -85,16 +85,15 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 2168 tests on 8.2.8 (11685 assertions) and on 9.2.0 (11690
+Last verified results, all passing: 2222 tests on 8.2.8 (11893 assertions) and on 9.2.0 (11898
 assertions; one test checks more where PrestaShop has discount types), each lane on a shop made
 from scratch behind the egress guard, with debug mode on (2026-11-23, on the branch of Story 5.3's
-first part rebased onto `v3` with the installation report of Story 6.1 and the automations card of
-Story 5.4; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). The suite with debug mode off last
+second part; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). The suite with debug mode off last
 ran on `v3` before Story 5.4 (2090 tests on both lanes). One earlier run on 8.2.8 failed
 `ConcurrentFlushTest` alone: a worker booted later than the 3 seconds the test gives it, on a
 machine that ran other stacks; the test passed alone and in the next two runs. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2168 tests, 3794 assertions, 1101 skipped). The storefront scripts have
+and skips the integration tests (2222 tests, 3910 assertions, 1129 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
