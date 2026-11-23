@@ -196,12 +196,23 @@ Campaign Intelligence is Smaily's recommendation engine: it learns from your cat
 2. A link that is not taken leaves the store unconnected, and the tab says why: the link was already used, it is not known, it belongs to another Smaily account, or Campaign Intelligence could not be reached. Ask Smaily for a new link.
 3. Connecting starts three imports, one after another: your **catalog**, your **customers** and your **orders**. They run in the background from the next run of the background tasks (see [Background tasks and the cron line](#background-tasks-and-the-cron-line)). To hold them back, click **Hold back the import** right after connecting: nothing is sent, and you start each import later on its card.
 4. The cards **Catalog**, **Customers** and **Orders** show how far each import is and update while the page is open. The customers import sends the customers that your contact synchronization sends to Smaily, and every customer with an order in the last 60 months. The orders import sends the newest orders first: the last 18 months, so that Campaign Intelligence can start, then the older ones back to 60 months. No older order is sent. **Cancel import** stops an import and the imports that wait behind it; **Run again** starts an import again from the beginning. An import that nothing has moved for an hour shows as **Stalled**: check that the background tasks run, and run it again. Rows that Campaign Intelligence refused are in the [Log](#log).
-5. From then on every change of a product, a customer or an order is sent as it happens.
+5. From then on every change of a product, a customer or an order is sent as it happens (see [What is sent after the imports](#what-is-sent-after-the-imports)).
 6. Tick **My store's cookie banner covers Smaily tracking** and click **Save** to switch on browse tracking and the recommendations block (see [Browse tracking and cookies](#browse-tracking-and-cookies)). It is off after an install and after an upgrade.
 7. **Check again** asks Campaign Intelligence whether it still takes the store's data. When your Campaign Intelligence account is not active, the tab says so, nothing is sent, and what waits is sent once Smaily has made the account active again.
 8. **Disconnect** ends the connection, after a question. The module stops sending data and tells Campaign Intelligence that the connection ended; your data there is kept. Connect again with a new setup link.
 
 In a store with several shops that are run as one store, one connection serves every shop, whichever shop is selected. Where the shops are run as separate stores, select a shop: each shop has its own setup link, its own confirmation and its own imports.
+
+### What is sent after the imports
+
+A connected store sends its changes with the next run of the background tasks, usually within a minute or two. Each delivery is a row of the [Log](#log) with the Source **Campaign Intelligence**. A store without a connection sends nothing.
+
+- **Products.** A product is sent when you save it, when its stock changes, for example with an order, and when one of its prices changes. A product with combinations is sent as one row per combination. A product that is switched off or not visible is sent as out of stock, so that it is no longer recommended. A deleted product is removed from Campaign Intelligence.
+- **Customers.** A customer is sent when the account is created or changed and when the customer orders, but only a customer that your contact synchronization sends to Smaily, or a registered customer with an order in the last 60 months. The email address, the name, the language, and the country and phone number of the customer's first address are sent; no street address, birthday or note. A customer who signs in or registers is also sent once you have confirmed the cookie banner (see [Browse tracking and cookies](#browse-tracking-and-cookies)).
+- **Orders.** An order is sent when it is placed, and again each time its status changes, it is edited or a product of it is returned, with its lines, amounts and status.
+- **The nightly product list.** Once a night, from 03:30, the store sends the list of its products with whether each is in stock. Campaign Intelligence stops recommending a product that the list leaves out, so a deletion or a stock change that did not arrive is put right within a night. A store with more than 50 000 product rows sends no list, and the Log says so each night.
+
+While Campaign Intelligence does not accept the connection, for example because the account is not active, the changes wait and are sent once it accepts the connection again. A delivery that fails is retried on its own, and a failed row can be sent again from the Log.
 
 ## Product recommendations in your store
 
