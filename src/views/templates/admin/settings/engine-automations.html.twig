@@ -1,0 +1,45 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # Settings > Automations: the card "Campaign Intelligence Automations" under the store automations
+ # and their Save, with its own Save (Magento's config/engine-automations.phtml). The card is not
+ # part of the Initial setup, and the switch "Use its own automations on this shop" does not cover
+ # it: the automations belong to the Campaign Intelligence connection.
+ #
+ # This is the card's frame. Its content comes from Campaign Intelligence once the tab shows
+ # (Admin\Api\Settings\EngineAutomationsCard, settings/engine-automations-card.html.twig), and
+ # views/js/admin/engine-automations.js loads and saves it.
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+<div class="smaily-panel smaily-engine-automations" data-smaily-engine-automations
+     data-api-load="{{ path('smailyforprestashop_api_settings_engine_automations') }}"
+     data-api-save="{{ path('smailyforprestashop_api_settings_engine_automations_save') }}"
+     data-label-saving="{{ 'Saving…'|trans }}"
+     data-label-saving-failed="{{ 'Saving failed.'|trans }}">
+  <div class="smaily-card">
+    <h2>{{ 'Campaign Intelligence Automations'|trans }}</h2>
+    <div data-smaily-engine-body aria-live="polite">
+      <p class="smaily-note">{{ 'Loading…'|trans }}</p>
+    </div>
+  </div>
+</div>

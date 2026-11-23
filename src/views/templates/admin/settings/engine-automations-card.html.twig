@@ -1,0 +1,138 @@
+{#**
+ * 2024 Smaily
+ *
+ * NOTICE OF LICENSE
+ *
+ * Smaily for PrestaShop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ *
+ * Smaily for PrestaShop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Smaily for PrestaShop. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * @author    Smaily <info@smaily.com>
+ * @copyright 2024 Smaily
+ * @license   GPL3
+ *#}
+{#
+ # The content of the card "Campaign Intelligence Automations" (Magento's
+ # config/engine-automations.phtml), as Campaign Intelligence answers at this moment:
+ #
+ # - not connected: connect Campaign Intelligence first;
+ # - the account is not active: nothing is read or saved;
+ # - the list could not be loaded: nothing is listed, so nothing can be saved;
+ # - else one row per automation that Campaign Intelligence offers the store now: its name, the
+ #   pill Off, Test mode or Active, its description and Enabled; while it is on, also Test mode,
+ #   the Smaily workflow it starts, Cooldown, Daily Cap and Test Emails. A row that is off keeps
+ #   its values in the form, and the save posts every field of every row.
+ #
+ # `row.name` and `row.description` are Campaign Intelligence's own text (contract §11), the one
+ # text of the engine that a screen shows; Twig escapes it as any other value. A row carries the
+ # `language_mode` and the workflow map it was drawn with, which the save hands back, so that a
+ # per-language setup of another connector stays (Engine\Automations\ConfigRow).
+ #
+ # Takes `card` (Admin\Settings\EngineAutomationsPanel::card()).
+ #}
+{% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% if card.state == 'not_connected' %}
+  <div class="smaily-engine-empty">
+    <div class="smaily-engine-empty__title">{{ 'Connect Campaign Intelligence to set up these automations'|trans }}</div>
+    <div class="smaily-note">{{ 'These engine-run automations (replenishment reminders, win-back and more) become available once Campaign Intelligence is connected.'|trans }}</div>
+  </div>
+{% elseif card.state == 'refused' %}
+  <div class="smaily-banner smaily-banner--danger" role="alert">
+    <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+    <div class="smaily-banner__body">
+      <div class="smaily-banner__title">{{ 'Your Campaign Intelligence account is not active'|trans }}</div>
+      <div class="smaily-banner__message">{{ 'Your Campaign Intelligence account is not active, so its automations cannot be read or saved. Once Smaily tells you the account is active, press Check again under Settings > Intelligence.'|trans }}</div>
+    </div>
+  </div>
+{% elseif card.state == 'unavailable' %}
+  <div class="smaily-banner" role="status">
+    <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+    <div class="smaily-banner__body">
+      <div class="smaily-banner__title">{{ 'Could not load the automation catalog'|trans }}</div>
+      <div class="smaily-banner__message">{{ '%reason% Your saved automations are unchanged.'|trans({'%reason%': card.reason}) }}</div>
+    </div>
+  </div>
+{% else %}
+  <p class="smaily-note">{{ 'These automations run inside the Campaign Intelligence engine and fire the mapped Smaily workflow. Every trigger starts disabled and in test mode — nothing reaches real customers without your explicit action.'|trans }}</p>
+  {% if card.account != '' %}
+    <p class="smaily-note">{{ 'The workflows listed are those of the Smaily account "%account%", which this Campaign Intelligence connection belongs to.'|trans({'%account%': card.account}) }}</p>
+  {% endif %}
+  {% if card.workflow_error != '' %}
+    <p class="smaily-note smaily-note--strong" data-smaily-engine-workflow-error>{{ card.workflow_error }}</p>
+  {% endif %}
+  {% if card.rows is empty %}
+    <p class="smaily-note">{{ 'No engine automations are available for your store yet. New triggers appear here automatically when the engine adds them.'|trans }}</p>
+  {% else %}
+    {% set offered = card.workflows|map(workflow => workflow.id ~ '') %}
+    <div class="smaily-banner smaily-banner--danger" data-smaily-engine-errors role="alert" hidden>
+      <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__message" data-smaily-engine-errors-text></div>
+      </div>
+    </div>
+    <div class="smaily-triggers">
+      {% for row in card.rows %}
+        {% set mode = not row.enabled ? 'off' : (row.test_mode ? 'test' : 'active') %}
+        <div class="smaily-trigger is-{{ mode }}" data-smaily-engine-trigger="{{ row.key }}"
+             data-language-mode="{{ row.language_mode }}" data-original-map="{{ row.original_map|json_encode }}">
+          <div class="smaily-trigger__head">
+            <div class="smaily-trigger__name-row">
+              <span class="smaily-trigger__name">{{ row.name }}</span>
+              <span class="smaily-pill{{ mode == 'active' ? ' smaily-pill--active' : (mode == 'test' ? ' smaily-pill--pending' : '') }}"><span class="smaily-pill__dot"></span>{{ mode == 'active' ? 'Active'|trans : (mode == 'test' ? 'Test mode'|trans : 'Off'|trans) }}</span>
+            </div>
+            <div class="smaily-trigger__desc">{{ row.description }}</div>
+            <div class="smaily-engine-switches">
+              <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-engine-field="{{ row.key }}.enabled"{{ row.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>
+              <label class="smaily-trigger__enable" data-smaily-engine-settings{% if not row.enabled %} hidden{% endif %}><input type="checkbox" data-smaily-engine-field="{{ row.key }}.test_mode"{{ row.test_mode ? ' checked' : '' }}> {{ 'Test mode'|trans }}</label>
+            </div>
+          </div>
+          <div class="smaily-trigger__settings" data-smaily-engine-settings{% if not row.enabled %} hidden{% endif %}>
+            {% if mode != 'active' %}
+              <p class="smaily-note">{{ 'Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.'|trans }}</p>
+            {% endif %}
+            <div class="smaily-trigger__controls">
+              <label class="smaily-trigger__ctrl">
+                <span>{{ 'Smaily Workflow'|trans }}</span>
+                <select class="form-control" data-smaily-engine-field="{{ row.key }}.workflow_id">
+                  <option value="">{{ '-- Not Selected --'|trans }}</option>
+                  {% for workflow in card.workflows %}
+                    <option value="{{ workflow.id }}"{{ workflow.id ~ '' == row.workflow_id ? ' selected' : '' }}>{{ workflow.name }}</option>
+                  {% endfor %}
+                  {# A stored workflow that the Smaily list does not offer stays visible, and the save keeps it. #}
+                  {% if row.workflow_id != '' and row.workflow_id not in offered %}
+                    <option value="{{ row.workflow_id }}" selected>{{ 'Workflow #%id% (not in your Smaily list — kept)'|trans({'%id%': row.workflow_id}) }}</option>
+                  {% endif %}
+                </select>
+              </label>
+              <label class="smaily-trigger__ctrl">
+                <span>{{ 'Cooldown (days)'|trans }}</span>
+                <input type="number" class="form-control smaily-trigger__delay" data-smaily-engine-field="{{ row.key }}.cooldown_days" min="1" max="365" value="{{ row.cooldown_days }}">
+              </label>
+              <label class="smaily-trigger__ctrl">
+                <span>{{ 'Daily Cap'|trans }}</span>
+                <input type="number" class="form-control smaily-engine-cap" data-smaily-engine-field="{{ row.key }}.daily_cap" min="1" max="100000" value="{{ row.daily_cap }}" placeholder="{{ 'No cap'|trans }}">
+              </label>
+              <label class="smaily-trigger__ctrl">
+                <span>{{ 'Test Emails'|trans }}</span>
+                <input type="text" class="form-control smaily-engine-emails" data-smaily-engine-field="{{ row.key }}.test_emails" value="{{ row.test_emails }}" placeholder="a@example.com, b@example.com">
+              </label>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="smaily-tab-footer">
+      <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-engine-automations">{{ 'Save Intelligence Automations'|trans }}</button>
+      <span class="smaily-result" data-smaily-engine-result role="status"></span>
+    </div>
+  {% endif %}
+{% endif %}

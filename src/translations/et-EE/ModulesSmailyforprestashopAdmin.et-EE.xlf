@@ -897,11 +897,6 @@
         <target>Hüljatud ostukorvi meeldetuletused: sinu ooteaeg oli pikem kui üks päev. Meeldetuletust ei saadeta kunagi ostukorvile, mis on vanem kui 24 tundi, seega on ooteaeg nüüd 1435 minutit. Saad seda muuta: Seaded &gt; Automaatikad.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="ae5ae1df85e640cacd7cbcb688d32823">
-        <source>How store events fire Smaily workflows.</source>
-        <target>Kuidas poe sündmused Smaily töövooge käivitavad.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="f3da194ba91ed8f8e811a51b832be8aa">
         <source>Use its own automations on this shop</source>
         <target>Kasuta selles poes oma automaatikaid</target>
@@ -2815,6 +2810,151 @@
       <trans-unit id="33d7789dc6f9d3162d868c142468420f">
         <source>Skipped: the shopper opted out of personalized recommendations, so their browsing is not linked to their address. Nothing was sent.</source>
         <target>Vahele jäetud: ostja loobus personaalsetest soovitustest, seega tema sirvimist tema aadressiga ei seota. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2f8113111160ec552a07f684a58a5cff">
+        <source>How store events and Campaign Intelligence triggers fire Smaily workflows.</source>
+        <target>Kuidas poe sündmused ja Campaign Intelligence'i päästikud Smaily töövooge käivitavad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b35c7031203b6ef0b2d3d4c61289dd01">
+        <source>Campaign Intelligence Automations</source>
+        <target>Campaign Intelligence'i automaatikad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5f02f05c744a0f875aebb8625ae1486f">
+        <source>Loading…</source>
+        <target>Laadimine…</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="efc414cc669ee10b91e971660f25a98d">
+        <source>Connect Campaign Intelligence to set up these automations</source>
+        <target>Nende automaatikate seadistamiseks ühenda Campaign Intelligence</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5b3ff23185012c7cb06f0b0816a65a13">
+        <source>These engine-run automations (replenishment reminders, win-back and more) become available once Campaign Intelligence is connected.</source>
+        <target>Need mootoris töötavad automaatikad (varude täiendamise meeldetuletused, tagasivõitmine ja muud) muutuvad kättesaadavaks, kui Campaign Intelligence on ühendatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3555f440ef27a4dd38c41b5f156490ff">
+        <source>Your Campaign Intelligence account is not active</source>
+        <target>Sinu Campaign Intelligence'i konto ei ole aktiivne</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c322e221a030f53d52fdbf0f064f9635">
+        <source>Your Campaign Intelligence account is not active, so its automations cannot be read or saved. Once Smaily tells you the account is active, press Check again under Settings &gt; Intelligence.</source>
+        <target>Sinu Campaign Intelligence'i konto ei ole aktiivne, seega selle automaatikaid ei saa lugeda ega salvestada. Kui Smaily on öelnud, et konto on aktiivne, vajuta „Kontrolli uuesti“ menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c806878c90cf00233601e77456e66882">
+        <source>Could not load the automation catalog</source>
+        <target>Automaatikate kataloogi ei õnnestunud laadida</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="db664462e37f869f1623004eae104cd1">
+        <source>%reason% Your saved automations are unchanged.</source>
+        <target>%reason% Sinu salvestatud automaatikad jäävad muutmata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5069b0af4405a9e27357d80f5c695476">
+        <source>These automations run inside the Campaign Intelligence engine and fire the mapped Smaily workflow. Every trigger starts disabled and in test mode — nothing reaches real customers without your explicit action.</source>
+        <target>Need automaatikad töötavad Campaign Intelligence'i mootoris ja käivitavad seotud Smaily töövoo. Iga päästik alustab välja lülitatuna ja testrežiimis — miski ei jõua päris klientideni ilma sinu selgesõnalise tegevuseta.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d531a337c032a68bbeda5de83e56a29c">
+        <source>The workflows listed are those of the Smaily account "%account%", which this Campaign Intelligence connection belongs to.</source>
+        <target>Loetletud töövood on Smaily kontolt „%account%“, millele see Campaign Intelligence'i ühendus kuulub.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9d4ec9b9af094518ee068ee5f8e34cf4">
+        <source>No engine automations are available for your store yet. New triggers appear here automatically when the engine adds them.</source>
+        <target>Sinu poe jaoks pole veel mootoris töötavaid automaatikaid saadaval. Uued päästikud ilmuvad siia automaatselt, kui mootor need lisab.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4245499695408b974322be6f01b0d17a">
+        <source>Test mode</source>
+        <target>Testrežiim</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="58d3078cc3c2afe6fffc1534cab81ce4">
+        <source>Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.</source>
+        <target>Saatmise päris klientidele lülitab Smaily sisse pärast sinu kinnitust. Seni töötab päästik testrežiimis.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3617a564d77f246a6b421508ad15f78d">
+        <source>Cooldown (days)</source>
+        <target>Puhkeaeg (päevades)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b2181ad1ef10dff424501e2714314e05">
+        <source>Daily Cap</source>
+        <target>Päevalimiit</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7513de719e37a59d4691103d1f5a2367">
+        <source>No cap</source>
+        <target>Limiiti pole</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="225485789a001417664373d203ce9393">
+        <source>Test Emails</source>
+        <target>Test-aadressid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="44b1fb1a0634e803f5912cdca5018613">
+        <source>Save Intelligence Automations</source>
+        <target>Salvesta Intelligence'i automaatikad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fc9a0c92265cc95ea7aa8c9ae831f2be">
+        <source>Saved. Reload the page to see the state of each trigger.</source>
+        <target>Salvestatud. Iga päästiku olekut näed, kui laadid lehe uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ccdabf7b22a7a7186383763f848dc4bc">
+        <source>Nothing was saved: %reason%</source>
+        <target>Midagi ei salvestatud: %reason%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ceea91a651891cf337786c62de42d1dd">
+        <source>A workflow is required when this trigger is enabled.</source>
+        <target>Töövoog on kohustuslik, kui see päästik on lubatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ea57f833a9a580b2faacf6fb1f4db893">
+        <source>%count% automation(s) could not be saved. Pick a Smaily workflow for every enabled trigger, then save again.</source>
+        <target>%count% automaatikat ei õnnestunud salvestada. Vali igale lubatud päästikule Smaily töövoog ja salvesta uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="240a1d8d33a0126eba1b2f766acc2da2">
+        <source>Campaign Intelligence did not accept the marked fields. Nothing was saved.</source>
+        <target>Campaign Intelligence ei võtnud märgitud välju vastu. Midagi ei salvestatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e90becedf67e610ce3d3ef694bdc2672">
+        <source>Campaign Intelligence did not answer.</source>
+        <target>Campaign Intelligence ei vastanud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="61e3a92b21e82dfc79fd7af8a259eaa5">
+        <source>Campaign Intelligence refused the request (%code%).</source>
+        <target>Campaign Intelligence keeldus päringust (%code%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b684e053675cf09cd584522c1d9b752a">
+        <source>Campaign Intelligence did not accept this workflow. Pick another workflow, then save again.</source>
+        <target>Campaign Intelligence ei võtnud seda töövoogu vastu. Vali teine töövoog ja salvesta uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="6c28c95d6284e3473dfdae7d21cdb05e">
+        <source>Campaign Intelligence did not accept these test emails. Enter email addresses separated by commas, at most 50.</source>
+        <target>Campaign Intelligence ei võtnud neid test-aadresse vastu. Sisesta e-posti aadressid komadega eraldatult, kuni 50.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="70b080eb5c06d1f99698fa30d6c7432e">
+        <source>Campaign Intelligence did not accept this automation. Reload the page and try again.</source>
+        <target>Campaign Intelligence ei võtnud seda automaatikat vastu. Laadi leht uuesti ja proovi veel kord.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

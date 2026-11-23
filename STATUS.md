@@ -54,8 +54,10 @@ is shown by tests, not by a browser upgrade.
 
 1. Story 5.3: the history import and the Intelligence tab (Settings and Initial setup), with the switch "My store's
    cookie banner covers Smaily tracking" and the screen that makes a connection. A sketch against Magento's screens
-   goes to the owner first. Then 5.4 engine automations.
-2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 after 5.4.
+   goes to the owner first. Story 5.4, the card "Campaign Intelligence Automations" on Settings > Automations, is
+   built (ARCHITECTURE 10.10).
+2. Capability walks on the merged `v3`: 10 and 11 once the consent switch has a screen; 8 after 5.3; 9 with a
+   connection made on the screen of 5.3.
 3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
 4. A full install check (zip content, uninstall) on the tip.
 
@@ -88,7 +90,9 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 - [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
 - [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — the connection and the live
   changes are built (5.1, 5.2); the imports and the screen wait for 5.3.
-- [ ] 9. Campaign Intelligence automations, listed from the engine — Story 5.4.
+- [ ] 9. Campaign Intelligence automations, listed from the engine — built (5.4): the Story's own walk ran in a
+  browser on 8.2.8 and 9.2.0 against the engine mock, with a connection made by script. Waits: the capability walk on
+  the merged `v3`.
 - [ ] 10. Browse tracking and attribution of email clicks to orders — built (5.5, 5.2); waits: the merchant's consent
   switch (5.3) and a walk on the merged `v3`.
 - [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); waits: the same

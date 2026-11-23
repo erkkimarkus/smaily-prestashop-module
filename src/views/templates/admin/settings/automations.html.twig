@@ -25,8 +25,9 @@
  # shop" for a shop selected in one store, the Automations panel of the Initial setup, and Save
  # Automations. A shop that always keeps its own automations (its own account per language, or
  # another Smaily account than the shared one) shows the switch ticked and fixed, and while it
- # holds no workflow of its own, the warning to pick them. In separate stores with "All shops"
- # selected, the tab says to pick a shop.
+ # holds no workflow of its own, the warning to pick them. Under them, the card "Campaign
+ # Intelligence Automations" with its own Save (settings/engine-automations.html.twig). In
+ # separate stores with "All shops" selected, the tab says to pick a shop.
  #
  # `smaily_settings` comes from Admin\Settings\SettingsController.
  #}
@@ -67,4 +68,5 @@
     <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-tab" data-tab="automations">{{ 'Save Automations'|trans }}</button>
     <span class="smaily-result" data-smaily-tab-result role="status"></span>
   </div>
+  {% include '@Modules/smailyforprestashop/views/templates/admin/settings/engine-automations.html.twig' only %}
 {% endif %}

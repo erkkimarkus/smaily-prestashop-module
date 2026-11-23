@@ -147,6 +147,27 @@ A store that handles its languages with **One account, per-language workflows** 
 
 After an upgrade from version 2.x, a store whose opt-in automation had no workflow chosen keeps working as before: the Welcome automation shows **Smaily's opt-in trigger (from 2.x)**. It stays until you pick another workflow and save.
 
+### Campaign Intelligence automations
+
+Under the store automations, **Settings -> Automations** has the card **Campaign Intelligence Automations**. It lists the automated emails that Campaign Intelligence sends itself, at the moment it decides for each customer, for example a reminder when a product is about to run out. The card is not part of the Initial setup, and it has its own **Save Intelligence Automations**.
+
+The list comes from Campaign Intelligence each time you open the tab, with the names and descriptions that Campaign Intelligence gives: when Campaign Intelligence adds an automation for your store, it appears here without a module update. A store that is not connected to Campaign Intelligence sees **Connect Campaign Intelligence to set up these automations** instead.
+
+1. Create a workflow in Smaily for each automation you want, with the _form submitted_ trigger, in the Smaily account that your Campaign Intelligence connection belongs to.
+2. Tick **Enabled** on the automation. Its settings open:
+   - **Test mode**: while it is ticked, only the test addresses get the email. A newly enabled automation is in test mode.
+   - **Smaily Workflow**: the workflow that the automation starts. An enabled automation needs one; without it nothing is saved, and the field says so.
+   - **Cooldown (days)**: the shortest time between two emails of this automation to one customer, from 1 to 365 days.
+   - **Daily Cap**: the most emails a day, from 1 to 100000. Empty means no cap.
+   - **Test Emails**: up to 50 addresses, separated by commas, that get the emails in test mode.
+3. Click **Save Intelligence Automations**. The card then shows the state that Campaign Intelligence holds for each automation: **Off**, **Test mode** or **Active**.
+
+Every automation is off until you tick **Enabled**: nothing reaches real customers without your own action. To send to real customers, untick **Test mode** and save. That asks for real sends; Smaily switches them on after you confirm, and until then the automation stays in **Test mode** and the card says so. An automation whose real sends are on shows **Active**.
+
+An automation that you switch off keeps its settings. When a workflow that you picked is no longer in your Smaily list, the card shows it as **Workflow #… (not in your Smaily list — kept)** and keeps it until you pick another. A workflow per language that another store of yours set up for the same Campaign Intelligence account, for example a WooCommerce store, is kept as it is when you save here, as long as you do not pick another workflow for that automation.
+
+When the list cannot be loaded, the card says **Could not load the automation catalog**: nothing can be saved then, and your saved automations are unchanged. When Campaign Intelligence does not accept your account, the card says **Your Campaign Intelligence account is not active** and nothing is read or saved until Smaily has made the account active again.
+
 ## Log
 
 **Customers -> Smaily Connect -> Log** lists everything the module sent to Smaily: contact syncs, automation triggers and contact imports, newest first. If something seems missing in Smaily, look here first.

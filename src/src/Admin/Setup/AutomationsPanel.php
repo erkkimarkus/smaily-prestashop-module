@@ -442,7 +442,7 @@ final class AutomationsPanel
     /**
      * Magento's sentence with the reason of WorkflowList in words; it never carries Smaily's text.
      */
-    private function listError(string $reason): string
+    public function listError(string $reason): string
     {
         return $this->trans('Could not load the workflow list: %error%', [
             '%error%' => isset(self::WORKFLOW_ERRORS[$reason]) ? $this->trans(self::WORKFLOW_ERRORS[$reason]) : $reason,

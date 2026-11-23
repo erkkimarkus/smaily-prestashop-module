@@ -1853,3 +1853,45 @@
 .smaily-ui .smaily-ml-none {
   color: var(--smaily-muted);
 }
+
+/*
+ * The card "Campaign Intelligence Automations" (Story 5.4): Magento's engine trigger rows, on the
+ * cards and the pill of the Automations panel above.
+ */
+.smaily-ui .smaily-engine-automations {
+  margin-top: 24px;
+}
+
+.smaily-ui .smaily-trigger.is-test {
+  border-left: 3px solid var(--smaily-warning);
+}
+
+.smaily-ui .smaily-engine-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 20px;
+}
+
+.smaily-ui .smaily-engine-automations .smaily-trigger__settings > .smaily-note {
+  margin: 0 0 10px;
+}
+
+.smaily-ui .smaily-engine-empty {
+  padding: 10px 0;
+  text-align: center;
+}
+
+.smaily-ui .smaily-engine-empty__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-engine-cap {
+  width: 8rem;
+}
+
+.smaily-ui .smaily-engine-emails {
+  width: 26rem;
+  max-width: 100%;
+}

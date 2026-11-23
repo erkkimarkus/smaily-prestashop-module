@@ -263,7 +263,9 @@ ask (Linear discipline below).
 - **Privacy** (ARCHITECTURE 11.2). A shopper is an address: the address, its keyed hash
   (`Queue\ContactEntity::key()`) and its customer accounts. Every table that holds a person's
   data joins `Privacy\LocalData` for the export and the erasure. No log line, stored reason or
-  screen holds an engine's text: the HTTP status and the error code only. psgdpr 1.4.3, which
+  screen holds an engine's text: the HTTP status and the error code only. One exception (owner,
+  2026-11-23): the names and descriptions of the engine's automations show on Settings >
+  Automations as the engine gives them (contract §11); they are never stored. psgdpr 1.4.3, which
   PrestaShop 9.2.0 ships, cannot search or show a customer in its admin screen there (facts file
   6.13): on 9.x it erases by address, and its export is the customer's own page. The Log's
   "Privacy request" form is therefore always shown, also beside psgdpr (owner, 2026-11-23).
@@ -287,6 +289,13 @@ ask (Linear discipline below).
   or an employee in the context and takes the customer group of whoever's request runs the tick.
   An ingest row is a marker: what goes out is read from the store at the flush. All customer
   questions go through `Engine\Ingest\CustomerScope`.
+- **Campaign Intelligence automations** (ARCHITECTURE 10.10). The card on Settings > Automations
+  lists the engine's catalogue of that moment: never name an automation by its key, and store
+  nothing of it. The card is asked of the engine after the page has loaded (a walk waits for it).
+  While the catalogue or the configuration cannot be read, nothing is listed and nothing is saved.
+  A save sends every row with all eight keys, as Magento, and hands a workflow map that the page
+  could not offer back as stored (`Engine\Automations\ConfigRow`). `Engine\Client` reads of a
+  refusal the status, the code and the field names of `errors[]`, never a `message`.
 - **The installation report** (ARCHITECTURE 11.1) is sent only to
   `https://subscription.smaily.com` (`Report\ReportSender::ENDPOINT`), and no
   test or dev shop may reach it: a test gives the sender a transport, the

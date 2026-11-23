@@ -127,7 +127,8 @@ src/
                               SetupChange, ConnectionHealth, StoreFacts, Credentials, Report,
                               SendResult (section 11.1)
     Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector;
-                              Exception/ (section 8.9)
+                              Exception/ (section 8.9); Automations/ (AutomationList, ConfigRow,
+                              EngineAutomations: section 10.10)
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
                               TriggerSender, MarketingConsent, WorkflowResolverInterface;
                               Welcome/, FirstOrder/, AbandonedCart/ (with Capture/)
@@ -150,10 +151,11 @@ src/
                               DismissInvitation, Workflows and DiscountRules (the workflow lists
                               and the cart rules of the Automations panel); Setup/ (AbstractSetupAction, SaveStep, TestSmaily,
                               ContactImportAction, ContactImportProgress); Settings/
-                              (AbstractSettingsAction, SaveTab, TestConnection, ChangeLayout)
+                              (AbstractSettingsAction, SaveTab, TestConnection, ChangeLayout,
+                              EngineAutomationsCard, SaveEngineAutomations)
   views/templates/admin/      layout/, dashboard/, setup/, settings/, log/, panel/ (Twig)
   views/js/admin/             common.js, panels.js (shared by the setup and Settings),
-                              dashboard.js, setup.js, settings.js, log.js
+                              dashboard.js, setup.js, settings.js, engine-automations.js, log.js
   views/js/front/             checkout-capture.js
   views/css/admin.css, views/img/ (the logos of section 10.5)
   translations/et-EE/         XLIFF, domain Modules.Smailyforprestashop.Admin
@@ -2739,7 +2741,10 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
 | A workflow list that cannot be loaded shows Magento's sentence ("Could not load the workflow list: …") with the module's own sentence for the reason, not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text: it answers a reason code, and `Admin\Setup\AutomationsPanel` words each code. |
-| The Automations tab has no "Edit design", no transactional emails and no Campaign Intelligence card, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0, or a later Story (5.4). |
+| The Automations tab has no "Edit design" and no transactional emails, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0. |
+| The card "Campaign Intelligence Automations" is asked of the engine once the Automations tab shows, and drawn again from the engine's answer after its save. Magento draws it with the page and changes the pills in place. | A slow engine never holds the Settings page, which draws every tab at once (section 10.10). |
+| A field that the engine refuses at a save of that card, and the reason of a failed read or save, are the module's own sentences. Magento prints the engine's message. | No screen shows the engine's text but the automations' names and descriptions (section 11.2). |
+| With an account per language, that card names the Smaily account whose workflows it lists. | The connection belongs to one Smaily account; Magento has one account per installation here (section 10.10). |
 | The discount block of a card lists cart rules, enabled and disabled alike, and tells the merchant to keep the rule disabled or to give it a code that is not shared. Magento lists rules with "Use Auto Generation". | A PrestaShop cart rule has one code or none: an enabled rule without a code applies to every cart, and its code works for anyone (section 7). |
 | The cron line and Background tasks card. | Section 4. |
 
@@ -3034,8 +3039,105 @@ shared one, always keeps its own automations (`SettingsScope::automationsScope()
 its switch shows ticked and fixed, and while it holds no workflow of its own, the page shows "Pick
 this shop's workflows". In separate stores the switch is absent and every shop saves its own.
 
-**Not built.** Magento's notice of the languages without a workflow in mode `a`; "Edit design",
-transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 5.4).
+**Not built.** Magento's notice of the languages without a workflow in mode `a`; "Edit design" and
+transactional emails (out of 3.0.0). The Campaign Intelligence card is section 10.10.
+
+### 10.10 The Campaign Intelligence Automations card (as built in Story 5.4)
+
+Settings > Automations shows, under the store automations and their Save, the card "Campaign
+Intelligence Automations" with its own Save: the automated emails that Campaign Intelligence runs
+itself (contract §11 to §13), as Magento's `config/engine-automations.phtml`,
+`ViewModel/Adminhtml/AutomationsForm` and `Controller/Adminhtml/Automations/Save`. The owner
+approved its sketch on 2026-11-23 (section 15). The card is on Settings only, not in the Initial
+setup, and the switch "Use its own automations on this shop" does not cover it: the automations
+belong to the Campaign Intelligence connection, not to a shop's store automations.
+
+**Where it reads and saves.** `Engine\Automations\EngineAutomations` asks the engine through
+`Engine\Client` (`automationsCatalog()`, `automationsConfig()`, `saveAutomationsConfig()`; one
+attempt of 10 seconds each); `Admin\Settings\EngineAutomationsPanel` words the outcome. The module
+keeps no copy and stores nothing: no configuration key, no table. The connection is the one that
+serves the shop the page saves for (`Connections::forShop()`): the installation's in one store,
+whichever shop is selected; the selected shop's in separate stores, where "All shops" shows the
+tab's "pick a shop" card and no engine card.
+
+**The card is asked after the page has loaded.** Its frame is
+`settings/engine-automations.html.twig`; `views/js/admin/engine-automations.js` asks
+`Admin\Api\Settings\EngineAutomationsCard` (the right to read the Settings tab) once the
+Automations tab shows, and the answer is the card's content as HTML
+(`settings/engine-automations-card.html.twig`). A slow engine therefore never holds the Settings
+page, and every load lists what the engine offers at that moment. Magento draws the card with the
+page.
+
+| State | The card shows |
+|---|---|
+| No connection, or a stored key that does not decrypt | "Connect Campaign Intelligence to set up these automations" and Magento's sentence. The engine is not asked. |
+| The engine refuses the connection (`Connection::refusedAt()`) | The banner "Your Campaign Intelligence account is not active", which points at Check again under Settings > Intelligence. The engine is not asked. A read or a save that meets a 401, 403 or 409 runs the health check (`HealthCheck::check()`, as the ingest does, section 8.11) and shows this state when the check records a refusal. |
+| The catalogue (§11) or the configuration (§12) cannot be read | "Could not load the automation catalog" with the reason in the module's words and "Your saved automations are unchanged." Nothing is listed and the card has no Save: a row that could not be read is never shown, or saved, with a default. |
+| The list was read | Magento's introduction, then one row per automation of the catalogue, in its order; Save Intelligence Automations. An empty catalogue shows the Shopify app's sentence ("No engine automations are available for your store yet. …") and no Save. |
+
+**A row** (`Engine\Automations\AutomationList`). The catalogue decides which automations exist:
+nothing is listed that it does not name, none is known by its key, and an automation that the
+engine adds appears at the next load. A row shows the engine's name and description, in the
+employee's language where the engine gives it (`name_<language>`), else in English; the pill Off,
+Test mode or Active, from the stored row's `enabled` and `test_mode`; and Enabled. While Enabled is
+ticked it also shows Test mode, the note "Smaily switches real sends on after you confirm. …"
+(not on an active row), Smaily Workflow, Cooldown (days), Daily Cap (empty = no cap) and Test
+Emails. A row without a stored configuration is off and in test mode, with a cooldown of 7 days and
+no cap (Magento's defaults), so a newly enabled automation is in test mode. A row that is off
+keeps its values in the form.
+
+**The workflows** are those of the Smaily account that the connection belongs to
+(`Connection::smailySubdomain()`; owner, 2026-11-23): the first stored account with that subdomain
+among the shops that the connection serves, the account of no language before a language's; a
+connection that names no account takes the account of no language of its shop. The list is read
+live (`Automation\WorkflowList`) at every load and every save. With an account per language (mode
+`a`) the card names the account. A list that cannot be loaded shows the Automations panel's
+sentence ("Could not load the workflow list: …"), and the stored workflows then show as "Workflow
+#N (not in your Smaily list — kept)". One workflow per automation, whatever the language mode, as
+in Magento.
+
+**A save** (`Admin\Api\Settings\SaveEngineAutomations`, the right to change the Settings tab; it
+tells the installation report as every Settings save does). It sends every row of the card with
+all eight keys of §13 in one request (`Engine\Automations\ConfigRow`, Magento's
+`ConfigRowNormalizer`): `trigger_key`, `enabled`, `language_mode`, `automation_map`,
+`cooldown_days` (kept within 1 to 365), `daily_cap` (1 to 100000, or `null`), `test_mode` and
+`test_emails` (at most 50). An empty workflow map is sent as `{}`. The two reads carry the
+connection's key and nothing else; the save carries no customer, order or product data, and the
+test addresses are the ones that the merchant typed.
+
+- An enabled row without a workflow is not saved, and neither is any other row of that save: the
+  field reads "A workflow is required when this trigger is enabled.", and the card counts the
+  rows. Magento checks this in the browser; the module checks it on the server.
+- A save never drops a workflow that the page could not show as a choice. A per-language map
+  that another connector saved on the same engine store (`language_mode: per_language`, a workflow
+  per language and `fallback`) is sent back whole while the merchant did not pick another
+  workflow here, or while its `fallback` is not in the list. A single workflow that the list does
+  not offer is kept where the page posts none. A workflow that the list offers and the merchant
+  cleared is cleared. The page hands back the mode and the map that each row was drawn with.
+- After a save the card is drawn again from a new read of §11 and §12, not from the request: a row
+  that asked for real sends (Test mode unticked) stays in test mode until Smaily switches them on,
+  and the result line then adds the note. When that read fails, the line reads "Saved. Reload the
+  page to see the state of each trigger."
+- The engine checks all rows before it writes any. A field that it refuses (its `errors[]`) is
+  marked with the module's own sentence, chosen by the field's name: the workflow, the test
+  emails, or the automation as a whole. A row that is off opens while it has a field to fix.
+- A save that fails otherwise reads "Nothing was saved: …" and keeps what was typed.
+
+**The engine's text.** The names and descriptions of the automations are the one text of the
+engine that a screen shows (section 11.2; owner, 2026-11-23). `Engine\Client` reads of a refusal
+only the HTTP status, the error code and, from `errors[]`, each entry's position, key and field
+name (`EngineRequestException::fields()`); never a `message`.
+
+**Not built** (out of 3.0.0): "Edit design" and the setup page (§17, §22), the test send (§19),
+the go-live action (§20), the engine's setup states (`setup[]` of §12: `stopped`, the go-live
+blockers, the notice) and a workflow per language. The merchant asks for real sends by unticking
+Test mode, as in Magento today.
+
+**Walked** (2026-11-23, PrestaShop 8.2.8 and 9.2.0, in a browser against the engine mock and the
+Smaily mock, with a connection made through `Engine\Setup`): every state of the table, a save,
+the request for real sends that stays in test mode, an automation added and removed at the engine
+between two page loads, a per-language setup of another connector, a refused field, and the card
+in Estonian.
 
 ---
 
@@ -3162,6 +3264,13 @@ the contract's rules. Not verified: the real service.
 | The Log's form | The same two operations run from the Log screen's "Privacy request" form for an address, with or without psgdpr (section 10.8). |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
 | Installation report | While a Smaily account is connected, the module sends Smaily the installation report of section 11.1: the shop addresses, the versions, the connected Smaily accounts, the switched-on features and whether each connection works. It holds no customer, subscriber, order or admin-user data, so an export and an erasure have nothing of it to list or remove. The merchant guide, the README and the changelog carry the sentence. |
+
+**The engine's text.** No log line, stored reason or screen holds the engine's text: a failure is
+kept and shown as the module's own sentence with the HTTP status and the error code, because the
+engine's message can name a shopper (section 8.9). One exception (owner, 2026-11-23): the names
+and the descriptions of the engine's automated emails (contract §11) show on Settings >
+Automations as the engine gives them (section 10.10). They are catalogue text about an email, the
+same for every store of a sector, and hold nothing of a shopper. They are shown and never stored.
 
 **As built (Story 5.6, `Privacy\`).** A shopper is an address, in every shop and at every
 connection of the installation: the address itself (compared without regard to letter case; an
@@ -3515,7 +3624,8 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in their own currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and is not agreed with the engine team (section 8.2, Linear INT-306): nothing that sends a key is released before that. The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
 | 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows are covered since Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
 | 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting has no screen yet (Story 5.3), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
-| Stories 5.3 and 5.4, and stage 6 | Not started | — |
+| 5.4 Engine-run automations | Done (section 10.10): the card "Campaign Intelligence Automations" on Settings > Automations lists the engine's catalogue of that moment and saves on its own; nothing is stored in the module. | `engine:`, `admin:`, `translations:`, `tests:`, `docs:` |
+| Story 5.3, and stage 6 | Not started | — |
 
 **Queued clean-up** (each a separate task):
 
@@ -4003,12 +4113,14 @@ has one owner:
 ### Story 5.4 — Engine-run automations
 
 - **Goal.** §11–§13 automations listed and saved from the Automations tab.
-- **Owns.** `src/src/Engine/Automations/`, `src/views/templates/admin/settings/engine-automations.html.twig`.
+- **Owns.** `src/src/Engine/Automations/`, `src/src/Admin/Settings/EngineAutomationsPanel.php`, `src/src/Admin/Api/Settings/{EngineAutomationsCard,SaveEngineAutomations}.php`, `src/views/templates/admin/settings/{engine-automations,engine-automations-card}.html.twig`, `src/views/js/admin/engine-automations.js`.
 - **Depends on.** 5.1, 4.1.
 - **Acceptance.**
   1. The list comes from §11 at page load; nothing is hard-coded.
   2. A save sends all eight keys per row and redraws from §12, not from the request.
   3. Rows of other platforms (`per_language`) survive a save.
+- **As built.** Section 10.10; the acceptance criteria of Linear CON-406 were walked in a browser
+  on 8.2.8 and 9.2.0.
 
 ### Story 5.5 — Storefront: relay, attribution, tracking, recommendations, consent
 
@@ -4144,6 +4256,9 @@ has one owner:
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
 | 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
+| 55 | Which keys a save of the engine's automations sends | Built as Magento does today: every row with all eight keys of contract §13, `automation_map`, `test_mode` and `test_emails` included (section 10.10). Since v1.15.0 the contract advises a connector to leave those three out unless the merchant set them here: a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored, a sent `test_mode: true` switches off real sends that were switched on there, and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored) and shows `test_mode` as the engine holds it, but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
+| 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
+| 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -4327,3 +4442,17 @@ Decisions of 2026-11-23:
   (Advanced Parameters > Logs), not on the module's Log page (orchestrator, 2026-11-23, settled by
   sibling parity: the siblings write theirs to a log file). The module's Log lists deliveries that
   can be sent again, and a report is never queued (section 11.1).
+- The automated emails of Campaign Intelligence are switched on in a card of Settings >
+  Automations, with its own Save, as in Magento; the card is not in the Initial setup (owner,
+  2026-11-23, with the sketch of the card; Linear CON-406; section 10.10).
+  - The names and the descriptions of those automations show as the engine gives them: the one
+    exception to "no screen holds the engine's text". Reasons and error messages stay the module's
+    own: only the HTTP status and the error code are kept, and a field that the engine refuses at
+    a save is explained by the module's own sentence (section 11.2).
+  - A save sends what Magento sends today, all eight keys per row. The contract's advice to leave
+    out the workflow, the test mode and the test emails is a question for all connectors (section
+    14, row 55; Linear CON-397).
+  - The workflows offered for an automation are those of the Smaily account that the connection
+    belongs to.
+  - Creating or editing a workflow or an email design ("Edit design"), "Try Intelligence free"
+    and the console link stay out of 3.0.0.

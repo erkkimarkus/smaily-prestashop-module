@@ -49,3 +49,17 @@ smailyforprestashop_api_settings_discount_rules:
   defaults:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules::execute
     _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_automations:
+  path: /smailyforprestashop/api/settings/engine-automations
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineAutomationsCard::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_automations_save:
+  path: /smailyforprestashop/api/settings/engine-automations/save
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations::execute
+    _legacy_controller: AdminSmailyConnectSettings

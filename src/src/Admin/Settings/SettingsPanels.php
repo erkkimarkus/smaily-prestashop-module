@@ -31,7 +31,12 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Config\RssSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\EngineAutomations;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
@@ -94,6 +99,25 @@ final class SettingsPanels
     public function rss(): RssPanel
     {
         return new RssPanel(new RssSettings(), $this->translator);
+    }
+
+    /**
+     * The card "Campaign Intelligence Automations" of the Automations tab.
+     */
+    public function engineAutomations(): EngineAutomationsPanel
+    {
+        return new EngineAutomationsPanel(
+            new EngineAutomations(
+                $this->services->get(Client::class),
+                $this->services->get(Connections::class),
+                $this->services->get(HealthCheck::class),
+                $this->services->get(AccountStore::class),
+                $this->services->get(WorkflowList::class)
+            ),
+            $this->layout(),
+            fn (string $reason): string => $this->setup()->automations()->listError($reason),
+            $this->translator
+        );
     }
 
     private function layout(): StoreLayout

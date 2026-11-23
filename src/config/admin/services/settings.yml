@@ -20,3 +20,9 @@ services:
 
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\DiscountRules
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineAutomationsCard:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineAutomationsCard
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations
