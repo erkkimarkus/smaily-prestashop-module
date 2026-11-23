@@ -36,6 +36,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
 
 /**
  * The store's half of a privacy request: what the module's own tables hold of one shopper, for
@@ -58,6 +59,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * |                              |                           | customer and queue row               |
  * | Order attribution            | the row                   | loses the visitor token; the row and |
  * |                              |                           | the order stay                       |
+ * | Attribution kept with a cart | the row                   | deleted                              |
  * | Discount codes of the        | code, times, used or not  | an unused code is removed; a used    |
  * | account and of the queue rows|                           | one stays with its order             |
  * | The personalization record   | the choice, time, source  | stays: it holds the keyed hash only, |
@@ -100,6 +102,7 @@ class LocalData
      *     queue: list<array{type: string, status: string, created_at: string}>,
      *     carts: list<array{cart: int, status: string, last_activity_at: string, reminded_at: string}>,
      *     attribution: list<array{order: int, recommendation: string, context: string, visitor_token: string, created_at: string}>,
+     *     cart_attribution: list<array{cart: int, recommendation: string, context: string, visitor_token: string, updated_at: string}>,
      *     codes: list<array{code: string, created_at: string, expires_at: string, used: bool}>,
      *     preference: array{opted_out: bool, changed_at: string, source: string}|null
      * } queue times in UTC, the others in the shop's time; a Campaign Intelligence queue row is in
@@ -109,7 +112,7 @@ class LocalData
     {
         $address = self::address($email);
         if ($address === '') {
-            return ['queue' => [], 'carts' => [], 'attribution' => [], 'codes' => [], 'preference' => null];
+            return ['queue' => [], 'carts' => [], 'attribution' => [], 'cart_attribution' => [], 'codes' => [], 'preference' => null];
         }
         $customers = $this->customers($address, $idCustomer);
 
@@ -139,6 +142,13 @@ class LocalData
                 'visitor_token' => (string) $row['visitor_token'],
                 'created_at' => (string) $row['created_at'],
             ], $this->attribution($customers)),
+            'cart_attribution' => array_map(static fn (array $row): array => [
+                'cart' => (int) $row['id_cart'],
+                'recommendation' => (string) $row['rec_id'],
+                'context' => (string) $row['context'],
+                'visitor_token' => (string) $row['visitor_token'],
+                'updated_at' => (string) $row['updated_at'],
+            ], $this->cartAttribution($address, $customers)),
             'codes' => array_map(static fn (array $code): array => [
                 'code' => $code['code'],
                 'created_at' => $code['created_at'],
@@ -155,7 +165,10 @@ class LocalData
      * @param int $idCustomer the customer account of the request, 0 when it names an address only
      *
      * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int} the
-     *                                                                                                                          queue counts are of both queues
+     *                                                                                                                          queue counts are of both queues;
+     *                                                                                                                          `attribution` counts the orders that
+     *                                                                                                                          lost their visitor token and the
+     *                                                                                                                          carts that lost their row
      */
     public function erase(string $email, int $idCustomer = 0): array
     {
@@ -175,6 +188,11 @@ class LocalData
             array_map(static fn (array $row): int => (int) $row['id'], $this->ingest->ofShopper($customers, $this->orders($customers))),
             ResendGuard::ERASED_ENTITY
         );
+        // Before the tracker: its rows tie a cart to an address that has no customer account yet.
+        $kept = array_map(static fn (array $row): int => (int) $row['id_cart'], $this->cartAttribution($address, $customers));
+        if ($kept !== []) {
+            Sql::write(sprintf('DELETE FROM `%s%s` WHERE `id_cart` IN (%s)', _DB_PREFIX_, CartAttribution::TABLE, implode(', ', $kept)));
+        }
         $carts = $this->tracker->erase($address, $customers);
 
         $orders = array_map(static fn (array $row): int => (int) $row['id_order'], array_filter(
@@ -194,7 +212,7 @@ class LocalData
             'queue_removed' => $queue['removed'] + $ingest['removed'],
             'queue_cleared' => $queue['cleared'] + $ingest['cleared'],
             'carts' => $carts,
-            'attribution' => count($orders),
+            'attribution' => count($orders) + count($kept),
             'codes_removed' => $codes['removed'],
             'codes_kept' => $codes['kept'],
         ];
@@ -272,6 +290,34 @@ class LocalData
             _DB_PREFIX_,
             self::ATTRIBUTION_TABLE,
             implode(', ', $customers)
+        ));
+    }
+
+    /**
+     * The attribution kept with the shopper's carts: the carts of the customer accounts, and the
+     * carts whose tracker row holds the address or an account.
+     *
+     * @param list<int> $customers
+     *
+     * @return list<array<string, string|null>>
+     */
+    private function cartAttribution(string $address, array $customers): array
+    {
+        $carts = array_map(static fn (array $row): int => (int) $row['id_cart'], $this->tracker->ofShopper($address, $customers));
+        $conditions = array_merge(
+            $carts === [] ? [] : ['a.`id_cart` IN (' . implode(', ', $carts) . ')'],
+            $customers === [] ? [] : ['c.`id_customer` IN (' . implode(', ', $customers) . ')']
+        );
+        if ($conditions === []) {
+            return [];
+        }
+
+        return Sql::rows(sprintf(
+            'SELECT a.`id_cart`, a.`rec_id`, a.`context`, a.`visitor_token`, a.`updated_at` FROM `%1$s%2$s` a'
+            . ' LEFT JOIN `%1$scart` c ON c.`id_cart` = a.`id_cart` WHERE %3$s ORDER BY a.`id_cart`',
+            _DB_PREFIX_,
+            CartAttribution::TABLE,
+            implode(' OR ', $conditions)
         ));
     }
 

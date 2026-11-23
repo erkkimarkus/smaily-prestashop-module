@@ -23,6 +23,7 @@ final class ExportRowsTest extends TestCase
             'queue' => [['type' => 'contact.sync', 'status' => 'sent', 'created_at' => '2026-11-20 10:00:00']],
             'carts' => [['cart' => 12, 'status' => 'mailed', 'last_activity_at' => '2026-11-19 09:00:00', 'reminded_at' => '2026-11-19 09:30:00']],
             'attribution' => [['order' => 7, 'recommendation' => 'rec-1', 'context' => 'welcome', 'visitor_token' => 'vt_1', 'created_at' => '2026-11-18 08:00:00']],
+            'cart_attribution' => [['cart' => 13, 'recommendation' => 'rec-2', 'context' => 'storefront', 'visitor_token' => 'vt_1', 'updated_at' => '2026-11-20 09:00:00']],
             'codes' => [
                 ['code' => 'AAAAAAAAAA', 'created_at' => '2026-11-17 08:00:00', 'expires_at' => '2026-11-24 23:59:59', 'used' => false],
                 ['code' => 'BBBBBBBBBB', 'created_at' => '2026-11-16 08:00:00', 'expires_at' => '2026-11-23 23:59:59', 'used' => true],
@@ -41,15 +42,16 @@ final class ExportRowsTest extends TestCase
         $rows = ExportRows::of(self::EXPORT, static fn (string $text): string => $text);
 
         self::assertSame(
-            ['Queued message', 'Abandoned cart', 'Order attribution', 'Discount code', 'Discount code', 'Personalization preference', 'Campaign Intelligence', 'Campaign Intelligence', 'Campaign Intelligence'],
+            ['Queued message', 'Abandoned cart', 'Order attribution', 'Cart attribution', 'Discount code', 'Discount code', 'Personalization preference', 'Campaign Intelligence', 'Campaign Intelligence', 'Campaign Intelligence'],
             array_column($rows, 'Data')
         );
         self::assertSame(['Data' => 'Queued message', 'Type' => 'contact.sync', 'Status' => 'sent', 'Date' => '2026-11-20 10:00:00'], $rows[0]);
-        self::assertSame(['Data' => 'Discount code', 'Code' => 'BBBBBBBBBB', 'Created' => '2026-11-16 08:00:00', 'Valid until' => '2026-11-23 23:59:59', 'Used' => 'Yes'], $rows[4]);
-        self::assertSame(['Data' => 'Personalization preference', 'Personalized recommendations' => 'Opted out', 'Changed' => '2026-11-15 08:00:00', 'Source' => 'account'], $rows[5]);
-        self::assertSame(['Data' => 'Campaign Intelligence', 'Connection' => 1, 'Content' => '{"customer":{"email":"shopper1@example.test"},"orders":[]}'], $rows[6]);
-        self::assertSame(['Data' => 'Campaign Intelligence', 'Connection' => 2, 'Content' => 'Not available'], $rows[7], 'an engine that did not answer: one plain line');
-        self::assertSame('No data', $rows[8]['Content']);
+        self::assertSame(['Data' => 'Cart attribution', 'Cart' => 13, 'Recommendation' => 'rec-2', 'Context' => 'storefront', 'Visitor token' => 'vt_1', 'Date' => '2026-11-20 09:00:00'], $rows[3]);
+        self::assertSame(['Data' => 'Discount code', 'Code' => 'BBBBBBBBBB', 'Created' => '2026-11-16 08:00:00', 'Valid until' => '2026-11-23 23:59:59', 'Used' => 'Yes'], $rows[5]);
+        self::assertSame(['Data' => 'Personalization preference', 'Personalized recommendations' => 'Opted out', 'Changed' => '2026-11-15 08:00:00', 'Source' => 'account'], $rows[6]);
+        self::assertSame(['Data' => 'Campaign Intelligence', 'Connection' => 1, 'Content' => '{"customer":{"email":"shopper1@example.test"},"orders":[]}'], $rows[7]);
+        self::assertSame(['Data' => 'Campaign Intelligence', 'Connection' => 2, 'Content' => 'Not available'], $rows[8], 'an engine that did not answer: one plain line');
+        self::assertSame('No data', $rows[9]['Content']);
         foreach ($rows as $row) {
             foreach ($row as $value) {
                 self::assertTrue(is_scalar($value));
@@ -62,7 +64,7 @@ final class ExportRowsTest extends TestCase
         $rows = ExportRows::of(self::EXPORT, static fn (string $text): string => 'ET ' . $text);
 
         self::assertSame(['ET Data' => 'ET Queued message', 'ET Type' => 'contact.sync', 'ET Status' => 'sent', 'ET Date' => '2026-11-20 10:00:00'], $rows[0]);
-        self::assertSame('ET Not available', $rows[7]['ET Content']);
+        self::assertSame('ET Not available', $rows[8]['ET Content']);
     }
 
     public function testTheGdprHooksReadAnAddressAnAccountOrNobody(): void
@@ -79,7 +81,7 @@ final class ExportRowsTest extends TestCase
             {
                 $this->calls[] = ['export', $email, $idCustomer];
 
-                return ['store' => ['queue' => [], 'carts' => [], 'attribution' => [], 'codes' => [], 'preference' => null], 'campaign_intelligence' => []];
+                return ['store' => ['queue' => [], 'carts' => [], 'attribution' => [], 'cart_attribution' => [], 'codes' => [], 'preference' => null], 'campaign_intelligence' => []];
             }
 
             public function erase(string $email, int $idCustomer, int $idShop): array

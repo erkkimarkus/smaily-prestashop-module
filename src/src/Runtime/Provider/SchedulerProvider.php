@@ -42,6 +42,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\QueueJanitor;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TrafficTick;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
 
 /**
  * Registers the services and hook listeners of the tick and its jobs.
@@ -87,7 +88,8 @@ final class SchedulerProvider implements ProviderInterface
             $services->get(CartTracker::class),
             $services->get(IssuedCodes::class),
             QueueJanitor::BATCH_SIZE,
-            $services->get(IngestQueue::class)
+            $services->get(IngestQueue::class),
+            $services->get(CartAttribution::class)
         ));
 
         foreach (self::TRAFFIC_HOOKS as $hook) {

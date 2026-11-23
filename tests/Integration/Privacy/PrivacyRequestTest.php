@@ -46,7 +46,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
         $export = $this->services->get(PrivacyRequest::class)->export(' Shopper1@Example.test ', 0);
 
         $store = $export['store'];
-        self::assertSame(['queue', 'carts', 'attribution', 'codes', 'preference'], array_keys($store));
+        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference'], array_keys($store));
         self::assertSame(['type', 'status', 'created_at'], array_keys($store['queue'][0]), 'what was queued and when, never the message');
         $types = array_column($store['queue'], 'type');
         self::assertContains('contact.sync', $types);
@@ -196,6 +196,46 @@ final class PrivacyRequestTest extends PrivacyTestCase
         // A second erasure finds nothing of the shopper and queues the deletion anew.
         $again = $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
         self::assertSame(['queue_removed' => 0, 'queue_cleared' => 0, 'carts' => 0, 'attribution' => 0, 'codes_removed' => 0, 'codes_kept' => 1, 'engine_queued' => 2], $again);
+    }
+
+    public function testWhatAShoppersCartsKeptIsExportedAndRemovedByAnErasure(): void
+    {
+        $history = $this->history();
+        // A cart that only the tracker ties to the address: a visitor who typed it at the checkout.
+        $typed = $this->fixture->cart(0, 10);
+        self::db()->insert('smaily_connect_cart', [
+            'id_cart' => $typed,
+            'id_shop' => $this->idShop,
+            'email' => 'Shopper1@Example.test',
+            'id_lang' => (int) \Configuration::get('PS_LANG_DEFAULT'),
+            'status' => CartTracker::OPEN,
+            'last_activity_at' => date('Y-m-d H:i:s', time() - 600),
+        ]);
+        foreach ([$history['active_cart'], $typed, $history['others_cart']] as $idCart) {
+            self::db()->insert(self::CART_ATTRIBUTION_TABLE, [
+                'id_cart' => $idCart,
+                'rec_id' => '11111111-2222-4333-8444-555555555555',
+                'context' => 'storefront',
+                'visitor_token' => 'vt_invented_token',
+                'updated_at' => '2026-11-22 10:00:00',
+            ]);
+        }
+
+        $store = $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store'];
+
+        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference'], array_keys($store));
+        $row = ['recommendation' => '11111111-2222-4333-8444-555555555555', 'context' => 'storefront', 'visitor_token' => 'vt_invented_token', 'updated_at' => '2026-11-22 10:00:00'];
+        self::assertSame(
+            [['cart' => $history['active_cart']] + $row, ['cart' => $typed] + $row],
+            $store['cart_attribution'],
+            'the carts of the account and the cart of the typed address, not another shopper\'s'
+        );
+
+        $erased = $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
+
+        self::assertSame(3, $erased['attribution'], 'the order\'s token and the two carts\' rows');
+        self::assertSame([(string) $history['others_cart']], array_column(self::table(self::CART_ATTRIBUTION_TABLE, '`id_cart`'), 'id_cart'));
+        self::assertSame([], $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store']['cart_attribution']);
     }
 
     public function testTheEnginesDeletionGoesOncePerConnectionAndAgainAfterAFailure(): void

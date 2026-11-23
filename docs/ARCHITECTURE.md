@@ -1656,7 +1656,7 @@ daily refresh are rows of `smaily_connect_job`:
 | `actionObjectCombinationDeleteAfter` | A catalog marker that names the combination: its row goes once more, as `in_stock: false` (a §3b removal names a whole product; the nightly list then leaves the row out) | 5.2 |
 | `actionObjectCategoryUpdateAfter` | Not registered (not in `Install\HookList`). A category rename reaches the engine through the next catalog import ("Run again"), as the nightly manifest does not carry names. | — |
 | `actionObjectShopDeleteAfter` | §16 for a connection anchored on that shop | 5.1 |
-| `actionFrontControllerSetMedia` | Fallback tick; the checkout capture script of the cart reminder (below); the storefront scripts and their definition in a shop with a connection (`Storefront\PageScripts`, section 8.10) | 1.6, 4.3, 5.5 |
+| `actionFrontControllerSetMedia` | Fallback tick; the checkout capture script of the cart reminder (below); the storefront scripts and their definition in a shop with a connection (`Storefront\PageScripts`, section 8.10); the attribution kept with the visitor's cart (`Storefront\CartAttribution`, section 8.10) | 1.6, 4.3, 5.5 |
 | `actionAdminControllerSetMedia`, `displayBackOfficeHeader` | Fallback tick; upgrade and health notices | 1.6, 3.1 |
 | `additionalCustomerFormFields` | Own checkout box (6.1) | 2.3 |
 | `displayCustomerAccount` | "Personalization" link (§10), only with a connection | 5.6 |
@@ -2340,10 +2340,43 @@ carries a store-created one.
 **The order's attribution** (`Storefront\OrderAttribution`, `actionValidateOrder`). An order that a
 shopper's own storefront request places, in a shop with a stored connection, stores the request's
 `smaily_rec_id`, `smaily_rec_ctx` and visitor token in `smaily_connect_order_attribution`. The
-context is stored only beside a recommendation id. An order without a recommendation id and without
-a visitor token gets no row; so does an order that the back office, a command or a payment
-provider's server call creates, because that request carries no shopper's cookies. Story 5.2's order
-row reads the table.
+context is stored only beside a recommendation id. An order whose request carries none of these
+cookies takes what its cart kept (below): an order that a payment provider's server call, the back
+office or a command creates. An order without a recommendation id and without a visitor token,
+from either source, gets no row. Story 5.2's order row reads the table.
+
+**The cart's attribution** (`Storefront\CartAttribution`; owner, 2026-11-23, Linear CON-407). A
+payment provider whose server confirms the payment creates the order in a request of its own,
+without the shopper's cookies. So the same three values wait with the cart, in
+`smaily_connect_cart_attribution`, one row per cart, as the Shopify app keeps them in the cart's
+attributes.
+
+- **Where it is written.** On the server, in the shopper's own storefront request: a second
+  listener of `actionFrontControllerSetMedia`, the hook of every storefront page, writes the row
+  when the visitor has a saved cart and the shop a stored connection. The cart page and every
+  step of the checkout are such pages, so the row is in place before the shopper leaves for the
+  payment. No hook was added, the page gets nothing of it (the same HTML for every visitor), and
+  no script and no endpoint changed.
+- **What is written, and by which rule.** Exactly what `Attribution::read()` answers for that
+  request, the rule of the order's own row: the recommendation id with its context by the landing
+  cookies' rule (not gated on consent, section 9 item 5), an engine `vt_` token as it is, and a
+  store-created `vs_` token only with marketing consent (the paragraph below). A visitor without a
+  click and without a token that may be sent gets no row.
+- **Writes.** A row whose values did not change is written again once an hour
+  (`REFRESH_SECONDS`), so its time follows the shopper's visits; a changed value is written at
+  once. A page of a visitor without a saved cart costs no query; with a cart it reads the shop's
+  connection, and with something to keep the cart's row as well.
+- **At the order.** `OrderAttribution` takes the cart's row and deletes it, whichever source the
+  order's row then has: the cookies of the order's own request win when they hold a recommendation
+  id or a token. A `vs_` token from the cart counts only while marketing consent still holds for
+  the order's customer. A cart that PrestaShop splits into several orders gives each the same
+  values.
+- **A cart without an order** loses its row a day after the shopper's last page with it
+  (`KEEP_SECONDS`; the janitor, section 11.3). A provider that confirms later than that leaves
+  the order without the cookie's credit; the engine can still credit it by the customer's email
+  click (§5, step 3).
+- **Privacy.** The row joins the export and the erasure (section 11.2). An uninstall drops the
+  table with the others.
 
 **The visitor token and marketing consent** (`Storefront\VisitorToken`, `Storefront\Attribution`).
 At a login (`actionAuthentication`) and at a registration or the customer step of a guest checkout
@@ -2424,8 +2457,6 @@ once a day (section 4.1).
 
 **Not built here.** The Settings switch for the consent setting and its help text (Story 5.3); the
 identity merge and the order's row to the engine (Story 5.2).
-An order whose validation runs in a payment provider's server call gets no attribution row: that
-request has no cookies (section 14).
 
 ### 8.11 Ingest: catalog, customers, orders and the identity merge (as built in Story 5.2)
 
@@ -3144,6 +3175,7 @@ with the account that the request names. `Privacy\PrivacyRequest` runs both requ
 | Cart tracker rows of the address or of its customer accounts | Cart, status, last change, reminder time | Status `erased`, without address, customer and queue row, whatever the status was. A cart of the accounts that has no order and no row, and that the sweep could still pick up (changed in the last 24 hours), gets such a row too, so that no reminder is queued to the address that was just erased, as Magento marks its tracker rows (`CartTracker::erase()`). The janitor deletes an `erased` row with the closed rows (section 11.3). |
 | Order attribution of the accounts' orders | The row | `visitor_token` becomes `NULL`: it ties the order to a browser. The recommendation id, its context and the time stay with the order, as in Magento. |
 | Discount codes | Code, creation time, last valid time, used or not | An unused code is removed, also one that sits in a cart. A used code stays with its order. |
+| The attribution kept with a cart (`smaily_connect_cart_attribution`, section 8.10): the carts of the accounts, and the carts whose tracker row holds the address | The row | Deleted. |
 | The personalization record (`smaily_connect_privacy`) | The choice, its UTC time and its source | **Stays.** It holds the keyed hash and no address, and it keeps an opt-out in force: without it a shopper who opted out would be profiled again once the address returns with a new order. |
 
 The erasure reads or writes nothing else: not PrestaShop's customer, orders or carts, not the 2.x
@@ -3276,6 +3308,9 @@ WooCommerce connector), 200 codes a batch, each through `CartRule::delete()`, un
 or its deadline passes; a used code and every cart rule that the merchant made stay. The ingest
 queue (Story 5.2) is swept with the event queue, by the same periods and batches
 (`IngestQueue::deleteClosed()`): `sent` and `skipped` rows after 30 days, `failed` rows after 90.
+The attribution kept with a cart that got no order (section 8.10) goes a day after the shopper's
+last page with that cart, 1000 rows a batch by primary key (`CartAttribution::deleteStale()`); the
+janitor runs daily, so such a row lives one to two days.
 
 **The cart tracker** (owner, 2026-11-21; section 15). The janitor deletes the closed rows of
 `smaily_connect_cart` (`mailed`, `skipped`, `erased`) 30 days after the cart's last change, in batches of
@@ -4084,7 +4119,7 @@ has one owner:
 | 46 | No `source` constant for PrestaShop's browse events | Contract §6 lists `plugin_woo`, `plugin_shopify` and `plugin_magento` and asks a sender to use its listed constant; it lists none for PrestaShop. The relay sends no `source`, so the engine stores `web` (section 8.10). A `plugin_prestashop` needs a contract change. | Engine team |
 | 47 | Browse events without `sku` | Answered by Story 5.2: `Engine\Payload\Keys::sku()` listens to the product key seam, so a browse event names its product by the catalog row's key (sections 8.10 and 8.11). That key carries the namespace of row 1, which waits for the engine team. | Engine team (row 1) |
 | 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). Not changed, and open: a guest-checkout customer's token still also needs the newsletter box of the checkout. | Owner |
-| 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
+| 49 | An order that a payment provider's server confirms | **Decided and built** (owner, 2026-11-23; Linear CON-407): the click and the visitor token are kept with the cart in `smaily_connect_cart_attribution`, and an order whose request has no shopper's cookies takes them from there (section 8.10). Left: a row is kept a day after the shopper's last page with the cart, so a confirmation that comes later than that gets no cookie credit; a checkout whose every step runs outside PrestaShop's page controllers keeps only what the earlier pages kept. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 51 | No export in the back office on PrestaShop 9 with psgdpr | psgdpr 1.4.3's admin screen cannot search or show a customer on 9.2.0 (facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled (section 11.2). A merchant on 9.x then exports only through the customer's own page, cannot export for an address without an account, and erases by address. Not decided: whether the Log shows its form beside psgdpr. | Owner |
 | 52 | Where the line of a report that was not taken in goes | It goes to PrestaShop's log (Advanced Parameters > Logs), as the siblings write theirs to a log file, and not to the module's Log page: that page lists deliveries that can be sent again, and a report is never queued (section 11.1). Confirm that this is "the Log" that Linear CON-404 means. | Owner |
@@ -4243,3 +4278,10 @@ Decisions of 2026-11-23:
   The siblings read the cookie banner's answer there, and the confirmation is what PrestaShop has
   of one (sections 8.10, 8.11 and 9; section 14, rows 43 and 48). A consent decision: it is not
   changed again without the owner.
+- An order that a payment provider's server confirms keeps its attribution (Linear CON-407). The
+  click attribution and the visitor token are stored with the cart before the payment, as the
+  Shopify app stores them in the cart's attributes, and read when the order is created in a
+  request without the shopper's cookies. The owner approved the additive schema change: the table
+  `smaily_connect_cart_attribution`, created by a fresh install and by the 2.x upgrade. The rule
+  of what may be stored is the order row's own, a row leaves with its order or after a day, and
+  the export and the erasure cover it (sections 2.2, 8.10, 11.2 and 11.3; section 14, row 49).

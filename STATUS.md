@@ -100,7 +100,7 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 
 ## Open questions (for the owner)
 
-The workers' full notes are in ARCHITECTURE section 14. Before recommending on 1 to 4, look up what the sibling
+The workers' full notes are in ARCHITECTURE section 14. Before recommending on 1 to 3, look up what the sibling
 connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 
 1. Privacy: the record of a shopper's opt-out stays after an erasure, as a keyed hash only, so the opt-out still holds
@@ -108,12 +108,11 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 2. Privacy: a customer who stays in the store after an erasure made from the Log form is sent again at the next
    change, as contact sync does. And PrestaShop's GDPR module deletes every cart rule of a customer it deletes, used
    codes included; the module cannot stop that.
-3. An order that a payment provider's server confirms gets no attribution row (no shopper cookies in that request).
-4. A store whose connection the engine refuses sends nothing; its changes wait and go out once the engine accepts it
+3. A store whose connection the engine refuses sends nothing; its changes wait and go out once the engine accepts it
    again, rather than not being noted at all.
 6. Installation report: a report that Smaily does not take in leaves its line in PrestaShop's log (Advanced
    Parameters > Logs), not on the module's Log page (ARCHITECTURE 14, row 51): confirm.
-5. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
+4. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
 

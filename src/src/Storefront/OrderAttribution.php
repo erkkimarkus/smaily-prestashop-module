@@ -32,18 +32,20 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 
 /**
- * Stores the attribution cookies of the request that places an order in
- * `smaily_connect_order_attribution`, one row per order (`actionValidateOrder`). The order's row
- * to the engine reads them from there (contract §5: `smaily_rec_id`, `smaily_rec_ctx`,
- * `smaily_visitor_token`).
+ * Stores the attribution of an order in `smaily_connect_order_attribution`, one row per order
+ * (`actionValidateOrder`), in a shop with a connection. The order's row to the engine reads it
+ * from there (contract §5: `smaily_rec_id`, `smaily_rec_ctx`, `smaily_visitor_token`).
  *
- * - Only for an order that a shopper's own storefront request places, in a shop with a connection.
- *   An order that an employee creates in the back office, a command or a payment provider's
- *   server call carries no shopper's cookies, and gets no row.
- * - Only what Attribution::read() answers: a well-formed recommendation id, its context, and the
- *   visitor token that may be sent. The context is stored only beside a recommendation id: the two
+ * - An order that a shopper's own storefront request places stores the cookies of that request.
+ * - An order whose request carries none of them stores what the shopper's own requests kept with
+ *   the cart (CartAttribution): a payment provider's server call, an employee in the back office,
+ *   a command. A store-created token of the cart counts only while the rule that kept it still
+ *   holds for the order's customer.
+ * - Only what Attribution answers: a well-formed recommendation id, its context, and the visitor
+ *   token that may be sent. The context is stored only beside a recommendation id: the two
  *   describe one landing.
  * - An order without a recommendation id and without a visitor token gets no row.
+ * - The cart's row is deleted either way: the order holds the values from here on.
  */
 final class OrderAttribution
 {
@@ -53,16 +55,19 @@ final class OrderAttribution
 
     private Attribution $attribution;
 
+    private CartAttribution $carts;
+
     /** @var callable(): ?Cookies */
     private $cookies;
 
     /**
      * @param callable(): ?Cookies $cookies the cookies of the storefront request, or null outside one
      */
-    public function __construct(ActiveConnection $connections, Attribution $attribution, callable $cookies)
+    public function __construct(ActiveConnection $connections, Attribution $attribution, CartAttribution $carts, callable $cookies)
     {
         $this->connections = $connections;
         $this->attribution = $attribution;
+        $this->carts = $carts;
         $this->cookies = $cookies;
     }
 
@@ -72,17 +77,21 @@ final class OrderAttribution
     public function orderValidated(array $params): void
     {
         $order = $params['order'] ?? null;
-        $customer = $params['customer'] ?? null;
+        $customer = ($params['customer'] ?? null) instanceof \Customer ? $params['customer'] : null;
         if (!$order instanceof \Order || (int) $order->id <= 0) {
             return;
         }
         $connection = $this->connections->stored((int) $order->id_shop);
-        $cookies = $connection === null ? null : ($this->cookies)();
-        if ($connection === null || $cookies === null) {
+        if ($connection === null) {
             return;
         }
 
-        $read = $this->attribution->read($cookies, $connection, $customer instanceof \Customer ? $customer : null);
+        $cookies = ($this->cookies)();
+        $kept = $this->carts->take((int) $order->id_cart);
+        $read = $cookies === null ? ['rec_id' => null, 'context' => null, 'visitor_token' => null] : $this->attribution->read($cookies, $connection, $customer);
+        if ($read['rec_id'] === null && $read['visitor_token'] === null && $kept !== null) {
+            $read = ['visitor_token' => $this->attribution->visitorToken((string) $kept['visitor_token'], $connection, $customer)] + $kept;
+        }
         if ($read['rec_id'] === null && $read['visitor_token'] === null) {
             return;
         }

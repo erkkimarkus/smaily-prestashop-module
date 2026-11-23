@@ -176,6 +176,38 @@ final class Upgrade300Test extends IntegrationTestCase
     }
 
     /**
+     * A 2.x store has none of the tables of 3.0.0: the upgrade creates them all, the one of the
+     * carts' attribution among them, and loses no row of what 2.x left.
+     *
+     * @dataProvider fixtures
+     */
+    public function testTheUpgradeCreatesEveryTableThatAnEarlierReleaseLacks(string $fixture, string $from): void
+    {
+        LegacyStore::loadFixture($fixture);
+        $this->recordModuleVersion($from);
+        foreach (Schema::tables() as $table) {
+            self::db()->execute('DROP TABLE `' . _DB_PREFIX_ . $table . '`');
+        }
+        $plan = $this->plan($from);
+        $tokens = $this->tokenRows();
+        $sentCarts = self::db()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'smaily\\_cart\'') ? self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_cart` ORDER BY 1') : null;
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertContains('smaily_connect_cart_attribution', Schema::tables());
+        foreach (Schema::tables() as $table) {
+            self::assertNotEmpty(self::db()->executeS('SHOW TABLES LIKE \'' . str_replace('_', '\\_', _DB_PREFIX_ . $table) . '\''), $table);
+        }
+        self::assertSame('0', (string) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'smaily_connect_cart_attribution`', false), 'nothing is kept about a visitor by the upgrade');
+        $this->assertPlanApplied($plan);
+        self::assertSame($tokens, $this->tokenRows());
+        if ($sentCarts !== null) {
+            self::assertSame($sentCarts, self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . 'smaily_cart` ORDER BY 1'), 'the rows of 2.x are untouched');
+        }
+        self::assertSame('done', $this->upgrade()->state()['status']);
+    }
+
+    /**
      * Two cron runs of 2.x that overlapped could each remind one cart and each record it (the 2.x
      * table has no unique key on the cart). The cart keeps the latest send time, whichever row
      * came first, and the legacy table keeps both rows.

@@ -37,7 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
  * cookie reads as absent and the others stay.
  *
  * Every path that sends the visitor token reads it here: the browse relay, a guest's
- * recommendations, the order's attribution row and the identity merge.
+ * recommendations, the cart's and the order's attribution row and the identity merge.
  *
  * - An engine `vt_` token came with an email link. It is attribution and is read as it is.
  * - A store-created `vs_` token names a shopper, so it reads as absent without marketing consent
@@ -72,16 +72,26 @@ final class Attribution
         $token = (string) $cookies->get($names->cookieName(ClientConfig::VISITOR));
         $session = (string) $cookies->get($names->cookieName(ClientConfig::SESSION));
 
-        if (!Shape::isVisitorToken($token) || (Shape::isStoreVisitorToken($token) && !$this->marketingConsent($connection, $customer))) {
-            $token = '';
-        }
-
         return [
             'rec_id' => Shape::isRecId($recId) ? $recId : null,
             'context' => Shape::isContext($context) ? $context : null,
-            'visitor_token' => $token === '' ? null : $token,
+            'visitor_token' => $this->visitorToken($token, $connection, $customer),
             'session_id' => Shape::isSessionId($session) ? $session : null,
         ];
+    }
+
+    /**
+     * A visitor token as it may be sent for the shopper, or null: an engine token as it is, a
+     * store-created one only with marketing consent, any other value never. The rule of a token
+     * from a cookie, and of one that was kept with the cart (CartAttribution).
+     */
+    public function visitorToken(string $token, Connection $connection, ?\Customer $customer): ?string
+    {
+        if (!Shape::isVisitorToken($token) || (Shape::isStoreVisitorToken($token) && !$this->marketingConsent($connection, $customer))) {
+            return null;
+        }
+
+        return $token;
     }
 
     /**

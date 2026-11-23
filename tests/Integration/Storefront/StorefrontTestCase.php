@@ -6,6 +6,7 @@ namespace Tests\Integration\Storefront;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Hook\Dispatcher;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Store;
 use Tests\Integration\Automation\AbandonedCart\CartFixture;
@@ -55,6 +56,7 @@ abstract class StorefrontTestCase extends EngineTestCase
         $this->savedJsDef = \Media::getJsDef();
         \Configuration::deleteByName(EngineSettings::CONSENT_CONFIRMED);
         self::db()->delete(OrderAttribution::TABLE);
+        self::db()->delete(CartAttribution::TABLE);
     }
 
     protected function tearDown(): void
@@ -70,6 +72,7 @@ abstract class StorefrontTestCase extends EngineTestCase
             $property->setValue(null, $this->savedJsDef);
             \Configuration::deleteByName(EngineSettings::CONSENT_CONFIRMED);
             self::db()->delete(OrderAttribution::TABLE);
+            self::db()->delete(CartAttribution::TABLE);
             foreach (glob($this->cacheDir . '/*') ?: [] as $file) {
                 unlink($file);
             }

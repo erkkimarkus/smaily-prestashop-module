@@ -24,7 +24,7 @@ require_once __DIR__ . '/../Fixtures/EngineMockServer.php';
  * mock in place of Campaign Intelligence. A request to the engine's host goes to the engine mock,
  * a Smaily request to the Smaily mock, and nothing leaves the test.
  *
- * The connection table, the privacy record, the attribution table and the event queue start and
+ * The connection table, the privacy record, the two attribution tables and the event queue start and
  * end empty: no connection may outlive its test, as a later test that runs the whole tick would
  * ask the real engine about it. Every shopper is invented.
  */
@@ -34,7 +34,9 @@ abstract class PrivacyTestCase extends DiscountTestCase
 
     protected const ATTRIBUTION_TABLE = 'smaily_connect_order_attribution';
 
-    private const TABLES = [self::CONNECTION_TABLE, ProfilingRecord::TABLE, self::ATTRIBUTION_TABLE, EventQueue::TABLE, 'smaily_connect_cart'];
+    protected const CART_ATTRIBUTION_TABLE = 'smaily_connect_cart_attribution';
+
+    private const TABLES = [self::CONNECTION_TABLE, ProfilingRecord::TABLE, self::ATTRIBUTION_TABLE, self::CART_ATTRIBUTION_TABLE, EventQueue::TABLE, 'smaily_connect_cart'];
 
     protected EngineMockServer $engine;
 

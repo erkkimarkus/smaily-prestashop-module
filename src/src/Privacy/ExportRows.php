@@ -79,6 +79,16 @@ final class ExportRows
                 $date => $row['created_at'],
             ];
         }
+        foreach ($export['store']['cart_attribution'] as $row) {
+            $rows[] = [
+                $data => $translate('Cart attribution'),
+                $translate('Cart') => $row['cart'],
+                $translate('Recommendation') => $row['recommendation'],
+                $translate('Context') => $row['context'],
+                $translate('Visitor token') => $row['visitor_token'],
+                $date => $row['updated_at'],
+            ];
+        }
         foreach ($export['store']['codes'] as $row) {
             $rows[] = [
                 $data => $translate('Discount code'),

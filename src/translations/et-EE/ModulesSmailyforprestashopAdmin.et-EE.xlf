@@ -2652,6 +2652,11 @@
         <target>Tellimuse omistamine</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="7468e35dca740da8ad3481d341c2c8b6">
+        <source>Cart attribution</source>
+        <target>Ostukorvi omistamine</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="a240fa27925a635b08dc28c9e4f9216d">
         <source>Order</source>
         <target>Tellimus</target>

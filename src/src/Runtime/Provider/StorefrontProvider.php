@@ -40,6 +40,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Attribution;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Landing;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
@@ -58,8 +59,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\VisitorToken;
  * - Every storefront page of a shop with a connection gets the storefront scripts
  *   (`actionFrontControllerSetMedia`, Storefront\PageScripts). Whether they track is the browser's
  *   consent rule (`views/js/front/consent.js`).
- * - An order stores the attribution cookies of its request (`actionValidateOrder`,
- *   Storefront\OrderAttribution).
+ * - A page that is built for a visitor with a cart keeps the attribution cookies of its request
+ *   with that cart (`actionFrontControllerSetMedia`, Storefront\CartAttribution).
+ * - An order stores the attribution cookies of its request, or what its cart kept when the
+ *   request has none (`actionValidateOrder`, Storefront\OrderAttribution).
  * - A login (`actionAuthentication`), a registration and the customer step of a guest checkout
  *   (`actionCustomerAccountAdd`) give the shopper a visitor token where the merchant confirmed
  *   the cookie banner (Storefront\VisitorToken; a guest also needs the checkout's newsletter box),
@@ -112,9 +115,16 @@ final class StorefrontProvider implements ProviderInterface
             $services->get(ActiveConnection::class),
             $services->get(RateLimiter::class)
         ));
+        $services->set(CartAttribution::class, fn (Services $services): CartAttribution => new CartAttribution(
+            $services->get(ActiveConnection::class),
+            $services->get(Attribution::class),
+            $cookies,
+            'time'
+        ));
         $services->set(OrderAttribution::class, fn (Services $services): OrderAttribution => new OrderAttribution(
             $services->get(ActiveConnection::class),
             $services->get(Attribution::class),
+            $services->get(CartAttribution::class),
             $cookies
         ));
         $services->set(Relay::class, fn (Services $services): Relay => new Relay(
@@ -150,6 +160,10 @@ final class StorefrontProvider implements ProviderInterface
 
         $services->listen('actionFrontControllerSetMedia', static function () use ($services): void {
             $services->get(PageScripts::class)->add(\Context::getContext());
+        });
+        // A listener of its own: one that fails does not hold the page's scripts back (Hook\Dispatcher).
+        $services->listen('actionFrontControllerSetMedia', static function () use ($services): void {
+            $services->get(CartAttribution::class)->capture(\Context::getContext());
         });
         $services->listen('actionValidateOrder', static function (array $params) use ($services): void {
             $services->get(OrderAttribution::class)->orderValidated($params);

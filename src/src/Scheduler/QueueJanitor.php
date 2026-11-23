@@ -33,6 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
 
 /**
  * The retention sweep of the event queue and of the Campaign Intelligence ingest queue, as on the
@@ -40,6 +41,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  * last change. Pending and processing rows are never deleted. It then deletes the closed rows of the abandoned-cart tracker 30 days after the
  * cart's last change (CartTracker::deleteClosed()); it never reads 2.x's `smaily_cart`. The job
  * table is not swept, as on Magento: the card of the first import reads the newest import job.
+ * It deletes the attribution kept with a cart that got no order, a day after the shopper's last
+ * page with that cart (Storefront\CartAttribution::deleteStale()).
  * Last, it removes the discount codes of the store automations that nobody used, 30 days after
  * their end date (Discount\IssuedCodes).
  */
@@ -66,17 +69,21 @@ final class QueueJanitor
 
     private ?IngestQueue $ingest;
 
+    private ?CartAttribution $attribution;
+
     /**
      * @param IngestQueue|null $ingest the Campaign Intelligence ingest queue, swept by the same
      *                                 periods as the event queue
+     * @param CartAttribution|null $attribution the attribution kept with the carts
      */
-    public function __construct(EventQueue $queue, CartTracker $carts, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE, ?IngestQueue $ingest = null)
+    public function __construct(EventQueue $queue, CartTracker $carts, IssuedCodes $codes, int $batchSize = self::BATCH_SIZE, ?IngestQueue $ingest = null, ?CartAttribution $attribution = null)
     {
         $this->queue = $queue;
         $this->carts = $carts;
         $this->codes = $codes;
         $this->batchSize = $batchSize;
         $this->ingest = $ingest;
+        $this->attribution = $attribution;
     }
 
     /**
@@ -99,7 +106,22 @@ final class QueueJanitor
             }
         }
 
-        return $deleted + $this->closedCarts($deadline) + $this->unusedDiscountCodes($deadline);
+        return $deleted + $this->closedCarts($deadline) + $this->staleCartAttribution($deadline) + $this->unusedDiscountCodes($deadline);
+    }
+
+    /**
+     * Deletes batches of the attribution rows of carts that got no order (CartAttribution) until
+     * none is left or the deadline passes.
+     */
+    private function staleCartAttribution(Deadline $deadline): int
+    {
+        $deleted = 0;
+        do {
+            $batch = $this->attribution === null || $deadline->passed() ? 0 : $this->attribution->deleteStale($this->batchSize);
+            $deleted += $batch;
+        } while ($batch === $this->batchSize);
+
+        return $deleted;
     }
 
     /**
