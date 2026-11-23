@@ -89,7 +89,9 @@ Last verified results, all passing: 2222 tests on 8.2.8 (11893 assertions) and o
 assertions; one test checks more where PrestaShop has discount types), each lane on a shop made
 from scratch behind the egress guard, with debug mode on (2026-11-23, on the branch of Story 5.3's
 second part; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). The suite with debug mode off last
-ran on `v3` before Story 5.4 (2090 tests on both lanes). One earlier run on 8.2.8 failed
+ran on `v3` at `82fc312`, before that second part (2172 tests on both lanes; 11689 assertions on
+8.2.8 and 11695 on 9.2.0). With debug mode off on 9.2.0 the run prints deprecation notices of
+modules that the image ships; they are not the suite's. One earlier run on 8.2.8 failed
 `ConcurrentFlushTest` alone: a worker booted later than the 3 seconds the test gives it, on a
 machine that ran other stacks; the test passed alone and in the next two runs. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
@@ -236,6 +238,11 @@ subscription mock, and another host is refused. The proxy writes each decision, 
 
     docker compose exec -u www-data prestashop sh -c 'cut -d" " -f2- /tmp/smaily-egress.log | sort | uniq -c'
 
+`check.sh`, and `install.sh`, which ends with it, leave one request in the engine mock's state: a
+`GET /api/v1/ingest/ping` by curl, without a key. A walk that asserts "the engine was not called"
+discounts it. The engine mock rewrites its state file on every request: a script that reads the
+file in the middle of a write gets cut JSON and reads again.
+
 `TUNNEL <host> -> mock` is a Smaily call that the mock answered; `TUNNEL intelligence.smaily.com ->
 engine mock` is a Campaign Intelligence call that the engine mock answered; `REFUSED CONNECT <host>`
 is a call that did not leave the container (PrestaShop's own calls and the module's update check
@@ -356,7 +363,9 @@ before the module's scripts.
 
 **The block.** Put the module on a display hook in Design > Positions ("Transplant a module" on
 PrestaShop 8, "Hook a module" on 9), or write `{widget name='smailyforprestashop'}` into a theme
-template. The flashlight shops never recompile a changed template (`PS_SMARTY_FORCE_COMPILE` is
+template. On PrestaShop 9 the form's fields are `hook_module[id_module]` and
+`hook_module[id_hook]` (8: `id_module`, `id_hook`), its Save button has no `type` attribute, and
+the hook list fills after the module is chosen. The flashlight shops never recompile a changed template (`PS_SMARTY_FORCE_COMPILE` is
 `0`): set it to `1` in the `configuration` table, or clear the cache in Advanced Parameters >
 Performance, before a changed `.tpl` shows. A visitor gets products only with a visitor token or a
 login: open a page with `?smaily_vt=vt_<10 characters>` first, and give the mock recommendations

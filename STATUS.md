@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-23. Gauge 9/14._
+_Last updated: 2026-11-23. Gauge 13/14._
 
 ## Next session opens with
 
@@ -27,7 +27,7 @@ Estonian round, the Marketplace structural rules, the database gateway) with the
 The key namespace `ps-` is one constant (`Engine\Payload\Keys`) and is **not agreed with the engine team** (INT-306):
 nothing that sends a key ships before the answer.
 
-**Since then, on a worker branch (2026-11-23, not merged, not pushed):** a later migration run keeps the display hook
+**Since then (2026-11-23, on `v3`):** a later migration run keeps the display hook
 a merchant gave the recommendations block (ARCHITECTURE 3.7), and capability 13 was walked on the merged code in a
 browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One thing could not be shown: an export in
 psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
@@ -37,37 +37,37 @@ psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts f
 Initial setup connect a store to Campaign Intelligence, check and end the connection, hold the merchant's
 cookie-banner confirmation, and show the catalog, customers and orders imports (ARCHITECTURE 8.12 and 10.11).
 
-**Story 5.3, second part, on a worker branch (2026-11-23, `worktree-agent-a59b15fe0f730a9e6` on `82fc312`, not
-merged, not pushed):** the Campaign Intelligence invitation on top of the Dashboard and of the Settings tabs with its
-30-day dismissal; the Dashboard's Campaign Intelligence and Browse tracking cards, Catalog items tile and verdicts;
-the Log's source and job reasons; a layout change that carries the selected or default shop's connection and ends
-the others (ARCHITECTURE 8.9 and 10.12). Walked in a browser against the engine and subscription mocks on 8.2.8
-(114 checks) and 9.2.0 (114 checks), with one shop and with two, in English and Estonian; screenshots in
-`build/screens-5.3b/`.
+**Story 5.3, second part (2026-11-23, on `v3`):** the Campaign Intelligence invitation on top of the Dashboard and
+of the Settings tabs with its 30-day dismissal; the Dashboard's Campaign Intelligence and Browse tracking cards,
+Catalog items tile and verdicts; the Log's source and job reasons; a layout change that carries the selected or
+default shop's connection and ends the others (ARCHITECTURE 8.9 and 10.12). Walked in a browser against the engine
+and subscription mocks on 8.2.8 (114 checks) and 9.2.0 (114 checks), with one shop and with two, in English and
+Estonian; screenshots in `build/screens-5.3b/`.
 
-**Last runs** (2026-11-23, on that branch): in-shop suite 2222 tests on 8.2.8 (11893 assertions) and on 9.2.0
-(11898), with debug on, each lane on a shop made from scratch behind the egress guard; host 2222 tests, 3910
-assertions, 1129 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files; PHP 8.0.30 lint of 356
-module files and 215 test files, no failure. The suite with debug off last ran on `v3` before Story 5.4 (2090 tests).
+**Last runs** (2026-11-23). On the branch of Story 5.3's second part, before its merge: in-shop suite 2222 tests on
+8.2.8 (11893 assertions) and on 9.2.0 (11898), with debug on, each lane on a shop made from scratch behind the egress
+guard; host 2222 tests, 3910 assertions, 1129 skipped; `node --test tests/js/` 43 pass; PHP CS Fixer 0 of 355 files;
+PHP 8.0.30 lint of 356 module files and 215 test files, no failure. With debug off the suite last ran on `v3` at
+`82fc312`, before that second part: 2172 tests on 8.2.8 (11689 assertions) and on 9.2.0 (11695). The capability walks
+of 8 to 11 ran on `82fc312` too; check by check on both versions, with two shops on 9.2.0 and a 2.2.0 store upgraded
+on 8.2.8, they are in `docs/internal/walks/2026-11-23-capabilities-8-11.md`; scripts, result files and screenshots
+in `build/walk-8-11/`. The merged tip (the second part and the walks' record together) ran the host tests only.
 Last run on `0c38f0b` (2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images. The zip
 content and the uninstall check last ran on `0d4425e`, long before stage 5.
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
 the official `9.2.0-8.1` image; PrestaShop's online validator; the multishop screens in Estonian; one unexplained PHP
-8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: capabilities 10 and 11 have no walk of their own on
-the merged `v3` (the walk of 13 used the landing, the relay, the order's attribution and the ingest, and did not judge
-them); an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there; the Log's form is the export
-on 9.x); "tracking is off after an upgrade"
-is shown by tests, not by a browser upgrade.
+8.0.30 segfault report (not reproduced in 113 runs). Of stage 5: the capability walks of 8 to 11
+(`docs/internal/walks/2026-11-23-capabilities-8-11.md`) ran with one shop, and capability 8 also with two shops as
+separate stores: two shops that share one Campaign Intelligence connection, and capabilities 9 to 11 with two shops,
+were not in them; an export in psgdpr's admin screen on 9.2.0 (psgdpr cannot show one there; the Log's form is the
+export on 9.x).
 
 ## Next, in this order
 
-1. Merge the second part of Story 5.3 (above). Stories 5.3 and 5.4 are then built (ARCHITECTURE 10.10 to 10.12).
-2. Capability walks on the merged `v3`: 8, 10 and 11 now that the connection, the imports and the consent switch
-   have their screen (Story 5.3); 9 with a connection made on that screen.
-3. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
-4. A full install check (zip content, uninstall) on the tip.
+1. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
+2. A full install check (zip content, uninstall) on the tip, with the in-shop suite with debug on and off.
 
 Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
@@ -87,7 +87,7 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron
   tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive.
 
-## First-release checklist (gauge: 9 / 14 demonstrated)
+## First-release checklist (gauge: 13 / 14 demonstrated)
 
 A box is ticked only when the real flow was exercised; the line names how. Decisions: ARCHITECTURE 15.
 
@@ -101,15 +101,23 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
 - [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only — HTTP, 8.0.0, 9.2.0.
 - [x] 6. Contact sync both ways, first import, and a Log with retry — walked on 8.2.8 and 9.2.0.
 - [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
-- [ ] 8. Campaign Intelligence connection with catalog, customer and order imports — built (5.1, 5.2, 5.3: the
-  Intelligence tab and step, the three imports, the Dashboard's state); waits: its walk on the merged `v3`.
-- [ ] 9. Campaign Intelligence automations, listed from the engine — built (5.4): the Story's own walk ran in a
-  browser on 8.2.8 and 9.2.0 against the engine mock, with a connection made by script. Waits: the capability walk on
-  the merged `v3`.
-- [ ] 10. Browse tracking and attribution of email clicks to orders — built (5.5, 5.2), and the merchant's consent
-  switch has its screen (5.3), and the Dashboard says whether tracking is on; waits: a walk on the merged `v3`.
-- [ ] 11. Product recommendations in the storefront, and the product feed — the block is built (5.5); the product
-  feed is the RSS feed of Settings > RSS (owner, 2026-11-23: no second feed); waits: the same walk.
+- [x] 8. Campaign Intelligence connection with catalog, customer and order imports — walked on the merged `v3` in a
+  browser on 8.2.8 and 9.2.0 against the engine mock: the connection on step 4 and on Settings > Intelligence, the
+  three imports on the tick URL (one row per combination, the customers in scope, 1169 orders newest first, the
+  progress calls), live product, customer and order changes and a removal; two shops as separate stores on 9.2.0.
+- [x] 9. Campaign Intelligence automations, listed from the engine — walked on the merged `v3` in a browser on 8.2.8
+  and 9.2.0 against the engine mock, on a connection made on a screen: the engine's names, one automation saved with
+  a Smaily workflow (held in test mode), one added at the engine between two loads
+  (`docs/internal/walks/2026-11-23-capabilities-8-11.md`).
+- [x] 10. Browse tracking and attribution of email clicks to orders — walked on the merged `v3` in a browser on
+  8.2.8 and 9.2.0: nothing tracked while the confirmation is off, the relay's events, an email click's attribution on
+  an order placed in the browser and on one a payment provider's server confirms, the token of a sign-in and of a
+  guest checkout, a store's `consentOverride()`; and a genuine 2.2.0 store upgraded on 8.2.8 tracks nothing until
+  the confirmation is saved on.
+- [x] 11. Product recommendations in the storefront, and the product feed — walked on the merged `v3` in a browser
+  on 8.2.8 and 9.2.0: the block where the merchant placed it in Design > Positions, with prices, the click's
+  recommendation id, no block and no engine call with the confirmation off or for an opted-out shopper; the product
+  feed is the RSS feed (owner, 2026-11-23: no second feed), walked under its legacy address in English and Estonian.
 - [x] 12. Installation report (phone-home) — Story 6.1, walked on its branch on 8.2.8 and 9.2.0 against a mock
   receiver: the tick URL, saves in a browser, the console's uninstall. The real service was never called.
 - [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — walked on the merged `v3` in a browser
@@ -142,4 +150,4 @@ store; have a native speaker read the Estonian.
 Linear: Feature P-CON-324; Epics CON-373, CON-378, CON-381, CON-379, CON-380, CON-398 (Campaign Intelligence: CON-400,
 CON-401, CON-407, CON-408 and CON-409 done; 5.3 is CON-405; 5.4 is CON-406), CON-402 (privacy, done), CON-403
 (installation report: 6.1 is CON-404, built); cross-connector analysis CON-397 (with CON-394, CON-395, CON-396); engine
-INT-306; subscription SUB-28 (answered). Gauge: 9/14.
+INT-306; subscription SUB-28 (answered). Gauge: 13/14.

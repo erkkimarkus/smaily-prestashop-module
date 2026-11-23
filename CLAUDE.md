@@ -495,4 +495,4 @@ content is written in English.
   — Erkki 2026-11-20: "no deadline — show progress over time". Values:
   2026-11-20 (start): 0/14; 2026-11-20 (stage 1 done): 1/14; 2026-11-21
   (capabilities 3, 4, 6 and 7 walked): 7/14; 2026-11-23 (capabilities 12 and
-  13 walked): 9/14.
+  13 walked): 9/14; 2026-11-23 (capabilities 8–11 walked on merged v3): 13/14.
