@@ -525,8 +525,9 @@ To start from a legacy state, install the matching release and load a fixture fr
 The first upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
 commands below follow those walks; they were not run again for this document.
 
-1. **Build the 3.0.0 zip first:** `composer --working-dir src package`. The script deletes all of
-   `build/` and `dist/` before it builds, so anything kept there goes too.
+1. **Build the 3.0.0 zip:** `composer --working-dir src package`. The script works in
+   `build/package/` and replaces `dist/smailyforprestashop.zip`; it leaves everything else under
+   `build/` and `dist/` alone.
 2. **Build the genuine legacy zip from its git tag** under `build/` (git ignores it), as the 2.x
    release workflow built it: the tag's `src/` renamed to `smailyforprestashop/`, Composer's production
    dependencies installed, and `.git*`, `.php-cs-fixer.dist.php` and `phpstan.neon` left out.

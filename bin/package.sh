@@ -6,20 +6,22 @@ set -eu
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 module=smailyforprestashop
-stage="$root/build/$module"
+# The script's own folder under build/: everything else under build/ and dist/ is left alone.
+work="$root/build/package"
+stage="$work/$module"
 zip="$root/dist/$module.zip"
 
 composer_run() {
     if [ -n "${COMPOSER_BINARY:-}" ]; then php "$COMPOSER_BINARY" "$@"; else composer "$@"; fi
 }
 
-rm -rf "$root/build" "$root/dist"
+rm -rf "$work" "$zip"
 mkdir -p "$stage" "$root/dist"
 
 # Tracked files only, as they are in the working tree. tar fails when a listed file is missing.
-git -C "$root/src" ls-files -z > "$root/build/files"
-tar -C "$root/src" --null -T "$root/build/files" -cf "$root/build/files.tar"
-tar -C "$stage" -xf "$root/build/files.tar"
+git -C "$root/src" ls-files -z > "$work/files"
+tar -C "$root/src" --null -T "$work/files" -cf "$work/files.tar"
+tar -C "$stage" -xf "$work/files.tar"
 
 composer_run install --working-dir "$stage" --no-dev --no-interaction --no-progress --quiet
 
@@ -35,6 +37,7 @@ while IFS= read -r pattern || [ -n "$pattern" ]; do
     (cd "$stage" && find . -path "./$pattern" -prune -exec rm -rf {} +)
 done < "$root/src/.zipignore"
 
-(cd "$root/build" && zip -qrX "$zip" "$module")
-rm -rf "$root/build"
+(cd "$work" && zip -qrX "$zip" "$module")
+rm -rf "$work"
+rmdir "$root/build" 2>/dev/null || true
 echo "built dist/$module.zip ($(du -h "$zip" | cut -f1))"
