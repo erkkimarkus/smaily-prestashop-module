@@ -228,7 +228,8 @@ final class LogView
     }
 
     /**
-     * The Entity: a queue row's as the Dashboard shows it, an import job's number of contacts.
+     * The Entity: a queue row's as the Dashboard shows it, an import job's number of contacts,
+     * products, customers or orders.
      *
      * @param array<string, mixed> $row
      */
@@ -238,9 +239,8 @@ final class LogView
             return EntityLabel::forDisplay($row['entity'] === null ? null : (string) $row['entity']);
         }
         $counts = json_decode((string) $row['counts'], true);
-        $total = (int) ($counts['total'] ?? 0);
 
-        return $this->trans($total === 1 ? '%count% contact' : '%count% contacts', ['%count%' => $total]);
+        return EntityLabel::ofJob((string) $row['type'], (int) ($counts['total'] ?? 0), $this->translate);
     }
 
     /**

@@ -152,6 +152,31 @@ final class LogRowsTest extends LogTestCase
         }
     }
 
+    public function testARowOfTheEventQueueThatGoesToTheEngineHasCampaignIntelligenceAsItsSource(): void
+    {
+        $sync = self::event(['created_at' => '2026-11-19 12:00:00']);
+        $merge = self::event(['event_type' => 'engine.identity_merge', 'created_at' => '2026-11-19 12:01:00']);
+        $delete = self::event(['event_type' => 'engine.customer_delete', 'status' => 'failed', 'created_at' => '2026-11-19 12:02:00']);
+        $lookalike = self::event(['event_type' => 'enginex_other', 'created_at' => '2026-11-19 12:03:00']);
+        $ingest = self::ingest(['created_at' => '2026-11-19 12:04:00']);
+
+        self::assertSame(
+            ['intelligence', 'smaily', 'intelligence', 'intelligence', 'smaily'],
+            array_column(self::rows()->page(new LogFilter(), 0, 20), 'source'),
+            'newest first: the ingest row, a type that only looks alike, the deletion, the merge, the contact sync'
+        );
+
+        $match = static fn (array $query): array => self::logIds(self::rows()->page(new LogFilter($query), 0, 20));
+        self::assertSame(['intelligence-' . $ingest, 'smaily-' . $delete, 'smaily-' . $merge], $match(['source' => 'intelligence']), 'the filter finds a row by the source it shows');
+        self::assertSame(['smaily-' . $lookalike, 'smaily-' . $sync], $match(['source' => 'smaily']));
+        self::assertSame(['smaily-' . $delete], $match(['source' => 'intelligence', 'status' => 'failed']));
+        self::assertSame([2, 3], [self::rows()->count(new LogFilter(['source' => 'smaily'])), self::rows()->count(new LogFilter(['source' => 'intelligence']))]);
+
+        self::assertSame(['smaily', 'intelligence'], array_values(array_intersect_key(self::rows()->find('smaily-' . $merge), ['kind' => 1, 'source' => 1])), 'its log id still names its table');
+        self::assertSame('smaily', self::rows()->find('smaily-' . $sync)['source']);
+        self::assertSame([$delete], self::rows()->failedEventIds(new LogFilter(['source' => 'intelligence']), null, 0, 10), 'Retry still finds it in the event queue');
+    }
+
     /**
      * @param list<array<string, string|null>> $rows
      *

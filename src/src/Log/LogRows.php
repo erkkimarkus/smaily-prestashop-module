@@ -34,13 +34,15 @@ use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 
 /**
- * The Log's reads: one list over the event queue (source Smaily), the ingest queue (source Campaign
- * Intelligence) and the import jobs, newest first by their creation. The Log has no table of its
- * own (ARCHITECTURE 2.2). Read-only SQL.
+ * The Log's reads: one list over the event queue, the ingest queue and the import jobs, newest
+ * first by their creation. The Log has no table of its own (ARCHITECTURE 2.2). Read-only SQL.
  *
- * A row's log id is `smaily-<id>`, `intelligence-<id>` or `job-<id>`. A job belongs to Campaign
- * Intelligence when it names a connection, else to Smaily; its creation time is the time it
- * started, or its last change while it has not started.
+ * A row's log id is `smaily-<id>`, `intelligence-<id>` or `job-<id>`: it names the row's table. The
+ * source says where the row goes: an ingest row goes to Campaign Intelligence, and so does a row
+ * of the event queue whose type begins with `engine.` (the identity merge, a shopper's
+ * personalization choice, a shopper's deletion); every other row of the event queue goes to
+ * Smaily. A job belongs to Campaign Intelligence when it names a connection, else to Smaily; its
+ * creation time is the time it started, or its last change while it has not started.
  *
  * Each table is filtered by its own columns and read newest first through its own index, only as
  * far as the page reaches; the pages of the three are then merged. The shops limit every read: a
@@ -56,6 +58,9 @@ final class LogRows
     public const JOB = 'job';
 
     private const CONNECTION_TABLE = 'smaily_connect_connection';
+
+    /** The rows of the event queue that go to Campaign Intelligence. */
+    private const ENGINE_EVENTS = '`event_type` LIKE \'engine.%\'';
 
     /** The table, the type column and the entity column of each queue. */
     private const QUEUES = [
@@ -175,7 +180,9 @@ final class LogRows
             ] + $row;
         }
 
-        return ['kind' => $kind, 'source' => $kind, 'type' => $row[self::QUEUES[$kind][1]], 'entity' => $row[self::QUEUES[$kind][2]]] + $row;
+        $type = (string) $row[self::QUEUES[$kind][1]];
+
+        return ['kind' => $kind, 'source' => self::sourceOf($kind, $type), 'type' => $type, 'entity' => $row[self::QUEUES[$kind][2]]] + $row;
     }
 
     /**
@@ -277,13 +284,16 @@ final class LogRows
             $condition = $this->condition($kind, $filter);
             if ($condition !== null) {
                 $selects[] = sprintf(
-                    'SELECT \'%1$s\' AS `source`, \'%1$s\' AS `kind`, `id`, `%2$s` AS `type`, `%3$s` AS `entity`, `status`, `attempts`,'
+                    'SELECT %6$s AS `source`, \'%1$s\' AS `kind`, `id`, `%2$s` AS `type`, `%3$s` AS `entity`, `status`, `attempts`,'
                     . ' `last_error`, `created_at`, `updated_at`, NULL AS `counts` FROM %4$s WHERE %5$s',
                     $kind,
                     $type,
                     $entity,
                     self::table($table),
-                    $condition
+                    $condition,
+                    $kind === self::SMAILY
+                        ? 'IF(' . self::ENGINE_EVENTS . ', \'' . self::INTELLIGENCE . '\', \'' . self::SMAILY . '\')'
+                        : '\'' . $kind . '\''
                 );
             }
         }
@@ -327,7 +337,9 @@ final class LogRows
             $type = '`type`';
             $created = 'COALESCE(`started_at`, `updated_at`)';
         } else {
-            if ($source !== '' && $source !== $kind) {
+            if ($source !== '' && $kind === self::SMAILY) {
+                $where[] = ($source === self::INTELLIGENCE ? '' : 'NOT ') . self::ENGINE_EVENTS;
+            } elseif ($source !== '' && $source !== $kind) {
                 return null;
             }
             $type = '`' . self::QUEUES[$kind][1] . '`';
@@ -383,6 +395,15 @@ final class LogRows
             default:
                 return '`id_shop` IN (0, ' . $shops . ')';
         }
+    }
+
+    /**
+     * Where a queue row goes: Campaign Intelligence for an ingest row and for a row of the event
+     * queue whose type begins with `engine.`, else Smaily.
+     */
+    public static function sourceOf(string $kind, string $type): string
+    {
+        return $kind === self::INTELLIGENCE || strncmp($type, 'engine.', 7) === 0 ? self::INTELLIGENCE : self::SMAILY;
     }
 
     private static function tableOf(string $kind): string

@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\Captu
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IdentityMergeHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
@@ -96,6 +97,10 @@ final class FailureMessage
     public const JOB_REASONS = [
         ContactImport::REASON_NO_ACCOUNT => 'Some contacts were left out: no Smaily account is saved for their shop and language.',
         ContactImport::REASON_NO_CREDENTIALS => 'Some contacts were left out: the Smaily account for their shop and language has no subdomain, username or password.',
+        // The imports to Campaign Intelligence.
+        HistoryJobs::REASON_STALLED => 'Stalled: nothing moved this import for over an hour. Press Run again in Settings > Intelligence to start a fresh import. If it stalls again, check that the background tasks run.',
+        HistoryJobs::REASON_NOT_ACTIVE => 'Cancelled: Campaign Intelligence does not accept the connection of this store, so there was nowhere to send the data. Start the import again in Settings > Intelligence once the connection works.',
+        HistoryJobs::REASON_NO_CONNECTION => 'Cancelled: the Campaign Intelligence connection of this import no longer exists.',
     ];
 
     private const CLASS_PATTERN = '/^(' . Failure::CLASS_REGEX . '):\s*/';

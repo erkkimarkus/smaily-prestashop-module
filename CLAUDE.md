@@ -313,6 +313,10 @@ ask (Linear discipline below).
   with `pSQL($value, true)`. The tick's health check pings every stored
   connection: a test that stores one removes it
   (`tests/Integration/Engine/EngineTestCase.php`).
+- **Where a Log row goes** is its Source (`Log\LogRows::sourceOf()`): a row
+  of the event queue whose type begins with `engine.` is Campaign
+  Intelligence's, though its log id stays `smaily-<id>`. A new job reason
+  needs its sentence in `Log\FailureMessage` and its Estonian unit.
 
 ## Working mode — orchestrated, autonomous with checkpoints
 

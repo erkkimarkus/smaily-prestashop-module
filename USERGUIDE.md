@@ -170,9 +170,9 @@ When the list cannot be loaded, the card says **Could not load the automation ca
 
 ## Log
 
-**Customers -> Smaily Connect -> Log** lists everything the module sent to Smaily: contact syncs, automation triggers and contact imports, newest first. If something seems missing in Smaily, look here first.
+**Customers -> Smaily Connect -> Log** lists everything the module sent to Smaily and to Campaign Intelligence: contact syncs, automation triggers, contact imports, and the products, customers, orders and imports that go to Campaign Intelligence, newest first. If something seems missing in Smaily, look here first.
 
-1. Each row shows its **Status**: Pending, Sending, Sent, Failed, Withdrawn (a cart reminder that was called back because the shopper ordered) or Skipped (nothing was sent; **Last Error** says why). A contact import shows Queued, Running, Done, Failed or Cancelled.
+1. Each row shows its **Source**, Smaily or Campaign Intelligence, and its **Status**: Pending, Sending, Sent, Failed, Withdrawn (a cart reminder that was called back because the shopper ordered) or Skipped (nothing was sent; **Last Error** says why). An import shows Queued, Running, Done, Failed or Cancelled, with the number of contacts, products, customers or orders it holds; where an import to Campaign Intelligence stalled or was cancelled, **Last Error** says why.
 2. Filter the list under the column headings by source, type, entity, status, last error and the days a row was created or updated, then click **Search**. In a store with several shops, the list shows the shops selected in the header.
 3. A failed row is retried on its own for up to 5 attempts. When rows failed in the last 24 hours, a banner above the list counts them, and **Show failed (24h)** lists the failed rows.
 4. **Details** shows the attempts, what happens next, the last error, the data that was sent and Smaily's answer. The contact's data is shown in full; passwords and API keys are never stored or shown.

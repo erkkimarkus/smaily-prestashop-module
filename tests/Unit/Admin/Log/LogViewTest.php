@@ -95,6 +95,43 @@ final class LogViewTest extends TestCase
         self::assertSame([$leftOut, 'Reason', true], array_values(array_intersect_key($this->view()->details(['last_error' => 'no_account'] + $job, null), ['error' => 1, 'error_title' => 1, 'error_is_reason' => 1])));
     }
 
+    public function testAnImportToCampaignIntelligenceShowsWhatItCountsAndWhyItEndedInASentence(): void
+    {
+        $job = ['source' => 'intelligence', 'kind' => 'job', 'id' => '9', 'type' => 'engine_catalog', 'entity' => null, 'status' => 'cancelled', 'attempts' => null,
+            'last_error' => null, 'created_at' => '2026-11-20 10:00:00', 'updated_at' => '2026-11-20 10:05:00', 'counts' => '{"total":19,"sent":4,"failed":0,"skipped":0}', ];
+
+        $row = $this->view()->row($job, false);
+        self::assertSame(['Campaign Intelligence', '19 products'], [$row['source'], $row['entity']]);
+        self::assertSame(
+            ['1 product', '1 customer', '2 customers', '1 order', '0 orders'],
+            array_map(
+                fn (array $change): string => $this->view()->row($change + $job, false)['entity'],
+                [
+                    ['counts' => '{"total":1}'],
+                    ['type' => 'engine_customers', 'counts' => '{"total":1}'],
+                    ['type' => 'engine_customers', 'counts' => '{"total":2}'],
+                    ['type' => 'engine_orders', 'counts' => '{"total":1}'],
+                    ['type' => 'engine_orders', 'counts' => '{}'],
+                ]
+            )
+        );
+
+        $reasons = [
+            'stalled' => 'Stalled: nothing moved this import for over an hour. Press Run again in Settings > Intelligence to start a fresh import. If it stalls again, check that the background tasks run.',
+            'engine_not_active' => 'Cancelled: Campaign Intelligence does not accept the connection of this store, so there was nowhere to send the data. Start the import again in Settings > Intelligence once the connection works.',
+            'no_connection' => 'Cancelled: the Campaign Intelligence connection of this import no longer exists.',
+        ];
+        foreach ($reasons as $code => $sentence) {
+            self::assertSame($sentence, $this->view()->row(['last_error' => $code] + $job, false)['error'], $code);
+            self::assertSame($sentence, $this->view()->details(['last_error' => $code] + $job, null)['error'], $code);
+        }
+        self::assertSame(
+            'Skipped: the Campaign Intelligence connection of this row no longer exists. Nothing was sent.',
+            $this->view()->row(self::listRow(['last_error' => 'no_connection', 'status' => 'skipped']), false)['error'],
+            'a queue row keeps its own sentence for the same code'
+        );
+    }
+
     public function testTheDetailsOfADeliveredRowShowTheRequestInFullWithoutSecrets(): void
     {
         $details = $this->view()->details(self::storedRow([

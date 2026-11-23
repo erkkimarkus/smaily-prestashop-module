@@ -3262,6 +3262,51 @@
         <target>Campaign Intelligence ei võtnud seda seadistuslinki vastu, seega ühendust ei salvestatud. Küsi Smailylt uus.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="ee1c9ea61c04ddfad47f47cd72c3f643">
+        <source>%count% product</source>
+        <target>%count% toode</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="78de86a20eb025cb0250bb9ae048678b">
+        <source>%count% products</source>
+        <target>%count% toodet</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="39cb03c2292f240dc340ae82449dbdad">
+        <source>%count% customer</source>
+        <target>%count% klient</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b75d23c0c4d87f5b8ea0c7ab344e1df4">
+        <source>%count% customers</source>
+        <target>%count% klienti</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7dc3d3eb0e7508f10aaa8f2930f539cb">
+        <source>%count% order</source>
+        <target>%count% tellimus</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7a690e0d78b48b569b52be4f645b0083">
+        <source>%count% orders</source>
+        <target>%count% tellimust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="70b96e546da2996ed81d03bf55a2d7a2">
+        <source>Stalled: nothing moved this import for over an hour. Press Run again in Settings &gt; Intelligence to start a fresh import. If it stalls again, check that the background tasks run.</source>
+        <target>Seiskunud: seda importi pole üle tunni edasi viidud. Värske impordi alustamiseks vajuta „Käivita uuesti“ menüüs Seaded &gt; Intelligence. Kui see seiskub uuesti, kontrolli, et taustatööd töötavad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="0c1500cb4b54074b44e4c179d07e1351">
+        <source>Cancelled: Campaign Intelligence does not accept the connection of this store, so there was nowhere to send the data. Start the import again in Settings &gt; Intelligence once the connection works.</source>
+        <target>Katkestatud: Campaign Intelligence ei võta selle poe ühendust vastu, seega polnud andmeid kuhugi saata. Kui ühendus töötab, käivita import uuesti menüüs Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d99682f5c695cd59db83c5b2efaa18b0">
+        <source>Cancelled: the Campaign Intelligence connection of this import no longer exists.</source>
+        <target>Katkestatud: selle impordi Campaign Intelligence'i ühendust enam ei ole.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

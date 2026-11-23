@@ -2827,7 +2827,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | Settings > Contacts asks before a save that changes who is synced: the page names what the new mode, "include guests" or switching sync on sends from now on, and the merchant confirms. | Consent lives in PrestaShop (section 6.1), and a change of audience is the merchant's decision (wording approved by the owner, 2026-11-20). |
 | Page frame, toolbar and buttons are PrestaShop's. | Platform shell. |
 | The Log is a Twig table with filters, not a native grid. | A PrestaShop Grid component needs Symfony grid definitions that differ between 8 and 9; a plain table is one code path. |
-| The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and their number of contacts as the Entity. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
+| The Log lists the import jobs among the queue rows, with their own statuses (Queued, Running, Done, Failed, Cancelled) and, as the Entity, how many contacts, products, customers or orders they hold. Its empty list reads "No records found", PrestaShop's own words. | The module has no separate import screen for them; approved by the owner (2026-11-20). |
 | The Log sorts by Created only, newest first. Only a failed event row has a checkbox, and "Select all (N)" takes every row of the filter. Details open in the module's own side panel, and the questions before "Send again" and "Retry" in its own dialog. | A plain table has no column sorting; only a failed row can be retried; PrestaShop 8 and 9 share no modal that a module's page can rely on. |
 | No checkout checkbox where `ps_emailsubscription` shows one (6.1). | Avoids two boxes. |
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
@@ -2941,15 +2941,20 @@ range for Created and for Updated, in the shop's time zone. The page's address c
 group, or all. An event row belongs to its shop, an ingest row to its connection's shop, an import
 job to its shop, and a job of shop 0 (every shop) shows in every selection.
 
-- **Source.** "Smaily" for an event row and for an import job without a connection; "Campaign
-  Intelligence" for an ingest row and for a job that names a connection. Ingest rows exist since
-  Story 5.2 (section 8.11).
+- **Source.** Where the row goes (`Log\LogRows::sourceOf()`). "Campaign Intelligence" for an
+  ingest row, for a job that names a connection, and for a row of the event queue whose type
+  begins with `engine.` (the identity merge, a shopper's personalization choice, a shopper's
+  deletion); "Smaily" for every other event row and for an import job without a connection. The
+  Source filter finds a row by the source it shows. A row's log id still names its table
+  (`smaily-<id>` for every row of the event queue), which "Send again" and "Retry" read. Ingest
+  rows exist since Story 5.2 (section 8.11).
 - **Status.** The stored status under Magento's names: `pending` → Pending, `processing` → Sending,
   `sent` → Sent, `failed` → Failed, `skipped` → Skipped. An abandoned-cart reminder that was closed
   because the shopper ordered (`skipped` with the reason `ordered`) shows as Withdrawn
   (`Log\LogStatus`). An import job shows Queued, Running, Done, Failed or Cancelled.
 - **Entity.** `Admin\Dashboard\EntityLabel`, the Dashboard's rule: the entity as stored, a keyed hash
-  cut to 12 characters. An import job shows its number of contacts.
+  cut to 12 characters. An import job shows what it counts: contacts for an import to Smaily,
+  products, customers or orders for an import to Campaign Intelligence (`EntityLabel::ofJob()`).
 - **Last Error.** The stored reason without its class prefix. Every reason code that a handler or
   an import can store shows as a sentence in the admin's language, and the filter finds a row by
   those words (`Log\FailureMessage`): Magento's sentence for the four skip reasons that Magento

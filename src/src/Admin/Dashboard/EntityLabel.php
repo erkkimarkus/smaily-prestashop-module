@@ -35,12 +35,22 @@ if (!defined('_PS_VERSION_')) {
  * included. Only the keyed hash that stands in for an address longer than the entity column
  * (ARCHITECTURE 2.2) is cut: 64 hex characters read as noise, so their first 12 and "…" stand in.
  * A row without an entity shows a dash.
+ *
+ * An import job has no entity: it shows how many it holds, contacts for an import to Smaily, and
+ * products, customers or orders for an import to Campaign Intelligence.
  */
 final class EntityLabel
 {
     private const SHOWN_HASH_LENGTH = 12;
 
     private const HASH_PATTERN = '/^[0-9a-f]{64}$/';
+
+    /** What an import job to Campaign Intelligence counts, by its type: one, and several. */
+    private const JOB_COUNTS = [
+        'engine_catalog' => ['%count% product', '%count% products'],
+        'engine_customers' => ['%count% customer', '%count% customers'],
+        'engine_orders' => ['%count% order', '%count% orders'],
+    ];
 
     public static function forDisplay(?string $entity): string
     {
@@ -52,5 +62,16 @@ final class EntityLabel
         }
 
         return $entity;
+    }
+
+    /**
+     * @param callable(string, array<string, string|int>=): string $translate the admin's translation
+     *                                                                        of an EN string
+     */
+    public static function ofJob(string $type, int $total, callable $translate): string
+    {
+        [$one, $several] = self::JOB_COUNTS[$type] ?? ['%count% contact', '%count% contacts'];
+
+        return $translate($total === 1 ? $one : $several, ['%count%' => $total]);
     }
 }
