@@ -9,6 +9,10 @@ services:
     - DEBUG_MODE=true
     ports:
     - ${PS_PORT:-8080}:80
+    # A dev shop never reaches the receiver of the installation report: the name answers inside
+    # the shop container, where nothing listens unless the egress guard runs its mock.
+    extra_hosts:
+    - subscription.smaily.com:127.0.0.1
     volumes:
     - prestashop-data:/var/www/html
     - .vscode:/var/www/html/.vscode

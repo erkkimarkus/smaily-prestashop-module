@@ -202,8 +202,11 @@ shop then calls `https://<subdomain>.sendsmaily.net` for real. The egress guard 
 - the Campaign Intelligence engine mock of the tests
   (`tests/Integration/Fixtures/mock-engine/router.php`) runs there too, behind a TLS front for
   `intelligence.smaily.com`, the one host the module calls the engine at (contract "Base context");
-- a proxy in the container (`proxy.php`) tunnels a request for a `*.sendsmaily.net` host or for
-  `intelligence.smaily.com` to its front and refuses every other host;
+- the subscription mock (`tests/Integration/Fixtures/mock-subscription/router.php`), the receiver
+  of the installation report, runs there too, behind a TLS front for `subscription.smaily.com`;
+- a proxy in the container (`proxy.php`) tunnels a request for a `*.sendsmaily.net` host, for
+  `intelligence.smaily.com` or for `subscription.smaily.com` to its front and refuses every other
+  host;
 - PHP-FPM gets `https_proxy` and `http_proxy`, so every request that a page makes goes to the proxy.
 
 Start it from the repository root, with the stack's Compose variables set as for `docker compose`
@@ -224,8 +227,9 @@ Check that it is active, at any time:
 
     tests/egress-guard/check.sh        # prints "guard active", or what is missing and exits 1
 
-The check asks four things: a page request runs with the proxy setting, a Smaily host reaches the
-mock, the engine host reaches the engine mock, and another host is refused. The proxy writes each decision, host and verdict only, to
+The check asks five things: a page request runs with the proxy setting, a Smaily host reaches the
+mock, the engine host reaches the engine mock, the installation report's host reaches the
+subscription mock, and another host is refused. The proxy writes each decision, host and verdict only, to
 `/tmp/smaily-egress.log` in the container:
 
     docker compose exec -u www-data prestashop sh -c 'cut -d" " -f2- /tmp/smaily-egress.log | sort | uniq -c'
@@ -264,6 +268,28 @@ No screen connects a shop yet (the Intelligence tab is Story 5.3): a walk calls
 boots the shop (`require 'config/config.inc.php'`) and runs with the proxy variables below. The
 health check then runs with the tick. `install.sh` keeps an engine state that exists, so a shop's
 stored connections stay known to the mock when the guard is installed again.
+
+**The installation report** (ARCHITECTURE 11.1). `docker-compose.yaml` and the two Compose files of
+`tests/ci/` resolve `subscription.smaily.com` to 127.0.0.1 inside the shop container
+(`extra_hosts`), so a shop without the guard gets no answer there and never reaches the real
+receiver; a report then waits on its retries and leaves a line in the shop's log. A shop container
+made before that setting is recreated (section 8: the demo database comes back), and
+`tests/bootstrap.php` refuses to run the suite in a shop where the name resolves elsewhere. Behind
+the guard the subscription mock is the receiver. Its state is
+`/tmp/smaily-mock/subscription-state.json` in the container: under `requests` every report it got
+(the time, the answered status, the body, the contract rules the body broke, the fields the
+contract does not name, and whether the credentials were the ones the Smaily mock accepts; never
+the credentials), and the switches `fail` (`{"status": 503, "error": "unavailable",
+"retry_after": 60}`: every accepted report gets that answer) and `delay` (seconds before an
+answer; the module gives up after 3 to 5). The report goes five minutes after a save and once a
+day: a walk moves the stored moment instead of waiting, for example
+
+    UPDATE ps_configuration SET value = JSON_SET(value, '$.setup_saved_at', UNIX_TIMESTAMP() - 1)
+      WHERE name = 'SMAILY_CONNECT_REPORT_STATE';
+
+(`$.daily_at` and `$.retry.at` the same way), and then runs the tick over its URL. The proxy's log
+shows the order of an uninstall: `TUNNEL subscription.smaily.com -> subscription mock`, then
+`TUNNEL intelligence.smaily.com -> engine mock`.
 
 The guard covers page requests. A command that you run with `docker compose exec` (the console,
 PHPUnit) reads its own environment: give it the proxy with

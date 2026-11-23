@@ -56,6 +56,19 @@ final class ServicesTest extends TestCase
         self::assertSame([], $services->listeners('actionValidateOrder'));
     }
 
+    public function testAListenerCanGoAheadOfTheOnesRegisteredBeforeIt(): void
+    {
+        $services = new Services();
+        $first = fn (): string => 'first';
+        $second = fn (): string => 'second';
+        $ahead = fn (): string => 'ahead';
+        $services->listenFirst('smailyConnectBeforeUninstall', $first);
+        $services->listen('smailyConnectBeforeUninstall', $second);
+        $services->listenFirst('smailyConnectBeforeUninstall', $ahead);
+
+        self::assertSame([$ahead, $first, $second], $services->listeners('smailyConnectBeforeUninstall'));
+    }
+
     public function testAListenerWaitsForTheUpgradeUnlessItIsRegisteredToRunBeforeIt(): void
     {
         $services = new Services();

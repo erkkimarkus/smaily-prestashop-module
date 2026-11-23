@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Report\SetupChange;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -45,6 +46,25 @@ abstract class AbstractSetupAction extends AbstractJsonAction
     protected function panels(): SetupPanels
     {
         return new SetupPanels(Services::instance(), BaseController::translator());
+    }
+
+    /**
+     * Runs a save of the setup or the Settings and tells the installation report about it
+     * (Report\SetupChange): a save that removed a Smaily account is reported at once, and a save
+     * that went through schedules a snapshot. A save that answers an error did not go through.
+     *
+     * @param callable(): (array<string, mixed>|JsonResponse) $save
+     *
+     * @return array<string, mixed>|JsonResponse what $save answered
+     */
+    protected function reported(callable $save)
+    {
+        $change = Services::instance()->get(SetupChange::class);
+        $before = $change->before();
+        $answer = $save();
+        $change->after($before, !$answer instanceof JsonResponse);
+
+        return $answer;
     }
 
     /**

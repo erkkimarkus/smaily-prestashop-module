@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
+use PrestaShop\Module\SmailyForPrestaShop\Report\InstallationReport;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
@@ -79,7 +80,13 @@ final class Setup
 
     private string $moduleVersion;
 
-    public function __construct(Client $client, Connections $connections, EngineSettings $settings, StoreLayout $layout, AccountStore $accounts, string $moduleVersion)
+    private ?InstallationReport $report;
+
+    /**
+     * @param InstallationReport|null $report told that the setup changed, as after a save of the
+     *                                        Settings; null tells nobody
+     */
+    public function __construct(Client $client, Connections $connections, EngineSettings $settings, StoreLayout $layout, AccountStore $accounts, string $moduleVersion, ?InstallationReport $report = null)
     {
         $this->client = $client;
         $this->connections = $connections;
@@ -87,6 +94,7 @@ final class Setup
         $this->layout = $layout;
         $this->accounts = $accounts;
         $this->moduleVersion = $moduleVersion;
+        $this->report = $report;
     }
 
     /**
@@ -125,13 +133,18 @@ final class Setup
             throw new EngineRequestException(self::ACCOUNT_MISMATCH);
         }
 
-        return $this->connections->save(
+        $stored = $this->connections->save(
             $key,
             $connection['smaily_subdomain'] !== '' ? $connection['smaily_subdomain'] : $this->defaultAccount($key),
             $connection['tenant_id'],
             $connection['api_key'],
             $connection['settings']
         );
+        if ($this->report !== null) {
+            $this->report->setupSaved();
+        }
+
+        return $stored;
     }
 
     /**
@@ -283,7 +296,7 @@ final class Setup
     /**
      * The storefront address of a shop, or '' when it has none.
      */
-    private static function siteUrl(int $idShop): string
+    public static function siteUrl(int $idShop): string
     {
         $shop = new \Shop($idShop);
         $secure = (bool) \Configuration::get('PS_SSL_ENABLED');

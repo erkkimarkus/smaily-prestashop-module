@@ -38,6 +38,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
+use PrestaShop\Module\SmailyForPrestaShop\Report\EventReport;
+use PrestaShop\Module\SmailyForPrestaShop\Report\InstallationReport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
@@ -75,7 +77,8 @@ final class EngineProvider implements ProviderInterface
             $services->get(EngineSettings::class),
             $services->get(StoreLayout::class),
             $services->get(AccountStore::class),
-            UpdateProvider::moduleVersion()
+            UpdateProvider::moduleVersion(),
+            $services->get(InstallationReport::class)
         ));
         $services->set(HealthCheck::class, fn (Services $services): HealthCheck => new HealthCheck(
             $services->get(Client::class),
@@ -85,7 +88,8 @@ final class EngineProvider implements ProviderInterface
         $services->set(Disconnector::class, fn (Services $services): Disconnector => new Disconnector(
             $services->get(Client::class),
             $services->get(Connections::class),
-            $services->get(EngineSettings::class)
+            $services->get(EngineSettings::class),
+            $services->get(EventReport::class)
         ));
 
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::HEALTH_JOB, 900, 5, static function (Deadline $deadline) use ($services): void {

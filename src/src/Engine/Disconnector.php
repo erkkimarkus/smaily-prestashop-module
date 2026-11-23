@@ -31,6 +31,8 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
+use PrestaShop\Module\SmailyForPrestaShop\Report\EventReport;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ReportBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
 
 /**
@@ -42,6 +44,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Log;
  * answers: a refused key or an engine that does not answer never blocks a disconnect or an
  * uninstall, and a key the engine was not told about just stays unused. The engine keeps the
  * store's data; a new setup link connects the shop again.
+ *
+ * A disconnect on request first sends the installation report's `disconnected` event, while the
+ * connection is still stored: the report leaves that connection's engine store out. An uninstall
+ * sends `deactivated` instead, once, before any connection is ended (ARCHITECTURE 11.4).
  */
 final class Disconnector
 {
@@ -66,11 +72,18 @@ final class Disconnector
 
     private EngineSettings $settings;
 
-    public function __construct(Client $client, Connections $connections, EngineSettings $settings)
+    private ?EventReport $report;
+
+    /**
+     * @param EventReport|null $report sends the installation report's `disconnected` event; null
+     *                                 sends none
+     */
+    public function __construct(Client $client, Connections $connections, EngineSettings $settings, ?EventReport $report = null)
     {
         $this->client = $client;
         $this->connections = $connections;
         $this->settings = $settings;
+        $this->report = $report;
     }
 
     /**
@@ -81,6 +94,9 @@ final class Disconnector
      */
     public function disconnect(Connection $connection): string
     {
+        if ($this->report !== null) {
+            $this->report->send(ReportBuilder::EVENT_DISCONNECTED, [$connection->id()]);
+        }
         $outcome = $this->tell($connection);
         $this->settings->rememberPrefix($connection->idShop(), $connection->prefix());
         $this->connections->delete($connection);

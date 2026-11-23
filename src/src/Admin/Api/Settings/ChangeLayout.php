@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\StoreShapePanel;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -44,6 +45,14 @@ use Symfony\Component\HttpFoundation\Request;
 final class ChangeLayout extends AbstractSettingsAction
 {
     protected function handle(Request $request, int $idShop)
+    {
+        return $this->reported(fn () => $this->change($request, $idShop));
+    }
+
+    /**
+     * @return array<string, mixed>|JsonResponse
+     */
+    private function change(Request $request, int $idShop)
     {
         $shape = (string) ($this->body($request)['shape'] ?? '');
         $settings = $this->settings();

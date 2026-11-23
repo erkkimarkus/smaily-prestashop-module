@@ -9,6 +9,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ReportSender;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\SchedulerProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -89,6 +90,13 @@ final class SchedulerProviderTest extends IntegrationTestCase
                 return new Response(404, '');
             }
         }, '3.0.0'));
+        // The installation report asks no real receiver: an account that a test left behind sends nowhere.
+        $services->set(ReportSender::class, fn (): ReportSender => new ReportSender(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
         $queue = new EventQueue();
         $ids = [];
         for ($i = 0; $i < 250; ++$i) {
@@ -98,7 +106,7 @@ final class SchedulerProviderTest extends IntegrationTestCase
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'ingest_flush', 'catalog_manifest', 'storefront_cache', 'migration', 'update_check', 'later_area'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'ingest_flush', 'catalog_manifest', 'storefront_cache', 'installation_report', 'migration', 'update_check', 'later_area'], $report->jobs());
         self::assertSame($ids, $sent, 'two batches of the flush sent every row');
     }
 

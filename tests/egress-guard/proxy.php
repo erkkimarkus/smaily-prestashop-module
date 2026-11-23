@@ -1,10 +1,11 @@
 <?php
 // A CONNECT-only egress proxy for a dev shop container (install.sh): a tunnel to any
-// *.sendsmaily.net:443 goes to the local TLS front of the Smaily mock (127.0.0.1:8443), and a
-// tunnel to intelligence.smaily.com:443, the Campaign Intelligence engine, to the front of the
-// engine mock (127.0.0.1:8444); every other destination is refused with 403, so no request of the
-// shop leaves the container. Plain HTTP is refused too. Each decision is appended to
-// /tmp/smaily-egress.log (host and verdict only).
+// *.sendsmaily.net:443 goes to the local TLS front of the Smaily mock (127.0.0.1:8443), a tunnel
+// to intelligence.smaily.com:443, the Campaign Intelligence engine, to the front of the engine
+// mock (127.0.0.1:8444), and a tunnel to subscription.smaily.com:443, the receiver of the
+// installation report, to the front of the subscription mock (127.0.0.1:8445); every other
+// destination is refused with 403, so no request of the shop leaves the container. Plain HTTP is
+// refused too. Each decision is appended to /tmp/smaily-egress.log (host and verdict only).
 declare(strict_types=1);
 
 $server = stream_socket_server('tcp://127.0.0.1:3128', $errno, $errstr);
@@ -42,6 +43,8 @@ while (true) {
                     $front = ['tcp://127.0.0.1:8443', 'mock'];
                 } elseif (strtolower($m[1]) === 'intelligence.smaily.com') {
                     $front = ['tcp://127.0.0.1:8444', 'engine mock'];
+                } elseif (strtolower($m[1]) === 'subscription.smaily.com') {
+                    $front = ['tcp://127.0.0.1:8445', 'subscription mock'];
                 }
             }
             if ($front !== null) {

@@ -7,8 +7,12 @@
 #  - the Campaign Intelligence engine mock (tests/Integration/Fixtures/mock-engine/router.php) on
 #    127.0.0.1:8098, behind a TLS front for intelligence.smaily.com on 127.0.0.1:8444 (the same
 #    nginx and CA);
-#  - a CONNECT proxy on 127.0.0.1:3128 (proxy.php) that tunnels any *.sendsmaily.net:443 and
-#    intelligence.smaily.com:443 to those fronts and refuses every other destination;
+#  - the subscription mock, the receiver of the installation report
+#    (tests/Integration/Fixtures/mock-subscription/router.php), on 127.0.0.1:8097, behind a TLS
+#    front for subscription.smaily.com on 127.0.0.1:8445 (the same nginx and CA);
+#  - a CONNECT proxy on 127.0.0.1:3128 (proxy.php) that tunnels any *.sendsmaily.net:443,
+#    intelligence.smaily.com:443 and subscription.smaily.com:443 to those fronts and refuses every
+#    other destination;
 #  - PHP-FPM's https_proxy and http_proxy pointing at the proxy.
 #
 # Run it from the repository root, with the stack's Compose variables set, BEFORE the first admin
@@ -37,7 +41,13 @@ if [ ! -f engine.pem ]; then
   printf "subjectAltName=DNS:intelligence.smaily.com\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n" > engine.ext
   openssl x509 -req -in engine.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out engine.pem -days 30 -extfile engine.ext 2>/dev/null
 fi
+if [ ! -f subscription.pem ]; then
+  openssl req -newkey rsa:2048 -nodes -keyout subscription.key -out subscription.csr -subj "/CN=subscription.smaily.com" 2>/dev/null
+  printf "subjectAltName=DNS:subscription.smaily.com\nbasicConstraints=CA:FALSE\nextendedKeyUsage=serverAuth\n" > subscription.ext
+  openssl x509 -req -in subscription.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out subscription.pem -days 30 -extfile subscription.ext 2>/dev/null
+fi
 [ -f engine-state.json ] || printf "{}" > engine-state.json
+[ -f subscription-state.json ] || printf "{}" > subscription-state.json
 # Some images do not rebuild the bundle: the CA goes into it directly.
 grep -q "$(sed -n 2p ca.pem)" /etc/ssl/certs/ca-certificates.crt || cat ca.pem >> /etc/ssl/certs/ca-certificates.crt
 chown -R www-data /tmp/smaily-mock
@@ -59,7 +69,9 @@ $dc exec -T -u www-data prestashop sh -c "pgrep -f '[p]hp -S 127.0.0.1:8099'" >/
   || $dc exec -d -u www-data -e SMAILY_MOCK_STATE=/tmp/smaily-mock/state.json prestashop php -S 127.0.0.1:8099 /smaily/tests/Integration/Fixtures/mock-smaily/router.php
 $dc exec -T -u www-data prestashop sh -c "pgrep -f '[p]hp -S 127.0.0.1:8098'" >/dev/null \
   || $dc exec -d -u www-data -e ENGINE_MOCK_STATE=/tmp/smaily-mock/engine-state.json -e PHP_CLI_SERVER_WORKERS=4 prestashop php -S 127.0.0.1:8098 /smaily/tests/Integration/Fixtures/mock-engine/router.php
-# A proxy of an earlier install does not know the engine host: it is replaced.
+$dc exec -T -u www-data prestashop sh -c "pgrep -f '[p]hp -S 127.0.0.1:8097'" >/dev/null \
+  || $dc exec -d -u www-data -e SUBSCRIPTION_MOCK_STATE=/tmp/smaily-mock/subscription-state.json -e SMAILY_MOCK_STATE=/tmp/smaily-mock/state.json prestashop php -S 127.0.0.1:8097 /smaily/tests/Integration/Fixtures/mock-subscription/router.php
+# A proxy of an earlier install does not know every host: it is replaced.
 $dc exec -T -u www-data prestashop sh -c "pkill -f '[s]maily-egress-proxy' || true"
 $dc exec -d -u www-data prestashop php /tmp/smaily-egress-proxy.php
 sleep 2

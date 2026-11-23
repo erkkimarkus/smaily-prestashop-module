@@ -135,6 +135,18 @@ final class Services
     }
 
     /**
+     * As listen(), but ahead of the listeners that the hook has so far: for a listener that must
+     * run before another area's, whatever the order of the providers (the uninstall's
+     * deactivation report goes before the engine is told to disconnect).
+     *
+     * @param callable(array<string, mixed>): mixed $listener
+     */
+    public function listenFirst(string $hook, callable $listener): void
+    {
+        $this->listeners[$hook] = array_merge([$listener], $this->listeners[$hook] ?? []);
+    }
+
+    /**
      * @return list<callable(array<string, mixed>): mixed>
      */
     public function listeners(string $hook): array

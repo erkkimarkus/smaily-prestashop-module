@@ -216,6 +216,10 @@ The form handles the module's data only. The customer account, the orders and th
 - The customer's choice about personalization is kept, without the address, so that an opt-out still holds if the same address orders again.
 - Smaily contacts are not deleted. Delete the contact in your Smaily account.
 
+## Installation report
+
+When a Smaily account is connected, Smaily Connect sends Smaily an installation report when you save the setup or the Settings, once a day, and when you remove a connection or uninstall or reset the module, authenticated with the connected Smaily account's API credentials, which Smaily only checks and never stores: the shop addresses, the PrestaShop, PHP and module versions, the connected Smaily accounts, the switched-on features, whether each connection works (error codes only) and the time of the last successful sync — never customer, subscriber or order data. A store without a connected Smaily account sends nothing. The report has no setting; a report that Smaily does not take in changes nothing in your store and leaves one line in PrestaShop's log (**Advanced Parameters -> Logs**).
+
 ## Personalization
 
 In a store that is connected to Campaign Intelligence, a signed-in customer finds **Personalization** in their account. The page **Personalized Recommendations** has one checkbox, **Allow personalized recommendations**, and the button **Save Preference**. A customer who unticks the box is left out of personalized recommendations; the newsletters then show generic content. The customer can tick it again at any time, and the last choice is the one that counts.

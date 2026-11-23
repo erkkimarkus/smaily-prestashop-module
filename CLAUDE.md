@@ -282,6 +282,15 @@ ask (Linear discipline below).
   or an employee in the context and takes the customer group of whoever's request runs the tick.
   An ingest row is a marker: what goes out is read from the store at the flush. All customer
   questions go through `Engine\Ingest\CustomerScope`.
+- **The installation report** (ARCHITECTURE 11.1) is sent only to
+  `https://subscription.smaily.com` (`Report\ReportSender::ENDPOINT`), and no
+  test or dev shop may reach it: a test gives the sender a transport, the
+  Compose files resolve the host to 127.0.0.1 (a shop made before that is
+  recreated; `tests/bootstrap.php` refuses it), and a walk reads the mock
+  receiver behind the egress guard. Every Smaily client tells the report's
+  health through `Smaily\Client::observe()`; a test that names an observer
+  puts the one it found back. A listener that must run before another
+  area's uses `Services::listenFirst()`.
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
   (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the

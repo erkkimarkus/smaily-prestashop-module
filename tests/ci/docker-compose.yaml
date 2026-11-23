@@ -15,6 +15,10 @@ services:
       - ../..:/smaily
     ports:
       - ${CI_PORT:-8000}:80
+    # The shop never reaches the receiver of the installation report: the name answers inside the
+    # shop container.
+    extra_hosts:
+      - subscription.smaily.com:127.0.0.1
 
   mysql:
     image: mariadb:lts

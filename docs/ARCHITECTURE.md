@@ -123,7 +123,9 @@ src/
                               CustomerCapture, NewsletterBlockCapture, CheckoutBox,
                               CheckoutBoxSetting; Import/ContactImport, ContactSource, JobStore
     Update/                   LatestRelease, UpdateNotice, Version (section 11.5)
-    Report/                   ConnectionHealth (section 11.1)
+    Report/                   ReportBuilder, ReportSender, InstallationReport, EventReport,
+                              SetupChange, ConnectionHealth, StoreFacts, Credentials, Report,
+                              SendResult (section 11.1)
     Engine/                   Client, Connection, Connections, Setup, HealthCheck, Disconnector;
                               Exception/ (section 8.9)
     Automation/               Trigger, Router, WorkflowMatch, MappingRepository, WorkflowList,
@@ -178,7 +180,6 @@ src/
                               Recommendations, RecommendationsBlock, Widget, PageScripts (8.10)
     Privacy/                  PrivacyRequest, LocalData, ExportRows, GdprHooks, ProfilingRecord,
                               ProfilingConsent and its handler, CustomerDeleteHandler, AccountLink
-    Report/                   ReportBuilder, ReportSender, InstallationReport
   views/templates/admin/      the Intelligence templates of the setup and Settings
   views/templates/front/      recommendations, personalization and its account link (Smarty, as
                               PrestaShop front; nothing lies in 2.x's views/templates/hook/)
@@ -201,7 +202,11 @@ exposes `Runtime\Services` itself to the Symfony container as a public service w
   $listener, bool $beforeUpgrade = false)` adds a hook listener. A listener registered with
   `$beforeUpgrade = true` also runs while the schema is not current (below). Three listeners use
   the flag: the scheduler's two traffic-tick hooks (section 4.3) and the admin's line about an
-  unfinished upgrade on `displayBackOfficeHeader` (section 3.6).
+  unfinished upgrade on `displayBackOfficeHeader` (section 3.6). `listenFirst($hook, $listener)`
+  puts a listener ahead of the ones the hook has so far, whatever the order of the providers. One
+  listener uses it: the uninstall's deactivation report, which goes before the engine is told to
+  disconnect (section 11.4). It changes the order of no other hook: the tick's jobs still run in
+  the order of the providers.
 
 - **Rationale.** The upgrade script, the hooks and the front controllers run without a guaranteed
   Symfony container of the module: PrestaShop 8 and 9 build different front containers, and an
@@ -444,7 +449,7 @@ writes.
 | `SMAILY_CONNECT_CONSENT_CONFIRMED` | global or shop | `1` once the merchant confirmed that the store's cookie banner covers Smaily tracking; absent or `0` = not confirmed (section 9). The storefront reads it (`Config\EngineSettings::consentConfirmed()`, Story 5.5); no screen writes it yet (Story 5.3). |
 | `SMAILY_CONNECT_ENGINE_PREVIOUS_PREFIXES` | global | JSON object, id_shop of a connection => the connection prefix it held when it was disconnected, exactly as the engine gave it (`Config\EngineSettings`). The next setup exchange of that shop reports it (section 8.9). Written only by a disconnect on request. |
 | `SMAILY_CONNECT_HEALTH` | global | JSON `{"smaily": {"<subdomain>": {"error_code": "", "last_sync_at": <Unix time>}}, "engine": {"<tenant id>": {…}}}`: how the last request of each Smaily account and of each Campaign Intelligence engine store went, for the installation report (`Report\ConnectionHealth`, section 11.1). Error codes only; at most 50 entries a group. |
-| `SMAILY_CONNECT_REPORT_STATE` | global | Section 11. Not written yet. |
+| `SMAILY_CONNECT_REPORT_STATE` | global | JSON `{"setup_saved_at": <Unix time>\|null, "daily_at": <Unix time>, "retry": {"trigger", "attempt", "at"}\|null}`: when the next installation report is due (`Report\InstallationReport`, section 11.1). Absent, or `[]`, in a store without a connected Smaily account. `Config\ReportSettings` reads both keys as they are stored now, past the request's loaded configuration. |
 | `SMAILY_CONNECT_UPDATE_CHECK` | global | JSON `{"version", "download_url", "release_url", "checked_at", "dismissed"}`: the latest release that the daily check found, and the newest version that the merchant dismissed (section 11.5). |
 | `SMAILY_CUSTOMER_CRON_TOKEN`, `SMAILY_CART_CRON_TOKEN` | as stored | **Kept with their legacy names.** They are the URL contract in merchants' crontabs. A door reads its token at the request's shop, then its shop group, then the global scope, as 2.x did. A token that no scope holds is created at the global scope on its first read. A token stored empty keeps its door closed; the migration replaces it (section 3.4). |
 
@@ -956,12 +961,13 @@ Registered on `v3` today:
 | `ingest_flush` | `EngineIngestProvider` | 60 s | 25 s | no | `Engine\Ingest\IngestFlusher::flush()`: sends the waiting catalog, removal, customer and order rows of every connection that may send (section 8.11). |
 | `catalog_manifest` | `EngineIngestProvider` | 15 min (900 s) | 20 s | no | `Engine\Ingest\CatalogManifest::run()`: sends each connection's nightly product list once, from 03:30 of the shop's day (section 8.11). The job asks every 15 minutes whether a list is due. |
 | `storefront_cache` | `StorefrontProvider` | daily (86 400 s) | 5 s | no | `Storefront\Store::prune()`: deletes the expired files of the storefront's cache (section 8.10). |
+| `installation_report` | `ReportProvider` | 0 (every tick) | 5 s | no | `Report\InstallationReport::run()`: reads the stored schedule and sends the one snapshot that is due, if any (section 11.1). Most ticks end after one read. |
 | `migration` | `MigrationProvider` | 0 (every tick) | 10 s | yes | Calls `Upgrade300::runPending()` while the schema is not current (section 3.7). |
 | `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
 
 The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
 `contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `ingest_flush`,
-`catalog_manifest`, `storefront_cache`, `migration`, `update_check`.
+`catalog_manifest`, `storefront_cache`, `installation_report`, `migration`, `update_check`.
 Two integration
 tests pin this full list (section 12).
 
@@ -970,7 +976,6 @@ Planned (the Story that builds each registers it):
 | Job | Interval | Time budget per run | Sibling | Story |
 |---|---|---|---|---|
 | Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.3 |
-| Installation report | due check every tick | 5 s | `SendInstallationReport` | 6.1 |
 
 ### 4.2 Options
 
@@ -3000,14 +3005,107 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 | `product_version` | module version |
 | `platforms` | `[{name: "prestashop", version: _PS_VERSION_}]` |
 | `php_version` | `PHP_VERSION` |
-| `installation_url` | The default shop's main URL (`Tools::getShopDomainSsl(true)` + base URI) |
+| `installation_url` | The default shop's main URL: its domain (the SSL domain when SSL is on) and base URI, without a trailing slash |
 | `smaily_subdomain` (top) | The global account's subdomain when a connection names it, else the first marketing connection's |
-| `connections[]` | One `marketing` connection per (shop, account) with a working account; per language account in mode `a` with `language` |
+| `connections[]` | One `marketing` connection per shop with a connected account; in mode `a` one per language of the shop, with `language` and the account that serves that language |
 | `connections[].store_url` | The shop's main URL |
 | `connections[].website` | **[D]** The shop id as a string (`"1"`), the same value that the module sends Campaign Intelligence as the website code (section 8.2). The contract requires it for PrestaShop since v1.1.0. |
-| `features` | `subscriber_sync` = contact sync on; an automation id when switched on **and** the Router resolves a workflow on this account; `campaign_intelligence`, `browse_tracking` while the shop's connection is connected |
-| `smaily`, `intelligence` | `Report\ConnectionHealth`, Magento's rules. Built: `Smaily\Client::request()` tells the class's observer (`Client::observe()`, named by `ReportProvider`) and `Engine\Client::request()` the health it was built with how each request went: '' or an error code, and whether it wrote data. Codes only; a success that changes only the time is written at most every 5 minutes; recording never throws. |
+| `features` | `subscriber_sync` = contact sync on; an automation id when switched on **and** the Router resolves a workflow on this account; `campaign_intelligence` while a connection serves the shop; `browse_tracking` when the merchant also confirmed the cookie banner (section 9) |
+| `smaily`, `intelligence` | `Report\ConnectionHealth`, Magento's rules |
 | Snapshots and events | `setup_saved` 5 min after a save; `daily`; `disconnected`; `deactivated` first in uninstall. One report per tick at most. |
+
+**As built (Story 6.1, `Report\`).** The module tells Smaily's subscription service which
+installation runs where: contract installation-report-v1 v1.2.0
+(`docs/contracts/installation-report-v1.md`), product `connect_prestashop`, with the Magento
+connector's `Model\Report\*` as the behaviour (`magento:docs/ARCHITECTURE.md` "Installation
+report"). `Report\ReportSender::ENDPOINT` (`POST https://subscription.smaily.com/v1/reports`) is
+the one place the address is written. **[D]** (owner, 2026-11-23) The report has no setting, no
+opt-out and no admin notice, as in the siblings; it adds no screen and no translated text.
+
+- **Only with a connected Smaily account.** A connected account has a subdomain, an API user and a
+  password that decrypts, and a subdomain inside the contract's rule. With none, nothing is built,
+  scheduled or sent, and a stored schedule is forgotten.
+- **Body** (`Report\ReportBuilder`, `Report\StoreFacts`). One connection per shop that the
+  installation serves (every active shop; the default shop alone while multistore is off) and
+  that has a connected account, in shop-id order, at most 100. `website` is the shop id as a
+  string, `store_url` the shop's own main URL. The account of a shop is what
+  `Scope\AccountResolver::for()` answers, so shops on the shared account give one connection
+  each with the same `smaily_subdomain`, and a shop with its own account its own. A shop in mode
+  `a` gives one connection per active language of the shop (two-letter codes only), each with the
+  account that serves that language: its own, or the fallback account. An automation is a feature
+  of a connection only when `Automation\Router` resolves a workflow that this very account sends;
+  a shop with a workflow per language (mode `b`) is asked for each of its languages.
+  `intelligence` is the connection that serves the shop (`Engine\Connections::forShop()`):
+  `connected` is true while its key can be read and no health check found it refused
+  (`IngestFlusher::maySend()`); never the key.
+- **Main account.** The account set up for all shops (`id_shop` 0) when a connection names it,
+  else the first connection's; separate stores have no shared account. Its API user and password
+  go into the `Authorization` header (HTTP Basic) and nowhere else.
+- **What it never holds.** No customer, subscriber, order or admin-user data, no free text, no
+  credential or engine key in the body, and error codes only. A unit test holds every body that
+  the builder makes against the contract's rules and against a list of the contract's fields
+  (`tests/Integration/Fixtures/mock-subscription/contract.php`, written from the contract's text;
+  the contract's own four example bodies pass it).
+- **Health** (`Report\ConnectionHealth`, `SMAILY_CONNECT_HEALTH`). The two HTTP chokepoints tell
+  it every answer, by subdomain and by tenant id. `Smaily\Client::request()` tells the class's
+  observer (`Client::observe()`, named by `ReportProvider`): the clients are built per account in
+  seven places, so the observer is the class's and no caller can leave it out. Its codes are the
+  contract's: `plan_blocked` (Smaily code 227), `credentials_rejected` (any other 4xx but 429),
+  `unreachable` (a 429, a 5xx, no answer, an answer that is not JSON, a refused write of another
+  code) and `permanent_envelope_203`; a POST answered with code 101 is a sync.
+  `Engine\Client::request()` tells the health it was built with: the engine's error code,
+  `http_<status>`, `network_error`, `malformed_answer` or `key_unreadable`; an accepted POST to an
+  `/ingest/` path is a sync, and the setup exchange names no engine store. Codes only (a code that
+  is no plain code is stored as `unknown_error`); a success that changes only the time is written
+  at most every 5 minutes; 50 entries a group; recording never throws.
+- **Snapshots** (`Report\InstallationReport`, `SMAILY_CONNECT_REPORT_STATE`, the tick's job
+  `installation_report`, section 4.1). A save schedules `setup_saved` 5 minutes on unless one
+  waits: every save of the Initial setup and of Settings (`Admin\Api\Setup\SaveStep`,
+  `Settings\SaveTab`, `Settings\ChangeLayout`, through `AbstractSetupAction::reported()`), and
+  a new Campaign Intelligence connection (`Engine\Setup::connect()`). `daily` is due 24 hours
+  after the last attempt, the first at a random moment within 24 hours. One report a run:
+  `setup_saved`, then a retry, then `daily`; the attempt is recorded before it is made. A 429, a
+  5xx or no answer is tried again after 60, 120 and 240 s plus 0 to 30 s, or after a longer
+  `Retry-After`; the retry is part of the stored state, so it waits across ticks. Over an hour of
+  `Retry-After`, a fourth failure, or any other answer (400, 401, 413, a redirect) ends the try
+  with one line in the shop's log (Advanced Parameters > Logs): the trigger, the HTTP status and
+  the service's error code, never its message. 3 s to connect and 5 s in all, the certificate
+  verified, never a redirect. The job reads the state as it is stored now; a tick with nothing
+  due ends after that one read.
+- **Events** (`Report\EventReport`: at once, once, never thrown, one log line when it is not
+  taken in). `disconnected` from `Engine\Disconnector::disconnect()`, before the engine is told
+  and the key deleted, with that connection's engine store left out; and from a save that removed
+  a Smaily account (`Report\SetupChange` compares the connected subdomains before and after the
+  save): the connections that remain, authenticated with the main account after the save, or
+  with the one captured before it when no account remains, then with no connection. `deactivated`
+  first in the uninstall (section 11.4), with the connections as they are; the engine's
+  disconnect that follows sends no second event.
+- **The answer** is read for its HTTP status, its `error` code and `Retry-After` only. Its
+  `latest_version` and `notice` are not read (section 11.5).
+- **Never from a test or a dev shop.** Unit and integration tests answer through a transport in
+  memory. The Compose files resolve `subscription.smaily.com` to the shop container itself, the
+  test bootstrap refuses a shop where the name resolves elsewhere, and the egress guard hands the
+  host to a mock receiver (`tests/Integration/Fixtures/mock-subscription/`, section 12).
+
+**Differences from Magento.** (1) No transactional connection: PrestaShop has no Smaily
+Transactional account. (2) A `disconnected` event names the removed engine connection by its
+row, not by its tenant id: two separately set-up shops can hold two connections to one engine
+store, and only the removed one loses its `intelligence` block. (3) The failed-report line goes to
+PrestaShop's log, the place of the module's other background failures; Magento writes its log
+file. (4) A report that will be tried again leaves no line; Magento writes an info line for it.
+(5) TLS 1.2 is not forced by an option: the HTTP client that PrestaShop 8 ships takes none, so
+the version is the server's and PHP's to settle.
+
+Demonstrated on 8.2.8 and 9.2.0 against the mock receiver, behind the egress guard, with the
+tick over its URL, saves in a browser and the console's uninstall: no report from a store without
+an account; one `setup_saved` report after three saves of the Initial setup (the stored due time
+moved into the past instead of a five-minute wait) and none on the ticks after it; a `daily`
+report after its moved moment; four tries and one log line while the receiver did not answer,
+with the Dashboard and the storefront as usual; a second shop with its own account as its own
+connection; `disconnected` when that shop returned to the shared account and when Campaign
+Intelligence was disconnected; `deactivated` before the engine's disconnect in an uninstall that
+completed with the receiver answering and with it silent. Every body the receiver took passed
+the contract's rules. Not verified: the real service.
 
 ### 11.2 Privacy
 
@@ -3019,6 +3117,7 @@ transactional emails and the Campaign Intelligence card (out of 3.0.0, or Story 
 | Discount codes (section 7) | Both requests cover them through `Discount\IssuedCodes`: the codes of the customer accounts (`ofCustomer()`) and the codes that the address's automation rows of the event queue still hold (`ofAddress()`, read before the erasure clears those rows); the erasure removes the unused ones (`removeUnused()`). A used code and a remainder voucher stay. |
 | Without psgdpr | The same two operations run from the Log screen's "Privacy request" form for an address (section 10.8). |
 | New-version check | The module asks GitHub for the latest version once a day and sends no store data (section 11.5). The merchant guide carries this sentence. |
+| Installation report | While a Smaily account is connected, the module sends Smaily the installation report of section 11.1: the shop addresses, the versions, the connected Smaily accounts, the switched-on features and whether each connection works. It holds no customer, subscriber, order or admin-user data, so an export and an erasure have nothing of it to list or remove. The merchant guide, the README and the changelog carry the sentence. |
 
 **As built (Story 5.6, `Privacy\`).** A shopper is an address, in every shop and at every
 connection of the installation: the address itself (compared without regard to letter case; an
@@ -3210,9 +3309,18 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 `parent::uninstall()`. The uninstaller:
 
 1. Runs every listener of `Uninstaller::BEFORE_REMOVAL`, while every key and table still exists. A
-   listener that throws is logged by its error class and stops nothing. The engine disconnect is
-   registered there (`EngineProvider`: §16 per stored connection, one 3 s attempt each, section 8.9).
-   Story 6.1 registers the `deactivated` report there, before it.
+   listener that throws is logged by its error class and stops nothing. Two are registered:
+   - first the installation report's `deactivated` event (`ReportProvider`, section 11.1): one
+     attempt of at most 5 s, with the connections as they are, and only from a store with a
+     connected Smaily account. `ReportProvider` registers after `EngineProvider`, so it names its
+     listener with `Services::listenFirst()` (section 1.2), which puts it ahead of the listeners
+     registered so far; the order of the providers, and with it the order of the tick's jobs, is
+     unchanged;
+   - then the engine disconnect (`EngineProvider`: §16 per stored connection, one 3 s attempt
+     each, section 8.9), which sends no report of its own.
+
+   Whatever the service answers, the removal goes on: a report that was not taken in leaves one
+   line in the shop's log.
 2. Removes the 2.x override file under the rule of section 2.4.
 3. Deletes every key of `Uninstaller::KEYS` at every scope with `deleteByName()`. The list is
    explicit, legacy keys included, because the legacy prefix `SMAILY_` also matches the new one. A
@@ -3223,6 +3331,11 @@ As built (Story 1.7), the main class's `uninstall()` calls `Install\Uninstaller:
 
 Demonstrated on 8.0.0, 8.2.8 and 9.2.0: a console uninstall leaves 0 module keys and 0 module tables,
 after a fresh install and after an upgrade.
+
+**Reset.** PrestaShop's "Reset" of a module runs its uninstall and then its install: the main class
+has no `reset()` of its own. A Reset therefore sends `deactivated` too, and removes the Smaily
+account with the rest of the data, so the installation stays "deactivated" at Smaily until an
+account is connected again and its first snapshot goes (owner, 2026-11-23: accepted).
 
 The discount codes that the module issued (section 7) are PrestaShop's cart rules and stay after an
 uninstall, as the Magento and WooCommerce connectors leave theirs: shoppers hold them in emails
@@ -3277,10 +3390,10 @@ once a day and sends no store data."
 |---|---|---|
 | Unit | Pure logic: legacy mapper (every fixture), consent policy, audience, router, payload builders, retry ladder, failure classes, tick scheduling, report builder. At least one case per behaviour runs on the shipped defaults (`woo:docs/LESSONS.md` §2.21). | `tests/Unit/<Area>/` |
 | Integration | PHPUnit inside the docker store against its real database: install, upgrade from each fixture in `tests/fixtures/legacy/` (2.x, 1.6.x leftovers, 1.6.x code, multishop), hooks → queue rows, tick, flush against mocks. A test seeds its own state and never relies on suite order (`woo:` §2.25). The dev shop does not install the module by itself, and the flashlight image restores its demo database whenever the shop container is recreated (`docs/DEV_ENVIRONMENT.md` sections 4 and 8), so the integration base installs the module and loads its fixture itself. | `tests/Integration/<Area>/` |
-| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock: `EngineMockServer.php` + `mock-engine/router.php` stand in for `https://intelligence.smaily.com`. It answers the setup exchange (§1), the ping (§2) and the disconnect (§16) in the shapes that the contract's text gives, each answer naming its contract section; it issues a key per exchange, knows which keys it issued and revoked, records every request, and takes switches for a refusal (401, 403 `tenant_inactive`, 409 `plugin_update_required`), an HTTP error and a delay. Its transport sends the engine's address to the mock and lets no request to another host leave. The mock follows the structure of `woo:tests/Integration/Fixtures/RecEngineMockServer.php`, not its answers (`woo:docs/LESSONS.md` §2.4). Later Stories add their routes to it. A test that stores a connection removes it: the tick's health check asks the engine about every stored connection (`tests/Integration/Engine/EngineTestCase.php`). `subscription.smaily.com` resolves to 127.0.0.1 in the sandbox (Magento rule). | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
-| Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, the engine mock answers `intelligence.smaily.com`, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). The suite expects a reset shop: it is not green on a shop that was walked by hand or got a second shop. | `tests/egress-guard/` |
+| Mocks | The Smaily API mock: `tests/Integration/Fixtures/SmailyMockServer.php` starts PHP's built-in server on `mock-smaily/router.php`. It answers the contact upsert, the autoresponder, the workflow list (`workflows.php`, by `trigger_type`), the unsubscriber list (`contact.php?list=2`, paged by page number) and the action log (`history.php`). Its transport sends `https://<subdomain>.sendsmaily.net` to the mock. **Known gap:** that transport passes any other host on to the real HTTP client, so a future test that runs the whole tick with it could reach a real outside service (clean-up item: make the transport refuse other hosts). The GitHub mock: `GithubMockServer.php` + `mock-github/router.php` stand in for `https://api.github.com` (section 11.5). The engine mock: `EngineMockServer.php` + `mock-engine/router.php` stand in for `https://intelligence.smaily.com`. It answers the setup exchange (§1), the ping (§2) and the disconnect (§16) in the shapes that the contract's text gives, each answer naming its contract section; it issues a key per exchange, knows which keys it issued and revoked, records every request, and takes switches for a refusal (401, 403 `tenant_inactive`, 409 `plugin_update_required`), an HTTP error and a delay. Its transport sends the engine's address to the mock and lets no request to another host leave. The mock follows the structure of `woo:tests/Integration/Fixtures/RecEngineMockServer.php`, not its answers (`woo:docs/LESSONS.md` §2.4). Later Stories add their routes to it. A test that stores a connection removes it: the tick's health check asks the engine about every stored connection (`tests/Integration/Engine/EngineTestCase.php`). The installation report (section 11.1) is tested through a transport in memory (`tests/Integration/Report/ReportTestCase.php`), which answers its receiver and lets no other host out. `subscription.smaily.com` resolves to 127.0.0.1 in every shop of the Compose files (`extra_hosts`, Magento's rule), and `tests/bootstrap.php` refuses to run the suite in a shop where it resolves elsewhere: a test that uninstalls the module or runs the whole tick could otherwise send a report to the real receiver. The subscription mock (`mock-subscription/router.php` with `contract.php`, the body rules written from the contract's text) is the receiver of a walk behind the egress guard: it checks a report in the contract's order, records what it took and what it refused, and takes switches for an HTTP failure, `Retry-After` and a delay. | `tests/Integration/Fixtures/` A workflow of the mock's state can name a `subdomain`: it is then listed only to that account, and each recorded request names its `host`. |
+| Walks | A walk of the admin screens in a dev shop runs behind the egress guard of `tests/egress-guard/`: the Smaily mock answers every `*.sendsmaily.net` host inside the shop container, the engine mock answers `intelligence.smaily.com`, the subscription mock answers `subscription.smaily.com`, and every other host is refused. It is loaded before the first admin request and checked with `check.sh` (`docs/DEV_ENVIRONMENT.md` section 4a). The suite expects a reset shop: it is not green on a shop that was walked by hand or got a second shop. | `tests/egress-guard/` |
 | Failed queries | `tests/Integration/Fixtures/FailingQueries.php` stands behind the gateway (`Sql::useConnection()`) and answers `false` for the statements that a pattern selects, as a live 9.2.0 does, so a test of a failed read runs alike on every lane. The tests named "…CouldNotBeRead…" and "…ThatFails…" pin the safe outcome of each caller group of section 1.6. Code that relies on a core API is tested with a real failure (a table that is away, a trigger that refuses a row) and runs with debug mode off too (`docs/DEV_ENVIRONMENT.md` 4). | `tests/Integration/`, `tests/Unit/Database/` |
-| Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. The health check of the engine sends nothing while the connection table is empty; the two tests below also give it a client without an engine. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
+| Whole-tick tests | **[D]** A test that runs the whole tick stubs the update check, so no test calls the real GitHub. The health check of the engine sends nothing while the connection table is empty; the two tests below also give it a client without an engine, and the installation report a sender without a receiver. Two tests pin the tick's full job list in order: `tests/Integration/Scheduler/SchedulerProviderTest.php` and `tests/Integration/Migration/PendingMigrationTest.php`. Every Story that registers a scheduler job edits both. | `tests/Integration/` |
 | Dev shop side effects | Page traffic in a dev shop runs the fallback tick, and with it the daily update check against the real GitHub. Some integration test does not restore the cron tokens it found, so after a full suite run the dev shop refuses the token it had before (clean-up item). | — |
 | Multistore | The trait `tests/Integration/MultistoreShop.php` turns the test shop into a multistore shop for one test: it switches multishop on, adds shops and shop groups, and puts everything back in `tearDown()`. The added rows carry only what `Shop` and `Configuration` read. | `tests/Integration/` |
 | Subprocesses | Concurrency tests start PHP workers next to the test (`Queue/flush-worker.php`, `Migration/migration-worker.php`, `Scheduler/lock-holder.php`). A worker prints with `fwrite(STDOUT, …)`: the shop's bootstrap can buffer what `echo` prints. | `tests/Integration/<Area>/` |
@@ -3886,6 +3999,10 @@ has one owner:
   2. Uninstall sends `deactivated` before §16.
   3. The body validates against the contract's schema; no secret is in it.
   4. Tests and the sandbox never reach the real service.
+- **As built.** Section 11.1; the uninstall order in section 11.4; the job in section 4.1; the
+  keys in section 2.1. It also adds `Services::listenFirst()` (section 1.2), the observer of
+  `Smaily\Client`, the health of `Engine\Client`, the subscription mock and the egress guard's
+  third host (`docs/DEV_ENVIRONMENT.md` 4a). The main class did not change.
 
 ### Story 6.2 — Upgrade guide, user guide, changelog, translation sweep
 
@@ -3959,6 +4076,9 @@ has one owner:
 | 49 | An order that a payment provider's server confirms | `actionValidateOrder` then runs in a request without the shopper's cookies, and the order gets no attribution row (section 8.10). The engine can still credit it by the customer's email click (§5, step 3). Storing the cookies with the cart before the payment would need a column or a table. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 51 | No export in the back office on PrestaShop 9 with psgdpr | psgdpr 1.4.3's admin screen cannot search or show a customer on 9.2.0 (facts file 6.13), and the Log hides its "Privacy request" form while psgdpr is enabled (section 11.2). A merchant on 9.x then exports only through the customer's own page, cannot export for an address without an account, and erases by address. Not decided: whether the Log shows its form beside psgdpr. | Owner |
+| 52 | Where the line of a report that was not taken in goes | It goes to PrestaShop's log (Advanced Parameters > Logs), as the siblings write theirs to a log file, and not to the module's Log page: that page lists deliveries that can be sent again, and a report is never queued (section 11.1). Confirm that this is "the Log" that Linear CON-404 means. | Owner |
+| 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
+| 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -4090,3 +4210,16 @@ Decisions of 2026-11-21:
 - No price groups in 3.0.0 (owner, 2026-11-21): the catalog row carries the price of a visitor who
   is not signed in, and neither `group_prices` nor `price_group` is sent (section 8.11; section 14,
   row 41).
+
+Decisions of 2026-11-23:
+
+- The installation report has no setting, no opt-out and no admin notice, as in the sibling
+  connectors (owner, 2026-11-23). The merchant guide, the README and the changelog say what it
+  sends and when (section 11.1).
+- A Reset of the module sends `deactivated`, because PrestaShop's Reset runs the uninstall
+  (owner, 2026-11-23: accepted; section 11.4).
+- The `deactivated` report goes before the engine is told to disconnect: its uninstall listener is
+  registered with `Services::listenFirst()`, and the order of the providers stays (orchestrator,
+  2026-11-23; sections 1.2 and 11.4).
+- The answer's `latest_version` and `notice` are not read in 3.0.0 (owner, 2026-11-20 and
+  2026-11-23; section 11.5).

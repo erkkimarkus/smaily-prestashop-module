@@ -11,6 +11,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\Upgrade300;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ReportSender;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Door;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
@@ -133,11 +134,18 @@ final class PendingMigrationTest extends IntegrationTestCase
                 return new Response(404, '');
             }
         }, '3.0.0'));
+        // The installation report asks no real receiver: an account that a test left behind sends nowhere.
+        $services->set(ReportSender::class, fn (): ReportSender => new ReportSender(new class() implements Transport {
+            public function request(string $method, string $url, array $options = []): Response
+            {
+                return new Response(404, '');
+            }
+        }, '3.0.0'));
 
         $report = $services->get(Tick::class)->run('tick', 50);
 
         self::assertSame(TickReport::RAN, $report->status());
-        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'ingest_flush', 'catalog_manifest', 'storefront_cache', 'migration', 'update_check'], $report->jobs());
+        self::assertSame(['queue_flush', 'queue_janitor', 'contacts_reconcile', 'contacts_refresh', 'contacts_import', 'abandoned_cart', 'engine_health', 'ingest_flush', 'catalog_manifest', 'storefront_cache', 'installation_report', 'migration', 'update_check'], $report->jobs());
         self::assertFalse($built);
     }
 

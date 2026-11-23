@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -45,6 +46,14 @@ use Symfony\Component\HttpFoundation\Request;
 final class SaveStep extends AbstractSetupAction
 {
     protected function handle(Request $request, int $idShop)
+    {
+        return $this->reported(fn () => $this->save($request, $idShop));
+    }
+
+    /**
+     * @return array<string, mixed>|JsonResponse
+     */
+    private function save(Request $request, int $idShop)
     {
         $body = $this->body($request);
         $data = is_array($body['data'] ?? null) ? $body['data'] : [];
