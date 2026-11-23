@@ -107,7 +107,7 @@ final class OrderAttributionTest extends StorefrontTestCase
     /**
      * @dataProvider storeTokenCases
      */
-    public function testAStoreCreatedTokenIsStoredByTheMerchantsConfirmationAndAGuestsOwnAnswer(bool $setting, bool $guest, bool $newsletter, bool $stored): void
+    public function testAStoreCreatedTokenIsStoredByTheMerchantsConfirmationAlone(bool $setting, bool $guest, bool $newsletter, bool $stored): void
     {
         $this->connect();
         $this->confirmConsent($setting);
@@ -131,7 +131,7 @@ final class OrderAttributionTest extends StorefrontTestCase
             'the setting, a customer who is not subscribed' => [true, false, false, true],
             'no setting, a subscribed customer' => [false, false, true, false],
             'the setting and a guest who ticked the newsletter box' => [true, true, true, true],
-            'the setting, a guest who left the box empty' => [true, true, false, false],
+            'the setting, a guest who left the box empty' => [true, true, false, true],
             'no setting, a guest who ticked the box' => [false, true, true, false],
         ];
     }
@@ -154,6 +154,35 @@ final class OrderAttributionTest extends StorefrontTestCase
         self::assertSame($token, $tokens->token(1, true), 'the same answer through the request');
         self::assertCount(1, $this->sent, 'and one cookie');
         self::assertNull($tokens->token(1, false), 'and none for a shopper without consent in the same request');
+    }
+
+    /**
+     * @dataProvider guestCheckouts
+     */
+    public function testAGuestAtTheCheckoutGetsATokenByTheMerchantsConfirmationAlone(bool $setting, bool $newsletter, bool $created): void
+    {
+        $this->connect();
+        $this->confirmConsent($setting);
+        $this->storefrontRequest([]);
+        $tokens = $this->visitorToken([]);
+        $this->services->set(VisitorToken::class, static fn (): VisitorToken => $tokens);
+        $guest = new \Customer($this->fixture->customer('token-guest@example.test', true, $newsletter));
+
+        $this->hook('actionCustomerAccountAdd', ['newCustomer' => $guest]);
+
+        self::assertSame($created ? ['smaily_rec_uid'] : [], array_column($this->sent, 0));
+    }
+
+    /**
+     * @return array<string, array{bool, bool, bool}>
+     */
+    public function guestCheckouts(): array
+    {
+        return [
+            'the setting, the newsletter box left empty' => [true, false, true],
+            'the setting and a ticked newsletter box' => [true, true, true],
+            'no setting, a ticked newsletter box' => [false, true, false],
+        ];
     }
 
     public function testTheStorefrontAnswersTheIdentityMergesSeam(): void

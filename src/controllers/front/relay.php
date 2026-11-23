@@ -41,13 +41,11 @@ class SmailyforprestashopRelayModuleFrontController extends EndpointController
 {
     protected function answer(Services $services, Request $request): array
     {
-        $customer = $this->context->customer;
         [$status, $answer] = $services->get(Relay::class)->handle(
             (int) $this->context->shop->id,
             (string) $request->server->get('REQUEST_METHOD', ''),
             (string) $request->getContent(),
-            Cookies::ofRequest($this->context),
-            $customer instanceof Customer && $customer->isLogged() ? $customer : null
+            Cookies::ofRequest($this->context)
         );
 
         return [$status, 'application/json; charset=utf-8', (string) json_encode($answer)];

@@ -276,8 +276,8 @@ ask (Linear discipline below).
   `window.smailyConnect` (`node --test tests/js/`). A page holds nothing about its visitor: what
   differs per visitor comes after load from `relay`, `land` and `recommendations`. A store-created
   `vs_` token, and a customer sent to Campaign Intelligence at sign-in, need the merchant's setting
-  alone, never the customer's `newsletter` (owner, 2026-11-23); only a guest-checkout customer's
-  token also needs the checkout's newsletter box. The click and the visitor token also wait with the
+  alone, never the customer's `newsletter` (owner, 2026-11-23); a guest-checkout customer's token
+  follows the same one rule (`Attribution::marketingConsent()`). The click and the visitor token also wait with the
   cart (`Storefront\CartAttribution`, by the rule of the order's own row) for an order whose
   request has no shopper's cookies; the order takes the row once per request and deletes it. The
   cache is files in PrestaShop's cache folder; an engine answer stays an hour. PrestaShop initialises a front controller once per

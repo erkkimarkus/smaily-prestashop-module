@@ -85,29 +85,20 @@ final class BrowseRelayTest extends StorefrontTestCase
         self::assertSame('vt_8f3k2a9xq4', $this->engine->requestsTo(self::BROWSE)[0]['body']['events'][0]['smaily_visitor_token']);
     }
 
-    public function testAStoreCreatedTokenTravelsByTheConsentSettingAloneForASignedInCustomer(): void
+    public function testAStoreCreatedTokenTravelsByTheConsentSettingAlone(): void
     {
         $this->connect();
         $cookies = ['smaily_rec_uid' => self::STORE_TOKEN];
-        $subscriber = new \Customer($this->fixture->customer('relay-subscriber@example.test', false, true));
-        $other = new \Customer($this->fixture->customer('relay-other@example.test', false, false));
 
         $this->relay([self::event('search', '1')], $cookies);
-        $this->relay([self::event('search', '2')], $cookies, $subscriber);
         $this->confirmConsent();
-        $this->relay([self::event('search', '3')], $cookies);
-        $this->relay([self::event('search', '4')], $cookies, $subscriber);
-        $this->relay([self::event('search', '5')], $cookies, $other);
+        $this->relay([self::event('search', '2')], $cookies);
 
         $sent = array_map(
             static fn (array $request): ?string => $request['body']['events'][0]['smaily_visitor_token'] ?? null,
             $this->engine->requestsTo(self::BROWSE)
         );
-        self::assertSame(
-            [null, null, self::STORE_TOKEN, self::STORE_TOKEN, self::STORE_TOKEN],
-            $sent,
-            'without the merchant\'s confirmation nobody\'s token travels; with it, also that of a customer who is not subscribed'
-        );
+        self::assertSame([null, self::STORE_TOKEN], $sent, 'without the merchant\'s confirmation nobody\'s token travels; with it, every shopper\'s');
     }
 
     public function testAnEventNamesItsProductByTheKeyOfTheCatalogRow(): void
@@ -238,14 +229,13 @@ final class BrowseRelayTest extends StorefrontTestCase
      *
      * @return array{int, array<string, mixed>}
      */
-    private function relay(array $events, array $cookies = [], ?\Customer $customer = null): array
+    private function relay(array $events, array $cookies = []): array
     {
         return $this->services->get(Relay::class)->handle(
             1,
             'POST',
             (string) json_encode(['events' => $events]),
-            new Cookies($cookies, '/', false, static fn (): bool => true),
-            $customer
+            new Cookies($cookies, '/', false, static fn (): bool => true)
         );
     }
 }

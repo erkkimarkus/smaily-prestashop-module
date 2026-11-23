@@ -96,7 +96,7 @@ final class CartAttribution
         if ($connection === null || $cookies === null) {
             return;
         }
-        $read = $this->attribution->read($cookies, $connection, $context->customer instanceof \Customer ? $context->customer : null);
+        $read = $this->attribution->read($cookies, $connection);
         if ($read['rec_id'] === null && $read['visitor_token'] === null) {
             return;
         }

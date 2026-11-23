@@ -2372,8 +2372,8 @@ attributes.
   connection, and with something to keep the cart's row as well.
 - **At the order.** `OrderAttribution` takes the cart's row and deletes it, whichever source the
   order's row then has: the cookies of the order's own request win when they hold a recommendation
-  id or a token. A `vs_` token from the cart counts only while marketing consent still holds for
-  the order's customer. A cart that PrestaShop splits into several orders gives each the same
+  id or a token. A `vs_` token from the cart counts only while marketing consent (below) still
+  holds at the order. A cart that PrestaShop splits into several orders gives each the same
   values.
 - **A cart without an order** loses its row a day after the shopper's last page with it
   (`KEEP_SECONDS`; the janitor, section 11.3). A provider that confirms later than that leaves
@@ -2399,9 +2399,19 @@ Magento connector and the WP Consent API's answer for the WooCommerce plugin
 `customer.newsletter` says; that column decides the contact sync alone (section 6.1). Until
 2026-11-23 the rule asked for the setting and the customer's `newsletter`.
 
-One rule beside it did not change: a guest-checkout customer (`customer.is_guest`) gets and sends
-a store-created token only with the newsletter box of the checkout's customer step ticked as well
-(`Attribution::guestConsents()`).
+**[D]** (owner, 2026-11-23; Linear CON-409; section 15) The same one rule holds for a
+guest-checkout customer (`customer.is_guest`): the merchant's setting alone, whatever the
+newsletter box of the checkout's customer step says, as the WooCommerce plugin reads the banner's
+answer for a guest too. Until then a guest also needed that box. The rule asks nothing of the
+customer, so no path hands it one. A guest's token reaches the engine with the order's row, which
+binds it to the order's address: group (c) of section 8.11 holds no guest, so the identity merge
+of a guest checkout carries an engine `vt_` token only, and the guest is sent as a customer only
+where the contact sync takes the guest (group (a)). Walked over HTTP on 8.2.8 and 9.2.0 against
+the engine mock (2026-11-23), five guests per lane. With the setting on and the box empty, the
+customer step set the cookie, the order went out with that token and the mock bound it to the
+order's address, also for an order that a request without the shopper's cookies created from the
+cart's row. With the setting off, no guest got a cookie, with the box ticked or empty, and a
+`vs_` token that the browser already held reached neither the relay nor the order.
 
 A store-created token in the cookie reads as absent on every sending path (the relay, a guest's
 recommendations, the order's row, the merge) while that does not hold. An engine `vt_` token came
@@ -2687,7 +2697,8 @@ switch of item 1 is the checkbox of the Intelligence panel (section 10.11), save
 (owner, 2026-11-23); `Config\EngineSettings::setConsentConfirmed()` writes it. The setting alone
 also decides what happens when a customer signs in or registers: the store-created visitor token
 and the customer's row to Campaign Intelligence (owner, 2026-11-23; sections 8.10, "The visitor
-token and marketing consent", and 8.11, group (c)).
+token and marketing consent", and 8.11, group (c)). It decides the
+store-created visitor token of a guest checkout the same way (Linear CON-409).
 
 **[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
 
@@ -4368,7 +4379,7 @@ has one owner:
 | 45 | The form of the connection prefix | **Decided** (owner, 2026-11-21): as the Magento and WooCommerce connectors, the module refuses an exchange, and ignores a ping, whose prefix is neither `c<N>-` nor `''`, and stores a prefix of that form exactly as sent (section 8.9). | Owner; cross-connector analysis (Linear CON-397) |
 | 46 | No `source` constant for PrestaShop's browse events | Contract §6 lists `plugin_woo`, `plugin_shopify` and `plugin_magento` and asks a sender to use its listed constant; it lists none for PrestaShop. The relay sends no `source`, so the engine stores `web` (section 8.10). A `plugin_prestashop` needs a contract change. | Engine team |
 | 47 | Browse events without `sku` | Answered by Story 5.2: `Engine\Payload\Keys::sku()` listens to the product key seam, so a browse event names its product by the catalog row's key (sections 8.10 and 8.11). That key carries the namespace of row 1, which waits for the engine team. | Engine team (row 1) |
-| 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). Not changed, and open: a guest-checkout customer's token still also needs the newsletter box of the checkout. | Owner |
+| 48 | Marketing consent for a store-created visitor token | **Decided** (owner, 2026-11-23; Linear CON-408): the merchant's consent setting alone, for the token of a sign-in and for the customer sent at a sign-in. The contract asks for a shopper's marketing consent (§5, §7) and names no signal; the siblings read it from the cookie banner (Magento's cookie notice, the WP Consent API), and the merchant's confirmation is what PrestaShop has of a cookie banner (sections 8.10, 8.11 and 15). The same rule for a guest-checkout customer's token, **decided** (owner, 2026-11-23; Linear CON-409): the newsletter box of the checkout is no longer asked. | Owner |
 | 49 | An order that a payment provider's server confirms | **Decided and built** (owner, 2026-11-23; Linear CON-407): the click and the visitor token are kept with the cart in `smaily_connect_cart_attribution`, and an order whose request has no shopper's cookies takes them from there (section 8.10). Left: a row is kept a day after the shopper's last page with the cart, so a confirmation that comes later than that gets no cookie credit; a checkout whose every step runs outside PrestaShop's page controllers keeps only what the earlier pages kept. | Owner |
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
@@ -4531,6 +4542,18 @@ Decisions of 2026-11-23:
   The siblings read the cookie banner's answer there, and the confirmation is what PrestaShop has
   of one (sections 8.10, 8.11 and 9; section 14, rows 43 and 48). A consent decision: it is not
   changed again without the owner.
+- Tracking of a guest at checkout follows the merchant's confirmation alone too (owner,
+  2026-11-23; Linear CON-409). The store-created visitor token of a guest checkout needs the
+  setting "My store's cookie banner covers Smaily tracking" and nothing of the guest: the
+  checkout's newsletter box is no longer asked, so one rule holds for customers and guests, as the
+  WooCommerce plugin reads the banner's answer for a guest as well. The token that the cart keeps
+  is checked by the same rule at the order. Not changed: the setting stays off after an install
+  and after an upgrade; `window.smailyConnect.consentOverride()` still decides in the browser; who
+  the contact sync sends to Smaily (the consent mode and "include guests") is untouched; which
+  customers are sent to Campaign Intelligence stays with `Engine\Ingest\CustomerScope`, so a guest
+  reaches the engine with the order, and as a customer only where the contact sync takes the guest
+  (sections 8.10 and 9; section 14, row 48). A consent decision: it is not changed again without
+  the owner.
 - An order that a payment provider's server confirms keeps its attribution (Linear CON-407). The
   click attribution and the visitor token are stored with the cart before the payment, as the
   Shopify app stores them in the cart's attributes, and read when the order is created in a

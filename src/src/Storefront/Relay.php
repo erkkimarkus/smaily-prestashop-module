@@ -92,11 +92,10 @@ final class Relay
 
     /**
      * @param string $body the request body
-     * @param \Customer|null $customer the logged-in customer, or null
      *
      * @return array{int, array<string, mixed>} the HTTP status and the JSON answer
      */
-    public function handle(int $idShop, string $method, string $body, Cookies $cookies, ?\Customer $customer): array
+    public function handle(int $idShop, string $method, string $body, Cookies $cookies): array
     {
         if ($method !== 'POST') {
             return [405, ['ok' => false]];
@@ -119,7 +118,7 @@ final class Relay
         }
 
         $now = gmdate('Y-m-d\TH:i:s\Z', ($this->clock)());
-        $token = $this->attribution->read($cookies, $connection, $customer)['visitor_token'];
+        $token = $this->attribution->read($cookies, $connection)['visitor_token'];
         $events = [];
         foreach (array_slice(array_values($raw), 0, BrowseEvents::MAX_EVENTS) as $item) {
             $clean = is_array($item) ? BrowseEvents::clean($item, $now) : null;

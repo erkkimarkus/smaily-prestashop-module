@@ -150,7 +150,7 @@ final class RelayTest extends TestCase
      */
     public function testABodyWithoutAnEventsListIsRefused(string $body): void
     {
-        [$status, $answer] = $this->relay()->handle(1, 'POST', $body, $this->fixture->cookies(), null);
+        [$status, $answer] = $this->relay()->handle(1, 'POST', $body, $this->fixture->cookies());
 
         self::assertSame(400, $status);
         self::assertSame('events_required', $answer['error']);
@@ -171,7 +171,7 @@ final class RelayTest extends TestCase
 
     public function testOtherMethodsAndAShopWithoutAUsableConnectionAreRefused(): void
     {
-        self::assertSame(405, $this->relay()->handle(1, 'GET', '', $this->fixture->cookies(), null)[0]);
+        self::assertSame(405, $this->relay()->handle(1, 'GET', '', $this->fixture->cookies())[0]);
 
         $this->fixture->connection = StorefrontFixture::connection(['refused_at' => '2026-11-21T09:00:00Z']);
         self::assertSame(404, $this->handle([self::event('search')])[0], 'the engine refuses the connection');
@@ -189,17 +189,17 @@ final class RelayTest extends TestCase
         $relay = $this->relay();
         $body = (string) json_encode(['events' => [self::event('search')]]);
         for ($i = 0; $i < Relay::LIMIT_PER_MINUTE; ++$i) {
-            self::assertSame(200, $relay->handle(1, 'POST', $body, $this->fixture->cookies(), null)[0]);
+            self::assertSame(200, $relay->handle(1, 'POST', $body, $this->fixture->cookies())[0]);
         }
 
-        [$status, $answer] = $relay->handle(1, 'POST', $body, $this->fixture->cookies(), null);
+        [$status, $answer] = $relay->handle(1, 'POST', $body, $this->fixture->cookies());
 
         self::assertSame(429, $status);
         self::assertSame('rate_limited', $answer['error']);
         self::assertCount(Relay::LIMIT_PER_MINUTE, $this->fixture->requests);
 
         $this->fixture->now += 60;
-        self::assertSame(200, $relay->handle(1, 'POST', $body, $this->fixture->cookies(), null)[0]);
+        self::assertSame(200, $relay->handle(1, 'POST', $body, $this->fixture->cookies())[0]);
     }
 
     /**
@@ -247,7 +247,7 @@ final class RelayTest extends TestCase
      */
     private function handle(array $events, array $cookies = []): array
     {
-        return $this->relay()->handle(1, 'POST', (string) json_encode(['events' => $events]), $this->fixture->cookies($cookies), null);
+        return $this->relay()->handle(1, 'POST', (string) json_encode(['events' => $events]), $this->fixture->cookies($cookies));
     }
 
     private function relay(): Relay

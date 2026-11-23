@@ -127,8 +127,6 @@ connectors do (CLAUDE.md, "One connector never changes a behaviour rule alone").
 1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379;
    `docs/MARKETPLACE.md` 6.3). The cross-connector analysis CON-397 decides the late or retried contact changes, the
    workflows after an account or mode change and two shops on one account for all connectors at once.
-2. A guest-checkout customer's store-made visitor token still needs the checkout's newsletter box beside the
-   merchant's confirmation; the decision of 2026-11-23 named the signed-in customer only (ARCHITECTURE 14, row 48).
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
 shows whether the real service takes an installation report); ask the

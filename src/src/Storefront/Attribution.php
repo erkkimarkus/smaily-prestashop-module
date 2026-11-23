@@ -60,11 +60,9 @@ final class Attribution
     }
 
     /**
-     * @param \Customer|null $customer the shopper, where the request knows one
-     *
      * @return array{rec_id: ?string, context: ?string, visitor_token: ?string, session_id: ?string}
      */
-    public function read(Cookies $cookies, Connection $connection, ?\Customer $customer = null): array
+    public function read(Cookies $cookies, Connection $connection): array
     {
         $names = new ClientConfig($connection);
         $recId = (string) $cookies->get($names->cookieName(ClientConfig::REC_ID));
@@ -75,19 +73,19 @@ final class Attribution
         return [
             'rec_id' => Shape::isRecId($recId) ? $recId : null,
             'context' => Shape::isContext($context) ? $context : null,
-            'visitor_token' => $this->visitorToken($token, $connection, $customer),
+            'visitor_token' => $this->visitorToken($token, $connection),
             'session_id' => Shape::isSessionId($session) ? $session : null,
         ];
     }
 
     /**
-     * A visitor token as it may be sent for the shopper, or null: an engine token as it is, a
+     * A visitor token as it may be sent for a shopper, or null: an engine token as it is, a
      * store-created one only with marketing consent, any other value never. The rule of a token
      * from a cookie, and of one that was kept with the cart (CartAttribution).
      */
-    public function visitorToken(string $token, Connection $connection, ?\Customer $customer): ?string
+    public function visitorToken(string $token, Connection $connection): ?string
     {
-        if (!Shape::isVisitorToken($token) || (Shape::isStoreVisitorToken($token) && !$this->marketingConsent($connection, $customer))) {
+        if (!Shape::isVisitorToken($token) || (Shape::isStoreVisitorToken($token) && !$this->marketingConsent($connection))) {
             return null;
         }
 
@@ -95,26 +93,17 @@ final class Attribution
     }
 
     /**
-     * Whether a store-created visitor token may be created for, or sent about, the shopper of this
-     * request: the merchant confirmed that the store's cookie banner covers Smaily tracking
-     * (Config\EngineSettings::consentConfirmed()). That is what the server can see of the storefront
-     * scripts' consent rule, as the accepted cookie notice is for the Magento connector.
+     * Whether a store-created visitor token may be created for, or sent about, a shopper of the
+     * connection's shop: the merchant confirmed that the store's cookie banner covers Smaily
+     * tracking (Config\EngineSettings::consentConfirmed()). That is what the server can see of the
+     * storefront scripts' consent rule, as the accepted cookie notice is for the Magento connector.
      *
-     * The confirmation decides alone for a visitor who is not logged in and for a signed-in
-     * customer, whatever that customer's `newsletter` (owner, 2026-11-23). A guest-checkout
-     * customer also needs the guest's own answer (guestConsents()).
+     * One rule for every shopper (owner, 2026-11-23): a visitor who is not logged in, a signed-in
+     * customer and a guest-checkout customer. Nothing of the customer is asked, and `newsletter`
+     * decides the contact sync alone.
      */
-    public function marketingConsent(Connection $connection, ?\Customer $customer): bool
+    public function marketingConsent(Connection $connection): bool
     {
-        return ($this->consentConfirmed)($connection->idShop()) && self::guestConsents($customer);
-    }
-
-    /**
-     * The shopper's own part of the rule, which only a guest-checkout customer has: the newsletter
-     * box of the checkout's customer step, `customer.newsletter`. Every other shopper passes.
-     */
-    public static function guestConsents(?\Customer $customer): bool
-    {
-        return $customer === null || (int) $customer->id <= 0 || (int) $customer->is_guest !== 1 || (int) $customer->newsletter === 1;
+        return ($this->consentConfirmed)($connection->idShop());
     }
 }

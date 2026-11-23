@@ -40,7 +40,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
  * - An order whose request carries none of them stores what the shopper's own requests kept with
  *   the cart (CartAttribution): a payment provider's server call, an employee in the back office,
  *   a command. A store-created token of the cart counts only while the rule that kept it still
- *   holds for the order's customer.
+ *   holds: the merchant's confirmation.
  * - Only what Attribution answers: a well-formed recommendation id, its context, and the visitor
  *   token that may be sent. The context is stored only beside a recommendation id: the two
  *   describe one landing.
@@ -77,7 +77,6 @@ final class OrderAttribution
     public function orderValidated(array $params): void
     {
         $order = $params['order'] ?? null;
-        $customer = ($params['customer'] ?? null) instanceof \Customer ? $params['customer'] : null;
         if (!$order instanceof \Order || (int) $order->id <= 0) {
             return;
         }
@@ -88,9 +87,9 @@ final class OrderAttribution
 
         $cookies = ($this->cookies)();
         $kept = $this->carts->take((int) $order->id_cart);
-        $read = $cookies === null ? ['rec_id' => null, 'context' => null, 'visitor_token' => null] : $this->attribution->read($cookies, $connection, $customer);
+        $read = $cookies === null ? ['rec_id' => null, 'context' => null, 'visitor_token' => null] : $this->attribution->read($cookies, $connection);
         if ($read['rec_id'] === null && $read['visitor_token'] === null && $kept !== null) {
-            $read = ['visitor_token' => $this->attribution->visitorToken((string) $kept['visitor_token'], $connection, $customer)] + $kept;
+            $read = ['visitor_token' => $this->attribution->visitorToken((string) $kept['visitor_token'], $connection)] + $kept;
         }
         if ($read['rec_id'] === null && $read['visitor_token'] === null) {
             return;

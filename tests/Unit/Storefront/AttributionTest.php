@@ -118,11 +118,11 @@ final class AttributionTest extends TestCase
         $cookies = $this->fixture->cookies(['smaily_rec_uid' => self::STORE_TOKEN]);
 
         self::assertNull($this->fixture->attribution()->read($cookies, $this->fixture->connection)['visitor_token']);
-        self::assertFalse($this->fixture->attribution()->marketingConsent($this->fixture->connection, null));
+        self::assertFalse($this->fixture->attribution()->marketingConsent($this->fixture->connection));
 
         $this->fixture->consentConfirmed = true;
         self::assertSame(self::STORE_TOKEN, $this->fixture->attribution()->read($cookies, $this->fixture->connection)['visitor_token']);
-        self::assertTrue($this->fixture->attribution()->marketingConsent($this->fixture->connection, null));
+        self::assertTrue($this->fixture->attribution()->marketingConsent($this->fixture->connection));
     }
 
     public function testTheCookieNamesAreTheConnectionsOwn(): void

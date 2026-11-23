@@ -45,9 +45,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\VisitorToken as Visitor
  *   `[A-Za-z0-9]`, each from PHP's cryptographically secure random_int() (about 131 random bits),
  *   set in the visitor-token cookie by the server.
  * - Marketing consent is the merchant's confirmation that the store's cookie banner covers Smaily
- *   tracking (Attribution::marketingConsent()). A signed-in customer needs nothing more (owner,
- *   2026-11-23). The caller's answer can only narrow it: a guest-checkout customer who left the
- *   newsletter box empty gets none (Attribution::guestConsents()).
+ *   tracking (Attribution::marketingConsent()). A signed-in customer and a guest-checkout
+ *   customer need nothing more (owner, 2026-11-23). The caller's answer can only narrow it.
  * - Without consent nothing is created and no store-created token is returned.
  * - Outside a storefront request (the back office, a command, a cron URL) there is no shopper's
  *   browser, and the answer is null.
@@ -124,7 +123,7 @@ final class VisitorToken implements VisitorTokenSource
         }
         $names = new ClientConfig($connection);
         $held = (string) $cookies->get($names->cookieName(ClientConfig::VISITOR));
-        $consents = $marketingConsent && $this->attribution->marketingConsent($connection, null);
+        $consents = $marketingConsent && $this->attribution->marketingConsent($connection);
         if (Shape::isEngineVisitorToken($held) || (Shape::isStoreVisitorToken($held) && $consents)) {
             return $held;
         }

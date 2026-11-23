@@ -73,7 +73,7 @@ final class CartAttributionTest extends StorefrontTestCase
             'no cookie at all' => [[], true, false, true],
             'the browse session alone' => [['smaily_anon_sid' => '0f8fad5b-d9cb-469f-a165-70867728950e'], true, false, true],
             'a store-created token, the merchant has not confirmed' => [['smaily_rec_uid' => self::STORE_TOKEN], false, false, true],
-            'a store-created token of a guest who left the newsletter box empty' => [['smaily_rec_uid' => self::STORE_TOKEN], true, true, false],
+            'a store-created token of a guest who ticked the newsletter box, the merchant has not confirmed' => [['smaily_rec_uid' => self::STORE_TOKEN], false, true, true],
             'a context without a recommendation id' => [['smaily_rec_ctx' => 'storefront'], true, false, true],
         ];
     }
@@ -86,6 +86,20 @@ final class CartAttributionTest extends StorefrontTestCase
         $idCart = $this->page(['smaily_rec_uid' => self::STORE_TOKEN], 'cart-store-token@example.test');
 
         self::assertSame([[$idCart, null, null, self::STORE_TOKEN]], array_map(static fn (array $row): array => [$row['id_cart'], $row['rec_id'], $row['context'], $row['visitor_token']], self::cartRows()));
+    }
+
+    public function testAGuestsStoreCreatedTokenIsKeptAndReachesTheOrderWithoutTheNewsletterBox(): void
+    {
+        $this->connect();
+        $this->confirmConsent();
+        $idCart = $this->page(['smaily_rec_uid' => self::STORE_TOKEN], 'cart-guest-token@example.test', true, false);
+        self::assertSame([[$idCart, self::STORE_TOKEN]], array_map(static fn (array $row): array => [$row['id_cart'], $row['visitor_token']], self::cartRows()));
+
+        // A payment provider's server confirms the order: a request without the shopper's cookies.
+        $this->storefrontRequest([]);
+        $idOrder = $this->fixture->order($idCart);
+
+        self::assertSame([['id_order' => $idOrder, 'rec_id' => null, 'context' => null, 'visitor_token' => self::STORE_TOKEN]], self::attributionRows());
     }
 
     public function testNothingIsKeptWithoutACartAConnectionOrAStorefrontRequest(): void
