@@ -93,8 +93,9 @@ check; 8.2.8 runs PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 
 prints deprecation notices: of modules that the image ships, of PrestaShop itself, and of the
 tests' own `setAccessible()` calls, which PHP 8.5 deprecates; none names the module's code. One
 run of that day on 8.2.8 failed `ConcurrentFlushTest` alone, as one earlier run had: a worker
-booted later than the 3 seconds the test gives it, on a machine that ran other stacks; the test
-passed alone and in every later run. 8.0.0 last
+booted later than the 3 seconds the test gave it then, on a machine that ran other stacks. The
+test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of
+a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
 and skips the integration tests (2224 tests, 3914 assertions, 1130 skipped). The storefront scripts have
 their own tests on Node's built-in runner, which needs no package: `node --test tests/js/` (43 tests).
@@ -121,7 +122,10 @@ The run builds `var/cache/prod`; remove that folder afterwards.
 
 A test that starts a PHP subprocess (the concurrency workers under `tests/Integration/`) reads the
 subprocess's output. The subprocess prints with `fwrite(STDOUT, …)`, not `echo`: the shop's bootstrap
-can buffer what `echo` prints, and the test then waits for a line that never comes.
+can buffer what `echo` prints, and the test then waits for a line that never comes. Workers that
+must start together print a line when they have booted the shop, and the test names their start
+time only then (`ConcurrentFlushTest`): a fixed number of seconds for the boot failed on a busy
+machine.
 
 The GitHub mock runs PHP's built-in server with four workers, under `setsid`, and its teardown signals
 the server's whole process group. On PHP 8.0 a signal to the server alone left the four workers

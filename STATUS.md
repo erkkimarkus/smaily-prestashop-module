@@ -72,8 +72,7 @@ export on 9.x).
    corrects.
 2. The owner walks the two test shops of `build/testkeskkond/` (guide `JUHEND.md` there, mocks only); what the walk
    finds comes back as fixes.
-3. `ConcurrentFlushTest` gives its workers more than 3 seconds to start.
-4. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
+3. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
    team answers INT-306.
 
 Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.

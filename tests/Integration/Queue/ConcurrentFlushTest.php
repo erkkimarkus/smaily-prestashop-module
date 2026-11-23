@@ -9,6 +9,8 @@ use Tests\Integration\IntegrationTestCase;
 /**
  * Flushes that start at once (the cron URL and visitors' ticks) run in separate PHP processes with
  * their own database connections, and claim from the same rows of the real event queue table.
+ * The test waits until every worker has booted the shop and then names one start time for all, so
+ * the flushes start together however long a boot takes on a busy machine.
  *
  * Acceptance 3 of Story 1.5.
  */
@@ -19,6 +21,9 @@ final class ConcurrentFlushTest extends IntegrationTestCase
     private const ROWS = 600;
 
     private const WORKERS = 4;
+
+    /** The seconds between the last worker's "ready" and the start that all are given. */
+    private const START_AFTER = 0.5;
 
     private string $output = '';
 
@@ -46,10 +51,19 @@ final class ConcurrentFlushTest extends IntegrationTestCase
             $ids[] = $queue->enqueue(self::EVENT_TYPE, 1, ['n' => $i]);
         }
 
-        $start = sprintf('%.3f', microtime(true) + 3);
         $workers = [];
         for ($i = 0; $i < self::WORKERS; ++$i) {
-            $workers[] = $this->startWorker($start);
+            $workers[] = $this->startWorker();
+        }
+        foreach ($workers as [, $pipes]) {
+            $ready = fgets($pipes[1]);
+            // A worker that did not boot has ended: its error output is read only then.
+            self::assertSame("ready\n", $ready, 'the worker booted the shop' . ($ready === "ready\n" ? '' : ': ' . stream_get_contents($pipes[2])));
+        }
+        $start = sprintf("%.3f\n", microtime(true) + self::START_AFTER);
+        foreach ($workers as [, $pipes]) {
+            fwrite($pipes[0], $start);
+            fclose($pipes[0]);
         }
         $claimed = array_map([$this, 'finish'], $workers);
 
@@ -73,11 +87,11 @@ final class ConcurrentFlushTest extends IntegrationTestCase
     /**
      * @return array{0: resource, 1: array<int, resource>}
      */
-    private function startWorker(string $start): array
+    private function startWorker(): array
     {
         $process = proc_open(
-            [PHP_BINARY, __DIR__ . '/flush-worker.php', $start, $this->output, self::EVENT_TYPE],
-            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            [PHP_BINARY, __DIR__ . '/flush-worker.php', $this->output, self::EVENT_TYPE],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes
         );
         self::assertIsResource($process);

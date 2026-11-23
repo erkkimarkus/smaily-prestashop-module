@@ -1,11 +1,11 @@
 <?php
 /**
- * One flushing process for ConcurrentFlushTest: boots the shop at PS_ROOT_DIR, waits until the
- * start time, then flushes the event queue in small batches until nothing is due. Its handler
- * "sends" a row of the given event type by appending the row id to the output file. Prints the
- * number of rows it claimed.
+ * One flushing process for ConcurrentFlushTest: boots the shop at PS_ROOT_DIR, prints "ready",
+ * reads the start time (a Unix time, one line) from its input and waits until then, then flushes
+ * the event queue in small batches until nothing is due. Its handler "sends" a row of the given
+ * event type by appending the row id to the output file. Prints the number of rows it claimed.
  *
- *   php flush-worker.php <start unix time> <output file> <event type>
+ *   php flush-worker.php <output file> <event type>
  */
 declare(strict_types=1);
 
@@ -13,7 +13,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 
-[, $start, $output, $eventType] = $argv;
+[, $output, $eventType] = $argv;
 
 require getenv('PS_ROOT_DIR') . '/config/config.inc.php';
 require_once _PS_MODULE_DIR_ . 'smailyforprestashop/vendor/autoload.php';
@@ -48,9 +48,14 @@ $pending = sprintf(
     EventQueue::TABLE,
     EventQueue::STATUS_PENDING
 );
-time_sleep_until((float) $start);
+// The test names the start only after every worker is ready, however long a boot took.
+fwrite(STDOUT, "ready\n");
+$wait = (float) fgets(STDIN) - microtime(true);
+if ($wait > 0) {
+    usleep((int) ($wait * 1000000));
+}
 $claimed = 0;
 do {
     $claimed += $flusher->flush(3);
 } while ((int) Db::getInstance()->getValue($pending, false) > 0);
-echo $claimed;
+fwrite(STDOUT, (string) $claimed);
