@@ -33,11 +33,13 @@ browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One th
 psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
 (2026-11-23): the Log's "Privacy request" form is always shown, also beside psgdpr, and capability 13 counts.
 
-**Last runs** (2026-11-23, on the worker branch with the hooks fix): in-shop suite 1960 tests on 8.2.8 (10540
-assertions) and on 9.2.0 (10546), debug on, each on a fresh shop behind the egress guard; host 1960 tests, 3245
-assertions, 1027 skipped; PHP CS Fixer 0 of 323 files. Last run on `0c38f0b` (2026-11-21, 1957 tests): the suite with
-debug off, `tests/ci/validate.sh` 10 of 10 on both flashlight images, `node --test tests/js/` 43 pass. The zip content
-and the uninstall check last ran on `0d4425e`, long before stage 5.
+**Last runs** (2026-11-23, on the merged tip: the installation report, the privacy walk's fixes and the Log's form):
+in-shop suite 2090 tests on 8.2.8 (11210 assertions) and on 9.2.0 (11216), with debug on and with debug off, each
+lane on a shop made from scratch behind the egress guard; host 2090 tests, 3715 assertions, 1045 skipped; PHP CS Fixer
+0 of 335 files. The first 8.2.8 run failed one test, `ConcurrentFlushTest` (a worker started later than the test's
+3 seconds on a machine that ran other stacks); it passed alone and in the two runs after. Last run on `0c38f0b`
+(2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images, `node --test tests/js/` 43 pass.
+The zip content and the uninstall check last ran on `0d4425e`, long before stage 5.
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
