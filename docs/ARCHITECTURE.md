@@ -2944,6 +2944,17 @@ Ten strings of the Log are PrestaShop's own ("Search", "Reset", "Select all", "C
 their Estonian comes from PrestaShop's language pack, not from the module. The Smaily client's own
 message of a failure is stored in English and shows as stored (section 10.8).
 
+**Walked in Estonian** (2026-11-23, PrestaShop 8.2.8 and 9.2.0, in a browser against the mocks;
+`docs/internal/walks/2026-11-23-capability-14-estonian.md`): every screen, and every state the
+walk could reach, with one shop and with two shops in both layouts, the storefront's
+Personalization page, recommendations block and newsletter box, and the customer's export through
+PrestaShop's GDPR module: 278 states on 9.2.0 and 277 on 8.2.8, which showed 570 of the 619 units
+that the code uses (the record lists the rest). No string of the module shows in English. What an Estonian page still shows in
+English is not a string of the catalogue: the ten words above in a shop without the Estonian
+language pack, the Smaily client's stored failure text, the stored words `[erased]` and
+`[redacted]`, and the event types. The package for a native speaker's read is
+`build/estonian-read/` (git ignores it); the read itself is what capability 14 still waits for.
+
 ### 10.5 Logos
 
 **[D]** The admin screens use the new Smaily Connect and Campaign Intelligence logos (Linear GMS-66,

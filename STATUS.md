@@ -68,7 +68,8 @@ export on 9.x).
 
 ## Next, in this order
 
-1. Capability 14: the multishop screens and the stage 5 screens in Estonian, and a native speaker's read.
+1. Capability 14: the native speaker's read of `build/estonian-read/` (in the main checkout), then the wordings it
+   corrects.
 
 Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
@@ -124,8 +125,11 @@ A box is ticked only when the real flow was exercised; the line names how. Decis
   disabled), the customer's own export page, the Personalization page, and psgdpr's admin screen. That screen's export
   is shown on 8.2.8 only: psgdpr 1.4.3 cannot show a customer on 9.2.0 (its own defect), where it erases by address
   and the Log's form is the back-office export.
-- [ ] 14. Administration screens in English and Estonian — all strings in Estonian, walked on 8.2.8 and 9.2.0; waits:
-  the multishop screens, a native reader, the stage 5 screens.
+- [ ] 14. Administration screens in English and Estonian — every screen and state walked in Estonian in a browser
+  on 8.2.8 and 9.2.0 (2026-11-23): one shop, two shops in both layouts with the layout change, the stage 5 screens,
+  the storefront's Personalization page and recommendations block; no string of the module left in English
+  (`docs/internal/walks/2026-11-23-capability-14-estonian.md`). Waits: the native speaker's read only, from
+  `build/estonian-read/` (`index.html`, `QUESTIONS.md`).
 
 ## Open questions (for the owner)
 
