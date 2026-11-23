@@ -33,21 +33,23 @@ browser on 8.2.8 and 9.2.0 (ARCHITECTURE 11.2). Every privacy flow holds. One th
 psgdpr's admin screen on 9.2.0, because psgdpr 1.4.3 itself fails there (facts file 6.13). The owner's answer
 (2026-11-23): the Log's "Privacy request" form is always shown, also beside psgdpr, and capability 13 counts.
 
-**Story 5.3, first part, on another worker branch (2026-11-23, not merged, not pushed):** Settings > Intelligence
-and step 4 of the Initial setup connect a store to Campaign Intelligence, check and end the connection, hold the
-merchant's cookie-banner confirmation, and show the catalog, customers and orders imports, which a connection starts
-and the tick job `engine_import` runs (ARCHITECTURE 8.12 and 10.11). Walked in a browser against the engine mock
-on 8.2.8 and 9.2.0, with one shop and with two (separate stores, one store), in English and Estonian; screenshots in
-`build/screens-5.3/`. Runs on that branch: in-shop suite 1971 tests on 8.2.8 (10619 assertions) and on 9.2.0
-(10624 assertions); host 1971 tests, 3250 assertions, 1038 skipped; PHP CS Fixer 0 of 333 files.
+**Story 5.3, first part, on another worker branch (2026-11-23, rebased onto `v3` at `f947316`, not merged, not
+pushed):** Settings > Intelligence and step 4 of the Initial setup connect a store to Campaign Intelligence, check and
+end the connection, hold the merchant's cookie-banner confirmation, and show the catalog, customers and orders
+imports, which a connection starts and the tick job `engine_import` runs (ARCHITECTURE 8.12 and 10.11). Walked in a
+browser against the engine mock on 8.2.8 and 9.2.0 before the rebase, with one shop and with two (separate stores,
+one store), in English and Estonian; screenshots in `build/screens-5.3/`.
 
-**Last runs** (2026-11-23, on the merged tip: the installation report, the privacy walk's fixes and the Log's form):
-in-shop suite 2090 tests on 8.2.8 (11210 assertions) and on 9.2.0 (11216), with debug on and with debug off, each
-lane on a shop made from scratch behind the egress guard; host 2090 tests, 3715 assertions, 1045 skipped; PHP CS Fixer
-0 of 335 files. The first 8.2.8 run failed one test, `ConcurrentFlushTest` (a worker started later than the test's
-3 seconds on a machine that ran other stacks); it passed alone and in the two runs after. Last run on `0c38f0b`
-(2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images, `node --test tests/js/` 43 pass.
-The zip content and the uninstall check last ran on `0d4425e`, long before stage 5.
+**Last runs** (2026-11-23, on that branch after the rebase: the installation report, Story 5.4 and the first part of
+Story 5.3 together): in-shop suite 2168 tests on 8.2.8 (11685 assertions) and on 9.2.0 (11690), with debug on, each
+lane on a shop made from scratch behind the egress guard; host 2168 tests, 3794 assertions, 1101 skipped;
+`node --test tests/js/` 43 pass; PHP CS Fixer 0 of 353 files. A browser smoke on both lanes, 18 checks each: a
+connection made on Settings > Intelligence and its three import cards, Settings > Automations with the store
+automations and the Campaign Intelligence card on that connection, the Dashboard, and a tick over its URL that ran
+`engine_import` and `installation_report` (the report reached the subscription mock with the connection in it);
+screenshots in `build/screens-5.3-merged/`. The suite with debug off last ran on `v3` before Story 5.4 (2090 tests).
+Last run on `0c38f0b` (2026-11-21, 1957 tests): `tests/ci/validate.sh` 10 of 10 on both flashlight images. The zip
+content and the uninstall check last ran on `0d4425e`, long before stage 5.
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every check
 used a mock); GitHub Actions on the fork are not enabled, so CI has never run; MySQL (only MariaDB ran); LiteSpeed;
