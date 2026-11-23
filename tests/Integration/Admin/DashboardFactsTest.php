@@ -80,6 +80,26 @@ final class DashboardFactsTest extends IntegrationTestCase
         self::assertSame(1, $facts['failed_24h']);
     }
 
+    public function testQueuedTodayAndFailedCountTheRowsThatGoToCampaignIntelligenceToo(): void
+    {
+        $connection = $this->connection(0);
+        $this->row('contact.sync', 'pending', 0);
+        $this->row('contact.sync', 'failed', 0, 3600);
+        $this->ingestRow($connection, 'catalog', '412', 'pending', 0);
+        $this->ingestRow($connection, 'orders', '77', 'pending', 0);
+        $this->ingestRow($connection, 'orders', '78', 'pending', 2);
+        $this->ingestRow($connection, 'catalog', '413', 'processing', 0);
+        $this->ingestRow($connection, 'catalog', '414', 'sent', 0);
+        $this->ingestRow($connection, 'customers', '9', 'failed', 0, 2 * 3600);
+        $this->ingestRow($connection, 'customers', '10', 'failed', 2);
+        $this->ingestRow($connection, 'catalog_manifest', '2026-11-22', 'failed', 0, 3 * 3600);
+
+        $facts = $this->collect();
+
+        self::assertSame(3, $facts['queued_today'], 'one row for Smaily and two for Campaign Intelligence');
+        self::assertSame(3, $facts['failed_24h'], 'one row for Smaily, one customer and one nightly list for Campaign Intelligence');
+    }
+
     public function testRecentActivityListsTheNewestRowsAndJobsWithTheEntityAsStored(): void
     {
         for ($i = 1; $i <= 10; ++$i) {

@@ -72,8 +72,7 @@ export on 9.x).
    corrects.
 2. The owner walks the two test shops of `build/testkeskkond/` (guide `JUHEND.md` there, mocks only); what the walk
    finds comes back as fixes.
-3. The Dashboard's counts include Campaign Intelligence deliveries (Linear CON-415); `ConcurrentFlushTest` gives its
-   workers more than 3 seconds to start.
+3. `ConcurrentFlushTest` gives its workers more than 3 seconds to start.
 4. A walk against the live Smaily service and the live engine, once the owner gives a test account and the engine
    team answers INT-306.
 
@@ -86,10 +85,8 @@ Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 - An erased failed row still shows the Retry checkbox. Story 5.2 has no CHANGELOG or USERGUIDE entry.
 - The Smaily client's own failure messages show in English in the Log; its Last Error column is narrow for a sentence.
   A simplification review of the Log, Automations and stage 5 code is due.
-- The Dashboard's Queued today and Failed tiles and its failures verdict count the event queue only, not the rows
-  that go to Campaign Intelligence (the Log's banner counts both). The Initial setup's first answer to "How are
-  your shops run?" runs no layout change, so a store that held settings or a connection before it got a second
-  shop keeps them under "all shops" (ARCHITECTURE 8.9).
+- The Initial setup's first answer to "How are your shops run?" runs no layout change, so a store that held
+  settings or a connection before it got a second shop keeps them under "all shops" (ARCHITECTURE 8.9).
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; one test leaves other cron
   tokens behind; screenshots for the user guide. The 2.x tab row stays in `tab`, inactive.
 

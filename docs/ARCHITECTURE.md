@@ -3438,6 +3438,12 @@ does not answer, as the storefront keeps its scripts then (`Storefront\ActiveCon
   of this installation share one Campaign Intelligence store, so the nightly product list is not
   sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the
   product's next change."
+- **The tiles "Queued today" and "Failed"**, and with the second the failed banner and the
+  verdict's failed deliveries, count the rows of both queues, as Magento's do
+  (`DashboardStats::queuedToday()`, `QueueHealth::failedSince()`) and as the Log's banner does:
+  what waits for Smaily and what waits for Campaign Intelligence, a nightly product list that
+  failed too (`DashboardQueries::queuedToday()`, `failedSince()`; one statement each). The
+  counts are the installation's, whatever shop is selected.
 - **Recent activity** lists the newest rows of both queues and the newest import jobs, with the
   Log's Source (section 10.8) and, for an import job, what it counts.
 

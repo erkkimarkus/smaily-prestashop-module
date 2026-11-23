@@ -42,9 +42,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  *
  * - contactSyncs(), catalogItems(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one
  *   pass.
- * - queuedToday(): `status` = pending and `created_at` from midnight UTC; the index (`status`,
- *   `next_retry_at`) or (`created_at`), whichever the optimizer finds narrower.
- * - failedSince(): `status` = failed, through the index (`status`, `next_retry_at`).
+ * - queuedToday(): `status` = pending and `created_at` from midnight UTC, in both queues; the
+ *   index on the status or (`created_at`), whichever the optimizer finds narrower.
+ * - failedSince(): `status` = failed, in both queues, through the index (`status`,
+ *   `next_retry_at`) of the event queue and (`domain`, `status`, `next_retry_at`) of the ingest
+ *   queue, which is why the statement names every domain.
  * - latestRows(), latestIngestRows(), latestJobs(): the newest rows by primary key.
  */
 final class DashboardQueries
@@ -53,6 +55,15 @@ final class DashboardQueries
     public const SYNC_SCAN_ROWS = 50000;
 
     private const DAY = 86400;
+
+    /** Every domain of the ingest queue: the rows that wait for a flush and the nightly lists. */
+    private const INGEST_DOMAINS = [
+        IngestQueue::DOMAIN_CATALOG,
+        IngestQueue::DOMAIN_CATALOG_REMOVE,
+        IngestQueue::DOMAIN_CUSTOMERS,
+        IngestQueue::DOMAIN_ORDERS,
+        IngestQueue::DOMAIN_MANIFEST,
+    ];
 
     /**
      * The contact syncs that reached Smaily in the 30 days before $now. `more` is true when the
@@ -114,28 +125,43 @@ final class DashboardQueries
     }
 
     /**
-     * The rows created since midnight UTC that wait for their first attempt or a retry.
+     * The rows of both queues created since midnight UTC that wait for their first attempt or a
+     * retry, as Magento counts them (`DashboardStats::queuedToday()`).
      */
     public function queuedToday(int $now): int
     {
-        return Sql::count(sprintf(
-            'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `created_at` >= %s',
-            self::table(EventQueue::TABLE),
+        return self::inBothQueues(sprintf(
+            '`status` = %s AND `created_at` >= %s',
             self::quote(EventQueue::STATUS_PENDING),
             self::quote(gmdate('Y-m-d 00:00:00', $now))
         ));
     }
 
     /**
-     * The rows parked as failed since $since.
+     * The rows of both queues parked as failed since $since, as Magento counts them
+     * (`QueueHealth::failedSince()`).
      */
     public function failedSince(int $since): int
     {
-        return Sql::count(sprintf(
-            'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `updated_at` >= %s',
-            self::table(EventQueue::TABLE),
+        return self::inBothQueues(sprintf(
+            '`status` = %s AND `updated_at` >= %s',
             self::quote(EventQueue::STATUS_FAILED),
             self::time($since)
+        ));
+    }
+
+    /**
+     * The rows of the event queue and of the ingest queue that match $condition, in one statement.
+     */
+    private static function inBothQueues(string $condition): int
+    {
+        return Sql::count(sprintf(
+            'SELECT (SELECT COUNT(*) FROM %s WHERE %s) + (SELECT COUNT(*) FROM %s WHERE `domain` IN (%s) AND %s)',
+            self::table(EventQueue::TABLE),
+            $condition,
+            self::table(IngestQueue::TABLE),
+            implode(', ', array_map([self::class, 'quote'], self::INGEST_DOMAINS)),
+            $condition
         ));
     }
 
