@@ -564,4 +564,30 @@ class Client
             ['configs' => $rows]
         );
     }
+
+    // --- History import (Story 5.3): where the import stands (§25). One attempt; the import's
+    // tick sends it again when it is due.
+
+    /** The endpoints map key and the fallback path of the history import's progress (§25). */
+    public const ENDPOINT_HISTORY_PROGRESS = 'ingest_history_progress';
+    public const PATH_HISTORY_PROGRESS = '/api/v1/ingest/history/progress';
+
+    /**
+     * Tells the engine where the connection's history import stands (§25): counts and dates only.
+     *
+     * @param array<string, mixed> $body `import_id`, `phase`, `horizon_start`, `entities` and, for
+     *                                   an import that stopped, `stop_reason`
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function historyProgress(Connection $connection, array $body): array
+    {
+        return $this->request(
+            'POST',
+            $connection->endpoint(self::ENDPOINT_HISTORY_PROGRESS, self::PATH_HISTORY_PROGRESS),
+            self::INGEST_TIMEOUT_SECONDS,
+            $connection,
+            $body
+        );
+    }
 }

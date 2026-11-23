@@ -145,6 +145,53 @@ class CustomerScope
     }
 
     /**
+     * The customers of groups (a) and (b), for the customers import: up to $limit ids above
+     * $afterId, lowest first. The rule is includes()'s, asked of the table at once; a customer
+     * without an address is left out, as customer() leaves it out.
+     *
+     * @return list<int>
+     */
+    public function page(Connection $connection, int $afterId, int $limit): array
+    {
+        return array_map('intval', array_column(Sql::rows(
+            'SELECT c.`id_customer` FROM `' . _DB_PREFIX_ . 'customer` c WHERE c.`id_customer` > ' . $afterId
+            . ' AND ' . $this->condition($connection) . ' ORDER BY c.`id_customer` LIMIT ' . $limit
+        ), 'id_customer'));
+    }
+
+    /** The number of customers of groups (a) and (b). */
+    public function count(Connection $connection): int
+    {
+        return (int) Sql::value('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'customer` c WHERE ' . $this->condition($connection));
+    }
+
+    /**
+     * includes() as a condition on the customer table `c`: the audience of each shop's contact
+     * sync as ContactAudience answers it for the four kinds of customer, or an order since the
+     * horizon.
+     */
+    private function condition(Connection $connection): string
+    {
+        $shops = ConnectionShops::of($connection);
+        $in = implode(', ', array_map('intval', $shops));
+        $groups = ['(c.`is_guest` = 0 AND EXISTS (SELECT 1 FROM `' . _DB_PREFIX_ . 'orders` o WHERE o.`id_customer` = c.`id_customer`'
+            . ' AND o.`id_shop` IN (' . $in . ') AND o.`date_add` >= \'' . pSQL($this->horizon($connection)) . '\'))'];
+        foreach ($shops as $idShop) {
+            if (!$this->contacts->syncActive($idShop)) {
+                continue;
+            }
+            $audience = new ContactAudience($this->contacts->mode($idShop));
+            foreach ([[true, true], [true, false], [false, true], [false, false]] as [$newsletter, $guest]) {
+                if ($audience->importsCustomer($newsletter, $guest)) {
+                    $groups[] = sprintf('(c.`id_shop` = %d AND c.`newsletter` = %d AND c.`is_guest` = %d)', $idShop, (int) $newsletter, (int) $guest);
+                }
+            }
+        }
+
+        return 'c.`deleted` = 0 AND TRIM(c.`email`) <> \'\' AND (' . implode(' OR ', $groups) . ')';
+    }
+
+    /**
      * The oldest order time inside the connection's history horizon, in the shop's time, as the
      * orders are stored.
      */

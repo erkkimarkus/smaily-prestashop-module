@@ -961,6 +961,7 @@ Registered on `v3` today:
 | `contacts_import` | `ContactReconcileProvider` | 60 s | 15 s | no | `ContactImport::run()`: sends pages of the first import and of the daily refresh (section 6.5). |
 | `abandoned_cart` | `AutomationProvider`, through `Automation\AbandonedCart\AbandonedCartAutomation` | 5 min (300 s) | 10 s | no | `AbandonedCartSweeper::sweep()`: queues the due reminders, which the next queue flush sends (section 7). |
 | `engine_health` | `EngineProvider` | 15 min (900 s) | 5 s | no | `Engine\HealthCheck::run()`: pings every stored Campaign Intelligence connection and records the answer with it; sends nothing while no connection is stored (section 8.9). |
+| `engine_import` | `EngineProvider` | 60 s | 15 s | no | `Engine\History\HistoryImport::run()`: queues pages of each connection's catalog, customers and orders import and reports the history import's progress (section 8.12). It runs before `ingest_flush`, so a tick queues a page and sends it. |
 | `ingest_flush` | `EngineIngestProvider` | 60 s | 25 s | no | `Engine\Ingest\IngestFlusher::flush()`: sends the waiting catalog, removal, customer and order rows of every connection that may send (section 8.11). |
 | `catalog_manifest` | `EngineIngestProvider` | 15 min (900 s) | 20 s | no | `Engine\Ingest\CatalogManifest::run()`: sends each connection's nightly product list once, from 03:30 of the shop's day (section 8.11). The job asks every 15 minutes whether a list is due. |
 | `storefront_cache` | `StorefrontProvider` | daily (86 400 s) | 5 s | no | `Storefront\Store::prune()`: deletes the expired files of the storefront's cache (section 8.10). |
@@ -969,16 +970,14 @@ Registered on `v3` today:
 | `update_check` | `UpdateProvider` | daily (86 400 s) | 10 s | no | Asks GitHub for the latest release (section 11.5). |
 
 The tick therefore runs them in this order: `queue_flush`, `queue_janitor`, `contacts_reconcile`,
-`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `ingest_flush`,
-`catalog_manifest`, `storefront_cache`, `installation_report`, `migration`, `update_check`.
+`contacts_refresh`, `contacts_import`, `abandoned_cart`, `engine_health`, `engine_import`,
+`ingest_flush`, `catalog_manifest`, `storefront_cache`, `installation_report`, `migration`,
+`update_check`.
 Two integration
 tests pin this full list (section 12).
 
-Planned (the Story that builds each registers it):
-
-| Job | Interval | Time budget per run | Sibling | Story |
-|---|---|---|---|---|
-| Import chunk (catalog, history) | 1 min | 15 s | `BackfillTick` | 5.3 |
+No further job is planned: the import chunk of Story 5.3 is `engine_import` and the installation
+report of Story 6.1 is `installation_report`.
 
 ### 4.2 Options
 
@@ -2616,6 +2615,56 @@ row carries no consent (section 11.2).
 runs, the Dashboard's sentence about a suppressed list, and what a layout change does with the
 rows of a connection (Story 5.3). A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until
 the next nightly list leaves it out.
+
+### 8.12 The history import (as built in Story 5.3)
+
+The first data load of a connection (contract §25): the whole catalog, every customer in scope,
+then the orders. `Engine\History\HistoryImport` is the tick job `engine_import` (section 4.1).
+
+**Jobs.** Each import is a row of `smaily_connect_job` (`Engine\History\HistoryJobs`), of the type
+`engine_catalog`, `engine_customers` or `engine_orders`, with its connection in `id_connection`.
+A connection made on a screen starts all three (owner, 2026-11-23; `Admin\Setup\IntelligencePanel`);
+they run from the next background run on, one after another per connection, a connection's own
+beside another connection's. "Run again" on a card starts a new job from the beginning. A cancel
+ends the import and the imports that still wait behind it (the sequence ends, as on the Magento
+and WooCommerce connectors); "Hold back the import" is a cancel of the catalog import, and before
+the first background run it leaves nothing sent. The janitor keeps the job rows (section 11.3).
+
+**Markers, not payloads.** An import writes markers into the ingest queue, as the live capture
+does: a marker names a product, a customer or an order, and the ingest flush builds and sends the
+row with the payload builders, the outcomes, the retries and the Log of every other row (section
+8.11). So a price comes from `Product::priceCalculation()` and a key from `Engine\Payload\Keys`,
+and no second builder exists. A marker of an import carries the job's id in its payload
+(`{"import": <id>}`); `IngestQueue::countMarked()` counts the job's markers by status inside the
+range of ingest rows the job wrote, a plain read. At most `HistoryImport::BACKLOG` (1000) markers
+of an import wait at a time; a page is 200 ids. An import is `done` once every id is queued and
+none of its markers waits; its `sent` and `failed` are what the engine took and refused for good.
+
+| Import | Reads | Counts |
+|---|---|---|
+| Catalog | every product that a shop of the connection holds, by id | products (the engine gets one row per combination, section 8.2) |
+| Customers | `CustomerScope::page()`: groups (a) and (b) of section 8.11, asked of the customer table at once with `ContactAudience`'s answers; the flush asks `CustomerScope::includes()` again | customers |
+| Orders | the orders of the connection's shops placed before the import began, newest first: the last `config.history.start_months` (18) months, then back to `horizon_months` (60); no older order is read | orders |
+
+**The history import** is the connection's newest orders import (as on the Magento connector):
+its window is fixed when it begins, which is before the catalog import ahead of it sends a row,
+and `import_id` is `ps-<date>-<job id>`. `Engine\History\HistoryProgress` reports it (§25
+"Sender rules"): `started`; `start_part_complete` once the start part's orders are delivered and
+neither the catalog nor the customers import is still to run; `complete` once the orders import
+is done; the counts at most every 5 minutes in between; a failed call again after 5 minutes. An
+import that stopped gets one last call with `stop_reason` `cancelled`, `failed` or `stalled`. An
+import that ended because its connection is gone or refused, and one the engine never heard of,
+is not reported. The body holds counts and dates only.
+
+**Stalled.** `updated_at` of a job moves only when the import moved. An import that is still to
+run and has not moved for an hour shows as stalled on its card (the background tasks do not run,
+or the engine takes no row); when the import job itself sees that, it ends the import as failed
+with the reason `stalled`. An import whose connection is gone or refused is cancelled
+(`no_connection`, `engine_not_active`); one that throws fails with the place of the error, never
+its message.
+
+**Not built.** A cancel does not take back the markers already written: they still go out. The
+`buyers` count and `oldest_sent_at` of §25 are not sent (both optional).
 
 ---
 

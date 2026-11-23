@@ -2,7 +2,8 @@
 /**
  * The ingest routes of the engine mock (router.php includes this file in its own scope): the
  * catalog (§3), the product removal (§3b), the nightly product list (§3c), the customers (§4),
- * the orders (§5) and the identity merge (§7), each answered as
+ * the orders (§5), the identity merge (§7) and the history import's progress (§25: `history`
+ * holds each connection's import by its key, `history_calls` every call), each answered as
  * docs/RECENGINE_API_CONTRACT.md v1.36.0 states it. Every check and every answer below names the
  * sentence of the contract it comes from; the shapes were taken from the contract text, section by
  * section, not from another connector's mock.
@@ -30,6 +31,7 @@ $ingestRoutes = [
     'POST /api/v1/ingest/customers' => 'customers',
     'POST /api/v1/ingest/orders' => 'orders',
     'POST /api/v1/identity/merge' => 'identity_merge',
+    'POST /api/v1/ingest/history/progress' => 'history_progress',
 ];
 $ingestRoute = $ingestRoutes[$method . ' ' . $path] ?? null;
 if ($ingestRoute === null) {
@@ -70,6 +72,71 @@ if (is_array($failure)) {
 
 $tenant = (string) $connection['tenant_id'];
 $prefix = (string) $connection['prefix'];
+
+if ($ingestRoute === 'history_progress') {
+    // §25 "Request body": the field table, and "Stopped import" rules 4 and 5.
+    $phases = ['started', 'start_part_complete', 'complete'];
+    $field = null;
+    if (!is_array($body) || !is_string($body['import_id'] ?? null) || preg_match('/^[A-Za-z0-9._:-]{1,128}$/D', $body['import_id']) !== 1) {
+        $field = 'import_id';
+    } elseif (!in_array($body['phase'] ?? null, $phases, true)) {
+        $field = 'phase';
+    } elseif (!is_string($body['horizon_start'] ?? null) || strtotime($body['horizon_start']) === false) {
+        $field = 'horizon_start';
+    } elseif (array_key_exists('stop_reason', $body) && $body['stop_reason'] !== null
+        && (!in_array($body['stop_reason'], ['cancelled', 'failed', 'stalled'], true) || $body['phase'] === 'complete')
+    ) {
+        $field = 'stop_reason';
+    } else {
+        foreach (['catalog', 'customers', 'orders'] as $entity) {
+            $sent = $body['entities'][$entity]['sent'] ?? null;
+            if (!is_int($sent) || $sent < 0) {
+                $field = 'entities.' . $entity . '.sent';
+                break;
+            }
+        }
+    }
+    if ($field !== null) {
+        return $answer(400, ['error' => 'validation_failed', 'message' => 'One or more fields failed validation', 'details' => [['field' => $field]], 'timestamp' => $now]);
+    }
+
+    // "Per connection" (v1.33.0): the engine keeps the progress of each connection separately.
+    $held = $state['history'][$key] ?? null;
+    $stop = $body['stop_reason'] ?? null;
+    $stale = false;
+    if (!is_array($held) || $held['import_id'] !== $body['import_id']) {
+        // Rule 2 and rule 5: another `import_id` replaces the import and starts over at its phase.
+        $held = ['import_id' => $body['import_id'], 'phase' => $body['phase'], 'start_part_complete_at' => null, 'complete_at' => null, 'stop_reason' => null, 'stopped_at' => null];
+    } elseif ($held['stop_reason'] !== null || ($stop !== null && $held['phase'] === 'complete')
+        || array_search($body['phase'], $phases, true) < array_search($held['phase'], $phases, true)
+    ) {
+        // Rule 1 and "Stopped import" rules 3 and 4: nothing changed.
+        $stale = true;
+    } else {
+        $held['phase'] = $body['phase'];
+    }
+    if (!$stale) {
+        if ($held['phase'] !== 'started' && $held['start_part_complete_at'] === null) {
+            $held['start_part_complete_at'] = $now;
+        }
+        if ($held['phase'] === 'complete' && $held['complete_at'] === null) {
+            $held['complete_at'] = $now;
+        }
+        if ($stop !== null) {
+            $held['stop_reason'] = $stop;
+            $held['stopped_at'] = $now;
+        }
+        $held['entities'] = $body['entities'];
+    }
+    $state['history'][$key] = $held;
+    $state['history_calls'][] = ['key' => $key] + $body;
+    $write($state);
+    unset($held['entities']);
+
+    // §25 "Response 200 OK".
+    return $answer(200, ['ok' => true, 'stale' => $stale] + $held + ['history' => HISTORY]);
+}
+
 // The prefixes of the store's other connections (§1 "Connection prefix").
 $otherPrefixes = [];
 foreach ($connections as $otherKey => $other) {

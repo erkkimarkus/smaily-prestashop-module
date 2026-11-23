@@ -34,6 +34,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryImport;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryProgress;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CustomerScope;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
@@ -58,6 +63,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
 final class EngineProvider implements ProviderInterface
 {
     public const HEALTH_JOB = 'engine_health';
+
+    public const IMPORT_JOB = 'engine_import';
 
     public function register(Services $services): void
     {
@@ -95,6 +102,27 @@ final class EngineProvider implements ProviderInterface
         $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::HEALTH_JOB, 900, 5, static function (Deadline $deadline) use ($services): void {
             $services->get(HealthCheck::class)->run($deadline);
         }));
+        // The history import (Story 5.3). Its job runs before the ingest flush, which the next
+        // provider registers, so a tick queues a page and sends it.
+        $services->set(HistoryJobs::class, fn (): HistoryJobs => new HistoryJobs('time'));
+        $services->set(HistoryProgress::class, fn (Services $services): HistoryProgress => new HistoryProgress(
+            $services->get(HistoryJobs::class),
+            $services->get(IngestQueue::class),
+            $services->get(Client::class),
+            'time'
+        ));
+        $services->set(HistoryImport::class, fn (Services $services): HistoryImport => new HistoryImport(
+            $services->get(HistoryJobs::class),
+            $services->get(Connections::class),
+            $services->get(IngestQueue::class),
+            $services->get(CustomerScope::class),
+            $services->get(HistoryProgress::class),
+            'time'
+        ));
+        $services->listen(SchedulerProvider::JOBS, static fn (): Job => new Job(self::IMPORT_JOB, 60, 15, static function (Deadline $deadline) use ($services): void {
+            $services->get(HistoryImport::class)->run($deadline);
+        }));
+
         $services->listen(Uninstaller::BEFORE_REMOVAL, static function () use ($services): void {
             $services->get(Disconnector::class)->disconnectAll();
         });

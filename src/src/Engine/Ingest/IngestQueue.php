@@ -388,6 +388,33 @@ final class IngestQueue
     }
 
     /**
+     * How the markers of one import stand, by status: the rows of a connection and domain with
+     * ids from $fromId to $toId that carry exactly $payload (Engine\History\HistoryImport names
+     * its job there). A plain read by primary-key range; it locks nothing.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, int> status => number of rows
+     */
+    public function countMarked(int $idConnection, string $domain, array $payload, int $fromId, int $toId): array
+    {
+        $counts = [];
+        foreach (Sql::rows(sprintf(
+            'SELECT `status`, COUNT(*) AS `rows` FROM %s WHERE `id` BETWEEN %d AND %d AND `id_connection` = %d AND `domain` = %s AND `payload` = %s GROUP BY `status`',
+            self::table(),
+            $fromId,
+            $toId,
+            $idConnection,
+            self::quote($domain),
+            self::quote(self::json($payload))
+        )) as $row) {
+            $counts[(string) $row['status']] = (int) $row['rows'];
+        }
+
+        return $counts;
+    }
+
+    /**
      * The UTC time of the newest row of a domain for a connection, in any state; null for none.
      */
     public function newest(int $idConnection, string $domain): ?string
