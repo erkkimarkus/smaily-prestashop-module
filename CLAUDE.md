@@ -60,7 +60,8 @@ are written as finished-product public documentation. Internal process talk
 4. **Shared contracts are byte-identical copies, never edited here.**
    `docs/RECENGINE_API_CONTRACT.md` v1.36.0 (source of truth: the engine
    repo `../intelligence/docs/`; refresh by copying and checking with `cmp`)
-   and installation-report-v1 v1.2.0 (`../subscription/docs/contracts/`).
+   and `docs/contracts/installation-report-v1.md` v1.2.0 (source of truth:
+   `../subscription/docs/contracts/`; refreshed and checked the same way).
    Cross-connector rules:
    - subscription status is sent only when it changes;
    - automations and imports never re-subscribe anyone;
