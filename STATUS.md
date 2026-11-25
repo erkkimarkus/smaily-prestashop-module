@@ -32,8 +32,9 @@ Everything is on `v3`; no worker branch or worktree is left.
   account (`be96b2e`); a Done import keeps its refusal reason in the Log (owner, `b6a7f60`); the setup's "Separate
   stores" card names the connection that moves, as Settings does (`8107eb4`). Tests: one admin-request harness
   (`IntegrationTestCase::adminRequest()`); the engine mock keeps no API key, only its SHA-256; a suite run that
-  leaves module rows, `SMAILY_*` keys or cron tokens behind exits 1 (`tests/Integration/ShopLeftovers.php`, the
-  tick's state left out, `5f1db54`); three engine tests run alone, and a second run in a 9.2.0 shop passes (`b88497e`).
+  leaves module rows, `SMAILY_*` keys, cron tokens or a changed tick state behind exits 1
+  (`tests/Integration/ShopLeftovers.php`); three engine tests run alone, and a second run in a 9.2.0 shop passes
+  (`b88497e`).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
 guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.

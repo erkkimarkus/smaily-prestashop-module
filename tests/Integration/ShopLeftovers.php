@@ -15,17 +15,17 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
  * copy into their crontabs. It prints what differs and makes the run exit with 1 after PHPUnit's
  * own result. Without a shop (the host's unit run) it does nothing.
  *
- * Three keys are left out: the health of the module's calls, the installation report's state and
- * the tick's state, which every call, report and tick rewrites. A test of one class that calls a
- * mock leaves the health behind; the full suite leaves the first two as it found them. The tick
- * tests remove the tick's state, and a shop whose storefront was opened after the install holds
- * one (the shop of `tests/ci/validate.sh` does).
+ * Two keys are left out: the health of the module's calls and the installation report's state,
+ * which every call and report rewrites. A test of one class that calls a mock leaves the health
+ * behind; the full suite leaves both as it found them. The tick's state is checked: a shop whose
+ * storefront was opened after the install holds one (the shop of `tests/ci/validate.sh` does), and
+ * the tests that remove it put it back (LegacyStore::restore() too).
  */
 final class ShopLeftovers implements BeforeFirstTestHook, AfterLastTestHook
 {
     private const TOKENS = [TickSettings::TICK_TOKEN, TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN];
 
-    private const RECORDS = [ReportSettings::HEALTH, ReportSettings::STATE, TickSettings::TICK_STATE];
+    private const RECORDS = [ReportSettings::HEALTH, ReportSettings::STATE];
 
     /** @var array<string, string>|null */
     private ?array $before = null;

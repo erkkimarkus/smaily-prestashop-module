@@ -9,6 +9,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
@@ -52,6 +53,10 @@ abstract class AbandonedCartTestCase extends IntegrationTestCase
     {
         parent::setUp();
         LegacyStore::restore();
+        // The tests run the whole tick, which runs a job only when it is due: they start without a
+        // tick state, and tearDown's restore() puts back the shop's.
+        \Configuration::deleteByName(TickSettings::TICK_STATE);
+        LegacyStore::reloadConfiguration();
         $this->idShop = (int) \Configuration::get('PS_SHOP_DEFAULT');
         $this->fixture = new CartFixture();
         $this->mock = SmailyMockServer::start();

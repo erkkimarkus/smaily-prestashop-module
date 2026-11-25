@@ -114,6 +114,9 @@ final class PendingMigrationTest extends IntegrationTestCase
     public function testOnceTheSchemaIsCurrentTheMigrationJobDoesNoMigrationWork(): void
     {
         LegacyStore::restore();
+        // Every job is due only without a tick state; tearDown's restore() puts back the shop's.
+        \Configuration::deleteByName(TickSettings::TICK_STATE);
+        LegacyStore::reloadConfiguration();
         $services = Services::fromProviders(Services::PROVIDERS);
         $built = false;
         $services->set(Upgrade300::class, function () use (&$built): Upgrade300 {

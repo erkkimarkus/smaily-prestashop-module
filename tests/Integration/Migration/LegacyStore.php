@@ -15,8 +15,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 final class LegacyStore
 {
     /**
-     * The door tokens that the shop held before the run's first change, as rows of insertRows():
-     * restore() puts them back, as a merchant's crontab and a walk's cron line name them.
+     * The door tokens and the tick state that the shop held before the run's first change, as rows
+     * of insertRows(): restore() puts them back, as a merchant's crontab and a walk's cron line name
+     * the tokens, and the leftovers check (ShopLeftovers) compares the tick state's rows.
      *
      * @var list<array{0: int|null, 1: int|null, 2: string, 3: string|null}>|null
      */
@@ -39,7 +40,8 @@ final class LegacyStore
     }
 
     /**
-     * The fresh 3.0.0 install the other tests expect, with the door tokens that the shop held.
+     * The fresh 3.0.0 install the other tests expect, with the door tokens and the tick state that
+     * the shop held.
      */
     public static function restore(): void
     {
@@ -152,15 +154,15 @@ final class LegacyStore
     }
 
     /**
-     * Notes the door tokens of the shop at the run's first change, for restore(). A test that
-     * removes them otherwise (an uninstall) calls it first.
+     * Notes the door tokens and the tick state of the shop at the run's first change, for
+     * restore(). A test that removes them otherwise (an uninstall) calls it first.
      */
     public static function rememberTokens(): void
     {
         if (self::$foundTokens === null) {
             $rows = \Db::getInstance()->executeS(
                 'SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` IN (\''
-                . implode('\', \'', [TickSettings::TICK_TOKEN, TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN]) . '\')'
+                . implode('\', \'', [TickSettings::TICK_TOKEN, TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN, TickSettings::TICK_STATE]) . '\')'
                 . ' ORDER BY `id_configuration`',
                 true,
                 false
