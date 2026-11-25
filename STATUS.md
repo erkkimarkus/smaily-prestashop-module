@@ -61,6 +61,9 @@ admin screen on 9.2.0 (psgdpr 1.4.3 fails there); one unexplained PHP 8.0.30 seg
 1. The owner's own walk of the two test shops; his findings come back as fixes.
 2. A walk against the live Smaily service and engine, once the owner gives a test account.
 3. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
+4. Publish the merchant guide (`docs/site/index.html`, CON-424) to https://smaily.com/connect-presta/ once the owner
+   has the web root and its FTP account and gives the go-ahead; until then the admin's "How to add it →" link of
+   Settings > Intelligence leads to a page that is not published yet.
 
 ## Queue (technical, for the orchestrator)
 
@@ -122,6 +125,8 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
 shows whether the real service takes an installation report); get the engine team's answer on the `source` value of
 browse events; choose a pilot store; report psgdpr's defect on 9.x to PrestaShop, if he wants.
+Make the web root https://smaily.com/connect-presta/ and its FTP account (credentials file `~/smaily_ftp_presta`), and
+give the go-ahead for the guide's first upload.
 
 Linear: Feature P-CON-324. Open Epics: CON-373 (upgrade; waits for the pilot), CON-398 (Campaign Intelligence;
 Stories CON-399 to CON-401, CON-405 to CON-409 and CON-415 done), CON-403 (installation report; CON-404 done; waits

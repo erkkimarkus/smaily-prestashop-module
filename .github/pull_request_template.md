@@ -12,7 +12,7 @@ A list of changes regarding the next version release:
 - [ ] Added `release` tag to this pull request
 - [ ] Updated README.md
 - [ ] Updated CHANGELOG.md
-- [ ] Updated USERGUIDE.md
+- [ ] Updated the user guide site (docs/site/index.html, both languages)
 - [ ] Updated CONTRIBUTING.md
 - [ ] Updated plugin version number
 - [ ] Added migrations

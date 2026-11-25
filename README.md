@@ -42,7 +42,7 @@ Smaily for PrestaShop requires PHP 8.0+ (PrestaShop 9 itself needs PHP 8.1+). Yo
 
 ## Documentation & Support
 
-Online documentation and code samples are available via our [Help Center](https://smaily.com/help/user-manuals/).
+The user guide of Smaily Connect for PrestaShop is at [smaily.com/connect-presta](https://smaily.com/connect-presta/), in English and Estonian. More documentation and code samples are available via our [Help Center](https://smaily.com/help/user-manuals/).
 
 ## Contribute
 

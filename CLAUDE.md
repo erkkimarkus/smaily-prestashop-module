@@ -381,8 +381,33 @@ parallel with each other.
 If your change makes a doc wrong, your change isn't finished until the doc
 is fixed **in the same commit**. STATUS.md and `docs/` are updated in the
 same commit that changes reality. A merchant-visible change also updates
-CHANGELOG.md, README/USERGUIDE where they describe it, and both translation
-languages. New operational gotchas go into this file.
+CHANGELOG.md, README and the merchant guide site where they describe it,
+and both translation languages. New operational gotchas go into this file.
+
+**Merchant guide site (`docs/site/index.html`)** — the merchant user guide,
+bilingual (EN/ET), one self-contained page (no build step, no external
+resources; open it in a browser), laid out like the Magento guide
+(`../connect-magento/docs/site/`) in its section order. A merchant-visible
+change — a label, a step, a setting, an error or notice text, an import's
+behaviour, a requirement — updates it in the same commit **in both
+languages**: every unit is a `data-lang="en"` element followed by its
+`data-lang="et"` twin; edit the pair together, and quote admin labels
+exactly as the module's catalogue shows them (the source string, and its
+unit in `src/translations/et-EE/`). `tests/js/user-guide-site.test.js`
+(`node --test tests/js/`) fails on a broken in-page link, a missing twin,
+twins whose structure drifted, or a section the admin links to that is
+missing. The page lies outside `src/`, so the release zip never holds it.
+`USERGUIDE.md` is only a pointer at the site — do not add content there.
+**The admin links the site** through `Admin\UserGuide`: `URL` is the
+site's address and each `SECTION_*` an id on the page, read in Twig with
+`constant()`; `tests/Unit/Admin/UserGuideTest.php` and the JS check pin
+them. Renaming a site id breaks those links: search the repo first.
+**Publishing it live** goes to https://smaily.com/connect-presta/ (a new
+web root, as the siblings' guides at `/connect-woo/` and
+`/connect-magento/`). It waits for the owner's FTP account: the credentials
+file will be `~/smaily_ftp_presta` on Erkki's Mac, which agents never
+print, copy or commit, and the first upload waits for Erkki's go-ahead.
+Until then the page is not published.
 
 ## Build / test commands
 
