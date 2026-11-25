@@ -2904,7 +2904,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
-| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
+| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 
@@ -4327,8 +4327,8 @@ has one owner:
   first contact import and one saver for the setup and Settings (`Admin\Setup\SetupPanels`); the
   Dashboard's verdict, connection cards, tiles and Recent activity (`Admin\Dashboard\`, section
   4.3 for the Background tasks card). The Initial setup was walked in a browser on 8.0.0 and 9.2.0
-  against the Smaily mock. Since 2026-11-25 step 1 continues only with a passed connection test
-  (section 15), walked on 8.2.8 and 9.2.0.
+  against the Smaily mock. Since 2026-11-25 step 1 continues only with a passed connection test,
+  and the step list opens a later step only then (section 15), walked on 8.2.8 and 9.2.0.
 - **Left open.** Nothing: Story 4.1 built the Automations step and Story 5.3 the Intelligence step.
   The Dashboard's Campaign Intelligence and tracking cards always read "Not connected" and "Disabled",
   and it shows no Catalog items tile, until stage 5.
@@ -4949,3 +4949,18 @@ Decisions of 2026-11-25:
   would store before it writes anything (`ConnectionPanel::save()` with `$connectedOnly`) and,
   while Smaily refuses one, saves nothing, so the step is not reached, and answers the same words.
   Settings > Connection still saves a refused account as "Not connected", as Magento.
+- The step list of the Initial setup opens no later step until the Smaily connection of step 1 is
+  in order (owner, 2026-11-25; Linear CON-397), as WooCommerce locks every step after Connect
+  until its connection test succeeded and Shopify until a connection is stored. "In order" is
+  step 1's Continue gate: a passed test in the page, or a stored account that Smaily accepts after
+  the page opens (`common.js` asks the gate on every step, so the stored account is tested on any
+  step the page opens on). A locked step stays ticked where it was reached, is dimmed, and a click
+  on it opens nothing and shows "Test your Smaily connection to continue." beside Continue (the
+  same words are the step's tooltip, also on the Overview, which has no Continue). The server refuses
+  too, as Shopify's `goto` gate: `Api\Setup\SaveStep` saves `contacts`, `automations`,
+  `intelligence` and `finish` only while the scope has a Smaily account with its credentials stored
+  (`ConnectionPanel::laterStepErrors()`), and answers the same words; it asks Smaily nothing, as
+  step 1 stores only an account that Smaily accepts. An edit of a connection field hides the
+  connection status of the account of no language until a test or a save answers again, in the
+  Initial setup and on Settings > Connection, which share the panel, as WooCommerce's one reducer
+  resets the connection state in both.

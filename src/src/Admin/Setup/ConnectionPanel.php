@@ -176,7 +176,7 @@ final class ConnectionPanel
             foreach (array_unique($accounts, SORT_REGULAR) as $credentials) {
                 $check = $this->check->check($credentials[0], $credentials[1], $credentials[2]);
                 if (!$check['connected']) {
-                    return ['errors' => [['field' => '', 'message' => $this->trans('Test your Smaily connection to continue.')]], 'connected' => false, 'error' => $check['error']];
+                    return ['errors' => [$this->testFirst()], 'connected' => false, 'error' => $check['error']];
                 }
             }
         }
@@ -265,6 +265,25 @@ final class ConnectionPanel
         }
 
         return ['subdomain' => $account->subdomain()] + $this->check->check($account->subdomain(), $account->username(), $account->password());
+    }
+
+    /**
+     * Why a step after Connect saves nothing (owner, 2026-11-25; Linear CON-397): the scope saves
+     * nothing, or it has no Smaily account with its credentials stored, as Shopify reaches no step
+     * past Connect without a stored connection. Step 1 stores only an account that Smaily accepts;
+     * in mode `a` the account of no language is the fallback account's.
+     *
+     * @return list<array{field: string, message: string}>
+     */
+    public function laterStepErrors(SetupScope $scope): array
+    {
+        $refused = $this->scopeErrors($scope);
+        if ($refused !== []) {
+            return $refused;
+        }
+        $account = $this->accounts->find((int) $scope->targetShop(), '');
+
+        return $account !== null && $account->hasCredentials() ? [] : [$this->testFirst()];
     }
 
     /**
@@ -402,6 +421,16 @@ final class ConnectionPanel
     private static function sameAccount(Account $stored, string $subdomain, string $username): bool
     {
         return strcasecmp($stored->subdomain(), $subdomain) === 0 && $stored->username() === $username;
+    }
+
+    /**
+     * The words of WooCommerce and Shopify while the Smaily connection is not in order.
+     *
+     * @return array{field: string, message: string}
+     */
+    private function testFirst(): array
+    {
+        return ['field' => '', 'message' => $this->trans('Test your Smaily connection to continue.')];
     }
 
     /**

@@ -23,11 +23,15 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\PrivacyExport;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\SendAgain;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\MigrationNotices;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\MigrationPlan;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -65,6 +69,9 @@ final class ControllerContainerTest extends IntegrationTestCase
 
     private ?string $setupState = null;
 
+    /** The shop whose Smaily account a test stored for the steps after Connect, removed after it. */
+    private ?int $storedAccountShop = null;
+
     /** @var array<string, mixed> what the page handed to Twig */
     private array $rendered = [];
 
@@ -85,6 +92,9 @@ final class ControllerContainerTest extends IntegrationTestCase
             \Cache::clean('Module::isEnabled' . self::GDPR_MODULE);
             self::db()->delete(EventQueue::TABLE);
             \Configuration::deleteByName(MigrationNotices::KEY);
+            if ($this->storedAccountShop !== null) {
+                Services::instance()->get(AccountStore::class)->delete($this->storedAccountShop, '');
+            }
             if ($this->setupState === null) {
                 \Configuration::deleteByName(AdminSettings::SETUP_STATE);
             } else {
@@ -252,6 +262,7 @@ final class ControllerContainerTest extends IntegrationTestCase
 
     public function testTheSetupsAutomationsStepAndItsWorkflowListAnswerInWords(): void
     {
+        $this->storeSetupAccount();
         $response = $this->execute(new SaveStep(), $this->locator(), ['step' => 'automations', 'data' => self::CART_DELAY_TOO_SHORT]);
         $answer = json_decode((string) $response->getContent(), true);
         self::assertSame(422, $response->getStatusCode());
@@ -628,6 +639,20 @@ final class ControllerContainerTest extends IntegrationTestCase
      * The container as PrestaShop 8.2.8 hands it to a controller: a locator of the services that
      * AbstractController subscribes to, of which the pages and endpoints use these three.
      */
+    /**
+     * A Smaily account of the setup's scope, which the steps after Connect save only with; none is
+     * asked of Smaily here.
+     */
+    private function storeSetupAccount(): void
+    {
+        $target = (int) SetupScope::current(new StoreLayout(), AbstractJsonAction::shopId())->targetShop();
+        $accounts = Services::instance()->get(AccountStore::class);
+        if ($accounts->find($target, '') === null) {
+            $accounts->save(new Account($target, '', 'example', 'api-user-example', 'not-a-real-password'));
+            $this->storedAccountShop = $target;
+        }
+    }
+
     private function locator(bool $granted = true, bool $validToken = true): ServiceLocator
     {
         $checker = $this->createMock(AuthorizationCheckerInterface::class);

@@ -34,7 +34,8 @@
  * runs it and moves on once the promise it returns resolves; a rejected promise keeps the step.
  * window.smailyConnect.setup.gate(step, hint) registers what Continue waits for: hint() answers
  * the words that say why, shown beside a disabled Continue, or '' once Continue may run; the page
- * calls window.smailyConnect.setup.refresh() when that may have changed.
+ * calls window.smailyConnect.setup.refresh() when that may have changed. Step 1's gate also locks
+ * the rail's later steps.
  *
  * window.smailyConnect.ready(callback) runs the callback once the page is parsed, and
  * window.smailyConnect.show(element, text, ok) writes a result line, marked as an error unless ok.
@@ -216,8 +217,8 @@
 
   /*
    * Initial setup: the current step, and the furthest step reached, which the rail marks done and
-   * lets the merchant go back to. Continue runs the step's saver first; the last step (Overview)
-   * has no Back or Continue.
+   * lets the merchant go back to while step 1's gate is clear. Continue runs the step's saver
+   * first; the last step (Overview) has no Back or Continue.
    */
   function initSetup(container) {
     if (!container) {
@@ -232,9 +233,26 @@
     var result = footer.querySelector('[data-smaily-result]');
     var hinted = false;
 
-    /* Continue waits while the step's gate gives a reason; the reason shows beside it. */
+    /*
+     * Continue waits while the step's gate gives a reason; the reason shows beside it. While step
+     * 1's gate gives one, the rail opens no later step (owner, 2026-11-25), as WooCommerce and
+     * Shopify lock theirs until the Smaily connection is in order.
+     */
     function gate() {
-      var hint = gates[step] ? gates[step]() : '';
+      var lock = gates[1] ? gates[1]() : '';
+      container.querySelectorAll('.smaily-steps li').forEach(function (item) {
+        var number = parseInt(item.getAttribute('data-step'), 10);
+        var locked = lock !== '' && number > 1 && number !== step;
+        item.classList.toggle('locked', locked);
+        if (locked) {
+          item.setAttribute('aria-disabled', 'true');
+          item.title = lock;
+        } else {
+          item.removeAttribute('aria-disabled');
+          item.removeAttribute('title');
+        }
+      });
+      var hint = step === 1 ? lock : (gates[step] ? gates[step]() : '');
       next.disabled = hint !== '';
       if (hint !== '' || hinted) {
         show(result, hint, true);
@@ -285,8 +303,11 @@
       render();
     });
     container.querySelector('.smaily-steps').addEventListener('click', function (event) {
-      var item = event.target.closest('li.done');
-      if (item) {
+      var item = event.target.closest('li');
+      if (item && item.classList.contains('locked')) {
+        show(result, item.title, true);
+        hinted = true;
+      } else if (item && item.classList.contains('done')) {
         step = parseInt(item.getAttribute('data-step'), 10);
         render();
       }

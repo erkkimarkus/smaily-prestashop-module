@@ -219,6 +219,29 @@ final class SetupPanelsTest extends IntegrationTestCase
         self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL(StoreLayout::LANGUAGE_MODE) . '\'', false), 'no language mode was saved');
     }
 
+    /**
+     * The step list stays locked until the connection is in order (owner, 2026-11-25; Linear
+     * CON-397); a request around the page saves no later step either, as Shopify's server gate.
+     */
+    public function testARequestStraightToALaterStepWithoutAnAccountSavesNothing(): void
+    {
+        $this->useAsShopRuntime($this->services);
+        $contacts = ['step' => 'contacts', 'data' => ['mode' => 'all_customers', 'fields' => ['first_name'], 'guests' => false, 'checkout_checkbox' => false, 'enabled' => true]];
+
+        foreach ([$contacts, ['step' => 'automations', 'data' => []], ['step' => 'intelligence', 'data' => []], ['step' => 'finish']] as $body) {
+            $response = $this->post(new SaveStep(), $body);
+            $answer = json_decode((string) $response->getContent(), true);
+            self::assertSame([422, 'invalid_fields', 'Test your Smaily connection to continue.'], [$response->getStatusCode(), $answer['error']['code'], $answer['error']['message']], $body['step']);
+        }
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL(ContactsSettings::MODE) . '\'', false), 'no contact setting was saved');
+        self::assertNotSame(AdminSettings::SETUP_DONE, (new AdminSettings())->setupState(), 'the setup is not finished');
+        self::assertCount(0, $this->mock->requests(), 'Smaily is not asked');
+
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'connect', 'data' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD, 'language_mode' => 'single']])->getStatusCode());
+        self::assertSame(200, $this->post(new SaveStep(), $contacts)->getStatusCode(), 'a stored account opens the later steps');
+        self::assertSame(ContactSyncMode::ALL_CUSTOMERS, (new ContactsSettings())->mode(0)->mode());
+    }
+
     public function testAnAccountPerLanguageSavesEachLanguageAndTheFallback(): void
     {
         $panel = $this->panels()->connection();

@@ -54,9 +54,16 @@ use Symfony\Component\HttpFoundation\Request;
  * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking
  *   (IntelligencePanel); the connection itself is made at once by Api\EngineExchange.
  * - `finish`: the setup is done; the Configure button opens the Dashboard from now on.
+ *
+ * The steps after `connect` save nothing while the scope has no Smaily account stored
+ * (ConnectionPanel::laterStepErrors()) and answer the words of step 1, so a request around the
+ * page's locked step list saves no later step (owner, 2026-11-25), as Shopify's server gate.
  */
 final class SaveStep extends AbstractSetupAction
 {
+    /** The steps that save only with a Smaily account of the scope stored. */
+    private const AFTER_CONNECT = ['contacts', 'automations', 'intelligence', 'finish'];
+
     protected function handle(Request $request, int $idShop)
     {
         return $this->reported(fn () => $this->save($request, $idShop));
@@ -71,8 +78,15 @@ final class SaveStep extends AbstractSetupAction
         $data = is_array($body['data'] ?? null) ? $body['data'] : [];
         $panels = $this->panels();
         $scope = $panels->scope($idShop);
+        $step = (string) ($body['step'] ?? '');
+        if (in_array($step, self::AFTER_CONNECT, true)) {
+            $refused = $panels->connection()->laterStepErrors($scope);
+            if ($refused !== []) {
+                return $this->fieldErrors($refused);
+            }
+        }
 
-        switch ((string) ($body['step'] ?? '')) {
+        switch ($step) {
             case 'shape':
                 $errors = $this->saveShape($panels, $scope, $data, $idShop);
 

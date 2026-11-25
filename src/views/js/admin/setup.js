@@ -29,8 +29,9 @@
  * Continue saves a step through Admin\Api\Setup\SaveStep (window.smailyConnect.setup.onContinue);
  * a refused save marks each field at fault with its message and keeps the step. On Connect,
  * Continue waits until every account the step would save passed Test connection (owner,
- * 2026-11-25), as WooCommerce and Shopify; a stored account counts once Smaily accepts it when
- * step 1 first shows, so a saved password is not typed again. Back keeps what
+ * 2026-11-25), as WooCommerce and Shopify, and the step list opens no later step until then; a
+ * stored account counts once Smaily accepts it after the page opens, so a saved password is not
+ * typed again. An edit of a block asks for the test again. Back keeps what
  * was typed: the steps stay on the page. The Automations step is drawn for the saved language
  * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
@@ -84,7 +85,7 @@
       if (!connection) {
         return '';
       }
-      // The stored accounts are asked about when step 1 first shows.
+      // The stored accounts are asked about when the page first asks: the rail asks on any step.
       if (!storedChecked) {
         storedChecked = true;
         checkStored(connection);

@@ -37,6 +37,7 @@
  *
  * An account block whose values passed Test connection carries data-smaily-tested until one of
  * its fields is edited; onTested(hook) runs the page's hook after each test and each such edit.
+ * The edit also hides the connection state of the account of no language.
  */
 (function () {
   'use strict';
@@ -214,6 +215,7 @@
     function tested(accountBlock, data, answer) {
       var testResult = accountBlock.querySelector('[data-smaily-test-result]');
       var now = credentials(accountBlock);
+      var held = now.subdomain === data.subdomain && now.username === data.username && now.password === data.password;
       if (answer.connected) {
         show(testResult, label(data.language === '' ? connectedLabel : 'connected'), true);
         // The Initial setup's footer still says that an earlier Continue failed: once no field
@@ -225,10 +227,11 @@
       } else {
         show(testResult, answer.error || label('failed'), false);
       }
-      if (data.language === '') {
+      // A state that answers for values edited since stays hidden.
+      if (data.language === '' && held) {
         showStatus(!!answer.connected);
       }
-      markTested(accountBlock, !!answer.connected && now.subdomain === data.subdomain && now.username === data.username && now.password === data.password);
+      markTested(accountBlock, !!answer.connected && held);
     }
 
     function testSmaily(button) {
@@ -534,7 +537,10 @@
       };
     }(root.querySelector('[data-smaily-import]')));
 
-    /* An edited account field undoes the block's passed test. */
+    /*
+     * An edited account field undoes the block's passed test, and the state of the account of no
+     * language clears until a test or a save answers again (owner, 2026-11-25), as WooCommerce.
+     */
     root.addEventListener('input', function (event) {
       var accountBlock = event.target.closest('[data-smaily-account-block]');
       if (!accountBlock) {
@@ -542,6 +548,10 @@
       }
       if (accountBlock.hasAttribute('data-smaily-tested')) {
         show(accountBlock.querySelector('[data-smaily-test-result]'), '', true);
+      }
+      var status = accountBlock.querySelector('[data-smaily-connection-status]');
+      if (status) {
+        status.hidden = true;
       }
       markTested(accountBlock, false);
     });

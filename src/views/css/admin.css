@@ -446,6 +446,11 @@
   color: var(--smaily-text);
 }
 
+.smaily-ui .smaily-steps li.locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .smaily-ui .smaily-steps li.active {
   color: var(--smaily-text);
   background: var(--smaily-tint);

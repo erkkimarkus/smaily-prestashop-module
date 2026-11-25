@@ -264,6 +264,10 @@ ask (Linear discipline below).
   Intelligence palette (Linear CON-377) and the Smaily Connect and CI logos
   (Linear GMS-66); the back office keeps its native look (ARCHITECTURE 10.5,
   10.6).
+- **The Initial setup's later steps need an account** (owner, 2026-11-25). `Api\Setup\SaveStep`
+  saves `contacts`, `automations`, `intelligence` and `finish` only while the scope has a Smaily
+  account stored, and the step list opens no later step until step 1's Continue gate is clear: a
+  test that posts a later step stores an account first (`SetupPanelsTest`, `ControllerContainerTest`).
 - **Admin endpoints are services.** PrestaShop 9 answers HTTP 500 for a route whose controller
   is not listed in `config/admin/services/`; PrestaShop 8 serves it. Add the route and the
   service in one commit (a unit test compares the two), and clear `var/cache` in a dev shop.

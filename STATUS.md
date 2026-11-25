@@ -22,7 +22,8 @@ Everything is on `v3`; no worker branch or worktree is left.
   divided by the order's own rate); a catalog row's parent id and a removal's product id carry `ps-`. The agent
   guide anchors the work on the one initiative "Smaily earns revenue beyond email sending".
 - The Initial setup's first answer "Separate stores" runs the layout change, as Settings and Magento's wizard do;
-  step 1 refuses Continue until the Smaily connection test passes (owner, CON-397).
+  step 1 refuses Continue, and the step list every later step, until the Smaily connection test passes; an edit
+  clears the connection status (owner, CON-397).
 - The Log's failures and Test connection's reasons, Campaign Intelligence's too, show in the employee's language.
   Estonian: the colleague's four wordings (CON-416), the Overview's "Küpsiste bänner", "Website" as "Veebisait".
 - Dev and test shops resolve `intelligence.smaily.com` and `api.github.com` to 127.0.0.1; the test bootstrap
@@ -66,9 +67,7 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 
 ## Queue (technical, for the orchestrator)
 
-- Initial setup: the "Connected" badge of step 1 stays after a field edit, while Continue asks for a new test; the
-  step rail lets a store with a refused saved account jump to a ticked step (WooCommerce and Shopify lock it); the
-  first-answer card of "Separate stores" names no connection that moves.
+- Initial setup: the first-answer card of "Separate stores" names no connection that moves.
 - The tick URL answers 504 from nginx (30 seconds) while a 30-second Smaily timeout runs inside it. The engine
   mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS: only the
   egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced now, and
@@ -118,6 +117,8 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behaviour rule, read what the siblings do.
 
 1. After a reload the step list ticks every step up to the furthest one reached, also one never saved (as Magento).
+   Decided 2026-11-25 for the rail: a later step opens only while step 1's connection is in order, as WooCommerce
+   and Shopify; the ticks stay.
 2. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
 3. For the cross-connector analysis CON-397: late or retried contact changes, workflows after an account or mode
    change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its

@@ -578,24 +578,24 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
   <div class="sub" id="setup-connect">
     <h2><span data-lang="en">Step 1 — Connect your Smaily account</span><span data-lang="et">Samm 1 — Ühenda oma Smaily konto</span></h2>
     <div data-lang="en">
-      <p>Open <span class="path">Customers &gt; Smaily Connect &gt; Initial setup</span>. The step list shows the five steps; <strong>Back</strong> and <strong>Continue</strong> move between them, and each step saves when you continue.</p>
+      <p>Open <span class="path">Customers &gt; Smaily Connect &gt; Initial setup</span>. The step list shows the five steps; <strong>Back</strong> and <strong>Continue</strong> move between them, and each step saves when you continue. The step list opens a later step only while the Smaily connection of step 1 is in order — a passed <strong>Test connection</strong>, or a saved account that Smaily accepts; until then a click on a later step shows <em>Test your Smaily connection to continue.</em></p>
       <ol>
         <li>Enter the <strong>Subdomain</strong> — if your Smaily URL is <code>https://demo.sendsmaily.net</code>, the subdomain is <code>demo</code>. Pasting the full URL also works.</li>
         <li>Enter the <strong>API username</strong> and <strong>API password</strong> of your Smaily API user — to create one, log in to Smaily, open the settings (the gear icon) &gt; <span class="path">Integrations</span> and create a new API user and password there. The password is stored encrypted, and a saved password is never shown again.</li>
         <li>Press <strong>Test connection</strong>. It checks the credentials as typed, without saving.</li>
         <li>If your store speaks several languages, pick under <strong>How is Smaily organized for your store languages?</strong> how they use Smaily — see <a href="#set-multilingual">Multilingual stores</a>. A single-language store does not see this.</li>
-        <li>Press <strong>Continue</strong>. It waits until <strong>Test connection</strong> passes: <em>Test your Smaily connection to continue.</em> With <strong>Per-language Smaily accounts</strong>, every account you fill in is tested. A change to the subdomain, username or password asks for the test again.</li>
+        <li>Press <strong>Continue</strong>. It waits until <strong>Test connection</strong> passes: <em>Test your Smaily connection to continue.</em> With <strong>Per-language Smaily accounts</strong>, every account you fill in is tested. A change to the subdomain, username or password asks for the test again and clears the connection status.</li>
       </ol>
       <p>A saved account counts as tested once Smaily accepts it when the page opens, so a saved password is not typed again. Saving the connection sends no contacts yet: contact sync starts when <a href="#setup-contacts">step 2</a> is saved.</p>
     </div>
     <div data-lang="et">
-      <p>Ava <span class="path">Kliendid &gt; Smaily Connect &gt; Algseadistus</span>. Sammude loend näitab viit sammu; <strong>Tagasi</strong> ja <strong>Jätka</strong> liiguvad nende vahel ning iga samm salvestub, kui jätkad.</p>
+      <p>Ava <span class="path">Kliendid &gt; Smaily Connect &gt; Algseadistus</span>. Sammude loend näitab viit sammu; <strong>Tagasi</strong> ja <strong>Jätka</strong> liiguvad nende vahel ning iga samm salvestub, kui jätkad. Sammude loend avab hilisema sammu alles siis, kui sammu 1 Smaily ühendus on korras — <strong>Testi ühendust</strong> õnnestus või Smaily võtab salvestatud konto vastu; seni näitab klõps hilisemal sammul teadet <em>Jätkamiseks testi oma Smaily ühendust.</em></p>
       <ol>
         <li>Sisesta <strong>Alamdomeen</strong> — kui sinu Smaily URL on <code>https://demo.sendsmaily.net</code>, on alamdomeen <code>demo</code>. Sobib ka täieliku URL-i kleepimine.</li>
         <li>Sisesta oma Smaily API kasutaja <strong>API kasutajanimi</strong> ja <strong>API parool</strong> — selle loomiseks logi Smailysse sisse, ava seaded (hammasratta ikoon) &gt; <span class="path">Liidestused</span> ja loo seal uus API-kasutaja ja parool. Parool salvestatakse krüpteeritult ja salvestatud parooli enam kunagi ei näidata.</li>
         <li>Vajuta <strong>Testi ühendust</strong>. See kontrollib sisestatud kasutajaandmeid ilma salvestamata.</li>
         <li>Kui sinu pood räägib mitut keelt, vali küsimuse <strong>Kuidas on Smaily sinu poe keelte jaoks korraldatud?</strong> all, kuidas keeled Smailyt kasutavad — vt <a href="#set-multilingual">Mitmekeelsed poed</a>. Ühekeelne pood seda ei näe.</li>
-        <li>Vajuta <strong>Jätka</strong>. See ootab, kuni <strong>Testi ühendust</strong> õnnestub: <em>Jätkamiseks testi oma Smaily ühendust.</em> Valiku <strong>Keelepõhised Smaily kontod</strong> korral testitakse iga täidetud konto. Alamdomeeni, kasutajanime või parooli muutmine küsib testi uuesti.</li>
+        <li>Vajuta <strong>Jätka</strong>. See ootab, kuni <strong>Testi ühendust</strong> õnnestub: <em>Jätkamiseks testi oma Smaily ühendust.</em> Valiku <strong>Keelepõhised Smaily kontod</strong> korral testitakse iga täidetud konto. Alamdomeeni, kasutajanime või parooli muutmine küsib testi uuesti ja peidab ühenduse oleku.</li>
       </ol>
       <p>Salvestatud konto loetakse testituks, kui Smaily selle lehe avamisel vastu võtab, nii et salvestatud parooli uuesti ei trükita. Ühenduse salvestamine ei saada veel ühtegi kontakti: kontaktide sünkroonimine algab <a href="#setup-contacts">sammu 2</a> salvestamisel.</p>
     </div>
@@ -678,11 +678,11 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
   <div class="sub" id="set-connection">
     <h2><span data-lang="en">Connection</span><span data-lang="et">Ühendus</span></h2>
     <div data-lang="en">
-      <p>The tab holds your <strong>Smaily API credentials</strong> — <strong>Subdomain</strong>, <strong>API username</strong> and <strong>API password</strong> — with <strong>Test connection</strong>, which checks them without saving, and <strong>Save Connection</strong>. The <strong>Status</strong> line shows whether the store is connected. A saved password is never shown again: leave the password field empty to keep it.</p>
+      <p>The tab holds your <strong>Smaily API credentials</strong> — <strong>Subdomain</strong>, <strong>API username</strong> and <strong>API password</strong> — with <strong>Test connection</strong>, which checks them without saving, and <strong>Save Connection</strong>. The <strong>Status</strong> line shows whether the store is connected; a change to the subdomain, username or password hides it until a test or a save answers again. A saved password is never shown again: leave the password field empty to keep it.</p>
       <p>The automations keep their workflows when you save another Smaily account. A workflow belongs to the Smaily account it was picked from, so afterwards open <span class="path">Settings &gt; Automations</span>: a workflow that shows as <strong>Workflow #N (not in your Smaily list — kept)</strong> was picked from another account; pick a workflow of the account saved now in its place.</p>
     </div>
     <div data-lang="et">
-      <p>Vahekaardil on sinu <strong>Smaily API kasutajaandmed</strong> — <strong>Alamdomeen</strong>, <strong>API kasutajanimi</strong> ja <strong>API parool</strong> — koos nupuga <strong>Testi ühendust</strong>, mis kontrollib neid ilma salvestamata, ja nupuga <strong>Salvesta ühendus</strong>. Rida <strong>Olek</strong> näitab, kas pood on ühendatud. Salvestatud parooli enam kunagi ei näidata: selle säilitamiseks jäta parooliväli tühjaks.</p>
+      <p>Vahekaardil on sinu <strong>Smaily API kasutajaandmed</strong> — <strong>Alamdomeen</strong>, <strong>API kasutajanimi</strong> ja <strong>API parool</strong> — koos nupuga <strong>Testi ühendust</strong>, mis kontrollib neid ilma salvestamata, ja nupuga <strong>Salvesta ühendus</strong>. Rida <strong>Olek</strong> näitab, kas pood on ühendatud; alamdomeeni, kasutajanime või parooli muutmine peidab selle, kuni test või salvestamine jälle vastab. Salvestatud parooli enam kunagi ei näidata: selle säilitamiseks jäta parooliväli tühjaks.</p>
       <p>Automaatikad jätavad oma töövood alles, kui salvestad teise Smaily konto. Töövoog kuulub sellele Smaily kontole, kust see valiti, nii et ava pärast seda <span class="path">Seaded &gt; Automaatikad</span>: töövoog, mida näidatakse kujul <strong>Töövoog #N (pole sinu Smaily loendis — säilitatud)</strong>, valiti teiselt kontolt; vali selle asemele praegu salvestatud konto töövoog.</p>
     </div>
   </div>
