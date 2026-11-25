@@ -2280,9 +2280,13 @@ the change to one store promotes).
   and `customer_account_scope` are what the setup exchange sent (section 14, row 59). To one
   store, the shops that the connection newly serves get no import of their own: their products,
   customers and orders flow from their next change on, and "Run again" on the import cards sends
-  the whole of them. A store that answers the layout question for the first time in the Initial
-  setup (`Admin\Setup\StoreShapePanel`) runs no layout change, for its settings or its
-  connection.
+  the whole of them.
+- **The first answer.** A store that answers the layout question for the first time holds what it
+  saved before it had several shops as the values of all shops: the one-store layout. "One store"
+  is that layout and only stores the answer (`Admin\Setup\StoreShapePanel`). "Separate stores"
+  is the change to separate stores above, on Settings and in the Initial setup alike
+  (`Api\Settings\ChangeLayout`, `Api\Setup\SaveStep`), with its settings, its connection and
+  its cookie-banner confirmation: Magento's wizard runs its `toSeparateStores()` there as well.
 
 **Storage.** The API key is encrypted with `Smaily\Crypto`, as the Smaily password is (section 2.3);
 a key that does not decrypt reads as no key, and the connection then needs a new setup link. The

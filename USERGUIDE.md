@@ -98,6 +98,8 @@ The shop selector applies to every open back-office tab. When the selected shop 
 
 The change also decides what happens to Campaign Intelligence. The connection of the shop you have selected (the default shop when **All shops** is selected) is kept: from one store to separate stores, the connection of all shops becomes that shop's own, and the other shops connect on their own, each with its own setup link; from separate stores to one store, that shop's connection then serves all shops. Every other connection ends, as with **Disconnect**: Campaign Intelligence is told, its imports stop, and connecting again needs a new setup link from Smaily. The page names the shop that keeps its connection and the connections that end, and asks you to confirm. After a change to one store, tick **I confirm that my store's cookie banner lets a visitor choose whether to allow Smaily to track their browsing.** again under **Settings -> Intelligence**: the one connection now covers the visitors of every shop, so browse tracking and recommendations stay off until you confirm it for all of them.
 
+A store that was set up, or connected to Campaign Intelligence, before it had several shops answers the question in the **Initial setup**. **Separate stores** there makes the same change as **Change** in **Settings**: each shop keeps the settings it uses now, as its own, and the connection of all shops becomes the selected shop's own (the default shop's when **All shops** is selected). **One store in several versions** keeps everything as it is.
+
 ## Adding newsletter subscription form to your store
 
 Smaily's module can synchronize customers, who have opted in for a newsletter subscription during registration.

@@ -30,13 +30,23 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\StoreShapePanel;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Saves one step of the Initial setup, as Magento's Api\SaveStep: POST {"step": …, "data": {…}}.
  *
- * - `shape`: how the shops are run (StoreShapePanel).
+ * - `shape`: how the shops are run (StoreShapePanel). A first answer of separate stores is the
+ *   same change as on Settings (Admin\Settings\LayoutChange, as Api\Settings\ChangeLayout runs
+ *   it): the values and the Campaign Intelligence connection that a store holds for all shops
+ *   become the selected or default shop's, as Magento's wizard does. A first answer of one store
+ *   is the layout those values are in, so it is only stored.
  * - `connect`: the Smaily account and the language mode (ConnectionPanel); answers `connected`
  *   and, when Smaily refused or could not be asked, `error`. The save stands either way.
  * - `contacts`: the Contacts settings (ContactsPanel); contact sync starts with it.
@@ -64,7 +74,7 @@ final class SaveStep extends AbstractSetupAction
 
         switch ((string) ($body['step'] ?? '')) {
             case 'shape':
-                $errors = $panels->shape()->save($scope, $data);
+                $errors = $this->saveShape($panels, $scope, $data, $idShop);
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'connect':
@@ -93,5 +103,23 @@ final class SaveStep extends AbstractSetupAction
             default:
                 return $this->error('unknown_step', $this->trans('Saving failed.', BaseController::DOMAIN));
         }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     *
+     * @return list<array{field: string, message: string}>
+     */
+    private function saveShape(SetupPanels $panels, SetupScope $scope, array $data, int $idShop): array
+    {
+        if ($scope->asksLayoutFirst() && ($data['shape'] ?? null) === StoreShapePanel::SEPARATE_STORES) {
+            (new SettingsPanels(Services::instance(), BaseController::translator()))
+                ->layoutChange()
+                ->toSeparateStores(LayoutChange::promotedShop($idShop));
+
+            return [];
+        }
+
+        return $panels->shape()->save($scope, $data);
     }
 }

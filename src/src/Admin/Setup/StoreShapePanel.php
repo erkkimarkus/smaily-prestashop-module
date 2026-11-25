@@ -39,8 +39,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * stored; the answer is stored where Scope\StoreLayout reads it.
  *
  * Moving a store that has saved settings from one layout to the other needs its values copied or
- * removed shop by shop (Magento's toSeparateStores() and toOneStore()); that change belongs to
- * Settings, so this panel only stores a first answer, or the layout the store already has.
+ * removed shop by shop (Magento's toSeparateStores() and toOneStore()); that change is
+ * Admin\Settings\LayoutChange, so this panel only stores a first answer, or the layout the store
+ * already has. The Initial setup's first answer of separate stores runs that change
+ * (Api\Setup\SaveStep), since the values a store saved before it had several shops are the
+ * values of all shops.
  */
 final class StoreShapePanel
 {
