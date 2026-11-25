@@ -35,6 +35,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\MultistoreShop;
 
+require_once __DIR__ . '/EngineTestCase.php';
+require_once __DIR__ . '/../MultistoreShop.php';
+
 /**
  * A change of the shop layout carries one Campaign Intelligence connection over and ends the
  * others (owner, 2026-11-23; ARCHITECTURE 8.9), against the engine mock, in a store with two

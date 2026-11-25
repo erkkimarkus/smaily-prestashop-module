@@ -598,7 +598,9 @@ final class SettingsShopsTest extends IntegrationTestCase
                 self::assertFalse($overrides->hasOwn($section, $shop), 'no shop holds own values of ' . $section);
             }
             self::assertSame(0, $this->mappingCount($shop));
-            self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $shop . ' AND `value` IS NULL', false), 'nothing was written as NULL');
+            // About the module's own keys: PrestaShop 9's bundled ps_accounts writes its own
+            // `PS_ACCOUNTS_*` rows per shop holding NULL, and they stay for a later run in the shop.
+            self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $shop . ' AND `value` IS NULL AND LEFT(`name`, 12) <> \'PS_ACCOUNTS_\'', false), 'nothing was written as NULL');
         }
         self::assertSame([], $this->accountRows(), 'no shop holds an account row, differing or not');
         self::assertSame(1, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '` WHERE `id_shop` = 0', false), 'the shared account alone is left');

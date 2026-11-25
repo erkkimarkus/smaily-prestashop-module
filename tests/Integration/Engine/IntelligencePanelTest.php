@@ -13,6 +13,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
+require_once __DIR__ . '/EngineTestCase.php';
+
 /**
  * The Intelligence panel of Story 5.3 against the engine mock: a connection starts the three
  * imports, a link that is not taken is worded by the module, the state follows the health check,

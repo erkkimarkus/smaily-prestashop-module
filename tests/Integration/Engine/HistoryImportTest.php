@@ -14,6 +14,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use Tests\Integration\Contacts\ContactRows;
 
+require_once __DIR__ . '/IngestTestCase.php';
+require_once __DIR__ . '/../Contacts/ContactRows.php';
+
 /**
  * The history import of Story 5.3 against the engine mock: the three imports run one after
  * another through the ingest queue, the orders newest first inside the window, the progress
