@@ -80,6 +80,15 @@ final class Failure
     }
 
     /**
+     * A refusal answered with HTTP $status that a retry cannot change, parked at once:
+     * `permanent_http_<status>: <message>`. Which statuses refuse is the caller's verdict.
+     */
+    public static function refused(int $status, string $message): self
+    {
+        return self::permanent(sprintf('permanent_http_%d: %s', $status, $message));
+    }
+
+    /**
      * A failure that a later attempt can pass.
      */
     public static function temporary(string $reason, ?int $retryAfter = null): self
@@ -94,7 +103,7 @@ final class Failure
     public static function http(int $status, string $message, ?int $retryAfter = null): self
     {
         if ($status >= 400 && $status < 500 && $status !== 429) {
-            return self::permanent(sprintf('permanent_http_%d: %s', $status, $message));
+            return self::refused($status, $message);
         }
 
         return self::temporary($message, $status === 429 ? $retryAfter : null);
@@ -108,7 +117,7 @@ final class Failure
     public static function of(\Throwable $error): self
     {
         if ($error instanceof RequestRefusedException) {
-            return self::permanent(sprintf('permanent_http_%d: %s', $error->getHttpStatus(), $error->getMessage()));
+            return self::refused($error->getHttpStatus(), $error->getMessage());
         }
         if ($error instanceof ApiException && $error->isPermanent()) {
             return self::permanent(sprintf('permanent_envelope_%d: %s', $error->getSmailyCode(), $error->getMessage()));

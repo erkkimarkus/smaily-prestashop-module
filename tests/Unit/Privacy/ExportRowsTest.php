@@ -112,6 +112,10 @@ final class ExportRowsTest extends TestCase
         $refused = EngineFailure::of(new EngineRequestException('tenant_inactive', 403));
         self::assertSame([true, 'permanent_http_403: Campaign Intelligence answered HTTP 403 (tenant_inactive).'], [$refused->isPermanent(), $refused->reason()]);
 
+        // A 3xx parks the row too, unlike a Smaily answer's (Queue\Failure::http()).
+        $moved = EngineFailure::of(new EngineRequestException('http_302', 302));
+        self::assertSame([true, 'permanent_http_302: Campaign Intelligence answered HTTP 302 (http_302).'], [$moved->isPermanent(), $moved->reason()]);
+
         $unreadable = EngineFailure::of(new EngineRequestException('key_unreadable'));
         self::assertSame([true, 'The Campaign Intelligence request failed (key_unreadable).'], [$unreadable->isPermanent(), $unreadable->reason()]);
 

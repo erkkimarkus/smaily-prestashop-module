@@ -52,10 +52,8 @@ final class EngineFailure
             return Failure::temporary($error->getMessage());
         }
 
-        return Failure::permanent(
-            $error->httpStatus() > 0
-                ? sprintf('permanent_http_%d: %s', $error->httpStatus(), $error->getMessage())
-                : $error->getMessage()
-        );
+        return $error->httpStatus() > 0
+            ? Failure::refused($error->httpStatus(), $error->getMessage())
+            : Failure::permanent($error->getMessage());
     }
 }
