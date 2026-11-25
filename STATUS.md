@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-25 (late). Gauge 14/14._
+_Last updated: 2026-11-25 (night). Gauge 14/14._
 
 ## Next session opens with
 
@@ -47,11 +47,12 @@ guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored)
   handoff's commit).
 - After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh`. The guard's certificates last 30 days.
 
-**Last runs** (2026-11-25 late, on `5f1db54`). Host: `src/vendor/bin/phpunit` 2284 tests, 4034 assertions, 1153
+**Last runs** (2026-11-25 night, on `ed1590b`). Host: `src/vendor/bin/phpunit` 2284 tests, 4035 assertions, 1153
 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from scratch behind the egress
-guard, debug mode on: 2284 tests on 8.2.8 (12213 assertions) and on 9.2.0 (12218), the 9.2.0 suite twice in the same
-shop; the leftovers check silent on every run. `tests/ci/validate.sh` with the zip: 10 of 10 on flashlight 8.2.8 and
-9.2.0, its suite with debug mode off 2284 tests on both (12213 and 12218 assertions).
+guard, debug mode on: 2284 tests on 8.2.8 (12214 assertions with a tick state at the start, 12213 without) and on
+9.2.0 (12219 both ways); the leftovers check, now with the tick state, silent on every run. `tests/ci/validate.sh`
+with the zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off 2284 tests on both (12214 and
+12219 assertions).
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
