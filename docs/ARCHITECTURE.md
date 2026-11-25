@@ -4970,3 +4970,10 @@ Decisions of 2026-11-25:
   resets the connection state in both. Smaily's answer about a stored account that arrives after
   such an edit shows no state either (`panels.js` `holds()`), also on Settings, which asks about
   the stored accounts after the page has loaded.
+- A Done contact import keeps the reason of the contacts that Smaily refused for good (code 203;
+  the progress line reads "Done, N of M synced — K failed") in the Log list's Last Error and under
+  "Reason" in Details, so the merchant sees why they failed (owner, 2026-11-25). A job has no
+  attempts: the import counts those contacts as failed and goes on (section 6.5). Magento and
+  WooCommerce keep no error on a completed contact import: Magento writes the refusal to its system
+  log, and WooCommerce lists the refused contacts on the import card. The cross-connector analysis
+  (Linear CON-397) decides where every connector shows it (section 10.8).
