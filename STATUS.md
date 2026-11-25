@@ -43,11 +43,11 @@ guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored)
   `src/Storefront/CartCombination.php` among them, no `docs/site/`).
 - After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh`. The guard's certificates last 30 days.
 
-**Last runs** (2026-11-25 evening, merged tip `7bc84b6`). Host: `src/vendor/bin/phpunit` 2280 tests, 4034
-assertions, 1149 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from scratch
-behind the egress guard, debug mode on: 2280 tests on 8.2.8 (12192 assertions) and 9.2.0 (12197).
-`tests/ci/validate.sh` with the packaged zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off
-green on both (same counts).
+**Last runs** (2026-11-25 late evening, Task O's branch on `ec32cde`). Host: `src/vendor/bin/phpunit` 2282 tests,
+4034 assertions, 1151 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from
+scratch behind the egress guard, debug mode on: 2282 tests on 8.2.8 (12206 assertions) and 9.2.0 (12211).
+`tests/ci/validate.sh` last ran on the merged tip `7bc84b6`: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with
+debug mode off green on both (2280 tests, 12192 and 12197 assertions).
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
@@ -68,8 +68,10 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 ## Queue (technical, for the orchestrator)
 
 - Initial setup: the first-answer card of "Separate stores" names no connection that moves.
-- The Log: a Done `contacts_refresh` job shows "Smaily API returned code 203" in Last Error; check whether a Done
-  job should show an error at all.
+- The Log: a Done import job shows in Last Error the reason of the contacts that Smaily refused for good (code 203:
+  "Done, N of M synced — K failed"); no earlier attempt is overcome, a job has none. Magento and WooCommerce keep no
+  error on a completed contact import (Magento writes the refusal to its system log; WooCommerce lists the refused
+  contacts on the import card): ask the owner whether the list should leave it out for a Done job (CON-397).
 - Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next
   nightly list; ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
