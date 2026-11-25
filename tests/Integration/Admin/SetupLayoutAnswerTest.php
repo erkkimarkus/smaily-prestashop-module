@@ -6,7 +6,6 @@ namespace Tests\Integration\Admin;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
@@ -16,12 +15,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
-use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\MultistoreShop;
 use Tests\Integration\Report\ReportTestCase;
 
@@ -164,19 +158,7 @@ final class SetupLayoutAnswerTest extends ReportTestCase
      */
     private function post(AbstractJsonAction $action, array $body, array $route): JsonResponse
     {
-        $checker = $this->createMock(AuthorizationCheckerInterface::class);
-        $checker->method('isGranted')->willReturn(true);
-        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
-        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
-        $tokens->method('isTokenValid')->willReturn(true);
-        $action->setContainer(new ServiceLocator([
-            'security.authorization_checker' => static fn () => $checker,
-            'security.csrf.token_manager' => static fn () => $tokens,
-        ]));
-        $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
-        $request->headers->set('X-Smaily-Token', 'page-token');
-        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
-        $response = $action->execute($request);
+        $response = $this->adminRequest($action, $body, $route);
         \Configuration::resetStaticCache();
         \Configuration::loadConfiguration();
         ActiveConnection::reset();

@@ -86,26 +86,13 @@ final class UpdateNoticeTest extends IntegrationTestCase
                 return [];
             }
 
-            protected function isGranted($attribute, $subject = null): bool
-            {
-                return true;
-            }
-
-            protected function isCsrfTokenValid(string $id, ?string $token): bool
-            {
-                return $id === BaseController::API_TOKEN_ID && $token === 'right';
-            }
-
             protected function trans($key, $domain, array $parameters = [])
             {
                 return $key;
             }
         };
-        $request = new Request();
-        $request->headers->set('X-Smaily-Token', 'wrong');
-        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
 
-        $response = $endpoint->execute($request);
+        $response = $this->adminRequest($endpoint, [], [], $this->adminLocator(true, false));
 
         self::assertInstanceOf(JsonResponse::class, $response);
         self::assertSame(403, $response->getStatusCode());
@@ -113,8 +100,7 @@ final class UpdateNoticeTest extends IntegrationTestCase
         self::assertFalse($endpoint->handled);
         self::assertSame(self::RELEASE, BaseController::updateNotice());
 
-        $request->headers->set('X-Smaily-Token', 'right');
-        self::assertSame(200, $endpoint->execute($request)->getStatusCode());
+        self::assertSame(200, $this->adminRequest($endpoint, [], [])->getStatusCode());
         self::assertTrue($endpoint->handled);
     }
 

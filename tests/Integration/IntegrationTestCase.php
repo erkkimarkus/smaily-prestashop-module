@@ -4,9 +4,17 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\StoreCurrency;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 /**
  * The base of every test that runs inside the docker shop against its real database, with the
@@ -72,6 +80,47 @@ abstract class IntegrationTestCase extends TestCase
         self::accessible($property);
 
         return $property;
+    }
+
+    /**
+     * The container that an admin endpoint or page takes its services from, as PrestaShop 8.2.8
+     * hands it to a controller: the employee's right on the route's tab ($granted) and the page's
+     * CSRF token ($validToken), and $services besides.
+     *
+     * @param array<string, callable(): object> $services
+     */
+    protected function adminLocator(bool $granted = true, bool $validToken = true, array $services = []): ServiceLocator
+    {
+        $checker = $this->createMock(AuthorizationCheckerInterface::class);
+        $checker->method('isGranted')->willReturn($granted);
+        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
+        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
+        $tokens->method('isTokenValid')->willReturn($validToken);
+
+        return new ServiceLocator([
+            'security.authorization_checker' => static fn () => $checker,
+            'security.csrf.token_manager' => static fn () => $tokens,
+        ] + $services);
+    }
+
+    /**
+     * Executes an admin JSON endpoint as the page's script calls it: the page's token in
+     * X-Smaily-Token and the shop selection the page was drawn for in X-Smaily-Scope (CLAUDE.md,
+     * "The selected shop is one cookie").
+     *
+     * @param array<string, mixed> $body
+     * @param array<string, string> $route the request's `_legacy_controller` and `_route`
+     * @param ServiceLocator|null $locator null: adminLocator(), the right and a valid token
+     * @param string|null $scope the selection the page was drawn for; null: the current one
+     */
+    protected function adminRequest(AbstractJsonAction $action, array $body, array $route, ?ServiceLocator $locator = null, ?string $scope = null): JsonResponse
+    {
+        $action->setContainer($locator ?? $this->adminLocator());
+        $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
+        $request->headers->set('X-Smaily-Token', 'page-token');
+        $request->headers->set('X-Smaily-Scope', $scope ?? AbstractJsonAction::pageScope());
+
+        return $action->execute($request);
     }
 
     protected static function db(): \Db

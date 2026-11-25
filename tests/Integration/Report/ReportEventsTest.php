@@ -3,10 +3,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Report;
 
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveTab;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ReportSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
@@ -17,12 +15,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
-use Symfony\Component\DependencyInjection\ServiceLocator;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\MultistoreShop;
 
 require_once __DIR__ . '/ReportTestCase.php';
@@ -160,24 +152,24 @@ final class ReportEventsTest extends ReportTestCase
     {
         $this->storeAccount(0, 'example');
 
-        $refused = $this->execute(new SaveTab(), ['tab' => 'rss', 'data' => ['limit' => '0']], self::SETTINGS_ROUTE);
+        $refused = $this->adminRequest(new SaveTab(), ['tab' => 'rss', 'data' => ['limit' => '0']], self::SETTINGS_ROUTE);
         self::assertSame(422, $refused->getStatusCode());
         self::assertNull(self::stored(ReportSettings::STATE), 'a save that did not go through schedules nothing');
 
-        $saved = $this->execute(new SaveTab(), self::RSS, self::SETTINGS_ROUTE);
+        $saved = $this->adminRequest(new SaveTab(), self::RSS, self::SETTINGS_ROUTE);
         self::assertSame(200, $saved->getStatusCode());
         $dueAt = self::state()['setup_saved_at'];
         self::assertEqualsWithDelta(time() + 300, $dueAt, 5);
 
         $contacts = ['step' => 'contacts', 'data' => ['mode' => 'all_customers', 'fields' => ['first_name'], 'guests' => true, 'enabled' => true]];
-        self::assertSame(200, $this->execute(new SaveStep(), $contacts, self::SETUP_ROUTE)->getStatusCode());
+        self::assertSame(200, $this->adminRequest(new SaveStep(), $contacts, self::SETUP_ROUTE)->getStatusCode());
         self::assertSame($dueAt, self::state()['setup_saved_at'], 'a second save moves nothing');
         self::assertSame([], $this->transport->reports(), 'nothing goes inside the request');
     }
 
     public function testASaveOfAStoreWithoutAnAccountSchedulesNothing(): void
     {
-        self::assertSame(200, $this->execute(new SaveTab(), self::RSS, self::SETTINGS_ROUTE)->getStatusCode());
+        self::assertSame(200, $this->adminRequest(new SaveTab(), self::RSS, self::SETTINGS_ROUTE)->getStatusCode());
 
         self::assertNull(self::stored(ReportSettings::STATE));
         self::assertSame([], $this->transport->requests);
@@ -194,7 +186,7 @@ final class ReportEventsTest extends ReportTestCase
         $this->storeAccount($shopB, 'example-second');
         \Shop::setContext(\Shop::CONTEXT_SHOP, $shopB);
 
-        $response = $this->execute(new SaveTab(), ['tab' => 'connection', 'own' => false, 'data' => []], self::SETTINGS_ROUTE);
+        $response = $this->adminRequest(new SaveTab(), ['tab' => 'connection', 'own' => false, 'data' => []], self::SETTINGS_ROUTE);
 
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue(json_decode((string) $response->getContent(), true)['data']['returned']);
@@ -205,30 +197,5 @@ final class ReportEventsTest extends ReportTestCase
         self::assertSame(['example', 'example'], array_column($body['connections'], 'smaily_subdomain'), 'the connections that remain');
         self::assertSame('Basic ' . base64_encode('api-user-example:' . self::PASSWORD), $this->transport->reports()[0]['options']['headers']['Authorization']);
         self::assertEqualsWithDelta(time() + 300, self::state()['setup_saved_at'], 5, 'the save also schedules a snapshot');
-    }
-
-    /**
-     * Executes a JSON endpoint as the page's script calls it, with the right, the page's token
-     * and the page's shop selection.
-     *
-     * @param array<string, mixed> $body
-     * @param array<string, string> $route
-     */
-    private function execute(AbstractJsonAction $action, array $body, array $route): JsonResponse
-    {
-        $checker = $this->createMock(AuthorizationCheckerInterface::class);
-        $checker->method('isGranted')->willReturn(true);
-        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
-        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
-        $tokens->method('isTokenValid')->willReturn(true);
-        $action->setContainer(new ServiceLocator([
-            'security.authorization_checker' => static fn () => $checker,
-            'security.csrf.token_manager' => static fn () => $tokens,
-        ]));
-        $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
-        $request->headers->set('X-Smaily-Token', 'page-token');
-        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
-
-        return $action->execute($request);
     }
 }

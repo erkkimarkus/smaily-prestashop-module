@@ -86,8 +86,6 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   the tag-safe flag; adding it changes the stored bytes of the notices and the update-check keys: decide first.
 - Tests: some test leaves rows behind after a suite run (event-queue rows, `skipped` ingest rows), and one leaves
   other cron tokens; the engine mock stores each request's bearer key in its state file (keys it issued itself).
-  The admin-request harness is copied in five tests (`SetupLayoutAnswerTest`, `SetupPanelsTest`,
-  `ControllerContainerTest`, `ReportEventsTest`, `UpdateNoticeTest`): one helper in `IntegrationTestCase`.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's

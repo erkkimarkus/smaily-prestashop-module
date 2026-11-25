@@ -5,7 +5,6 @@ namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
@@ -18,12 +17,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
-use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
@@ -377,19 +371,7 @@ final class SetupPanelsTest extends IntegrationTestCase
      */
     private function post(AbstractJsonAction $action, array $body): JsonResponse
     {
-        $checker = $this->createMock(AuthorizationCheckerInterface::class);
-        $checker->method('isGranted')->willReturn(true);
-        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
-        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
-        $tokens->method('isTokenValid')->willReturn(true);
-        $action->setContainer(new ServiceLocator([
-            'security.authorization_checker' => static fn () => $checker,
-            'security.csrf.token_manager' => static fn () => $tokens,
-        ]));
-        $request = new Request([], [], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_save'], [], [], [], (string) json_encode($body));
-        $request->headers->set('X-Smaily-Token', 'page-token');
-        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
-        $response = $action->execute($request);
+        $response = $this->adminRequest($action, $body, ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_save']);
         \Configuration::resetStaticCache();
         \Configuration::loadConfiguration();
 

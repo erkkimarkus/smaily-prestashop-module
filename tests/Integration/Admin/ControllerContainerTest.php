@@ -35,9 +35,6 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
-use Symfony\Component\Security\Csrf\CsrfToken;
-use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\IntegrationTestCase;
 use Tests\Integration\MultistoreShop;
 use Twig\Environment;
@@ -636,10 +633,6 @@ final class ControllerContainerTest extends IntegrationTestCase
     }
 
     /**
-     * The container as PrestaShop 8.2.8 hands it to a controller: a locator of the services that
-     * AbstractController subscribes to, of which the pages and endpoints use these three.
-     */
-    /**
      * A Smaily account of the setup's scope, which the steps after Connect save only with; none is
      * asked of Smaily here.
      */
@@ -653,13 +646,12 @@ final class ControllerContainerTest extends IntegrationTestCase
         }
     }
 
+    /**
+     * The container as PrestaShop 8.2.8 hands it to a controller: a locator of the services that
+     * AbstractController subscribes to, of which the pages and endpoints use these three.
+     */
     private function locator(bool $granted = true, bool $validToken = true): ServiceLocator
     {
-        $checker = $this->createMock(AuthorizationCheckerInterface::class);
-        $checker->method('isGranted')->willReturn($granted);
-        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
-        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
-        $tokens->method('isTokenValid')->willReturn($validToken);
         $twig = $this->createMock(Environment::class);
         $twig->method('render')->willReturnCallback(function ($view, array $parameters = []): string {
             $this->rendered = $parameters;
@@ -667,11 +659,7 @@ final class ControllerContainerTest extends IntegrationTestCase
             return '';
         });
 
-        return new ServiceLocator([
-            'security.authorization_checker' => static fn () => $checker,
-            'security.csrf.token_manager' => static fn () => $tokens,
-            'twig' => static fn () => $twig,
-        ]);
+        return $this->adminLocator($granted, $validToken, ['twig' => static fn () => $twig]);
     }
 
     /**
@@ -681,12 +669,7 @@ final class ControllerContainerTest extends IntegrationTestCase
      */
     private function execute(AbstractJsonAction $action, ServiceLocator $locator, array $body, array $route = self::SETUP_ROUTE, ?string $scope = null): JsonResponse
     {
-        $action->setContainer($locator);
-        $request = new Request([], [], $route, [], [], [], (string) json_encode($body));
-        $request->headers->set('X-Smaily-Token', 'page-token');
-        $request->headers->set('X-Smaily-Scope', $scope ?? AbstractJsonAction::pageScope());
-
-        return $action->execute($request);
+        return $this->adminRequest($action, $body, $route, $locator, $scope);
     }
 
     /**
