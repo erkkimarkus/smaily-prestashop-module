@@ -8,8 +8,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 
 /**
  * The keys of ARCHITECTURE 8.2: the connection's prefix as it is stored, then the platform key.
- * The platform namespace is proposed and not yet agreed with the engine team (Linear INT-306), so
- * its literal lives in one constant and nowhere else in the module.
+ * The platform namespace, agreed with the engine team (Linear INT-306), lives in one constant and
+ * nowhere else in the module.
  */
 final class KeysTest extends TestCase
 {
@@ -20,7 +20,7 @@ final class KeysTest extends TestCase
     {
         self::assertSame($prefix . Keys::PLATFORM_NAMESPACE . '12', Keys::sku($prefix, 12));
         self::assertSame($prefix . Keys::PLATFORM_NAMESPACE . '12-34', Keys::sku($prefix, 12, 34));
-        self::assertSame($prefix . '12', Keys::productId($prefix, 12));
+        self::assertSame($prefix . Keys::PLATFORM_NAMESPACE . '12', Keys::productId($prefix, 12));
         self::assertSame($prefix . '501', Keys::orderId($prefix, 501));
     }
 
@@ -39,7 +39,8 @@ final class KeysTest extends TestCase
         self::assertSame('ps-', Keys::PLATFORM_NAMESPACE);
         self::assertSame('c2-ps-12-34', Keys::sku('c2-', 12, 34));
         self::assertSame('ps-12', Keys::sku('', 12));
-        self::assertSame('c2-12', Keys::productId('c2-', 12));
+        self::assertSame('c2-ps-12', Keys::productId('c2-', 12));
+        self::assertSame('ps-12', Keys::productId('', 12));
     }
 
     public function testTheTraceIdCarriesNoPrefixAndNoNamespace(): void
@@ -79,6 +80,6 @@ final class KeysTest extends TestCase
         }
 
         self::assertGreaterThan(200, $scanned, 'the module\'s files were read');
-        self::assertSame(['src/Engine/Payload/Keys.php'], $found, 'the namespace is not agreed with the engine team: one constant holds it');
+        self::assertSame(['src/Engine/Payload/Keys.php'], $found, 'one constant holds the namespace');
     }
 }

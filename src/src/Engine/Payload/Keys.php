@@ -44,10 +44,9 @@ final class Keys
     /**
      * The namespace of a PrestaShop product key.
      *
-     * PROPOSED, NOT YET AGREED with the engine team (Linear INT-306; ARCHITECTURE 8.2 and section
-     * 14, row 1): the contract names `shp-` and `woo-` and no PrestaShop namespace. Nothing that
-     * sends a key may ship before that agreement. This constant is the only place of the literal
-     * in the module: a unit test fails on a second one (tests/Unit/Engine/Payload/KeysTest).
+     * Agreed with the engine team (Linear INT-306, 2026-11-23) and named in contract §3 since
+     * v1.36.1. This constant is the only place of the literal in the module: a unit test fails on
+     * a second one (tests/Unit/Engine/Payload/KeysTest).
      */
     public const PLATFORM_NAMESPACE = 'ps-';
 
@@ -65,11 +64,12 @@ final class Keys
 
     /**
      * The parent product id: `tags.product_id` of every row of the product, and the id a removal
-     * (§3b) names. The bare product id under the prefix, as Shopify and WooCommerce send it.
+     * (§3b) names. The product's key under the prefix, `ps-<id_product>` (contract §3 "Parent
+     * product id"), so that the combinations of one product group together.
      */
     public static function productId(string $prefix, int $idProduct): string
     {
-        return $prefix . $idProduct;
+        return $prefix . self::PLATFORM_NAMESPACE . $idProduct;
     }
 
     /**

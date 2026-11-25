@@ -40,10 +40,11 @@ specifies.
 - `smaily-prestashop-module` (this repository). All 3.0.0 code lands here.
 - `subscription` (Smaily subscription service). It must register the product id `connect_prestashop` and
   the platform `prestashop` before the module sends its first installation report (section 11).
-- The Campaign Intelligence engine (`intelligence`, named `re` in the contract). It must agree the
-  PrestaShop platform key namespace `ps-` (section 8.2). The contract lists this repository among its
-  synchronized copies since the re-sync of 2026-11-20. The contract already settles the connection
-  prefix and the shop code. The engine changes no code for 3.0.0 unless it rejects a proposal here.
+- The Campaign Intelligence engine (`intelligence`, named `re` in the contract). It agreed the
+  PrestaShop platform key namespace `ps-` on 2026-11-23 (Linear INT-306; contract §3 since
+  v1.36.1, section 8.2). The contract lists this repository among its synchronized copies since the
+  re-sync of 2026-11-20. The contract already settles the connection prefix and the shop code. The
+  engine changes no code for 3.0.0.
 
 ## 0. The module today: facts that the design rests on
 
@@ -1331,8 +1332,9 @@ shop, for parity with Magento CON-190 (the admin lists them).
   unprefixed connections in one engine store each send a manifest that claims the whole store catalog,
   and each would remove the other's products. **[D]** The module therefore sends no nightly manifest
   for a connection whose `tenant_id` another connection of the installation shares while either holds
-  the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. Lifting this needs
-  the engine team's answer (section 14). As built: `Engine\Ingest\CatalogManifest::suppressed()`
+  the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. The engine team
+  confirmed this rule on 2026-11-23 (Linear INT-306, section 15); it holds until the engine assigns
+  prefixes. As built: `Engine\Ingest\CatalogManifest::suppressed()`
   (section 8.11); the Dashboard says so, reading the same method (section 10.12). A connection
   of the other layout (the installation-wide one in separate stores, a shop's own in one store)
   would serve no shop and sends no list either; a change of the layout leaves none (section 8.9).
@@ -2077,14 +2079,13 @@ prefix", §3 "Catalog identity"):
   `external_order_id`, §6 `sku`). Today the engine assigns `""` to every connection (§1 "Status",
   2026-11-17).
 - **The platform key is the connector's.** The contract requires the platform's stable internal id,
-  namespaced by source (`shp-<variant_id>`, `woo-<id>`), never the merchant's SKU field. It names no
-  PrestaShop namespace, and its fail-loud enforcement checks each sender's declared namespace pattern
-  for connections without a prefix (PRO-1223, rolling out). `ps-` is therefore the module's proposal
-  and needs the engine team's agreement before Story 5.2 ships (Linear INT-306). As built, the
-  literal is in one place of the module, the constant `Engine\Payload\Keys::PLATFORM_NAMESPACE`,
-  and a unit test fails on a second one (`tests/Unit/Engine/Payload/KeysTest`): a change of the
-  agreed namespace is a change of one line. Until the agreement, the keys go to the engine mock
-  only (tests and dev shops); nothing that sends them is released.
+  namespaced by source (`shp-<variant_id>`, `woo-<id>`, `ps-<id_product>`), never the merchant's
+  SKU field. The engine team agreed PrestaShop's keys on 2026-11-23 as the module proposed them
+  (Linear INT-306): `ps-<id_product>` and `ps-<id_product>-<id_product_attribute>`, with the
+  connection prefix in front, and `tags.product_id` = `ps-<id_product>`, so that the combinations
+  of one product group together. Contract §3 names them since v1.36.1. The literal is in one place
+  of the module, the constant `Engine\Payload\Keys::PLATFORM_NAMESPACE`, and a unit test fails on a
+  second one (`tests/Unit/Engine/Payload/KeysTest`).
 
 **[D]** The module declares `capabilities: ["connection_prefix"]` from the first release and applies
 the prefix everywhere, so the engine's later refusal of connectors without the capability (`409
@@ -2093,8 +2094,8 @@ connection that lost its prefix reads it from the ping.
 
 | Id | 3.0.0 value |
 |---|---|
-| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder, `Engine\Payload\Keys`, makes the key for every path (contract "Same key from every path"). `ps-` **[O]** needs the engine team's agreement (section 14). |
-| `tags.product_id`, §3b `product_ids` | `<prefix><id_product>`: the bare parent id, as Shopify and Woo send it (contract §3 "Parent product id"). |
+| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder, `Engine\Payload\Keys`, makes the key for every path (contract "Same key from every path"). `ps-` was agreed with the engine team on 2026-11-23 (Linear INT-306). |
+| `tags.product_id`, §3b `product_ids` | `<prefix>ps-<id_product>`: the parent id in the namespace, as contract §3 "Parent product id" names it for PrestaShop since v1.36.1 (the engine team's request, Linear INT-306). |
 | `external_id` (catalog) | `<id_product>` or `<id_product>-<id_product_attribute>`, no prefix. |
 | `external_order_id` | `<prefix><id_order>` |
 | `customer_external_id` | `<id_customer>`, no prefix (the contract prefixes no customer id). |
@@ -2112,10 +2113,10 @@ leaves stale rows that only a manual engine purge removes (contract §3 "Lifecyc
 | Catalog `price` | Gross, after reductions, at the connection's canonical shop: what a visitor who is not signed in pays for one unit. As built it is `Product::priceCalculation()`, the calculation behind `Product::getPriceStatic($id, true, $ipa, 6)`, called for the visitor group (`PS_UNIDENTIFIED_GROUP`), the shop's default country and its default currency, rounded to cents. `getPriceStatic()` itself needs a cart or an employee in the context and takes the customer group of whoever's request runs the tick, so a row built during a shopper's request would have carried that shopper's price. With tax unless the shop charges none (`PS_TAX`). |
 | Catalog `compare_price` | The same without reductions, sent only when greater than `price`. |
 | Catalog `currency` | The canonical shop's default currency. |
-| Order `total_amount` | `orders.total_paid_tax_incl`. |
+| Order `total_amount` | `orders.total_paid_tax_incl`, in the shop's default currency (Order `currency` below). |
 | `items[].unit_price` | `order_detail.unit_price_tax_incl` (gross, contract §5 "Amount semantics"). |
 | `items[].line_total`, `items[].discount_amount` | `order_detail.total_price_tax_incl` less the line's share of the order's vouchers; the share is the line's `discount_amount`. PrestaShop keeps a voucher on the order (`orders.total_discounts_tax_incl`) and not on its lines, where Magento and WooCommerce hold it per line. The share is by the lines' totals, never below zero, the last line taking what rounding left (`OrderPayloadBuilder::shares()`), so that Σ `line_total` + shipping (and gift wrapping) ≈ `total_amount`, the contract's invariant. The order's `discount_amount` is the whole voucher amount. |
-| Order `currency` | The order's own currency (`orders.id_currency`), with the amounts as charged, never converted (owner, 2026-11-21: as Magento and WooCommerce send it; section 15). |
+| Order `currency` | The default currency of the order's shop (`PS_CURRENCY_DEFAULT`), the currency of the catalog rows too (`CatalogPayloadBuilder::shopCurrency()`); every amount of the order is in it (contract §5 "One currency per store", v1.36.1; owner, 2026-11-23, section 15). An order in another currency is converted with its own rate, `orders.conversion_rate`: PrestaShop stores there the rate of the order's currency at the time of the order, in units of that currency per unit of the default currency, and divides by it (`Tools::convertPrice()`, the statistics). `total_amount`, `discount_amount` and each line's `unit_price`, `line_total` and `discount_amount` are each divided by that rate and rounded to cents (`OrderPayloadBuilder::inStoreCurrency()`); the voucher's shares are taken in the order's currency first. An order in the default currency keeps its amounts as they are. In a connection of two or more shops, the shops are assumed to share one default currency: the rate is that of the order's own shop. |
 | Order `status` | **[D]** `refunded` for `PS_OS_REFUND`; `cancelled` for `PS_OS_CANCELED` and `PS_OS_ERROR`; `completed` for a state that is marked shipped (`order_state.shipped`; PrestaShop's states have no "delivered" flag) and for `PS_OS_DELIVERED`; `processing` otherwise. |
 | `items[].returned_at` | The time of the last credit slip of a line whose slips took back its whole quantity (`order_slip_detail`). A line refunded in part stays kept (contract "Return signals"). Read from the order at every send, so a later send does not lose it. No return reason is sent. |
 
@@ -2624,7 +2625,7 @@ value.
 | §3b `POST /api/v1/ingest/catalog/remove` | `product_ids[]` |
 | §3c `POST /api/v1/ingest/catalog/manifest`, `products[]` | `sku`, `in_stock` |
 | §4 `POST /api/v1/ingest/customers`, `customers[]` | `event_id`, `email`, [`first_name`], [`last_name`], [`country`], [`language`], [`phone`], [`first_seen_at`], `external_id`, [`website`] |
-| §5 `POST /api/v1/ingest/orders`, `orders[]` | `event_id`, `external_order_id`, `customer_email`, `ordered_at`, `total_amount`, [`discount_amount`], [`currency`], `status`, [`smaily_rec_id`], [`smaily_visitor_token`], [`smaily_rec_ctx`], [`website`], `items[]`: `sku`, `qty`, `unit_price`, `line_total`, [`discount_amount`], [`returned_at`] |
+| §5 `POST /api/v1/ingest/orders`, `orders[]` | `event_id`, `external_order_id`, `customer_email`, `ordered_at`, `total_amount`, [`discount_amount`], `currency`, `status`, [`smaily_rec_id`], [`smaily_visitor_token`], [`smaily_rec_ctx`], [`website`], `items[]`: `sku`, `qty`, `unit_price`, `line_total`, [`discount_amount`], [`returned_at`] |
 | §7 `POST /api/v1/identity/merge` | `smaily_visitor_token`, `customer_email`, `customer_external_id`, [`merge_ts`], [`merge_reason`] (`user_logged_in`, `email_provided_at_checkout`) |
 
 `country` and `phone` of a customer come from the customer's first active address, as the siblings
@@ -2653,7 +2654,9 @@ it without forgetting it. A product that no shop of the connection holds is not 
 skipped, `engine_product_gone`).
 
 **The order row** (`Engine\Payload\OrderPayloadBuilder`). Amounts, currency, status and returned
-lines as section 8.3. An order whose customer is gone is not sent (`engine_order_gone`).
+lines as section 8.3: every amount in the default currency of the order's shop, an order in another
+currency converted with its own rate (owner, 2026-11-23). The live order, its status changes and
+returns, and the history import all send this one row. An order whose customer is gone is not sent (`engine_order_gone`).
 
 **The flush** (`Engine\Ingest\IngestFlusher`, the job `ingest_flush`). For each connection that
 may send, one batch per domain in turn (catalog, removals, customers, orders), round after round,
@@ -3966,7 +3969,7 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
 | Upgrade hardening | Done: the upgrade creates the tick token, and a migration that runs again keeps a store's settings (section 3.7) | `module:`, `migration:` |
 | Marketplace technical rules (Linear CON-379) | The structural rules are done (licence notice, `index.php` files, `config.xml`, no superglobal). The rules that need the owner's decision are open (`docs/MARKETPLACE.md` section 6.3). | `tooling:`, `module:`, `abandoned-cart:`, `docs:` |
 | 5.1 Engine client and connections | Done (section 8.9): the setup exchange, one connection per separately set-up shop, the health check as a tick job, the disconnect on request and at uninstall, the engine mock and the engine host in the egress guard. Its screen is Story 5.3's, which calls `Engine\Setup::connect()`. | `engine:`, `tests:`, `tooling:`, `docs:` |
-| 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in their own currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and is not agreed with the engine team (section 8.2, Linear INT-306): nothing that sends a key is released before that. The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
+| 5.2 Catalog, customers and orders ingest | Done (section 8.11): live catalog rows, removals, the nightly product list, customers of the three groups, orders in the shop's default currency and the identity merge, each through the ingest queue or the event queue, shown in the Log with "Send again" and "Retry". The key namespace `ps-` is in one constant and was agreed with the engine team on 2026-11-23 (section 8.2, Linear INT-306). The imports are Story 5.3. | `engine:`, `log:`, `privacy:`, `tests:`, `docs:` |
 | 5.6 Privacy | Done (section 11.2): the export and the erasure through PrestaShop's GDPR module and through the Log's "Privacy request" form, the engine's deletion as a queue row, and the shopper's personalization page. The ingest queue's rows are covered since Story 5.2. | `privacy:`, `log:`, `translations:`, `tooling:`, `docs:` |
 | 5.5 Storefront | Done (section 8.10): the consent rule, the browse relay, the landing and the order's attribution, the store-created visitor token, the recommendations block as a widget, four scripts and their Node tests. The consent setting's screen is Story 5.3's (section 10.11), and a browse event carries the product key of Story 5.2's key builder (section 8.11). | `storefront:`, `engine:`, `module:`, `tests:`, `translations:`, `tooling:`, `docs:` |
 | 5.3 History import and the Intelligence tab | Done (Linear CON-405). First part (sections 8.12 and 10.11): the Intelligence tab and step, the connection made, checked and ended on the screen, the cookie-banner confirmation, the three imports with their cards and the §25 progress. Second part (sections 8.9 and 10.12): the invitation card on the Dashboard and the other tabs with its 30-day dismissal, the Dashboard's Campaign Intelligence and Browse tracking cards, its Catalog items tile and verdicts, the Log's source and job reasons, and the layout change that carries one connection and ends the others. | `engine:`, `admin:`, `log:`, `translations:`, `tests:`, `docs:` |
@@ -4447,7 +4450,7 @@ has one owner:
 - **Done.** As built: section 8.11, with the keys of section 8.2 and the money of section 8.3;
   `src/src/Runtime/Provider/EngineIngestProvider.php`; the Log's ingest rows (section 10.8), the
   retention sweep (section 11.3) and the privacy coverage of the ingest rows (section 11.2).
-- **Left open.** The imports came with Story 5.3 (section 8.12). `ps-` waits for the engine team (section 14, row 1).
+- **Left open.** The imports came with Story 5.3 (section 8.12). `ps-` was agreed with the engine team on 2026-11-23 (section 15).
 
 ### Story 5.3 — History import and the Intelligence tab
 
@@ -4582,10 +4585,7 @@ has one owner:
 
 | # | Risk or question | Condition and cost | Who answers |
 |---|---|---|---|
-| 1 | PrestaShop platform key namespace `ps-` (section 8.2) | The contract names no PrestaShop namespace; under the fail-loud enforcement (PRO-1223) an undeclared pattern sends rows to `errors[]`. Per-combination rows (decided) multiply catalog size for stores with many combinations. Asked in Linear INT-306. As built, the literal is one constant (`Engine\Payload\Keys::PLATFORM_NAMESPACE`), and nothing that sends a key is released before the answer. | Engine team |
-| 2 | PrestaShop in the §25 sender-rules heading | Answered in part by the contract re-sync of 2026-11-20: the list of synchronized copies names this repository. The §25 heading still reads "one list for WooCommerce, Shopify and Magento". | Engine team |
 | 3 | Registry rows `connect_prestashop`, `prestashop`, and a shop field in the report | Answered by the report contract v1.1.0 (2026-11-20, Linear SUB-28): the registry holds `connect_prestashop` with the platform `prestashop`, and `connections[].website` holds the shop id (section 11.1). v1.2.0 lets the answer carry `latest_version` and `notice`. The copy of the contract is `docs/contracts/installation-report-v1.md` (Story 6.1). | Subscription team (answered) |
-| 4 | Multi-currency orders | A shop that sells in several currencies sends orders in each; the engine assumes one currency per store. As built (owner, 2026-11-21): each order goes in its own currency with the amounts as charged, as Magento and WooCommerce send it; what the engine does with a second currency stays its answer. | Engine team |
 | 5 | Which shop context ran the 2.x crons | The migration assumes the default shop; a store whose crontab named another shop's domain gets that shop's values wrong. | Pilot multishop store (spike in 6.3) |
 | 6 | Fallback tick on hosts without `fastcgi_finish_request` | No fallback; the store depends on the cron line. php-fpm has the function (facts file 3.2); LiteSpeed is not verified. | Owner accepts |
 | 7 | A hosted pinger (option D), after 3.0.0 | Removes the cron setup for every merchant; needs Smaily infrastructure. | Owner, later |
@@ -4628,7 +4628,7 @@ has one owner:
 | 55 | Which keys a save of the engine's automations sends | Built as Magento does today: every row with all eight keys of contract §13, `automation_map`, `test_mode` and `test_emails` included (section 10.10). Since v1.15.0 the contract advises a connector to leave those three out unless the merchant set them here: a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored, a sent `test_mode: true` switches off real sends that were switched on there, and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored) and shows `test_mode` as the engine holds it, but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
 | 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
-| 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team, with section 14 row 1 |
+| 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -4639,7 +4639,9 @@ shop), answered together on 2026-11-21, row 25 (a newsletter-block subscriber wi
 account) and row 31 (the welcome email repeats). Row 51 (no export in the back office on
 PrestaShop 9 with psgdpr) and row 52 (where the line of a report that was not taken in goes) were
 answered on 2026-11-23 and moved to section 15, and so did row 58 (the cookie-banner confirmation
-at a layout change), which the owner decided on 2026-11-23.
+at a layout change), which the owner decided on 2026-11-23. The engine team answered rows 1 (the
+key namespace `ps-`), 2 (PrestaShop in the §25 sender rules) and 4 (orders in several currencies)
+on 2026-11-23 (Linear INT-306, contract v1.36.1); they moved to section 15.
 
 ## 15. Decisions
 
@@ -4653,7 +4655,7 @@ the orchestrator decided under the repository's upgrade-safety rule (CLAUDE.md r
 | 3 | Abandoned-cart audience after upgrade | **DECIDED:** the siblings' rule (option B): in subscribers-only mode only contacts with consent, with the Smaily status check before the send. UPGRADING.md tells merchants that fewer reminders go out than under 2.x. | Owner | 6.2, 3.3 | 4.3, 6.2 |
 | 4 | Settings left behind by 1.6.x that 2.x never ran | **DECIDED:** switch on only what the running code actually sent, with an admin notice for each thing left off (option A). | Orchestrator | 3.3 | 1.3 |
 | 5 | A 2.x opt-in with no workflow chosen | **DECIDED:** keeps firing the generic opt-in trigger for upgraded stores until the merchant picks a workflow (option A). | Orchestrator | 3.3 | 1.3, 4.1 |
-| 6 | Product keys | **DECIDED** on the connector side: one row per combination (option A). The key format follows contract 1.35.0: the engine's connection prefix, then the platform key `ps-…`; the namespace `ps-` still needs the engine team (section 14, row 1). | Owner | 8.2 | 5.2 |
+| 6 | Product keys | **DECIDED** on the connector side: one row per combination (option A). The key format follows contract 1.35.0: the engine's connection prefix, then the platform key `ps-…`; the engine team agreed the namespace `ps-` on 2026-11-23 (below). | Owner | 8.2 | 5.2 |
 | 7 | Campaign Intelligence connections | **DECIDED:** one per separately set-up shop (option A); separate-store shops each connect on their own. | Owner | 5.1, 5.3 | 5.1 |
 | 8 | Uninstall | **DECIDED:** removes all module data, after the engine disconnect and the deactivation report (option A). | Orchestrator | 11.4 | 1.7 |
 
@@ -4754,9 +4756,10 @@ Decisions of 2026-11-21:
 - The two hooks without a listener, `actionCartSave` and `actionObjectCustomerDeleteAfter`, are
   not registered (owner, 2026-11-21). They left `Install\HookList` and the main class; the
   deleted customer is handled at send time (section 7). The module registers 30 hooks.
-- Orders go to Campaign Intelligence in their own currency (owner, 2026-11-21): the amounts as
-  charged and the order's currency code, never converted, as Magento and WooCommerce send them
-  (sections 8.3 and 8.11; section 14, row 4).
+- ~~Orders go to Campaign Intelligence in their own currency (owner, 2026-11-21): the amounts as
+  charged and the order's currency code, never converted, as Magento and WooCommerce send them.~~
+  Superseded on 2026-11-23 by the owner's answer to the engine team: every order in the store's
+  default currency (decisions of 2026-11-23, below).
 - The connection prefix has the engine's form, as on the siblings (owner, 2026-11-21): an exchange
   whose prefix is neither `c<N>-` nor `''` is refused, and such a ping is ignored. The prefix is
   still stored and used exactly as sent (section 8.9; section 14, row 45).
@@ -4860,3 +4863,21 @@ Decisions of 2026-11-23:
   Magento's four connection states and two tracking states in Magento's words, the Catalog items
   tile only with a connection, and PrestaShop's own sentence for two shops in one engine store.
   With "All shops" selected in separate stores the two cards read "Per shop" (section 10.12).
+- The engine team's answer to Linear INT-306 (2026-11-23; contract v1.36.1):
+  - PrestaShop's keys are agreed as proposed: `ps-<id_product>` and
+    `ps-<id_product>-<id_product_attribute>`, with the connection prefix in front, and
+    `tags.product_id` (and a removal's product id) is `ps-<id_product>`, so that the combinations
+    of one product group together (section 8.2).
+  - Contract §25's sender rules name PrestaShop, and the contract lists this repository among its
+    synchronized copies.
+  - Two shops of one engine store without a prefix send no nightly list, as built (section 5.3):
+    without prefixes they would also overwrite each other's product rows and import progress. The
+    module declares `connection_prefix` at the setup exchange; the engine assigns prefixes once it
+    switches them on.
+- Orders go to Campaign Intelligence in the store's default currency (owner, 2026-11-23, in the
+  answer to Linear INT-306; contract §5 "One currency per store", v1.36.1). It supersedes the
+  decision of 2026-11-21 to send each order in its own currency. Every amount of an order (its
+  total, its discount and each line's unit price, total and discount) is in the default currency
+  of the order's shop, the currency of the catalog rows; an order in another currency is converted
+  with its own rate at the time of the order (`orders.conversion_rate`), each amount rounded to
+  cents. The engine adds every amount up as the store's currency (sections 8.3 and 8.11).

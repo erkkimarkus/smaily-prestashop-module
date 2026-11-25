@@ -67,9 +67,12 @@ are written as finished-product public documentation. Internal process talk
    - automations and imports never re-subscribe anyone;
    - a product or order key sent to the engine is the engine's connection
      prefix (`config.connection.prefix`, opaque — never parse or derive
-     it) plus the platform key; PrestaShop's platform namespace `ps-` is
-     proposed but **not yet agreed with the engine team** (ARCHITECTURE
-     8.2); do not ship it before that;
+     it) plus the platform key; PrestaShop's platform namespace `ps-` was
+     agreed with the engine team on 2026-11-23 (Linear INT-306; contract §3,
+     ARCHITECTURE 8.2), and `tags.product_id` is `ps-<id_product>` too;
+   - every amount sent to the engine is in the store's default currency: an
+     order in another currency is converted with its own rate (contract §5,
+     ARCHITECTURE 8.3);
    - the abandoned-cart payload keeps the legacy template fields
      (`first_name`, `last_name`, `product_*_[1-10]`, `over_10_products`, …)
      with 10 product slots.
@@ -295,7 +298,9 @@ ask (Linear discipline below).
   unit test fails on a second one in `src/`. A catalog price comes from
   `Product::priceCalculation()` for the visitor group: `Product::getPriceStatic()` needs a cart
   or an employee in the context and takes the customer group of whoever's request runs the tick.
-  An ingest row is a marker: what goes out is read from the store at the flush. All customer
+  An order's amounts are in its shop's default currency, the catalog's: PrestaShop's
+  `orders.conversion_rate` is units of the order's currency per unit of the default one, so an
+  amount is divided by it (`OrderPayloadBuilder::inStoreCurrency()`). An ingest row is a marker: what goes out is read from the store at the flush. All customer
   questions go through `Engine\Ingest\CustomerScope`.
 - **Campaign Intelligence automations** (ARCHITECTURE 10.10). The card on Settings > Automations
   lists the engine's catalogue of that moment: never name an automation by its key, and store

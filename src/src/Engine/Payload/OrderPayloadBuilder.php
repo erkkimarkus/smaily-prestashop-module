@@ -40,12 +40,17 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
  * holds it now, so that every send is the whole order (the engine replaces an order's lines on
  * each send, and a line's return would be lost by a send that left it out).
  *
- * - Every amount is gross (with tax), in the order's own currency, as the Magento and
- *   WooCommerce connectors send it: `total_amount` is `total_paid_tax_incl`; a line's
+ * - Every amount is gross (with tax): `total_amount` is `total_paid_tax_incl`; a line's
  *   `unit_price` is `unit_price_tax_incl`, and its `line_total` is `total_price_tax_incl` less
  *   the line's share of the order's vouchers. PrestaShop keeps a voucher on the order, not on its
  *   lines; the share is by the lines' totals, so that Σ line_total + shipping (and gift
  *   wrapping) ≈ total_amount, the contract's invariant.
+ * - Every amount is in the default currency of the order's shop, and `currency` names it
+ *   (contract §5 "One currency per store"; ARCHITECTURE 8.3). An order in another currency is
+ *   converted with its own rate (`orders.conversion_rate`, the rate of its currency to the
+ *   default currency at the time of the order, as PrestaShop's `Tools::convertPrice()` reads
+ *   it: amount ÷ rate), each amount rounded to cents. An order in the default currency keeps its
+ *   amounts as they are.
  * - `status`: `refunded` for the Refunded state; `cancelled` for Canceled and Payment error;
  *   `completed` for a state that is marked shipped, and for Delivered; `processing` for every
  *   other state (ARCHITECTURE 8.3).
@@ -79,11 +84,10 @@ class OrderPayloadBuilder
     public function row(Connection $connection, int $idOrder): ?array
     {
         $order = Sql::row(
-            'SELECT o.`id_order`, o.`id_shop`, o.`current_state`, o.`total_paid_tax_incl`, o.`total_discounts_tax_incl`, o.`date_add`,'
-            . ' c.`email`, c.`deleted`, cu.`iso_code`, os.`shipped`'
+            'SELECT o.`id_order`, o.`id_shop`, o.`id_currency`, o.`conversion_rate`, o.`current_state`, o.`total_paid_tax_incl`,'
+            . ' o.`total_discounts_tax_incl`, o.`date_add`, c.`email`, c.`deleted`, os.`shipped`'
             . ' FROM `' . _DB_PREFIX_ . 'orders` o'
             . ' LEFT JOIN `' . _DB_PREFIX_ . 'customer` c ON c.`id_customer` = o.`id_customer`'
-            . ' LEFT JOIN `' . _DB_PREFIX_ . 'currency` cu ON cu.`id_currency` = o.`id_currency`'
             . ' LEFT JOIN `' . _DB_PREFIX_ . 'order_state` os ON os.`id_order_state` = o.`current_state`'
             . ' WHERE o.`id_order` = ' . $idOrder
         );
@@ -92,27 +96,26 @@ class OrderPayloadBuilder
             return null;
         }
 
+        $currency = CatalogPayloadBuilder::shopCurrency((int) $order['id_shop']);
+        $rate = (int) $order['id_currency'] === (int) $currency->id ? null : (float) $order['conversion_rate'];
         $row = [
             'external_order_id' => Keys::orderId($connection->prefix(), $idOrder),
             'customer_email' => $email,
             'ordered_at' => self::utc((string) $order['date_add']),
-            'total_amount' => self::money($order['total_paid_tax_incl']),
+            'total_amount' => self::inStoreCurrency(self::money($order['total_paid_tax_incl']), $rate),
         ];
         $discount = self::money($order['total_discounts_tax_incl']);
         if ($discount > 0) {
-            $row['discount_amount'] = $discount;
+            $row['discount_amount'] = self::inStoreCurrency($discount, $rate);
         }
-        $currency = strtoupper(trim((string) $order['iso_code']));
-        if ($currency !== '') {
-            $row['currency'] = $currency;
-        }
+        $row['currency'] = strtoupper((string) $currency->iso_code);
         $row['status'] = self::status((int) $order['current_state'], (int) $order['shipped'] === 1);
         $row += $this->attribution($idOrder);
         $website = ConnectionShops::website($connection, (int) $order['id_shop']);
         if ($website !== null) {
             $row['website'] = $website;
         }
-        $row['items'] = $this->items($connection, $idOrder, $discount);
+        $row['items'] = $this->items($connection, $idOrder, $discount, $rate);
 
         return $row;
     }
@@ -132,6 +135,26 @@ class OrderPayloadBuilder
         }
 
         return $shipped || $idState === (int) \Configuration::get('PS_OS_DELIVERED') ? self::STATUS_COMPLETED : self::STATUS_PROCESSING;
+    }
+
+    /**
+     * An amount of an order in the default currency of its shop: the amount as it is for an order
+     * in that currency (no rate), else the amount divided by the order's own rate
+     * (`orders.conversion_rate`: units of the order's currency per unit of the default
+     * currency), rounded to cents.
+     *
+     * @param float|null $rate null for an order in the default currency
+     */
+    public static function inStoreCurrency(float $amount, ?float $rate): float
+    {
+        if ($rate === null) {
+            return $amount;
+        }
+        if ($rate <= 0) {
+            throw new \RuntimeException('The order carries no conversion rate.');
+        }
+
+        return round($amount / $rate, 2);
     }
 
     /**
@@ -167,9 +190,12 @@ class OrderPayloadBuilder
     }
 
     /**
+     * @param float|null $rate the order's conversion rate, null for an order in the default
+     *                         currency (inStoreCurrency())
+     *
      * @return list<array<string, mixed>>
      */
-    private function items(Connection $connection, int $idOrder, float $discount): array
+    private function items(Connection $connection, int $idOrder, float $discount, ?float $rate): array
     {
         $lines = Sql::rows(
             'SELECT `id_order_detail`, `product_id`, `product_attribute_id`, `product_quantity`, `unit_price_tax_incl`, `total_price_tax_incl`'
@@ -189,11 +215,11 @@ class OrderPayloadBuilder
             $item = [
                 'sku' => Keys::sku($connection->prefix(), (int) $line['product_id'], (int) $line['product_attribute_id']),
                 'qty' => $quantity,
-                'unit_price' => self::money($line['unit_price_tax_incl']),
-                'line_total' => round(self::money($line['total_price_tax_incl']) - $shares[$index], 4),
+                'unit_price' => self::inStoreCurrency(self::money($line['unit_price_tax_incl']), $rate),
+                'line_total' => self::inStoreCurrency(round(self::money($line['total_price_tax_incl']) - $shares[$index], 4), $rate),
             ];
             if ($shares[$index] > 0) {
-                $item['discount_amount'] = $shares[$index];
+                $item['discount_amount'] = self::inStoreCurrency($shares[$index], $rate);
             }
             $return = $returns[$line['id_order_detail']] ?? null;
             if ($return !== null && $quantity > 0 && (int) $return['quantity'] >= $quantity) {

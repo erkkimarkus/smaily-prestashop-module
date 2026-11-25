@@ -115,7 +115,7 @@ final class MultishopIngestTest extends IngestTestCase
         self::assertSame([], array_filter($firstSkus, static fn (string $sku): bool => strpos($sku, 'c2-') !== 0), 'the first shop\'s products go under its prefix');
         self::assertCount(8, $secondSkus, 'the second shop sends the shirt, which it holds, and not the mug');
         self::assertSame([], array_filter($secondSkus, static fn (string $sku): bool => strpos($sku, 'c3-') !== 0));
-        self::assertSame('c3-' . self::SHIRT, $byKey['Bearer ' . $two->apiKey()][0]['tags']['product_id']);
+        self::assertSame('c3-' . Keys::PLATFORM_NAMESPACE . self::SHIRT, $byKey['Bearer ' . $two->apiKey()][0]['tags']['product_id']);
         self::assertArrayNotHasKey('websites', $byKey['Bearer ' . $two->apiKey()][0], 'a connection of one shop names no website');
         self::assertStringContainsString('shop' . $second . '.example.invalid', $byKey['Bearer ' . $two->apiKey()][0]['product_url']);
 
@@ -161,7 +161,7 @@ final class MultishopIngestTest extends IngestTestCase
         $this->flush();
         $removals = $this->engine->requestsTo(self::REMOVE);
         self::assertSame(['Bearer ' . $two->apiKey()], array_column($removals, 'authorization'));
-        self::assertSame(['product_ids' => ['c3-' . $product->id]], $removals[0]['body']);
+        self::assertSame(['product_ids' => ['c3-' . Keys::PLATFORM_NAMESPACE . $product->id]], $removals[0]['body']);
         self::assertNotSame($one->apiKey(), $two->apiKey());
     }
 

@@ -106,7 +106,7 @@ final class CatalogIngestTest extends IngestTestCase
         self::assertMatchesRegularExpression('~^https?://[^/]+/.+\.jpg$~', $first['image_url']);
         self::assertMatchesRegularExpression('~^https?://[^/]+/.*' . self::SHIRT . '-' . $combinations[0] . '-hummingbird-printed-t-shirt\.html#/~', $first['product_url']);
         self::assertSame(self::SHIRT . '-' . $combinations[0], $first['external_id']);
-        self::assertSame(['category_path' => 'clothes/men', 'product_id' => 'c2-' . self::SHIRT, 'brand' => 'Studio Design'], $first['tags']);
+        self::assertSame(['category_path' => 'clothes/men', 'product_id' => 'c2-' . Keys::PLATFORM_NAMESPACE . self::SHIRT, 'brand' => 'Studio Design'], $first['tags']);
         self::assertSame('combinations', $first['product_type']);
         self::assertFalse($first['is_virtual']);
         self::assertSame([], array_filter(array_column($sent, 'in_stock'), static fn (bool $inStock): bool => !$inStock));
@@ -219,7 +219,7 @@ final class CatalogIngestTest extends IngestTestCase
 
         $requests = $this->engine->requestsTo(self::REMOVE);
         self::assertCount(1, $requests);
-        self::assertSame(['product_ids' => ['c3-' . $idProduct]], $requests[0]['body']);
+        self::assertSame(['product_ids' => ['c3-' . Keys::PLATFORM_NAMESPACE . $idProduct]], $requests[0]['body']);
         $row = self::rows(IngestQueue::DOMAIN_CATALOG_REMOVE)[0];
         self::assertSame(EventQueue::STATUS_SENT, $row['status']);
         self::assertSame(['http_status' => 200, 'body' => ['outcome' => 'removed']], json_decode((string) $row['last_response'], true));

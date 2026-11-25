@@ -44,4 +44,33 @@ final class OrderAmountsTest extends TestCase
         yield 'one line' => [[19.12], 5.0, [5.0]];
         yield 'no lines' => [[], 5.0, []];
     }
+
+    /**
+     * Contract §5 "One currency per store": PrestaShop's order rate is units of the order's
+     * currency per unit of the default currency (`Tools::convertPrice()` divides by it).
+     *
+     * @dataProvider conversions
+     */
+    public function testAnAmountOfAnOrderInAnotherCurrencyIsDividedByItsRateInCents(float $amount, ?float $rate, float $expected): void
+    {
+        self::assertSame($expected, OrderPayloadBuilder::inStoreCurrency($amount, $rate));
+    }
+
+    /**
+     * @return iterable<string, array{float, float|null, float}>
+     */
+    public static function conversions(): iterable
+    {
+        yield 'the default currency: as it is' => [33.0856, null, 33.0856];
+        yield 'a rate above one' => [94.1, 1.25, 75.28];
+        yield 'a rate below one, rounded to cents' => [10.0, 0.086, 116.28];
+        yield 'zero' => [0.0, 1.25, 0.0];
+    }
+
+    public function testAnOrderWithoutARateFailsRatherThanGoOutUnconverted(): void
+    {
+        $this->expectException(\RuntimeException::class);
+
+        OrderPayloadBuilder::inStoreCurrency(10.0, 0.0);
+    }
 }

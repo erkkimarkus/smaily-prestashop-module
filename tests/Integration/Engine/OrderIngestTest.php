@@ -13,7 +13,7 @@ require_once __DIR__ . '/IngestTestCase.php';
 require_once __DIR__ . '/../Contacts/ContactRows.php';
 
 /**
- * An order reaches the engine as the contract's row (§5): gross amounts in the order's own
+ * An order reaches the engine as the contract's row (§5): gross amounts in the shop's default
  * currency that add up to its total, the engine's status of its state, the keys of ARCHITECTURE
  * 8.2, and the lines that its credit slips took back.
  */
@@ -129,26 +129,63 @@ final class OrderIngestTest extends IngestTestCase
         self::assertEquals([23.9, 35.9], array_column($sent['items'], 'unit_price'), 'a unit price is the price before the voucher');
     }
 
-    public function testAnOrderInASecondCurrencyCarriesThatCurrency(): void
+    public function testAnOrderInASecondCurrencyIsConvertedWithItsOwnRateToTheDefaultCurrency(): void
     {
         $this->connect();
         $customer = $this->buyer('shopper23@example.test');
         $currency = $this->secondCurrency();
+        // The order's own rate, as PrestaShop stored it at the order: 1.25 units of the order's
+        // currency per unit of the default currency. The currency's rate today is another one.
         $order = $this->order((int) $customer->id, [
             'id_currency' => $currency['id'],
-            'total_paid_tax_incl' => 123.45,
-            'total_shipping_tax_incl' => 9.25,
-        ], [[1, 1, 3, 38.066667]]);
+            'conversion_rate' => 1.25,
+            'total_paid_tax_incl' => 94.1,
+            'total_shipping_tax_incl' => 8.4,
+            'total_discounts_tax_incl' => 10.0,
+        ], [[1, 1, 1, 23.9], [2, 9, 2, 35.9]]);
 
         $this->fire('actionValidateOrder', ['order' => $order, 'customer' => $customer]);
         $this->commit();
         $this->flush();
 
         $sent = $this->sent(self::ORDERS, 'orders')[0];
-        self::assertSame($currency['iso'], $sent['currency']);
-        self::assertNotSame((new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code, $sent['currency']);
-        self::assertSame(123.45, $sent['total_amount'], 'the amount as charged, not converted');
-        self::assertEqualsWithDelta(123.45, array_sum(array_column($sent['items'], 'line_total')) + 9.25, 0.01);
+        self::assertSame((new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code, $sent['currency'], 'the default currency, not the order\'s');
+        self::assertNotSame($currency['iso'], $sent['currency']);
+        self::assertEquals(75.28, $sent['total_amount'], '94.10 / 1.25');
+        self::assertEquals(8.0, $sent['discount_amount'], '10.00 / 1.25');
+        // In the order's currency the voucher's shares are 2.4974 and 7.5026, and the lines'
+        // totals after them 21.4026 and 64.2974: each amount is divided by the rate, in cents.
+        self::assertEquals([
+            ['sku' => Keys::sku('', 1, 1), 'qty' => 1, 'unit_price' => 19.12, 'line_total' => 17.12, 'discount_amount' => 2.0],
+            ['sku' => Keys::sku('', 2, 9), 'qty' => 2, 'unit_price' => 28.72, 'line_total' => 51.44, 'discount_amount' => 6.0],
+        ], $sent['items']);
+        $amounts = [$sent['total_amount'], $sent['discount_amount']];
+        foreach ($sent['items'] as $item) {
+            array_push($amounts, $item['unit_price'], $item['line_total'], $item['discount_amount']);
+        }
+        foreach ($amounts as $amount) {
+            self::assertEqualsWithDelta(round($amount, 2), $amount, 0.0000001, 'every amount is in cents');
+        }
+        self::assertEqualsWithDelta($sent['total_amount'], array_sum(array_column($sent['items'], 'line_total')) + round(8.4 / 1.25, 2), 0.01, 'Σ line_total + shipping ≈ total_amount');
+    }
+
+    public function testAnOrderInTheDefaultCurrencyKeepsItsAmountsWhateverRateItStored(): void
+    {
+        $this->connect();
+        $customer = $this->buyer('shopper25@example.test');
+        $order = $this->order((int) $customer->id, [
+            'conversion_rate' => 1.25,
+            'total_paid_tax_incl' => 107.6567,
+        ], [[1, 1, 3, 33.085567]]);
+
+        $this->fire('actionOrderEdited', ['order' => $order]);
+        $this->commit();
+        $this->flush();
+
+        $sent = $this->sent(self::ORDERS, 'orders')[0];
+        self::assertSame((new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT')))->iso_code, $sent['currency']);
+        self::assertSame(107.6567, $sent['total_amount'], 'as the store holds it, not converted');
+        self::assertSame(33.0856, $sent['items'][0]['unit_price']);
     }
 
     /**
