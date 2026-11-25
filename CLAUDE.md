@@ -233,8 +233,9 @@ ask (Linear discipline below).
 - **The selected shop is one cookie.** Another tab, or a late answer of
   another back-office page, changes it under an open page. Every JSON
   endpoint therefore compares the header `X-Smaily-Scope` with the selection
-  it runs in and refuses a difference (ARCHITECTURE 10.1); a test that
-  executes an endpoint sets that header (`AbstractJsonAction::pageScope()`).
+  it runs in and refuses a difference (ARCHITECTURE 10.1); a test executes
+  an endpoint through `IntegrationTestCase::adminRequest()`, which sets that
+  header (`AbstractJsonAction::pageScope()`).
 - **Admin page addresses.** PrestaShop's back office reads the parameters
   `error` and `conf` of every page address as its own message numbers. A
   module page that carries `error=<text>` fails in debug mode ("Undefined
@@ -456,6 +457,9 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
 - Walks and suites run behind `tests/egress-guard`, installed before the
   first request to the module (an admin page or a tick), and the suite needs
   a reset shop (`docs/DEV_ENVIRONMENT.md` 4 and 4a).
+- A suite run in a shop that leaves module rows, `SMAILY_*` keys or cron
+  tokens behind ends with exit code 1 (`tests/Integration/ShopLeftovers.php`);
+  run it on a fresh shop.
 - One worker saw the in-shop suite segfault three times on the 8.2.8 lane
   (PHP 8.0.30) on 2026-11-21. It did not reproduce in 113 later runs, and
   the upgrade, the re-run, the tick and the admin pages ran 22 to 42 times

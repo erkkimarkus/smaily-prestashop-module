@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-25 (evening). Gauge 14/14._
+_Last updated: 2026-11-25 (late). Gauge 14/14._
 
 ## Next session opens with
 
@@ -22,15 +22,18 @@ Everything is on `v3`; no worker branch or worktree is left.
   divided by the order's own rate); a catalog row's parent id and a removal's product id carry `ps-`.
 - The Initial setup's first answer "Separate stores" runs the layout change, as Settings and Magento's wizard do.
   The Log's failures and Test connection's reasons show in the employee's language; Estonian: CON-416's four
-  wordings, "Küpsiste bänner", "Veebisait". Dev and test shops resolve `intelligence.smaily.com` and
-  `api.github.com` to 127.0.0.1, and the test bootstrap refuses a shop where the engine's name resolves elsewhere.
+  wordings, "Küpsiste bänner", "Veebisait". Dev and test shops resolve the engine and GitHub to 127.0.0.1.
 - The merchant guide page `docs/site/index.html` (CON-424), linked from the admin. **Not published:** it waits for
   the owner's web root https://smaily.com/connect-presta/, the FTP account (`~/smaily_ftp_presta`) and his go-ahead.
-- Since the afternoon handoff `a44ccb8`: the admin screens keep the Campaign Intelligence palette (`74b25c0`,
-  CON-377 done); a simplification without a behaviour change (`7a76494`); a browse event of a product with
-  combinations but none chosen takes the key of the combination the cart takes (`957cd37`); the step list opens no
-  later step until step 1's connection is in order, the server saves steps 2–4 only with a stored account, and an
-  edit clears "Connected", also on Settings > Connection (`7bc84b6`; owner, CON-397).
+- Evening: the Campaign Intelligence palette (CON-377 done); a browse event without a chosen combination takes the
+  cart's key; the step list opens no later step until step 1's connection is in order (`7bc84b6`).
+- Since the evening handoff `ec32cde`: Settings > Connection shows no stored account's state for values edited since
+  (`5de9f5e`); the contact import and the Campaign Intelligence setup exchange start only with a stored Smaily
+  account (`be96b2e`); a Done import keeps its refusal reason in the Log (owner, `b6a7f60`); the setup's "Separate
+  stores" card names the connection that moves, as Settings does (`8107eb4`). Tests: one admin-request harness
+  (`IntegrationTestCase::adminRequest()`); the engine mock keeps no API key, only its SHA-256; a suite run that
+  leaves module rows, `SMAILY_*` keys or cron tokens behind exits 1 (`tests/Integration/ShopLeftovers.php`, the
+  tick's state left out, `5f1db54`); three engine tests run alone, and a second run in a 9.2.0 shop passes (`b88497e`).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
 guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
@@ -38,16 +41,16 @@ guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored)
 - Shop A, Compose project `erkki920`: PrestaShop 9.2.0 at http://localhost:8301/, module 3.0.0 from the main
   checkout's `src/`. It shows new code after its cache is cleared.
 - Shop B, Compose project `erkki828`: PrestaShop 8.2.8 at http://127.0.0.1:8302/, a genuine 2.2.0 that the owner
-  upgrades by uploading `build/testkeskkond/smailyforprestashop-3.0.0.zip`, **rebuilt on 2026-11-25 (evening)
-  from `7bc84b6`** (SHA-256 `196068c1…`; 446 files outside `vendor/`, `src/Engine/Payload/StoreCurrency.php` and
-  `src/Storefront/CartCombination.php` among them, no `docs/site/`).
+  upgrades by uploading `build/testkeskkond/smailyforprestashop-3.0.0.zip`, **rebuilt on 2026-11-25 (late)
+  from `5f1db54`** (SHA-256 `e3234c48…`; 446 files outside `vendor/`, no `docs/site/`; `src/` is the same at the
+  handoff's commit).
 - After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh`. The guard's certificates last 30 days.
 
-**Last runs** (2026-11-25 late evening, Task O's branch on `ec32cde`). Host: `src/vendor/bin/phpunit` 2282 tests,
-4034 assertions, 1151 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from
-scratch behind the egress guard, debug mode on: 2282 tests on 8.2.8 (12206 assertions) and 9.2.0 (12211).
-`tests/ci/validate.sh` last ran on the merged tip `7bc84b6`: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with
-debug mode off green on both (2280 tests, 12192 and 12197 assertions).
+**Last runs** (2026-11-25 late, on `5f1db54`). Host: `src/vendor/bin/phpunit` 2284 tests, 4034 assertions, 1153
+skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from scratch behind the egress
+guard, debug mode on: 2284 tests on 8.2.8 (12213 assertions) and on 9.2.0 (12218), the 9.2.0 suite twice in the same
+shop; the leftovers check silent on every run. `tests/ci/validate.sh` with the zip: 10 of 10 on flashlight 8.2.8 and
+9.2.0, its suite with debug mode off 2284 tests on both (12213 and 12218 assertions).
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
@@ -77,7 +80,8 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced now, and
   the PR template still lists them.
 - `prestashop:module install` on 8.2.8 with debug mode on behind the guard failed again on 2026-11-25 (it had
-  succeeded once, and did in the evening's run): name `install` next to `upgrade` in `docs/DEV_ENVIRONMENT.md` 4a.
+  succeeded once, and did in the evening's run; late, the module stood installed and a repeated command failed):
+  name `install` next to `upgrade` in `docs/DEV_ENVIRONMENT.md` 4a.
 - `Privacy\EngineFailure` builds the permanent-failure reason itself. `Config\Settings::setJson()` writes without
   the tag-safe flag; adding it changes the stored bytes of the notices and the update-check keys: decide first.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
@@ -110,18 +114,16 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 
 Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behaviour rule, read what the siblings do.
 
-1. After a reload the step list ticks every step up to the furthest one reached, also one never saved (as Magento).
-   Decided 2026-11-25 for the rail: a later step opens only while step 1's connection is in order, as WooCommerce
-   and Shopify; the ticks after a reload stay as Magento.
-2. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
-3. For the cross-connector analysis CON-397: late or retried contact changes, workflows after an account or mode
+1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
+2. For the cross-connector analysis CON-397: late or retried contact changes, workflows after an account or mode
    change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its
    contact row at once (today it takes the retry ladder, as Magento keeps it); whether Settings > Connection should
    refuse an account that Smaily rejects, as WooCommerce does (today it saves it). WooCommerce also locks its
    Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only
    that an account is stored, as Shopify does: a stored account Smaily refuses can still save steps 2–4 around the
-   page.
-4. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
+   page. A Done contact import keeps its refusal reason in the Log (owner, 2026-11-25); Magento and WooCommerce keep
+   no error on a completed import.
+3. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also
 shows whether the real service takes an installation report); make the web root https://smaily.com/connect-presta/
