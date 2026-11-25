@@ -71,6 +71,19 @@ class Client
     public const ENDPOINT_AUTORESPONDER = 'autoresponder';
     public const ENDPOINT_WORKFLOWS = 'workflows';
 
+    /*
+     * The messages of the failures this client throws, as English source text with %name%
+     * placeholders: a queue row stores them with the values filled in, and the Log reads them back
+     * by their wording (Log\FailureMessage::MESSAGES). A changed wording no longer reads rows
+     * stored before.
+     */
+    public const MESSAGE_CREDENTIALS_REJECTED = 'Smaily API credentials were rejected';
+    public const MESSAGE_PLAN_BLOCKED = 'Smaily refused the request: the account\'s package does not include API access.';
+    public const MESSAGE_HTTP_STATUS = 'Smaily API request failed with HTTP %status%';
+    public const MESSAGE_NO_ANSWER = 'Smaily API request failed: no answer within %seconds% seconds';
+    public const MESSAGE_NOT_CONNECTED = 'Smaily API request failed: could not connect to Smaily';
+    public const MESSAGE_MALFORMED_BODY = 'Smaily API returned a malformed response body';
+
     /** One DNS label: letters, digits and inner hyphens, at most 63 characters. */
     private const PLAIN_SUBDOMAIN = '/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i';
 
@@ -171,8 +184,7 @@ class Client
         } catch (NetworkException $exception) {
             $this->tell(ConnectionHealth::UNREACHABLE);
             // The kind of failure, never the HTTP client's text: it is English, whatever the admin's.
-            $failure = $exception->timedOut() ? sprintf('no answer within %d seconds', self::TIMEOUT_SECONDS) : 'could not connect to Smaily';
-            throw new TransportException('Smaily API request failed: ' . $failure);
+            throw new TransportException($exception->timedOut() ? strtr(self::MESSAGE_NO_ANSWER, ['%seconds%' => (string) self::TIMEOUT_SECONDS]) : self::MESSAGE_NOT_CONNECTED);
         }
 
         $status = $response->status();
@@ -182,13 +194,13 @@ class Client
         if ($status >= 400) {
             if (is_array($decoded) && (int) ($decoded['code'] ?? 0) === PlanBlockedException::SMAILY_CODE) {
                 $this->tell(ConnectionHealth::PLAN_BLOCKED);
-                throw new PlanBlockedException('Smaily refused the request: the account\'s package does not include API access.', $status);
+                throw new PlanBlockedException(self::MESSAGE_PLAN_BLOCKED, $status);
             }
             $this->tell($status !== 429 && $status < 500 ? ConnectionHealth::CREDENTIALS_REJECTED : ConnectionHealth::UNREACHABLE);
             if ($status === 401 || $status === 403) {
-                throw new AuthenticationException('Smaily API credentials were rejected', $status);
+                throw new AuthenticationException(self::MESSAGE_CREDENTIALS_REJECTED, $status);
             }
-            $message = sprintf('Smaily API request failed with HTTP %d', $status);
+            $message = strtr(self::MESSAGE_HTTP_STATUS, ['%status%' => (string) $status]);
             if ($status !== 429 && $status < 500) {
                 throw new RequestRefusedException($message, $status);
             }
@@ -198,7 +210,7 @@ class Client
 
         if (!is_array($decoded)) {
             $this->tell(ConnectionHealth::UNREACHABLE);
-            throw new TransportException('Smaily API returned a malformed response body', $status);
+            throw new TransportException(self::MESSAGE_MALFORMED_BODY, $status);
         }
         $refused = isset($decoded['code']) && (int) $decoded['code'] !== ApiException::CODE_SUCCESS;
         // A write whose code refuses it is a failure; a read's code is an answer (206: no such

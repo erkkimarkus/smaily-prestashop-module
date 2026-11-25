@@ -96,22 +96,22 @@ class OrderPayloadBuilder
             return null;
         }
 
-        $currency = CatalogPayloadBuilder::shopCurrency((int) $order['id_shop']);
-        $rate = (int) $order['id_currency'] === (int) $currency->id ? null : (float) $order['conversion_rate'];
+        $idShop = (int) $order['id_shop'];
+        $rate = (int) $order['id_currency'] === StoreCurrency::id($idShop) ? null : (float) $order['conversion_rate'];
         $row = [
             'external_order_id' => Keys::orderId($connection->prefix(), $idOrder),
             'customer_email' => $email,
             'ordered_at' => self::utc((string) $order['date_add']),
-            'total_amount' => self::inStoreCurrency(self::money($order['total_paid_tax_incl']), $rate),
+            'total_amount' => self::amount($order['total_paid_tax_incl'], $rate),
         ];
         $discount = self::money($order['total_discounts_tax_incl']);
         if ($discount > 0) {
-            $row['discount_amount'] = self::inStoreCurrency($discount, $rate);
+            $row['discount_amount'] = self::amount($order['total_discounts_tax_incl'], $rate);
         }
-        $row['currency'] = strtoupper((string) $currency->iso_code);
+        $row['currency'] = StoreCurrency::isoCode($idShop);
         $row['status'] = self::status((int) $order['current_state'], (int) $order['shipped'] === 1);
         $row += $this->attribution($idOrder);
-        $website = ConnectionShops::website($connection, (int) $order['id_shop']);
+        $website = ConnectionShops::website($connection, $idShop);
         if ($website !== null) {
             $row['website'] = $website;
         }
@@ -215,7 +215,7 @@ class OrderPayloadBuilder
             $item = [
                 'sku' => Keys::sku($connection->prefix(), (int) $line['product_id'], (int) $line['product_attribute_id']),
                 'qty' => $quantity,
-                'unit_price' => self::inStoreCurrency(self::money($line['unit_price_tax_incl']), $rate),
+                'unit_price' => self::amount($line['unit_price_tax_incl'], $rate),
                 'line_total' => self::inStoreCurrency(round(self::money($line['total_price_tax_incl']) - $shares[$index], 4), $rate),
             ];
             if ($shares[$index] > 0) {
@@ -262,6 +262,16 @@ class OrderPayloadBuilder
     private static function utc(string $stored): string
     {
         return gmdate('Y-m-d\TH:i:s\Z', (int) strtotime($stored));
+    }
+
+    /**
+     * A stored amount of the order in the default currency of its shop (inStoreCurrency()).
+     *
+     * @param mixed $stored
+     */
+    private static function amount($stored, ?float $rate): float
+    {
+        return self::inStoreCurrency(self::money($stored), $rate);
     }
 
     /**

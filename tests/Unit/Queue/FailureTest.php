@@ -8,6 +8,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\InvalidSubdomainException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\PlanBlockedException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\RequestRefusedException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
 
 /**
@@ -87,6 +90,36 @@ final class FailureTest extends TestCase
         self::assertFalse($failure->isPermanent());
         self::assertSame('Smaily API request failed with HTTP 429', $failure->reason());
         self::assertSame(120, $failure->retryAfter());
+    }
+
+    /**
+     * Each type of the Smaily client's errors keeps its verdict, its reason and its delay.
+     *
+     * @dataProvider smailyClientErrors
+     */
+    public function testEachSmailyClientErrorKeepsItsVerdict(\Throwable $error, bool $permanent, string $reason, ?int $retryAfter): void
+    {
+        $failure = Failure::of($error);
+
+        self::assertSame($permanent, $failure->isPermanent());
+        self::assertSame($reason, $failure->reason());
+        self::assertSame($retryAfter, $failure->retryAfter());
+    }
+
+    /**
+     * @return iterable<string, array{\Throwable, bool, string, int|null}>
+     */
+    public static function smailyClientErrors(): iterable
+    {
+        yield 'refused' => [new RequestRefusedException('Smaily API request failed with HTTP 404', 404), true, 'permanent_http_404: Smaily API request failed with HTTP 404', null];
+        yield 'credentials' => [new AuthenticationException('Smaily API credentials were rejected', 403), true, 'permanent_http_403: Smaily API credentials were rejected', null];
+        yield 'plan blocked' => [new PlanBlockedException('Smaily refused the request', 402), true, 'permanent_http_402: Smaily refused the request', null];
+        yield 'envelope 203' => [new ApiException(203), true, 'permanent_envelope_203: Smaily API returned code 203', null];
+        yield 'envelope 225' => [new ApiException(225), false, 'Smaily API returned code 225', null];
+        yield 'transport 429' => [new TransportException('Smaily API request failed with HTTP 429', 429, 60), false, 'Smaily API request failed with HTTP 429', 60];
+        yield 'transport 503' => [new TransportException('Smaily API request failed with HTTP 503', 503), false, 'Smaily API request failed with HTTP 503', null];
+        yield 'subdomain' => [new InvalidSubdomainException(), false, 'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.', null];
+        yield 'base' => [new SmailyClientException('Smaily API failed'), false, 'Smaily API failed', null];
     }
 
     /**

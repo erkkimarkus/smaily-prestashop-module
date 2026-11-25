@@ -110,17 +110,13 @@ final class Failure
         if ($error instanceof RequestRefusedException) {
             return self::permanent(sprintf('permanent_http_%d: %s', $error->getHttpStatus(), $error->getMessage()));
         }
-        if ($error instanceof ApiException) {
-            return $error->isPermanent()
-                ? self::permanent(sprintf('permanent_envelope_%d: %s', $error->getSmailyCode(), $error->getMessage()))
-                : self::temporary($error->getMessage());
-        }
-        if ($error instanceof TransportException) {
-            return self::temporary($error->getMessage(), $error->getRetryAfter());
+        if ($error instanceof ApiException && $error->isPermanent()) {
+            return self::permanent(sprintf('permanent_envelope_%d: %s', $error->getSmailyCode(), $error->getMessage()));
         }
         if ($error instanceof SmailyClientException) {
-            // A subdomain that is not one plain label (InvalidSubdomainException), as Magento keeps it.
-            return self::temporary($error->getMessage());
+            // Any other envelope code, a transport failure (spaced by the delay a 429 asked for), and
+            // a subdomain that is not one plain label (InvalidSubdomainException), as Magento keeps it.
+            return self::temporary($error->getMessage(), $error instanceof TransportException ? $error->getRetryAfter() : null);
         }
 
         return self::temporary(sprintf(

@@ -83,7 +83,7 @@ final class LogView
             'entity' => $this->entity($row),
             'status' => ['label' => $this->statusLabel($status), 'variant' => LogStatus::pill($status)],
             'attempts' => $row['attempts'] === null ? '—' : (string) (int) $row['attempts'],
-            'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB, $row['source'] === LogRows::INTELLIGENCE),
+            'error' => $this->error($row, $row['kind'] === LogRows::JOB),
             'created' => self::time((string) $row['created_at']),
             'updated' => self::time((string) $row['updated_at']),
             // An erased row is never sent again (ResendGuard), so it gets no retry checkbox.
@@ -118,14 +118,14 @@ final class LogView
             return $details + [
                 'job' => true,
                 'outcome' => ['text' => $this->jobOutcome($row), 'terminal' => !in_array($row['status'], JobStore::ACTIVE, true)],
-                'error' => FailureMessage::forDisplay($row['last_error'], $this->translate, true, $row['source'] === LogRows::INTELLIGENCE),
+                'error' => $this->error($row, true),
                 'error_title' => $this->trans($row['status'] === JobStore::STATUS_FAILED ? 'Last error' : 'Reason'),
                 'error_is_reason' => $row['status'] !== JobStore::STATUS_FAILED,
             ];
         }
 
         $attempts = (int) $row['attempts'];
-        $lastError = $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, false, $row['source'] === LogRows::INTELLIGENCE);
+        $lastError = $this->error($row, false);
         $sentence = $refusal === ResendGuard::REASON_WITHDRAWN || ($refusal !== null && $status === LogStatus::FAILED)
             ? ResendGuard::message($refusal)
             : '';
@@ -226,6 +226,21 @@ final class LogView
         return $row['kind'] === LogRows::JOB
             ? (string) $row['status']
             : LogStatus::ofQueueRow((string) $row['status'], (string) $row['type'], $row['last_error']);
+    }
+
+    /**
+     * What the row's stored error says to the merchant (FailureMessage); a withdrawn reminder shows
+     * none, as it did not fail. A job never shows as withdrawn.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function error(array $row, bool $job): string
+    {
+        if ($this->status($row) === LogStatus::WITHDRAWN) {
+            return '';
+        }
+
+        return FailureMessage::forDisplay($row['last_error'], $this->translate, $job, $row['source'] === LogRows::INTELLIGENCE);
     }
 
     /**

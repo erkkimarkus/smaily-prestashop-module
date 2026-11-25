@@ -114,7 +114,7 @@ class CatalogPayloadBuilder
         $prefix = $connection->prefix();
         $base = [
             'category_path' => $categoryPath ?? self::PLACEHOLDER_CATEGORY,
-            'currency' => $this->currency($shop),
+            'currency' => StoreCurrency::isoCode($shop),
             'image_url' => $this->imageUrl($idProduct, $shop, $texts),
             'tags' => array_filter([
                 'category_path' => $categoryPath ?? self::PLACEHOLDER_CATEGORY,
@@ -409,25 +409,6 @@ class CatalogPayloadBuilder
         }
 
         return round((float) $price, 2);
-    }
-
-    private function currency(int $idShop): string
-    {
-        return strtoupper((string) self::shopCurrency($idShop)->iso_code);
-    }
-
-    /**
-     * The shop's default currency: the currency of every amount that the connection sends, the
-     * catalog's prices and the orders' amounts (contract §5 "One currency per store").
-     */
-    public static function shopCurrency(int $idShop): \Currency
-    {
-        $currency = new \Currency((int) \Configuration::get('PS_CURRENCY_DEFAULT', null, null, $idShop));
-        if (!\Validate::isLoadedObject($currency)) {
-            throw new \RuntimeException('PrestaShop did not load the shop\'s default currency.');
-        }
-
-        return $currency;
     }
 
     /**

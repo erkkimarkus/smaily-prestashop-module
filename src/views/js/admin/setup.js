@@ -29,8 +29,8 @@
  * Continue saves a step through Admin\Api\Setup\SaveStep (window.smailyConnect.setup.onContinue);
  * a refused save marks each field at fault with its message and keeps the step. On Connect,
  * Continue waits until every account the step would save passed Test connection (owner,
- * 2026-11-25), as WooCommerce and Shopify; a stored account counts once Smaily accepts it when the
- * page opens, so a saved password is not typed again. Back keeps what
+ * 2026-11-25), as WooCommerce and Shopify; a stored account counts once Smaily accepts it when
+ * step 1 first shows, so a saved password is not typed again. Back keeps what
  * was typed: the steps stay on the page. The Automations step is drawn for the saved language
  * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
@@ -63,20 +63,35 @@
       }
     });
 
-    /* The account blocks that Connect would save: one, or in mode a each language's. */
-    function accountBlocks(connection, mode) {
-      return connection.querySelectorAll(mode === 'a' ? '[data-smaily-per-language] [data-smaily-account-block]' : '[data-smaily-account-block=""]');
+    /*
+     * Smaily's answer about a stored account, asked once per language: step 1 and the Overview
+     * share it, so an account is not checked twice.
+     */
+    var savedTests = {};
+
+    function testSaved(language) {
+      if (!Object.prototype.hasOwnProperty.call(savedTests, language)) {
+        savedTests[language] = post('test', {saved: true, language: language});
+      }
+      return savedTests[language];
     }
 
     /* Connect continues once a block passed Test connection and no filled block waits for one. */
+    var storedChecked = false;
+
     function connectHint() {
       var connection = panels.panel('connection');
       if (!connection) {
         return '';
       }
+      // The stored accounts are asked about when step 1 first shows.
+      if (!storedChecked) {
+        storedChecked = true;
+        checkStored(connection);
+      }
       var passed = 0;
       var untested = 0;
-      accountBlocks(connection, panels.checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
+      panels.accountBlocks(connection, panels.checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
         var values = panels.credentials(accountBlock);
         if (accountBlock.hasAttribute('data-smaily-tested')) {
           passed += 1;
@@ -88,17 +103,13 @@
     }
 
     /* Each stored account of the saved mode is asked about once; an accepted one counts as tested. */
-    function checkStored() {
-      var connection = panels.panel('connection');
-      if (!connection) {
-        return;
-      }
-      accountBlocks(connection, connection.getAttribute('data-language-mode')).forEach(function (accountBlock) {
+    function checkStored(connection) {
+      panels.accountBlocks(connection, connection.getAttribute('data-language-mode')).forEach(function (accountBlock) {
         if (accountBlock.getAttribute('data-has-password') !== '1') {
           return;
         }
         var values = panels.credentials(accountBlock);
-        post('test', {saved: true, language: values.language}).then(function (answer) {
+        testSaved(values.language).then(function (answer) {
           if (answer.connected === true) {
             panels.tested(accountBlock, values, answer);
           }
@@ -213,7 +224,7 @@
       var pending = states.length;
       var allConnected = pending > 0;
       states.forEach(function (pill) {
-        post('test', {saved: true, language: pill.getAttribute('data-smaily-account-state')}).then(function (answer) {
+        testSaved(pill.getAttribute('data-smaily-account-state')).then(function (answer) {
           var connected = answer.connected === true;
           allConnected = allConnected && connected;
           pill.classList.add(connected ? 'smaily-pill--active' : 'smaily-pill--off');
@@ -259,7 +270,6 @@
       checkAccounts();
     }
     smailyConnect.setup.refresh();
-    checkStored();
     panels.loadWorkflows(null);
   });
 }());

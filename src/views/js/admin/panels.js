@@ -123,6 +123,11 @@
     };
   }
 
+  /* The account blocks of a language mode: one, or in mode a each language's. */
+  function accountBlocks(connection, mode) {
+    return connection.querySelectorAll(mode === 'a' ? '[data-smaily-per-language] [data-smaily-account-block]' : '[data-smaily-account-block=""]');
+  }
+
   smailyConnect.panels = function (root, connectedLabel) {
     var show = smailyConnect.show;
     var label = labels(root);
@@ -597,6 +602,7 @@
       clearErrors: clearErrors,
       showErrors: showErrors,
       credentials: credentials,
+      accountBlocks: accountBlocks,
       pickLanguageMode: pickLanguageMode,
       connectionSaved: connectionSaved,
       showStatus: showStatus,

@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\UserGuide;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
@@ -112,6 +113,8 @@ final class SettingsController extends BaseController
                 'intelligence' => $intelligence,
                 // One store with several shops: the tab says that one connection serves them all.
                 'intelligence_shops' => $shared->multishop() && !$shared->separateStores() ? $shared->shopNames() : [],
+                // The guide's section on placing the recommendations block.
+                'intelligence_guide' => UserGuide::link(UserGuide::SECTION_STOREFRONT_RECOMMENDATIONS),
                 'rss' => $panels->rss()->values(),
             ],
         ], self::TEMPLATE);

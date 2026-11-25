@@ -30,8 +30,8 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * The merchant guide: the one place its address is set. Every admin link to the guide resolves
- * through it; a template reads the constants with Twig's `constant()`.
+ * The merchant guide: the one place its address is set. Every admin link to the guide is built
+ * by link(); a template gets the link from its controller.
  *
  * The guide is the bilingual page docs/site/index.html of the repository, published at
  * https://smaily.com/connect-presta/, where the sibling connectors' guides are. A section below is
@@ -44,4 +44,14 @@ final class UserGuide
 
     /** Section "Recommendations on your store's pages": where the recommendations block is placed. */
     public const SECTION_STOREFRONT_RECOMMENDATIONS = 'set-storefront-recs';
+
+    /**
+     * The address of a section of the guide.
+     *
+     * @param string $section one of the SECTION_ constants
+     */
+    public static function link(string $section): string
+    {
+        return self::URL . '#' . $section;
+    }
 }

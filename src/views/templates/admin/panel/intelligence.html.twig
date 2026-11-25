@@ -33,7 +33,9 @@
  # shows in: `none` (no connection), `connected`, `not_active`, `key_refused`, `update_required`.
  #
  # Takes `intelligence`, `context` (`setup` shows no recommendations card, no import cards, no
- # Check again and no Disconnect, as Magento's step) and `shops` (the shops one connection serves).
+ # Check again and no Disconnect, as Magento's step), `shops` (the shops one connection serves)
+ # and, for `settings`, `guide` (the guide's section on the recommendations block,
+ # Admin\UserGuide::link()).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set settings = context == 'settings' %}
@@ -168,8 +170,7 @@
       <div class="smaily-card__head"><strong>{{ 'Show recommendations in your store'|trans }}</strong></div>
       <p class="smaily-note">
         {{ 'Open Design > Positions, pick Smaily Connect as the module and a position, for example displayHome for the home page or displayFooterProduct for the product page. A theme developer can also write {widget name=\'smailyforprestashop\'} in a template. Shoppers who accept marketing cookies see the products Smaily recommends to them.'|trans }}
-        {% set guide = 'PrestaShop\\Module\\SmailyForPrestaShop\\Admin\\UserGuide' %}
-        <a href="{{ constant(guide ~ '::URL') }}#{{ constant(guide ~ '::SECTION_STOREFRONT_RECOMMENDATIONS') }}" target="_blank" rel="noopener noreferrer">{{ 'How to add it →'|trans }}</a>
+        <a href="{{ guide }}" target="_blank" rel="noopener noreferrer">{{ 'How to add it →'|trans }}</a>
       </p>
     </div>
   {% endif %}

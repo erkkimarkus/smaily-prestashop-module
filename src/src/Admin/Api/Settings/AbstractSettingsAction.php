@@ -30,9 +30,6 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\AbstractSetupAction;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
-use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 
 /**
  * The base of the Settings page's endpoints: the Initial setup's answers (the fields at fault,
@@ -41,8 +38,4 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
  */
 abstract class AbstractSettingsAction extends AbstractSetupAction
 {
-    protected function settings(): SettingsPanels
-    {
-        return new SettingsPanels(Services::instance(), BaseController::translator());
-    }
 }

@@ -35,12 +35,18 @@ final class UserGuideTest extends TestCase
         }
     }
 
+    public function testASectionsLinkIsTheGuidesAddressAndTheSection(): void
+    {
+        self::assertSame('https://smaily.com/connect-presta/#set-storefront-recs', UserGuide::link(UserGuide::SECTION_STOREFRONT_RECOMMENDATIONS));
+    }
+
     public function testTheRecommendationsCardLinksTheGuideThroughUserGuide(): void
     {
         $template = (string) file_get_contents(self::ROOT . '/src/views/templates/admin/panel/intelligence.html.twig');
+        $controller = (string) file_get_contents(self::ROOT . '/src/src/Admin/Settings/SettingsController.php');
 
-        self::assertStringContainsString("'PrestaShop\\\\Module\\\\SmailyForPrestaShop\\\\Admin\\\\UserGuide'", $template);
-        self::assertStringContainsString("constant(guide ~ '::URL') }}#{{ constant(guide ~ '::SECTION_STOREFRONT_RECOMMENDATIONS') }}", $template);
+        self::assertStringContainsString('<a href="{{ guide }}"', $template);
+        self::assertStringContainsString("'intelligence_guide' => UserGuide::link(UserGuide::SECTION_STOREFRONT_RECOMMENDATIONS)", $controller);
     }
 
     public function testNoAdminPageLinksTheRepositorysUserGuide(): void

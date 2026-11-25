@@ -44,7 +44,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\EngineFailure;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsentHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client as SmailyClient;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 
 /**
  * What a row's stored `last_error` says to the merchant, as the Magento connector's Log words it.
@@ -137,33 +140,37 @@ final class FailureMessage
     /** A Campaign Intelligence refusal with a code that ENGINE_CODES does not hold. */
     public const ENGINE_REFUSED = 'Campaign Intelligence refused the request (%code%).';
 
-    /** A Campaign Intelligence request with a code that ENGINE_CODES does not hold that may pass later. */
-    public const ENGINE_FAILED = 'The Campaign Intelligence request failed (%code%).';
+    /**
+     * A Campaign Intelligence request with a code that ENGINE_CODES does not hold that may pass
+     * later: the sentence that EngineException stores for such a failure.
+     */
+    public const ENGINE_FAILED = EngineException::MESSAGE_FAILED;
 
     /**
      * The messages that a row stores with values in them, as their English source: a stored text is
      * read as the first source whose wording it has, each placeholder standing for a value. They are
-     * written in Smaily\Client, Smaily\Exception\ApiException and InvalidSubdomainException,
-     * Engine\Exception\EngineException (as Privacy\EngineFailure stores it), Queue\Flusher and
-     * Queue\Failure::of(); a message added there that a row can store is added here too, or it
+     * the MESSAGE constants of Smaily\Client, Smaily\Exception\ApiException,
+     * Engine\Exception\EngineException (as Privacy\EngineFailure stores it) and Queue\Flusher,
+     * which build the thrown text from them, and the messages of InvalidSubdomainException and
+     * Queue\Failure::of(); a message added there that a row can store is listed here too, or it
      * shows in English.
      */
     public const MESSAGES = [
-        'Smaily API credentials were rejected',
-        'Smaily refused the request: the account\'s package does not include API access.',
-        'Smaily API request failed with HTTP %status%',
-        'Smaily API request failed: no answer within %seconds% seconds',
-        'Smaily API request failed: could not connect to Smaily',
+        SmailyClient::MESSAGE_CREDENTIALS_REJECTED,
+        SmailyClient::MESSAGE_PLAN_BLOCKED,
+        SmailyClient::MESSAGE_HTTP_STATUS,
+        SmailyClient::MESSAGE_NO_ANSWER,
+        SmailyClient::MESSAGE_NOT_CONNECTED,
         // Stored before the two above, with the HTTP client's own text; after them, as their text
         // has its wording too.
         'Smaily API request failed: %error%',
-        'Smaily API returned a malformed response body',
-        'Smaily API returned code %code%',
+        SmailyClient::MESSAGE_MALFORMED_BODY,
+        ApiException::MESSAGE,
         'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.',
-        'Campaign Intelligence answered HTTP %status% (%code%).',
-        'The Campaign Intelligence request failed (%code%).',
-        'No handler takes the event type "%type%"',
-        'The handler returned no outcome for the row',
+        EngineException::MESSAGE_ANSWERED,
+        self::ENGINE_FAILED,
+        Flusher::MESSAGE_NO_HANDLER,
+        Flusher::MESSAGE_NO_OUTCOME,
         // Any other error (Queue\Failure::of()); last, as its wording is the loosest.
         '%class% at %file%:%line% (code %code%)',
     ];
@@ -171,6 +178,14 @@ final class FailureMessage
     private const CLASS_PATTERN = '/^(' . Failure::CLASS_REGEX . '):\s*/';
 
     private const PLACEHOLDER = '/%[a-z]+%/';
+
+    /**
+     * Each of MESSAGES with the pattern that reads a stored text as it and its placeholders' names,
+     * built once in a request.
+     *
+     * @var list<array{string, string, list<string>}>|null
+     */
+    private static ?array $readings = null;
 
     /**
      * @param callable(string, array<string, string>=): string $translate the admin's translation of
@@ -181,6 +196,9 @@ final class FailureMessage
     public static function forDisplay(?string $lastError, callable $translate, bool $job = false, bool $intelligence = false): string
     {
         $message = (string) preg_replace(self::CLASS_PATTERN, '', trim((string) $lastError));
+        if ($message === '') {
+            return '';
+        }
         $sentence = ($job ? self::JOB_REASONS[$message] ?? null : null) ?? self::REASONS[$message] ?? null;
         if ($sentence !== null) {
             return $translate($sentence);
@@ -188,10 +206,9 @@ final class FailureMessage
         if ($intelligence && preg_match(EngineException::CODE_PATTERN, $message) === 1) {
             return self::engineCode($message, self::failureClass($lastError) !== '', $translate);
         }
-        foreach (self::MESSAGES as $source) {
-            $values = self::valuesIn($message, $source);
-            if ($values !== null) {
-                return $translate($source, $values);
+        foreach (self::readings() as [$source, $pattern, $names]) {
+            if (preg_match($pattern, $message, $matches) === 1) {
+                return $translate($source, array_combine($names, array_slice($matches, 1)));
             }
         }
 
@@ -278,20 +295,22 @@ final class FailureMessage
     }
 
     /**
-     * The values that $message fills into the placeholders of $source, or null when $message is
-     * not worded as $source.
+     * Each of MESSAGES, the pattern that a stored text worded as it matches, each placeholder
+     * caught as the value it stands for, and the placeholders' names in order.
      *
-     * @return array<string, string>|null
+     * @return list<array{string, string, list<string>}>
      */
-    private static function valuesIn(string $message, string $source): ?array
+    private static function readings(): array
     {
-        $pattern = '/^' . preg_replace(self::PLACEHOLDER, '(.*?)', preg_quote($source, '/')) . '$/su';
-        if (preg_match($pattern, $message, $matches) !== 1) {
-            return null;
+        if (self::$readings === null) {
+            self::$readings = [];
+            foreach (self::MESSAGES as $source) {
+                preg_match_all(self::PLACEHOLDER, $source, $names);
+                self::$readings[] = [$source, '/^' . preg_replace(self::PLACEHOLDER, '(.*?)', preg_quote($source, '/')) . '$/su', $names[0]];
+            }
         }
-        preg_match_all(self::PLACEHOLDER, $source, $names);
 
-        return array_combine($names[0], array_slice($matches, 1));
+        return self::$readings;
     }
 
     private static function likeText(string $text): string

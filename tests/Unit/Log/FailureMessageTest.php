@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Log;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Log\AttemptHistory;
 use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 
 /**
  * What a stored error says to the merchant, and the attempts a row lists, as the Magento connector's
@@ -100,6 +102,34 @@ final class FailureMessageTest extends TestCase
         foreach ($stored as $lastError => $shown) {
             self::assertSame($shown, FailureMessage::forDisplay($lastError, $estonian), $lastError);
         }
+    }
+
+    /**
+     * Rows already stored keep their wording: a message's source, and the text thrown from it, stay
+     * as they were written.
+     */
+    public function testTheStoredMessagesKeepTheirWording(): void
+    {
+        self::assertSame([
+            'Smaily API credentials were rejected',
+            'Smaily refused the request: the account\'s package does not include API access.',
+            'Smaily API request failed with HTTP %status%',
+            'Smaily API request failed: no answer within %seconds% seconds',
+            'Smaily API request failed: could not connect to Smaily',
+            'Smaily API request failed: %error%',
+            'Smaily API returned a malformed response body',
+            'Smaily API returned code %code%',
+            'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.',
+            'Campaign Intelligence answered HTTP %status% (%code%).',
+            'The Campaign Intelligence request failed (%code%).',
+            'No handler takes the event type "%type%"',
+            'The handler returned no outcome for the row',
+            '%class% at %file%:%line% (code %code%)',
+        ], FailureMessage::MESSAGES);
+        self::assertSame('The Campaign Intelligence request failed (%code%).', FailureMessage::ENGINE_FAILED);
+        self::assertSame('Smaily API returned code 203', (new ApiException(203))->getMessage());
+        self::assertSame('Campaign Intelligence answered HTTP 400 (validation_failed).', (new EngineException('validation_failed', 400))->getMessage());
+        self::assertSame('The Campaign Intelligence request failed (network_error).', (new EngineException('network_error'))->getMessage());
     }
 
     public function testAMessageIsReadAsItsSourceWithItsValues(): void

@@ -31,11 +31,9 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
-use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\StoreShapePanel;
-use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -115,9 +113,7 @@ final class SaveStep extends AbstractSetupAction
     private function saveShape(SetupPanels $panels, SetupScope $scope, array $data, int $idShop): array
     {
         if ($scope->asksLayoutFirst() && ($data['shape'] ?? null) === StoreShapePanel::SEPARATE_STORES) {
-            (new SettingsPanels(Services::instance(), BaseController::translator()))
-                ->layoutChange()
-                ->toSeparateStores(LayoutChange::promotedShop($idShop));
+            $this->settings()->layoutChange()->toSeparateStores(LayoutChange::promotedShop($idShop));
 
             return [];
         }

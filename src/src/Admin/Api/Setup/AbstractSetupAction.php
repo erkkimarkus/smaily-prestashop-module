@@ -31,21 +31,28 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Report\SetupChange;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
- * The base of the Initial setup's endpoints: the panels, and the answer that names the fields at
- * fault, `{"ok": false, "error": {"code": "invalid_fields", "message": "…", "fields": [{"field",
- * "message"}]}}` with HTTP 422, so the page marks each field (Magento's two-layer error model).
+ * The base of the Initial setup's endpoints: the panels of the setup and of Settings, and the
+ * answer that names the fields at fault, `{"ok": false, "error": {"code": "invalid_fields",
+ * "message": "…", "fields": [{"field", "message"}]}}` with HTTP 422, so the page marks each field
+ * (Magento's two-layer error model).
  */
 abstract class AbstractSetupAction extends AbstractJsonAction
 {
     protected function panels(): SetupPanels
     {
         return new SetupPanels(Services::instance(), BaseController::translator());
+    }
+
+    protected function settings(): SettingsPanels
+    {
+        return new SettingsPanels(Services::instance(), BaseController::translator());
     }
 
     /**

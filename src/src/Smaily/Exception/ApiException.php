@@ -40,6 +40,9 @@ class ApiException extends SmailyClientException
     public const CODE_INVALID_DATA = 203;
     public const CODE_EMAIL_NOT_FOUND = 206;
 
+    /** The message, read back by its wording in the Log (Log\FailureMessage::MESSAGES). */
+    public const MESSAGE = 'Smaily API returned code %code%';
+
     /**
      * The codes that a retry of the same request can never change: 203, the same data is refused
      * again. Every other code may pass later.
@@ -48,7 +51,7 @@ class ApiException extends SmailyClientException
 
     public function __construct(int $smailyCode)
     {
-        parent::__construct(sprintf('Smaily API returned code %d', $smailyCode), $smailyCode);
+        parent::__construct(strtr(self::MESSAGE, ['%code%' => (string) $smailyCode]), $smailyCode);
     }
 
     public function getSmailyCode(): int

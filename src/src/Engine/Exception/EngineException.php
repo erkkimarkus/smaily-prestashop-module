@@ -46,14 +46,22 @@ class EngineException extends \RuntimeException
      */
     public const CODE_PATTERN = '/^[a-z0-9_]{1,64}$/D';
 
+    /*
+     * The messages, as English source text with %name% placeholders: a row stores them with the
+     * values filled in (Privacy\EngineFailure), and the Log reads them back by their wording
+     * (Log\FailureMessage::MESSAGES).
+     */
+    public const MESSAGE_ANSWERED = 'Campaign Intelligence answered HTTP %status% (%code%).';
+    public const MESSAGE_FAILED = 'The Campaign Intelligence request failed (%code%).';
+
     private string $errorCode;
 
     public function __construct(string $errorCode, int $httpStatus = 0)
     {
         parent::__construct(
             $httpStatus > 0
-                ? sprintf('Campaign Intelligence answered HTTP %d (%s).', $httpStatus, $errorCode)
-                : sprintf('The Campaign Intelligence request failed (%s).', $errorCode),
+                ? strtr(self::MESSAGE_ANSWERED, ['%status%' => (string) $httpStatus, '%code%' => $errorCode])
+                : strtr(self::MESSAGE_FAILED, ['%code%' => $errorCode]),
             $httpStatus
         );
         $this->errorCode = $errorCode;

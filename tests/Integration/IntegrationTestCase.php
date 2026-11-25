@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\StoreCurrency;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
 
@@ -24,9 +25,11 @@ abstract class IntegrationTestCase extends TestCase
         if (!defined('_PS_ROOT_DIR_')) {
             self::markTestSkipped('Needs a PrestaShop shop: set PS_ROOT_DIR to its root (see tests/ci/validate.sh).');
         }
-        // The storefront reads a shop's connection once in a request. A test is a request of its
-        // own, and tests write the connection table past Engine\Connections.
+        // The storefront reads a shop's connection, and the payloads a shop's currency, once in a
+        // request. A test is a request of its own, and tests write the connection table past
+        // Engine\Connections.
         ActiveConnection::reset();
+        StoreCurrency::reset();
     }
 
     /**

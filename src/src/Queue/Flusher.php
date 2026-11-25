@@ -50,6 +50,13 @@ final class Flusher
 {
     public const BATCH_SIZE = 200;
 
+    /*
+     * The messages of the flusher's own failures, as English source text with %name% placeholders:
+     * the Log reads them back by their wording (Log\FailureMessage::MESSAGES).
+     */
+    public const MESSAGE_NO_HANDLER = 'No handler takes the event type "%type%"';
+    public const MESSAGE_NO_OUTCOME = 'The handler returned no outcome for the row';
+
     private EventQueue $queue;
 
     /** @var callable(string): ?HandlerInterface */
@@ -101,7 +108,7 @@ final class Flusher
         }
         if ($handler === null) {
             // Retrying cannot make a handler appear.
-            $this->failAll($rows, Failure::permanent(sprintf('No handler takes the event type "%s"', $eventType)));
+            $this->failAll($rows, Failure::permanent(strtr(self::MESSAGE_NO_HANDLER, ['%type%' => $eventType])));
 
             return;
         }
@@ -153,7 +160,7 @@ final class Flusher
                 } elseif ($outcome instanceof \Throwable) {
                     $this->queue->markFailed($row, Failure::of($outcome));
                 } else {
-                    $this->queue->markFailed($row, Failure::temporary('The handler returned no outcome for the row'));
+                    $this->queue->markFailed($row, Failure::temporary(self::MESSAGE_NO_OUTCOME));
                 }
             }
         } finally {

@@ -116,11 +116,7 @@
       if (!connection) {
         return;
       }
-      var mode = checked(connection, 'smaily-language-mode') || 'single';
-      var blocks = mode === 'a'
-        ? connection.querySelectorAll('[data-smaily-per-language] [data-smaily-account-block]')
-        : connection.querySelectorAll('[data-smaily-account-block=""]');
-      blocks.forEach(function (accountBlock) {
+      panels.accountBlocks(connection, checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
         var data = panels.credentials(accountBlock);
         if (data.subdomain === '') {
           return;

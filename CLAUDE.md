@@ -399,8 +399,9 @@ twins whose structure drifted, or a section the admin links to that is
 missing. The page lies outside `src/`, so the release zip never holds it.
 `USERGUIDE.md` is only a pointer at the site — do not add content there.
 **The admin links the site** through `Admin\UserGuide`: `URL` is the
-site's address and each `SECTION_*` an id on the page, read in Twig with
-`constant()`; `tests/Unit/Admin/UserGuideTest.php` and the JS check pin
+site's address and each `SECTION_*` an id on the page; `UserGuide::link()`
+builds a section's address, which the controller passes to the template;
+`tests/Unit/Admin/UserGuideTest.php` and the JS check pin
 them. Renaming a site id breaks those links: search the repo first.
 **Publishing it live** goes to https://smaily.com/connect-presta/ (a new
 web root, as the siblings' guides at `/connect-woo/` and
