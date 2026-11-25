@@ -4963,4 +4963,6 @@ Decisions of 2026-11-25:
   step 1 stores only an account that Smaily accepts. An edit of a connection field hides the
   connection status of the account of no language until a test or a save answers again, in the
   Initial setup and on Settings > Connection, which share the panel, as WooCommerce's one reducer
-  resets the connection state in both.
+  resets the connection state in both. Smaily's answer about a stored account that arrives after
+  such an edit shows no state either (`panels.js` `holds()`), also on Settings, which asks about
+  the stored accounts after the page has loaded.

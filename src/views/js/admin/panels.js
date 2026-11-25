@@ -37,7 +37,8 @@
  *
  * An account block whose values passed Test connection carries data-smaily-tested until one of
  * its fields is edited; onTested(hook) runs the page's hook after each test and each such edit.
- * The edit also hides the connection state of the account of no language.
+ * The edit also hides the connection state of the account of no language, and an answer about
+ * values edited since shows no state (holds()), in the Initial setup and in Settings alike.
  */
 (function () {
   'use strict';
@@ -122,6 +123,12 @@
       password: value(accountBlock, prefix + 'password'),
       language: language
     };
+  }
+
+  /* Whether a block still holds the values `data` that a test or a check asked Smaily about. */
+  function holds(accountBlock, data) {
+    var now = credentials(accountBlock);
+    return now.subdomain === data.subdomain && now.username === data.username && now.password === data.password;
   }
 
   /* The account blocks of a language mode: one, or in mode a each language's. */
@@ -214,8 +221,7 @@
      */
     function tested(accountBlock, data, answer) {
       var testResult = accountBlock.querySelector('[data-smaily-test-result]');
-      var now = credentials(accountBlock);
-      var held = now.subdomain === data.subdomain && now.username === data.username && now.password === data.password;
+      var held = holds(accountBlock, data);
       if (answer.connected) {
         show(testResult, label(data.language === '' ? connectedLabel : 'connected'), true);
         // The Initial setup's footer still says that an earlier Continue failed: once no field
@@ -612,6 +618,7 @@
       clearErrors: clearErrors,
       showErrors: showErrors,
       credentials: credentials,
+      holds: holds,
       accountBlocks: accountBlocks,
       pickLanguageMode: pickLanguageMode,
       connectionSaved: connectionSaved,

@@ -110,7 +110,8 @@
     /*
      * The state of each stored account, asked of Smaily after the page has loaded (Magento's
      * Settings shows it under the account): the account of no language, or in mode `a` each
-     * language's account.
+     * language's account. An answer that comes after the merchant edited the block shows nothing,
+     * as in the Initial setup: it is about values the block no longer holds.
      */
     function checkStoredAccounts() {
       if (!connection) {
@@ -122,7 +123,7 @@
           return;
         }
         post('test', {saved: true, language: data.language}).then(function (answer) {
-          if (answer.connected === null) {
+          if (answer.connected === null || !panels.holds(accountBlock, data)) {
             return;
           }
           if (data.language === '') {
