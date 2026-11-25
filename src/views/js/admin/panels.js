@@ -34,6 +34,9 @@
  * the endpoints (data-api-*) and the words (data-label-*), and the label that a passed test of the
  * account of no language shows. onChange(hook) runs the page's own hook on every change, between
  * the field's clean-up and the choice cards.
+ *
+ * An account block whose values passed Test connection carries data-smaily-tested until one of
+ * its fields is edited; onTested(hook) runs the page's hook after each test and each such edit.
  */
 (function () {
   'use strict';
@@ -124,6 +127,7 @@
     var show = smailyConnect.show;
     var label = labels(root);
     var hook = null;
+    var testedHook = null;
 
     function post(api, body) {
       return smailyConnect.api(root.getAttribute('data-api-' + api), body);
@@ -187,6 +191,41 @@
       pill.querySelector('[data-smaily-pill-text]').textContent = label(connected ? 'connected' : 'not-connected');
     }
 
+    function markTested(accountBlock, passed) {
+      if (passed) {
+        accountBlock.setAttribute('data-smaily-tested', '');
+      } else {
+        accountBlock.removeAttribute('data-smaily-tested');
+      }
+      if (testedHook) {
+        testedHook();
+      }
+    }
+
+    /*
+     * Smaily's answer about the values `data` of a block: the result line, the state, and whether
+     * the block counts as tested, which it does only while it still holds those values.
+     */
+    function tested(accountBlock, data, answer) {
+      var testResult = accountBlock.querySelector('[data-smaily-test-result]');
+      var now = credentials(accountBlock);
+      if (answer.connected) {
+        show(testResult, label(data.language === '' ? connectedLabel : 'connected'), true);
+        // The Initial setup's footer still says that an earlier Continue failed: once no field
+        // of the panel shows an error, that message is stale.
+        var stale = root.querySelector('.smaily-footer [data-smaily-result].is-error');
+        if (stale && !panel('connection').querySelector('.smaily-field-error')) {
+          show(stale, '', true);
+        }
+      } else {
+        show(testResult, answer.error || label('failed'), false);
+      }
+      if (data.language === '') {
+        showStatus(!!answer.connected);
+      }
+      markTested(accountBlock, !!answer.connected && now.subdomain === data.subdomain && now.username === data.username && now.password === data.password);
+    }
+
     function testSmaily(button) {
       var accountBlock = button.closest('[data-smaily-account-block]');
       var testResult = accountBlock.querySelector('[data-smaily-test-result]');
@@ -196,25 +235,13 @@
       button.disabled = true;
       show(testResult, label('testing'), true);
       post('test', data).then(function (answer) {
-        if (answer.connected) {
-          show(testResult, label(data.language === '' ? connectedLabel : 'connected'), true);
-          // The Initial setup's footer still says that an earlier Continue failed: once no field
-          // of the panel shows an error, that message is stale.
-          var stale = root.querySelector('.smaily-footer [data-smaily-result].is-error');
-          if (stale && !panel('connection').querySelector('.smaily-field-error')) {
-            show(stale, '', true);
-          }
-        } else {
-          show(testResult, answer.error || label('failed'), false);
-        }
-        if (data.language === '') {
-          showStatus(!!answer.connected);
-        }
+        tested(accountBlock, data, answer);
       }).catch(function (error) {
         showErrors(accountBlock, (error.fields || []).map(function (field) {
           return {field: prefix + field.field, message: field.message};
         }));
         show(testResult, error.message || label('failed'), false);
+        markTested(accountBlock, false);
       }).then(function () {
         button.disabled = false;
       });
@@ -502,6 +529,18 @@
       };
     }(root.querySelector('[data-smaily-import]')));
 
+    /* An edited account field undoes the block's passed test. */
+    root.addEventListener('input', function (event) {
+      var accountBlock = event.target.closest('[data-smaily-account-block]');
+      if (!accountBlock) {
+        return;
+      }
+      if (accountBlock.hasAttribute('data-smaily-tested')) {
+        show(accountBlock.querySelector('[data-smaily-test-result]'), '', true);
+      }
+      markTested(accountBlock, false);
+    });
+
     /* A changed field loses its error; the selected choice card carries is-selected. */
     root.addEventListener('change', function (event) {
       var input = event.target;
@@ -562,6 +601,7 @@
       connectionSaved: connectionSaved,
       showStatus: showStatus,
       connectionData: connectionData,
+      tested: tested,
       contactsData: contactsData,
       automationsData: automationsData,
       automationsSaved: automationsSaved,
@@ -569,6 +609,9 @@
       importCard: importCard,
       onChange: function (pageHook) {
         hook = pageHook;
+      },
+      onTested: function (pageHook) {
+        testedHook = pageHook;
       }
     };
   };

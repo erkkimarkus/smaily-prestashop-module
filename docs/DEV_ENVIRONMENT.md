@@ -679,6 +679,12 @@ shops of 2026-11-23 ran this way, one at `localhost` and one at `127.0.0.1`):
 
 Every later `docker compose` call of that stack names the same two files.
 
+With three or more stacks in one browser (parallel workers), `127.0.0.1` is shared too: give each
+shop its own name under `.localhost`, for example `PS_DOMAIN=we.localhost:8451`, which the browser
+sends to the machine itself (verified 2026-11-25 on 8.2.8 and 9.2.0, while two other stacks used
+`localhost` and `127.0.0.1`; a running shop takes the name in `ps_shop_url` and
+`PS_SHOP_DOMAIN(_SSL)`, then its cache folders are removed).
+
 Run one shop at a time when memory is short: one shop with its database takes about 0.5 GiB.
 
 **Colima** cannot bind-mount a path under `/private/tmp` (macOS's `/tmp`) into a container. Keep every

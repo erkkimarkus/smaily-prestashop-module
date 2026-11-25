@@ -47,8 +47,10 @@ use Symfony\Component\HttpFoundation\Request;
  *   it): the values and the Campaign Intelligence connection that a store holds for all shops
  *   become the selected or default shop's, as Magento's wizard does. A first answer of one store
  *   is the layout those values are in, so it is only stored.
- * - `connect`: the Smaily account and the language mode (ConnectionPanel); answers `connected`
- *   and, when Smaily refused or could not be asked, `error`. The save stands either way.
+ * - `connect`: the Smaily account and the language mode (ConnectionPanel). Smaily must accept every
+ *   account the step would store: else nothing is saved, the step is not reached, and the answer
+ *   is "Test your Smaily connection to continue." (owner, 2026-11-25; Linear CON-397), as
+ *   WooCommerce and Shopify. A saved step answers `connected`.
  * - `contacts`: the Contacts settings (ContactsPanel); contact sync starts with it.
  * - `automations`: the store automations (AutomationsPanel).
  * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking
@@ -78,7 +80,7 @@ final class SaveStep extends AbstractSetupAction
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'connect':
-                $result = $panels->connection()->save($scope, $data);
+                $result = $panels->connection()->save($scope, $data, true);
                 if ($result['errors'] !== []) {
                     return $this->fieldErrors($result['errors']);
                 }

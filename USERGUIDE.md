@@ -30,7 +30,7 @@ The Initial setup of an upgraded store is filled in with the carried-over settin
 
 A new store opens in the **Initial setup**, a guided setup in five steps. **Back** and **Continue** move between the steps, and each step saves when you continue.
 
-1. **Connect**: the Smaily account (see [Connecting module to Smaily account](#connecting-module-to-smaily-account)). A store with several shops first answers how its shops are run. A store without a Smaily account finds the link **Create a Smaily account** here.
+1. **Connect**: the Smaily account (see [Connecting module to Smaily account](#connecting-module-to-smaily-account)). A store with several shops first answers how its shops are run. A store without a Smaily account finds the link **Create a Smaily account** here. **Continue** waits until **Test connection** passes: "Test your Smaily connection to continue." With **Per-language Smaily accounts**, every account you fill in is tested. A change to the subdomain, username or password asks for the test again. A saved account counts as tested once Smaily accepts it when the page opens, so a saved password is not typed again.
 2. **Contacts**: who is synced to Smaily, and the first import (see [Customer synchronization](#customer-synchronization)).
 3. **Automations**: the store events that start Smaily workflows (see [Automations](#automations)).
 4. **Intelligence**: optional. Connects the store to Campaign Intelligence (see [Campaign Intelligence](#campaign-intelligence)); **Finish** without a setup link ends the setup.

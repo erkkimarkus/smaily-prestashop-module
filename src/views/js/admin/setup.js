@@ -27,7 +27,10 @@
  * and Automations steps, Finish, and the Overview's connection state. Plain JavaScript, no build.
  *
  * Continue saves a step through Admin\Api\Setup\SaveStep (window.smailyConnect.setup.onContinue);
- * a refused save marks each field at fault with its message and keeps the step. Back keeps what
+ * a refused save marks each field at fault with its message and keeps the step. On Connect,
+ * Continue waits until every account the step would save passed Test connection (owner,
+ * 2026-11-25), as WooCommerce and Shopify; a stored account counts once Smaily accepts it when the
+ * page opens, so a saved password is not typed again. Back keeps what
  * was typed: the steps stay on the page. The Automations step is drawn for the saved language
  * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
@@ -56,8 +59,59 @@
     panels.onChange(function (input) {
       if (input.name === 'smaily-language-mode') {
         panels.pickLanguageMode(input);
+        smailyConnect.setup.refresh();
       }
     });
+
+    /* The account blocks that Connect would save: one, or in mode a each language's. */
+    function accountBlocks(connection, mode) {
+      return connection.querySelectorAll(mode === 'a' ? '[data-smaily-per-language] [data-smaily-account-block]' : '[data-smaily-account-block=""]');
+    }
+
+    /* Connect continues once a block passed Test connection and no filled block waits for one. */
+    function connectHint() {
+      var connection = panels.panel('connection');
+      if (!connection) {
+        return '';
+      }
+      var passed = 0;
+      var untested = 0;
+      accountBlocks(connection, panels.checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
+        var values = panels.credentials(accountBlock);
+        if (accountBlock.hasAttribute('data-smaily-tested')) {
+          passed += 1;
+        } else if (values.subdomain || values.username || values.password) {
+          untested += 1;
+        }
+      });
+      return passed > 0 && untested === 0 ? '' : label('test-to-continue');
+    }
+
+    /* Each stored account of the saved mode is asked about once; an accepted one counts as tested. */
+    function checkStored() {
+      var connection = panels.panel('connection');
+      if (!connection) {
+        return;
+      }
+      accountBlocks(connection, connection.getAttribute('data-language-mode')).forEach(function (accountBlock) {
+        if (accountBlock.getAttribute('data-has-password') !== '1') {
+          return;
+        }
+        var values = panels.credentials(accountBlock);
+        post('test', {saved: true, language: values.language}).then(function (answer) {
+          if (answer.connected === true) {
+            panels.tested(accountBlock, values, answer);
+          }
+        }).catch(function () {
+          // Not counted: the merchant tests the account.
+        });
+      });
+    }
+
+    panels.onTested(function () {
+      smailyConnect.setup.refresh();
+    });
+    smailyConnect.setup.gate(1, connectHint);
 
     /* The store-layout question comes first while no layout is stored (Magento CON-279). */
     var shape = panels.panel('store-shape');
@@ -204,6 +258,8 @@
     if (!stepPanel(5).hidden) {
       checkAccounts();
     }
+    smailyConnect.setup.refresh();
+    checkStored();
     panels.loadWorkflows(null);
   });
 }());

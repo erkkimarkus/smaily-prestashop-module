@@ -59,9 +59,8 @@ admin screen on 9.2.0 (psgdpr 1.4.3 fails there); one unexplained PHP 8.0.30 seg
 ## Next, in this order
 
 1. The owner's own walk of the two test shops; his findings come back as fixes.
-2. The owner's decision on step 1 of the Initial setup (open question 1).
-3. A walk against the live Smaily service and engine, once the owner gives a test account.
-4. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
+2. A walk against the live Smaily service and engine, once the owner gives a test account.
+3. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
 ## Queue (technical, for the orchestrator)
 
@@ -109,9 +108,10 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 
 Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behaviour rule, read what the siblings do.
 
-1. Step 1 of the Initial setup. Today, as in Magento's code, Continue saves an account that Smaily rejected and ticks
-   the step; WooCommerce and Shopify refuse Continue until the test passes ("Test your Smaily connection to
-   continue."). The owner hit this on 2026-11-23. Which rule, for all connectors (cross-connector analysis CON-397)?
+1. Decided 2026-11-25 (owner, all four connectors; CON-397, Magento's change CON-417): step 1 of the Initial setup
+   refuses Continue until the Smaily connection test passes ("Test your Smaily connection to continue."), as
+   WooCommerce and Shopify. Built: the page and the step's endpoint refuse it; a stored account counts once Smaily
+   accepts it when the page opens.
 2. After a reload the step list ticks every step up to the furthest one reached, also one never saved (as Magento).
 3. Settled 2026-11-24: a colleague chose the four Estonian wordings (CON-416; capability 14 walk record, section 8).
 4. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).

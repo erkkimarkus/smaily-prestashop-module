@@ -1352,6 +1352,11 @@
         <target>Ühendatud! Jätka järgmise sammuga.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="e664a0f95f58d224f0b8ab212ab1aafc">
+        <source>Test your Smaily connection to continue.</source>
+        <target>Jätkamiseks testi oma Smaily ühendust.</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="c2cc7082a89c1ad6631a2f66af5f00c0">
         <source>Connection</source>
         <target>Ühendus</target>

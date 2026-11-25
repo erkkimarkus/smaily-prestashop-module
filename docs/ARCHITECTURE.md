@@ -2889,7 +2889,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
-| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
+| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 
@@ -4281,7 +4281,8 @@ has one owner:
   first contact import and one saver for the setup and Settings (`Admin\Setup\SetupPanels`); the
   Dashboard's verdict, connection cards, tiles and Recent activity (`Admin\Dashboard\`, section
   4.3 for the Background tasks card). The Initial setup was walked in a browser on 8.0.0 and 9.2.0
-  against the Smaily mock.
+  against the Smaily mock. Since 2026-11-25 step 1 continues only with a passed connection test
+  (section 15), walked on 8.2.8 and 9.2.0.
 - **Left open.** Nothing: Story 4.1 built the Automations step and Story 5.3 the Intelligence step.
   The Dashboard's Campaign Intelligence and tracking cards always read "Not connected" and "Disabled",
   and it shows no Catalog items tile, until stage 5.
@@ -4885,3 +4886,20 @@ Decisions of 2026-11-23:
   of the order's shop, the currency of the catalog rows; an order in another currency is converted
   with its own rate at the time of the order (`orders.conversion_rate`), each amount rounded to
   cents. The engine adds every amount up as the store's currency (sections 8.3 and 8.11).
+
+Decisions of 2026-11-25:
+
+- Step 1 of the Initial setup refuses Continue until the Smaily connection test passes (owner, for
+  all four connectors; Linear CON-397, Magento's change CON-417), as WooCommerce and Shopify. The
+  page disables Continue and shows their words, "Test your Smaily connection to continue.", until
+  every account block that the step would save passed Test connection (with an account per
+  language, every block filled in); an edit of a block's subdomain, username or password asks for
+  the test again, as in WooCommerce. A stored account counts once Smaily accepts it when the page
+  opens (`Api\Setup\TestSmaily` with `saved`): WooCommerce counts a saved account that passed its
+  test, and Shopify stores only an account that Smaily accepted, while 2.x and earlier 3.0.0 code
+  may have stored a refused one. An empty password field keeps the stored password for the same
+  subdomain and username, in the test and in the save, so an upgraded store types no password
+  again. The server refuses too: `Api\Setup\SaveStep` asks Smaily about every account the step
+  would store before it writes anything (`ConnectionPanel::save()` with `$connectedOnly`) and,
+  while Smaily refuses one, saves nothing, so the step is not reached, and answers the same words.
+  Settings > Connection still saves a refused account as "Not connected", as Magento.

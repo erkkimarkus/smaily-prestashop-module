@@ -47,8 +47,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *   fallback account, whose credentials are also the account of no language (`''`). A language
  *   whose block is left empty has no account: its contacts go to the fallback account.
  * - Every other mode: the account of no language.
- * - Saving asks Smaily whether it accepts the account of no language. The answer never stops the
- *   save: a refused account is saved and reads "Not connected", as in Magento.
+ * - Saving asks Smaily whether it accepts the account of no language. On Settings the answer never
+ *   stops the save: a refused account is saved and reads "Not connected", as in Magento. Step 1 of
+ *   the Initial setup asks first about every account it would store and saves nothing while Smaily
+ *   refuses one (owner, 2026-11-25; Linear CON-397), as WooCommerce and Shopify refuse Continue.
  * - A save that leaves mode `a` removes the accounts of the languages, as Magento removes the
  *   store views' credentials: every language then follows the account of no language, which stays
  *   the fallback account. The page asks before it (views/js/admin/panels.js).
@@ -135,13 +137,15 @@ final class ConnectionPanel
     /**
      * Checks and saves the posted connection: `subdomain`, `username`, `password`,
      * `language_mode`, and in mode `a` `fallback_language` and `accounts` (ISO code =>
-     * {subdomain, username, password}). Nothing is written while any field is at fault.
+     * {subdomain, username, password}). Nothing is written while any field is at fault, nor, with
+     * $connectedOnly (the Initial setup's step 1), while Smaily refuses any account the save would
+     * store: the answer then says to test the connection, and `error` says why Smaily refused.
      *
      * @param array<string, mixed> $data
      *
      * @return array{errors: list<array{field: string, message: string}>, connected: bool, error: ?string}
      */
-    public function save(SetupScope $scope, array $data): array
+    public function save(SetupScope $scope, array $data, bool $connectedOnly = false): array
     {
         $refused = $this->scopeErrors($scope);
         if ($refused !== []) {
@@ -168,6 +172,14 @@ final class ConnectionPanel
         if ($errors !== []) {
             return ['errors' => $errors, 'connected' => false, 'error' => null];
         }
+        if ($connectedOnly) {
+            foreach (array_unique($accounts, SORT_REGULAR) as $credentials) {
+                $check = $this->check->check($credentials[0], $credentials[1], $credentials[2]);
+                if (!$check['connected']) {
+                    return ['errors' => [['field' => '', 'message' => $this->trans('Test your Smaily connection to continue.')]], 'connected' => false, 'error' => $check['error']];
+                }
+            }
+        }
 
         foreach ($accounts as $language => $credentials) {
             $this->accounts->save(new Account($target, (string) $language, $credentials[0], $credentials[1], $credentials[2]));
@@ -190,7 +202,9 @@ final class ConnectionPanel
         }
         $this->layout->setLanguageMode($mode, $target);
 
-        $check = $this->check->check($accounts[''][0], $accounts[''][1], $accounts[''][2]);
+        $check = $connectedOnly
+            ? ['connected' => true, 'error' => null]
+            : $this->check->check($accounts[''][0], $accounts[''][1], $accounts[''][2]);
 
         return ['errors' => [], 'connected' => $check['connected'], 'error' => $check['error']];
     }

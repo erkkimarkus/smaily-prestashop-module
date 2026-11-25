@@ -32,6 +32,9 @@
  *
  * window.smailyConnect.setup.onContinue(step, saver) registers the saver of a setup step: Continue
  * runs it and moves on once the promise it returns resolves; a rejected promise keeps the step.
+ * window.smailyConnect.setup.gate(step, hint) registers what Continue waits for: hint() answers
+ * the words that say why, shown beside a disabled Continue, or '' once Continue may run; the page
+ * calls window.smailyConnect.setup.refresh() when that may have changed.
  *
  * window.smailyConnect.ready(callback) runs the callback once the page is parsed, and
  * window.smailyConnect.show(element, text, ok) writes a result line, marked as an error unless ok.
@@ -41,6 +44,7 @@
 
   var smailyConnect = window.smailyConnect = window.smailyConnect || {};
   var savers = {};
+  var gates = {};
 
   /*
    * The logo's entrance plays once per browser session, on the page the Configure button opens:
@@ -69,7 +73,11 @@
   smailyConnect.setup = {
     onContinue: function (step, saver) {
       savers[step] = saver;
-    }
+    },
+    gate: function (step, hint) {
+      gates[step] = hint;
+    },
+    refresh: function () {}
   };
 
   function ready(callback) {
@@ -222,6 +230,19 @@
     var back = container.querySelector('[data-smaily-action=setup-back]');
     var next = container.querySelector('[data-smaily-action=setup-next]');
     var result = footer.querySelector('[data-smaily-result]');
+    var hinted = false;
+
+    /* Continue waits while the step's gate gives a reason; the reason shows beside it. */
+    function gate() {
+      var hint = gates[step] ? gates[step]() : '';
+      next.disabled = hint !== '';
+      if (hint !== '' || hinted) {
+        show(result, hint, true);
+      }
+      hinted = hint !== '';
+    }
+
+    smailyConnect.setup.refresh = gate;
 
     function render() {
       container.setAttribute('data-step', step);
@@ -242,6 +263,8 @@
       back.hidden = step === 1;
       next.textContent = container.getAttribute(step === last - 1 ? 'data-label-finish' : 'data-label-continue');
       show(result, '', true);
+      hinted = false;
+      gate();
       window.scrollTo(0, 0);
     }
 
@@ -255,9 +278,7 @@
         render();
       }).catch(function (error) {
         show(result, error && error.message ? error.message : container.getAttribute('data-label-failed'), false);
-      }).then(function () {
-        next.disabled = false;
-      });
+      }).then(gate);
     });
     back.addEventListener('click', function () {
       step = Math.max(1, step - 1);

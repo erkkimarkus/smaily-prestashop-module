@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Admin;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
@@ -15,6 +18,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
@@ -23,9 +32,10 @@ require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 /**
  * The Initial setup's panels in the shop, against the Smaily mock: the Connection panel reduces a
  * pasted URL, keeps a stored password only for its own account, saves a refused account as "Not
- * connected", saves an account per language with a fallback, and never hands a password back; the
- * Contacts panel's save is what starts contact sync on a new install; the setup reaches its steps
- * from what was saved, and Finish marks it done.
+ * connected" on Settings, saves nothing that Smaily refuses in the Initial setup's step 1, saves an
+ * account per language with a fallback, and never hands a password back; the Contacts panel's save
+ * is what starts contact sync on a new install; the setup reaches its steps from what was saved,
+ * and Finish marks it done.
  */
 final class SetupPanelsTest extends IntegrationTestCase
 {
@@ -78,6 +88,7 @@ final class SetupPanelsTest extends IntegrationTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
+            $this->restoreShopRuntime();
             self::db()->delete(EventQueue::TABLE);
             self::db()->delete(self::ACCOUNT_TABLE);
             foreach ($this->savedAccounts as $row) {
@@ -151,6 +162,61 @@ final class SetupPanelsTest extends IntegrationTestCase
             array_column($panel->test($scope, ['subdomain' => '', 'username' => '', 'password' => ''])['errors'], 'field')
         );
         self::assertCount(2, $this->mock->requests(), 'empty fields ask nothing');
+    }
+
+    /**
+     * Step 1 of the Initial setup continues only with an account that Smaily accepts (owner,
+     * 2026-11-25; Linear CON-397), as WooCommerce and Shopify.
+     */
+    public function testTheSetupStepSavesNoAccountThatSmailyRefuses(): void
+    {
+        $panels = $this->panels();
+        $panel = $panels->connection();
+        $scope = $this->scope(['en' => 'English']);
+
+        $refused = $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => 'a-wrong-password'], true);
+        self::assertSame([['field' => '', 'message' => 'Test your Smaily connection to continue.']], $refused['errors']);
+        self::assertSame('Smaily rejected these credentials. Check the subdomain, username and password.', $refused['error']);
+        self::assertNull($this->account(0, ''), 'nothing was written');
+        self::assertSame(1, $panels->progress()->reachedStep($scope), 'the step is not reached');
+
+        self::assertSame(['errors' => [], 'connected' => true, 'error' => null], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD], true));
+        self::assertSame(2, $panels->progress()->reachedStep($scope));
+        // A stored password counts: an empty field keeps it for the same account, and Smaily is asked with it.
+        self::assertSame([], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => ''], true)['errors']);
+        self::assertCount(3, $this->mock->requests(), 'each save asks Smaily once');
+    }
+
+    public function testTheSetupStepSavesNoAccountPerLanguageWhileSmailyRefusesOne(): void
+    {
+        $panel = $this->panels()->connection();
+        $scope = $this->scope(['en' => 'English', 'et' => 'Eesti']);
+
+        $refused = $panel->save($scope, [
+            'language_mode' => 'a',
+            'fallback_language' => 'en',
+            'accounts' => [
+                'en' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD],
+                'et' => ['subdomain' => 'demo-et', 'username' => self::USERNAME, 'password' => 'a-wrong-password'],
+            ],
+        ], true);
+
+        self::assertSame('Test your Smaily connection to continue.', $refused['errors'][0]['message']);
+        self::assertSame([null, null, null], [$this->account(0, 'en'), $this->account(0, 'et'), $this->account(0, '')]);
+        self::assertSame('single', (new StoreLayout())->languageMode(0), 'the mode is not saved either');
+    }
+
+    public function testARequestStraightToTheConnectStepWithARefusedAccountSavesNothing(): void
+    {
+        $this->useAsShopRuntime($this->services);
+
+        $response = $this->post(new SaveStep(), ['step' => 'connect', 'data' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => 'a-wrong-password', 'language_mode' => 'single']]);
+
+        self::assertSame(422, $response->getStatusCode());
+        $answer = json_decode((string) $response->getContent(), true);
+        self::assertSame(['invalid_fields', 'Test your Smaily connection to continue.'], [$answer['error']['code'], $answer['error']['message']]);
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '`', false), 'no account was saved');
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` = \'' . pSQL(StoreLayout::LANGUAGE_MODE) . '\'', false), 'no language mode was saved');
     }
 
     public function testAnAccountPerLanguageSavesEachLanguageAndTheFallback(): void
@@ -281,6 +347,30 @@ final class SetupPanelsTest extends IntegrationTestCase
         self::assertTrue($progress->finish());
         self::assertSame(AdminSettings::SETUP_DONE, (new AdminSettings())->setupState());
         self::assertSame(5, $progress->reachedStep($scope));
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    private function post(AbstractJsonAction $action, array $body): JsonResponse
+    {
+        $checker = $this->createMock(AuthorizationCheckerInterface::class);
+        $checker->method('isGranted')->willReturn(true);
+        $tokens = $this->createMock(CsrfTokenManagerInterface::class);
+        $tokens->method('getToken')->willReturn(new CsrfToken(BaseController::API_TOKEN_ID, 'page-token'));
+        $tokens->method('isTokenValid')->willReturn(true);
+        $action->setContainer(new ServiceLocator([
+            'security.authorization_checker' => static fn () => $checker,
+            'security.csrf.token_manager' => static fn () => $tokens,
+        ]));
+        $request = new Request([], [], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_save'], [], [], [], (string) json_encode($body));
+        $request->headers->set('X-Smaily-Token', 'page-token');
+        $request->headers->set('X-Smaily-Scope', AbstractJsonAction::pageScope());
+        $response = $action->execute($request);
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+
+        return $response;
     }
 
     private function panels(): SetupPanels
