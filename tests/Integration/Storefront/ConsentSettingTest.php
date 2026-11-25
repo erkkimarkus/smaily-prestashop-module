@@ -22,8 +22,9 @@ require_once __DIR__ . '/../Migration/LegacyStore.php';
 require_once __DIR__ . '/../MultistoreShop.php';
 
 /**
- * The merchant's consent setting "My store's cookie banner covers Smaily tracking": off after an
- * install and after an upgrade, and on only where the merchant confirmed it.
+ * The merchant's consent setting "I confirm that my store's cookie banner lets a visitor choose
+ * whether to allow Smaily to track their browsing.": off after an install and after an upgrade, and on only where the merchant confirmed
+ * it.
  */
 final class ConsentSettingTest extends StorefrontTestCase
 {

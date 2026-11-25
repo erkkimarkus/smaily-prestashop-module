@@ -105,7 +105,8 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 - [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — browser, 8.2.8 and 9.2.0: the Log's
   form, the customer's own export page, the Personalization page, psgdpr's admin screen (its export on 8.2.8 only).
 - [x] 14. Administration screens in English and Estonian — every screen and state walked in Estonian on 8.2.8 and
-  9.2.0; the owner's native read found the texts fine; 3 wordings aligned with the siblings, 4 wait (CON-416).
+  9.2.0; the owner's native read found the texts fine; 3 wordings aligned with the siblings, 4 chosen by a colleague
+  (CON-416, 2026-11-24) and read on both versions.
 
 ## Open questions (for the owner)
 
@@ -115,7 +116,7 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
    the step; WooCommerce and Shopify refuse Continue until the test passes ("Test your Smaily connection to
    continue."). The owner hit this on 2026-11-23. Which rule, for all connectors (cross-connector analysis CON-397)?
 2. After a reload the step list ticks every step up to the furthest one reached, also one never saved (as Magento).
-3. Four Estonian wordings wait for a colleague's choice (CON-416; the capability 14 walk record, section 7).
+3. Settled 2026-11-24: a colleague chose the four Estonian wordings (CON-416; capability 14 walk record, section 8).
 4. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
 5. CON-397 also decides: late or retried contact changes, workflows after an account or mode change, two shops on
    one account.

@@ -2795,10 +2795,11 @@ store-created visitor token of a guest checkout the same way (Linear CON-409).
 **[D]** (decision 2, owner 2026-11-20) A setting that the merchant confirms, plus the developer hook:
 
 1. **The setting.** Settings > Intelligence carries a switch
-   "My store's cookie banner covers Smaily tracking" (`SMAILY_CONNECT_CONSENT_CONFIRMED`, global or
-   per shop under separate stores). It is **off** on every new install and every upgrade (2.x had no
-   tracking, so an upgrade widens nothing). While it is off, the module runs no browse tracking, makes
-   no recommendations call and sets no tracking cookie.
+   "I confirm that my store's cookie banner lets a visitor choose whether to allow Smaily to track
+   their browsing." (`SMAILY_CONNECT_CONSENT_CONFIRMED`, global or per shop under separate
+   stores). It is **off** on every new install and every upgrade (2.x had no tracking, so an
+   upgrade widens nothing). While it is off, the module runs no browse tracking, makes no
+   recommendations call and sets no tracking cookie.
 2. **The merchant's responsibility.** When the merchant switches it on, the module treats every
    visitor of that shop as having consented to Smaily tracking and recommendations. The help text says
    plainly that the merchant carries this responsibility: the store's cookie banner must ask for this
@@ -4774,18 +4775,19 @@ Decisions of 2026-11-23:
   2026-11-23; section 11.5).
 - Tracking of a signed-in customer follows the merchant's confirmation alone (Linear CON-408). The
   store-created visitor token of a sign-in or a registration, and the customer's row to Campaign
-  Intelligence at that moment, need the setting "My store's cookie banner covers Smaily tracking"
-  and nothing of the customer: `customer.newsletter` is no longer asked. The setting stays off
-  after an install and after an upgrade; `window.smailyConnect.consentOverride()` still decides in
-  the browser; who the contact sync sends to Smaily is untouched; `customer.optin` is never read.
+  Intelligence at that moment, need the setting "I confirm that my store's cookie banner lets a
+  visitor choose whether to allow Smaily to track their browsing." and nothing of the customer:
+  `customer.newsletter` is no longer asked. The setting stays off after an install and after an
+  upgrade; `window.smailyConnect.consentOverride()` still decides in the browser; who the contact
+  sync sends to Smaily is untouched; `customer.optin` is never read.
   The siblings read the cookie banner's answer there, and the confirmation is what PrestaShop has
   of one (sections 8.10, 8.11 and 9; section 14, rows 43 and 48). A consent decision: it is not
   changed again without the owner.
 - Tracking of a guest at checkout follows the merchant's confirmation alone too (owner,
   2026-11-23; Linear CON-409). The store-created visitor token of a guest checkout needs the
-  setting "My store's cookie banner covers Smaily tracking" and nothing of the guest: the
-  checkout's newsletter box is no longer asked, so one rule holds for customers and guests, as the
-  WooCommerce plugin reads the banner's answer for a guest as well. The token that the cart keeps
+  setting "I confirm that my store's cookie banner lets a visitor choose whether to allow Smaily to
+  track their browsing." and nothing of the guest: the checkout's newsletter box is no longer
+  asked, so one rule holds for customers and guests, as the WooCommerce plugin reads the banner's answer for a guest as well. The token that the cart keeps
   is checked by the same rule at the order. Not changed: the setting stays off after an install
   and after an upgrade; `window.smailyConnect.consentOverride()` still decides in the browser; who
   the contact sync sends to Smaily (the consent mode and "include guests") is untouched; which

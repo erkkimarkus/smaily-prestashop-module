@@ -2579,12 +2579,17 @@
       </trans-unit>
       <trans-unit id="b8b239113842535a5a6534fe06e7b2e4">
         <source>Privacy request</source>
-        <target>Privaatsuspäring</target>
+        <target>Isikuandmete päring</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ba11833b7610b093832420dad984f204">
+        <source>At a customer’s request, you can export or erase their data here.</source>
+        <target>Kliendi soovil saad siin tema andmed eksportida või kustutada.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="3d67a169ed033854895f8d28e86197bb">
         <source>Export or erase what this module holds about one email address: its rows of the Log, its abandoned-cart reminders, order attribution, discount codes and personalization preference, and its Campaign Intelligence data. The customer account, the orders and the Smaily contact are not changed; handle those in PrestaShop and in Smaily.</source>
-        <target>Ekspordi või kustuta see, mida moodul ühe e-posti aadressi kohta hoiab: selle logiread, hüljatud ostukorvi meeldetuletused, tellimuste omistamise andmed, sooduskoodid, personaliseerimise eelistus ja Campaign Intelligence'i andmed. Kliendikontot, tellimusi ja Smaily kontakti ei muudeta; nendega tegele PrestaShopis ja Smailys.</target>
+        <target>Ekspordi või kustuta see, mida moodul ühe e-posti aadressi kohta hoiab: selle logiread, hüljatud ostukorvi meeldetuletused, tellimuste seosed e-kirjade või tootesoovitustega, sooduskoodid, personaliseerimise eelistus ja Campaign Intelligence'i andmed. Kliendikontot, tellimusi ja Smaily kontakti ei muudeta; nendega tegele PrestaShopis ja Smailys.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="b357b524e740bc85b9790a0712d84a30">
@@ -2639,12 +2644,12 @@
       </trans-unit>
       <trans-unit id="eec117b55637a29df774d2daa96f3433">
         <source>Order attribution</source>
-        <target>Tellimuse omistamine</target>
+        <target>Tellimuse seos e-kirja või tootesoovitusega</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="7468e35dca740da8ad3481d341c2c8b6">
         <source>Cart attribution</source>
-        <target>Ostukorvi omistamine</target>
+        <target>Ostukorvi seos e-kirja või tootesoovitusega</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="a240fa27925a635b08dc28c9e4f9216d">
@@ -2739,12 +2744,12 @@
       </trans-unit>
       <trans-unit id="c8edd5d1c60ecc1d6d9d69a7aa1ed150">
         <source>Payload (erased on a privacy request)</source>
-        <target>Andmesisu (kustutatud privaatsuspäringu alusel)</target>
+        <target>Andmesisu (kustutatud isikuandmete päringu alusel)</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="eef48ccc6d636cab4aa4e2896db92f0f">
         <source>No response is kept — it was erased on a privacy request.</source>
-        <target>Vastust ei ole alles — see kustutati privaatsuspäringu alusel.</target>
+        <target>Vastust ei ole alles — see kustutati isikuandmete päringu alusel.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="23f6c072cacb9d02e855183fc7878214">
@@ -3137,9 +3142,9 @@
         <target>Poe sirvimise jälgimine ja soovitused</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="825753d7d99d6a08c20300ab70c75737">
-        <source>My store’s cookie banner covers Smaily tracking</source>
-        <target>Minu poe küpsiseteade hõlmab Smaily jälgimist</target>
+      <trans-unit id="b64c2a2e6f955536c0e93a5a97e3f343">
+        <source>I confirm that my store’s cookie banner lets a visitor choose whether to allow Smaily to track their browsing.</source>
+        <target>Kinnitan, et minu poe küpsiste bänneris saab külastaja valida, kas lubada Smailyl oma sirvimistegevust jälgida.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="f5a40ba3fe56421ffbbd28276dc03517">
@@ -3149,7 +3154,7 @@
       </trans-unit>
       <trans-unit id="c9ae3a131c2123ebfaeab6dda2a58d92">
         <source>PrestaShop has no cookie-consent setting that a module can read, so Smaily Connect cannot see what a visitor answered to your banner. When you switch this on, every visitor of this shop is treated as having agreed to Smaily tracking and recommendations: you are responsible that your cookie banner asks for it.</source>
-        <target>PrestaShopis ei ole küpsiste nõusoleku seadet, mida moodul saaks lugeda, seega ei näe Smaily Connect, mida külastaja sinu küpsiseteatele vastas. Kui lülitad selle sisse, loetakse selle poe iga külastaja Smaily jälgimise ja soovitustega nõustunuks: sina vastutad selle eest, et sinu küpsiseteade seda küsib.</target>
+        <target>PrestaShopis ei ole küpsiste nõusoleku seadet, mida moodul saaks lugeda, seega ei näe Smaily Connect, mida külastaja sinu küpsiste bännerile vastas. Kui lülitad selle sisse, loetakse selle poe iga külastaja Smaily jälgimise ja soovitustega nõustunuks: sina vastutad selle eest, et sinu küpsiste bänner seda küsib.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="aa31cb1daca51ae76a539c970e788a21">
@@ -3309,7 +3314,7 @@
       </trans-unit>
       <trans-unit id="d361087f2fb4f2974b032cbfe9676988">
         <source>Confirm in Settings &gt; Intelligence that your cookie banner covers Smaily tracking.</source>
-        <target>Kinnita menüüs Seaded &gt; Intelligence, et sinu poe küpsiseteade hõlmab Smaily jälgimist.</target>
+        <target>Kinnita menüüs Seaded &gt; Intelligence, et sinu poe küpsiste bänner hõlmab Smaily jälgimist.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="fb4de5f5abb00865eb91fdc88f382874">
@@ -3389,12 +3394,12 @@
       </trans-unit>
       <trans-unit id="5c95171cf868f864f912a8b770f28f5c">
         <source>The Campaign Intelligence connection of this shop then serves all shops: %shop%.</source>
-        <target>Seejärel teenindab kõiki poode selle poe Campaign Intelligence'i ühendus: %shop%.</target>
+        <target>Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="411167908c6db0c1cf039dd813d59a1d">
         <source>Browse tracking and recommendations stay off until you confirm in Settings &gt; Intelligence that the cookie banner of every shop covers them.</source>
-        <target>Sirvimise jälgimine ja soovitused jäävad välja, kuni kinnitad menüüs Seaded &gt; Intelligence, et iga poe küpsiseteade neid hõlmab.</target>
+        <target>Sirvimise jälgimine ja soovitused jäävad välja, kuni kinnitad menüüs Seaded &gt; Intelligence, et iga poe küpsiste bänner neid hõlmab.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="62e8c19c01881ddb0344d63ebac89b26">

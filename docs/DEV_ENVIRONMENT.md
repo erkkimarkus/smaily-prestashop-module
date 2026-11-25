@@ -355,9 +355,10 @@ off needs no such step: 22 console upgrades from 2.2.0 ran behind the guard in o
 ## 4b. Walking the storefront: the consent gate, the block and the cache (verified on 8.2.8 and 9.2.0)
 
 Nothing of the storefront runs before the shop has a connection (section 4a). The merchant confirms
-the consent setting on Settings > Intelligence ("My store's cookie banner covers Smaily tracking",
-then Save), and a walk does the same. The block shows from the page after the landing on: the
-landing stores the visitor token, and the next page asks for the recommendations with it.
+the consent setting on Settings > Intelligence ("I confirm that my store's cookie banner lets a
+visitor choose whether to allow Smaily to track their browsing.", then Save), and a walk does the
+same. The block shows from the page after the landing on: the landing stores the visitor token,
+and the next page asks for the recommendations with it.
 
 **Probe the consent gate in a real browser, in both states.** A gate that fails closed looks the
 same as a tracker that works and has nothing to send. On any storefront page, in the console:

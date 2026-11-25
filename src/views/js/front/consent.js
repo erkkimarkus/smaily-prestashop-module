@@ -27,7 +27,8 @@
  *
  * 1. The store's own window.smailyConnect.consentOverride(), where the store defines it: its
  *    answer decides. true is consent; any other answer, and a function that throws, is none.
- * 2. Otherwise the merchant's setting "My store's cookie banner covers Smaily tracking"
+ * 2. Otherwise the merchant's setting "I confirm that my store's cookie banner lets a visitor
+ *    choose whether to allow Smaily to track their browsing."
  *    (smailyConnectStorefront.consentConfirmed), which is off until the merchant confirms it.
  * 3. Otherwise no consent.
  *

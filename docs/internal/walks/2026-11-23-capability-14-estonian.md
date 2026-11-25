@@ -196,7 +196,7 @@ same or the plainly corresponding English, their Estonian is used, Magento's fir
 carry nothing, or differ without a better one, the wording stays.
 
 Three units changed, each in one unit of the back-office catalogue; 24 wordings stay, 4 of them
-for a colleague to settle.
+for a colleague to settle. The colleague settled those 4 on 2026-11-24 (section 8).
 
 | # | English | Before | After | Source |
 |---|---|---|---|---|
@@ -208,17 +208,17 @@ for a colleague to settle.
 | 6 | Hold back the import; Held back: …; Paused; Stopped; Stalled | Peata import; Peatatud: …; Peatatud; Peatunud; Seiskunud | the same | Magento (it has no "Paused"); WooCommerce "Peata import", "Impordid peatatud". |
 | 7 | deliveries; View failed deliveries; delivered, last 30 days; Delivered | saadetised; Vaata ebaõnnestunud saatmisi; edastatud, viimased 30 päeva; Kohale toimetatud | the same | Magento: each of the four. |
 | 8 | under Settings > …; in Settings > … | jaotises Seaded > … (3 units), menüüs Seaded > … (10), lehel Seaded (4), Seaded > … after a colon (5) | the same | Kept: Magento writes "jaotises" and "menüüs" in the same units, so the siblings give no one form. |
-| 9 | cookie banner | küpsiseteade | the same | Kept, still doubtful. Shopify words "cookie banner" so; Magento has "küpsiste nõusoleku bänner" (cookie consent banner) and "küpsiste teade" (cookie notice), WooCommerce "nõusolekubänner" and "nõusolekuriba" (consent banner). |
+| 9 | cookie banner | küpsiseteade | küpsiste bänner (section 8) | Kept, then settled by a colleague. Shopify words "cookie banner" so; Magento has "küpsiste nõusoleku bänner" (cookie consent banner) and "küpsiste teade" (cookie notice), WooCommerce "nõusolekubänner" and "nõusolekuriba" (consent banner). |
 | 10 | Browse tracking | Sirvimise jälgimine | the same | Magento, WooCommerce, Shopify. |
 | 11 | engine | mootor | the same | Magento, WooCommerce, Shopify. |
 | 12 | Cooldown (days) | Puhkeaeg (päevades) | the same | Magento; WooCommerce "Puhkeaeg"; Shopify "Ooteaeg". |
 | 13 | Daily Cap; No cap | Päevalimiit; Limiiti pole | the same | Magento. |
 | 14 | deliveries are deduplicated on the receiving side | saadetised dedubleeritakse vastuvõtja poolel | the same | Magento. |
-| 15 | Privacy request | Privaatsuspäring | the same | Kept, still doubtful: no sibling has the text. |
-| 16 | Order attribution; Cart attribution | Tellimuse omistamine; Ostukorvi omistamine; tellimuste omistamise andmed | the same | Kept, still doubtful: Magento and WooCommerce have no such text; Shopify words "Recommendation attribution" as "Soovituste atribueerimine". |
+| 15 | Privacy request | Privaatsuspäring | Isikuandmete päring (section 8) | Kept, then settled by a colleague: no sibling has the text. |
+| 16 | Order attribution; Cart attribution | Tellimuse omistamine; Ostukorvi omistamine; tellimuste omistamise andmed | Tellimuse seos e-kirja või tootesoovitusega; Ostukorvi seos e-kirja või tootesoovitusega (section 8) | Kept, then settled by a colleague: Magento and WooCommerce have no such text; Shopify words "Recommendation attribution" as "Soovituste atribueerimine". |
 | 17 | Stopped before an error — %sent% of %total% synced so far. | Peatus enne viga — seni sünkroonitud %sent% / %total%. | the same | Magento; Shopify "… töödeldud enne viga". |
 | 18 | Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold. | Saatmata: poes on üle 50 000 tooterea, rohkem öine tootenimekiri ei mahuta. | Ei saadetud: poes on üle 50 000 tooterea, aga öine tootenimekiri mahutab neid kõige rohkem 50 000. | Changed: Magento's sentence for "… 50,000 enabled products …", with "tooterea" for its "lubatud toote". WooCommerce words it otherwise ("Saatmata: … see on suurim arv, mida öine tooteloend mahutab."). |
-| 19 | The Campaign Intelligence connection of this shop then serves all shops: %shop%. | Seejärel teenindab kõiki poode selle poe Campaign Intelligence'i ühendus: %shop%. | the same | Kept, still doubtful: no sibling has the text. |
+| 19 | The Campaign Intelligence connection of this shop then serves all shops: %shop%. | Seejärel teenindab kõiki poode selle poe Campaign Intelligence'i ühendus: %shop%. | Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust. (section 8) | Kept, then settled by a colleague: no sibling has the text. |
 | 20 | Dismiss | Peida | the same | Magento, WooCommerce; Shopify "Sulge". |
 | 21 | Delivered — no retries needed. | Kohale toimetatud — kordusi pole vaja. | the same | Magento. |
 
@@ -228,7 +228,7 @@ engine's automation names), and nothing of them changed. What the siblings do: M
 WooCommerce store the same `[erased]`; Magento shows dates in the form of the admin's locale, and
 its catalogue words the Smaily client's failure texts ("Smaily API päring ebaõnnestus (HTTP %1)").
 
-**Still doubtful, for a colleague of Smaily's marketing or support:** "küpsiseteade" (9; or
+**Doubtful after the read, for a colleague of Smaily's marketing or support** (settled in section 8): "küpsiseteade" (9; or
 "küpsiste nõusoleku bänner", "nõusolekubänner", "küpsisebänner"), "Privaatsuspäring" (15; or
 "Isikuandmete päring", "Andmekaitsepäring"), "omistamine" (16; or "atribueerimine" as Shopify,
 "Tellimuse seos e-kirjaga"), and the sentence of 19 (or "Pärast muudatust kasutavad kõik poed
@@ -242,3 +242,27 @@ cut and no placeholder shows. "Külastajatunnus" is a column name of the export 
 screen: the shop's translator gave it for both attribution rows. Host suite: 2231 tests, 3932
 assertions, 1131 skipped; the in-shop suite did not run, as only three targets of the catalogue
 changed.
+
+## 8. The colleague's choice of the four wordings (2026-11-24, CON-416)
+
+A colleague chose the four wordings of section 7 after a native-speaker review. Each unit below is
+in the back-office catalogue (`ModulesSmailyforprestashopAdmin.et-EE.xlf`); the customer's
+export of PrestaShop's GDPR module takes its words from the same catalogue.
+
+| Wording | Now |
+|---|---|
+| cookie banner (9) | "küpsiste bänner" in every unit that names it (four units). The merchant's checkbox on Settings > Intelligence and its row on the Overview of the Initial setup read "Kinnitan, et minu poe küpsiste bänneris saab külastaja valida, kas lubada Smailyl oma sirvimistegevust jälgida." Its English said less than that sentence ("My store's cookie banner covers Smaily tracking"), so the English became "I confirm that my store's cookie banner lets a visitor choose whether to allow Smaily to track their browsing." The stored setting is unchanged. No screen of the module has a heading "Cookie banner", so the heading form "Küpsiste bänner" has no place yet. |
+| Privacy request (15) | The form's heading on the Log reads "Isikuandmete päring". A new line under it: "At a customer's request, you can export or erase their data here." / "Kliendi soovil saad siin tema andmed eksportida või kustutada." The two Log texts that name an erasure "on a privacy request" use the same term ("isikuandmete päringu alusel"). |
+| Order attribution, Cart attribution (16) | "Tellimuse seos e-kirja või tootesoovitusega" and "Ostukorvi seos e-kirja või tootesoovitusega": the rows of the customer's export. Both rows hold an email click (the visitor token) and a recommendation, so both labels name both. The form's introduction on the Log lists them in a sentence as "tellimuste seosed e-kirjade või tootesoovitustega". No link of the module leads to a page that explains the terms, so the short labels ("Tellimuse omistamine", "Ostukorvi omistamine") are used nowhere. |
+| The shared connection (19) | "Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust." in the question before a change to one store. The same question already says what happens to the other connections ("Need Campaign Intelligence'i ühendused lõpetatakse: …", whenever there are any), so the colleague's second sentence was not added. |
+
+**Seen on a screen**, on 9.2.0 and on 8.2.8 (each a shop made from scratch behind the egress
+guard, the Initial setup done with the Smaily mock and a Campaign Intelligence connection of the
+engine mock, the employee in Estonian and then in English): Settings > Intelligence with the
+checkbox, the Overview (step 5) with its row, the Log's form, the customer's export file of the
+GDPR module (the module's part of "Get my data to CSV" of a signed-in customer, in both languages
+of the storefront) and the question before a change from separate stores to one store, with a
+connection in each of two shops (captured as text: the browser asks it in its own dialog). Every
+place showed the wording above; English showed the new English line and label. No text is cut.
+Screenshots and texts: `build/con-416-wordings/` in the main checkout (git ignores it). Host
+suite: 2236 tests, 3946 assertions, 1132 skipped.
