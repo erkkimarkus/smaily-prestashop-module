@@ -85,11 +85,11 @@ Run the unit and integration tests inside the shop, from the module's own folder
     docker compose exec -u www-data -e PS_ROOT_DIR=/var/www/html prestashop \
       php modules/smailyforprestashop/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
 
-Last verified results, all passing: 2266 tests on 8.2.8 (12141 assertions) and on 9.2.0 (12146
+Last verified results, all passing: 2280 tests on 8.2.8 (12192 assertions) and on 9.2.0 (12197
 assertions; one test checks more where PrestaShop has discount types), with debug mode on in a
 dev shop made from scratch behind the egress guard, and with debug mode off in the shop of
-`tests/ci/validate.sh` (section 6), on the merged `v3` of 2026-11-25 (8.2.8 runs PHP 8.0.30 and
-9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
+`tests/ci/validate.sh` (section 6), on the merged `v3` of the evening of 2026-11-25 (8.2.8 runs
+PHP 8.0.30 and 9.2.0 runs PHP 8.5.12). With debug mode off on 9.2.0 the run
 prints deprecation notices of modules that the image ships and of PrestaShop itself (191 lines
 in that run); none names the module's code or its tests. A test opens a private member through
 `IntegrationTestCase::accessible()`, which calls `setAccessible()` only on PHP 8.0, where it is
@@ -99,7 +99,7 @@ booted later than the 3 seconds the test gave it then, on a machine that ran oth
 test now waits until its workers are ready, and passed 10 of 10 runs on 8.2.8 while the suite of
 a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
-and skips the integration tests (2266 tests, 4001 assertions, 1146 skipped on 2026-11-25). The storefront scripts
+and skips the integration tests (2280 tests, 4034 assertions, 1149 skipped on 2026-11-25). The storefront scripts
 and the merchant guide page have their own tests on Node's built-in runner, which needs no package:
 `node --test tests/js/` (55 tests).
 `PS_ROOT_DIR` makes the test bootstrap boot the
@@ -532,6 +532,9 @@ Results on 2026-11-20:
 - On 2026-11-25, on the merged `v3` with that day's changes: 10 of 10 checks on flashlight 8.2.8
   and 9.2.0 with the packaged zip, and 2266 tests in the shop on each (12141 assertions on 8.2.8,
   12146 on 9.2.0).
+- On 2026-11-25 in the evening, on the merged `v3` at `7bc84b6`: 10 of 10 checks on flashlight
+  8.2.8 and 9.2.0 with the packaged zip, and 2280 tests in the shop on each (12192 assertions on
+  8.2.8, 12197 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a

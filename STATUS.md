@@ -8,7 +8,7 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-25. Gauge 14/14._
+_Last updated: 2026-11-25 (evening). Gauge 14/14._
 
 ## Next session opens with
 
@@ -19,18 +19,18 @@ Everything is on `v3`; no worker branch or worktree is left.
 **What 2026-11-25 added** (each change tested on its own branch, then the merged tip together, "Last runs"):
 
 - Engine contract 1.37.0: orders go to Campaign Intelligence in the shop's default currency (another currency is
-  divided by the order's own rate); a catalog row's parent id and a removal's product id carry `ps-`. The agent
-  guide anchors the work on the one initiative "Smaily earns revenue beyond email sending".
-- The Initial setup's first answer "Separate stores" runs the layout change, as Settings and Magento's wizard do;
-  step 1 refuses Continue, and the step list every later step, until the Smaily connection test passes; an edit
-  clears the connection status (owner, CON-397).
-- The Log's failures and Test connection's reasons, Campaign Intelligence's too, show in the employee's language.
-  Estonian: the colleague's four wordings (CON-416), the Overview's "Küpsiste bänner", "Website" as "Veebisait".
-- Dev and test shops resolve `intelligence.smaily.com` and `api.github.com` to 127.0.0.1; the test bootstrap
-  refuses a shop where the engine's name resolves elsewhere.
-- The merchant guide page `docs/site/index.html` (CON-424; checked by `node --test`), linked from the admin. **Not
-  published:** it waits for the owner's web root https://smaily.com/connect-presta/, the FTP account
-  (`~/smaily_ftp_presta`) and his go-ahead.
+  divided by the order's own rate); a catalog row's parent id and a removal's product id carry `ps-`.
+- The Initial setup's first answer "Separate stores" runs the layout change, as Settings and Magento's wizard do.
+  The Log's failures and Test connection's reasons show in the employee's language; Estonian: CON-416's four
+  wordings, "Küpsiste bänner", "Veebisait". Dev and test shops resolve `intelligence.smaily.com` and
+  `api.github.com` to 127.0.0.1, and the test bootstrap refuses a shop where the engine's name resolves elsewhere.
+- The merchant guide page `docs/site/index.html` (CON-424), linked from the admin. **Not published:** it waits for
+  the owner's web root https://smaily.com/connect-presta/, the FTP account (`~/smaily_ftp_presta`) and his go-ahead.
+- Since the afternoon handoff `a44ccb8`: the admin screens keep the Campaign Intelligence palette (`74b25c0`,
+  CON-377 done); a simplification without a behaviour change (`7a76494`); a browse event of a product with
+  combinations but none chosen takes the key of the combination the cart takes (`957cd37`); the step list opens no
+  later step until step 1's connection is in order, the server saves steps 2–4 only with a stored account, and an
+  edit clears "Connected", also on Settings > Connection (`7bc84b6`; owner, CON-397).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
 guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
@@ -38,14 +38,16 @@ guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored)
 - Shop A, Compose project `erkki920`: PrestaShop 9.2.0 at http://localhost:8301/, module 3.0.0 from the main
   checkout's `src/`. It shows new code after its cache is cleared.
 - Shop B, Compose project `erkki828`: PrestaShop 8.2.8 at http://127.0.0.1:8302/, a genuine 2.2.0 that the owner
-  upgrades by uploading `build/testkeskkond/smailyforprestashop-3.0.0.zip`, **rebuilt on 2026-11-25 from
-  `cc5e06a`** (444 files outside `vendor/`, `src/Admin/UserGuide.php` among them, no `docs/site/`).
+  upgrades by uploading `build/testkeskkond/smailyforprestashop-3.0.0.zip`, **rebuilt on 2026-11-25 (evening)
+  from `7bc84b6`** (SHA-256 `196068c1…`; 446 files outside `vendor/`, `src/Engine/Payload/StoreCurrency.php` and
+  `src/Storefront/CartCombination.php` among them, no `docs/site/`).
 - After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh`. The guard's certificates last 30 days.
 
-**Last runs** (2026-11-25, merged tip `cc5e06a`). Host: `src/vendor/bin/phpunit` 2266 tests, 4001 assertions, 1146
-skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 356 files. In a shop made from scratch behind the egress
-guard, debug mode on: 2266 tests on 8.2.8 (12141 assertions) and 9.2.0 (12146). `tests/ci/validate.sh` with the
-packaged zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off green on both (same counts).
+**Last runs** (2026-11-25 evening, merged tip `7bc84b6`). Host: `src/vendor/bin/phpunit` 2280 tests, 4034
+assertions, 1149 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files. In a shop made from scratch
+behind the egress guard, debug mode on: 2280 tests on 8.2.8 (12192 assertions) and 9.2.0 (12197).
+`tests/ci/validate.sh` with the packaged zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off
+green on both (same counts).
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
@@ -57,29 +59,36 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 
 ## Next, in this order
 
-1. The owner's own walk of the two test shops, with the upgrade of shop B from the new zip; his findings come back
-   as fixes.
-2. Publish the merchant guide (`docs/site/index.html`, CON-424) once the owner has the web root and the FTP account
-   and gives the go-ahead; until then the admin's guide links lead to a page that is not published.
+1. The owner's walk of the two test shops, with the upgrade of shop B from the new zip; findings come back as fixes.
+2. Publish the merchant guide (CON-424) once the owner has the web root and the FTP account and gives the go-ahead.
 3. The live walk against the real Smaily service and engine: INT-306 is answered, only the test account is missing.
 4. The PrestaShop demo store (CON-425, under GRO-310), after the live walk.
 5. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
 ## Queue (technical, for the orchestrator)
 
-- Initial setup: the first-answer card of "Separate stores" names no connection that moves.
+- Initial setup: the first-answer card of "Separate stores" names no connection that moves. The first contact import
+  and `Api\Setup\EngineExchange` do not check for a Smaily account (SaveStep does). `settings.js`
+  `checkStoredAccounts()` can show the status after an edit made during page load (the setup page guards it).
+- The Log: a Done `contacts_refresh` job shows "Smaily API returned code 203" in Last Error; check whether a Done
+  job should show an error at all.
+- Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next
+  nightly list; ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
+  With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
+  per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
+  page's availability fallback.
 - The tick URL answers 504 from nginx (30 seconds) while a 30-second Smaily timeout runs inside it. The engine
   mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS: only the
   egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced now, and
   the PR template still lists them.
-- `prestashop:module install` on 8.2.8 with debug mode on was seen to fail behind the guard as `upgrade` does
-  (`docs/DEV_ENVIRONMENT.md` 4a names only the upgrade); on a fresh 8.2.8 shop of 2026-11-25 it succeeded.
-- A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until the next nightly list;
-  ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
+- `prestashop:module install` on 8.2.8 with debug mode on behind the guard failed again on 2026-11-25 (it had
+  succeeded once, and did in the evening's run): name `install` next to `upgrade` in `docs/DEV_ENVIRONMENT.md` 4a.
 - `Privacy\EngineFailure` builds the permanent-failure reason itself. `Config\Settings::setJson()` writes without
   the tag-safe flag; adding it changes the stored bytes of the notices and the update-check keys: decide first.
 - Tests: some test leaves rows behind after a suite run (event-queue rows, `skipped` ingest rows), and one leaves
   other cron tokens; the engine mock stores each request's bearer key in its state file (keys it issued itself).
+  The admin-request harness is copied in five tests (`SetupLayoutAnswerTest`, `SetupPanelsTest`,
+  `ControllerContainerTest`, `ReportEventsTest`, `UpdateNoticeTest`): one helper in `IntegrationTestCase`.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's
@@ -98,19 +107,13 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 - [x] 5. Consent mode: subscribers only, all customers, checkout opt-in only — HTTP, 8.0.0, 9.2.0.
 - [x] 6. Contact sync both ways, first import, and a Log with retry — walked on 8.2.8 and 9.2.0.
 - [x] 7. Store automations: welcome, first order, abandoned cart — walked on 8.2.8 and 9.2.0.
-- [x] 8. Campaign Intelligence connection with catalog, customer and order imports — browser, 8.2.8 and 9.2.0: the
-  connection on both screens, the three imports on the tick URL, live changes; two shops as separate stores on 9.2.0.
+- [x] 8. Campaign Intelligence connection with catalog, customer and order imports — browser, 8.2.8 and 9.2.0.
 - [x] 9. Campaign Intelligence automations, listed from the engine — browser, 8.2.8 and 9.2.0; one saved in test mode.
-- [x] 10. Browse tracking and attribution of email clicks to orders — browser, 8.2.8 and 9.2.0: nothing tracked with
-  the confirmation off, the relay's events, a click's attribution also on an order a provider's server confirms.
-- [x] 11. Product recommendations in the storefront, and the product feed — browser, 8.2.8 and 9.2.0: the block
-  where the merchant placed it; the product feed is the RSS feed under its legacy address (owner: no second feed).
+- [x] 10. Browse tracking and attribution of email clicks to orders — browser, 8.2.8 and 9.2.0.
+- [x] 11. Product recommendations in the storefront, and the product feed (the RSS feed) — browser, 8.2.8, 9.2.0.
 - [x] 12. Installation report (phone-home) — 8.2.8 and 9.2.0, mock receiver: the tick URL, saves, the uninstall.
-- [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — browser, 8.2.8 and 9.2.0: the Log's
-  form, the customer's own export page, the Personalization page, psgdpr's admin screen (its export on 8.2.8 only).
-- [x] 14. Administration screens in English and Estonian — every screen and state walked in Estonian on 8.2.8 and
-  9.2.0; the owner's native read found the texts fine; 3 wordings aligned with the siblings, 4 chosen by a colleague
-  (CON-416, 2026-11-24) and read on both versions.
+- [x] 13. Privacy: export, erasure, and a shopper's personalization opt-out — browser, 8.2.8 and 9.2.0.
+- [x] 14. Administration screens in English and Estonian — walked in Estonian on 8.2.8 and 9.2.0; native read.
 
 ## Open questions (for the owner)
 
@@ -118,12 +121,15 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
 
 1. After a reload the step list ticks every step up to the furthest one reached, also one never saved (as Magento).
    Decided 2026-11-25 for the rail: a later step opens only while step 1's connection is in order, as WooCommerce
-   and Shopify; the ticks stay.
+   and Shopify; the ticks after a reload stay as Magento.
 2. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
 3. For the cross-connector analysis CON-397: late or retried contact changes, workflows after an account or mode
    change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its
    contact row at once (today it takes the retry ladder, as Magento keeps it); whether Settings > Connection should
-   refuse an account that Smaily rejects, as WooCommerce does (today it saves it).
+   refuse an account that Smaily rejects, as WooCommerce does (today it saves it). WooCommerce also locks its
+   Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only
+   that an account is stored, as Shopify does: a stored account Smaily refuses can still save steps 2–4 around the
+   page.
 4. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also
@@ -134,5 +140,6 @@ team's answer on the `source` value of browse events; psgdpr's defect on 9.x rep
 
 Linear: Feature P-CON-324. Open Epics: CON-373 (upgrade; waits for the pilot), CON-398 (Campaign Intelligence),
 CON-403 (installation report; waits for the live service), CON-379 (Marketplace). Done Epics: CON-370, CON-378,
-CON-380, CON-381, CON-402. 2026-11-25: CON-416 (wordings) done; CON-417 to CON-422 (asks to the sibling connectors);
-CON-424 (the guide page); CON-425 (the demo store, under GRO-310); analysis CON-397; engine INT-306 (answered).
+CON-380, CON-381, CON-402. 2026-11-25: CON-416 (wordings) and CON-377 (palette) done; CON-417 to CON-422 and CON-427
+(asks to the sibling connectors; CON-427 to WooCommerce, keys of variable products); CON-424 (the guide page);
+CON-425 (the demo store, under GRO-310); analysis CON-397; engine INT-306 (answered).
