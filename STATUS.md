@@ -71,7 +71,6 @@ admin screen on 9.2.0 (psgdpr 1.4.3 fails there); one unexplained PHP 8.0.30 seg
 - `Privacy\EngineFailure` builds the permanent-failure reason itself.
 - `Config\Settings::setJson()` writes without the tag-safe flag; adding it changes the stored bytes of the notices
   and the update-check keys, so it needs a decision first.
-- The dev `docker-compose.yaml` lets a shop without the egress guard reach `api.github.com` (`tests/ci/` does not).
 - Tests: some test leaves rows behind after a suite run (37 event-queue rows, `skipped` ingest rows), and one leaves
   other cron tokens; the engine mock stores each request's bearer key in its state file (keys it issued itself).
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user

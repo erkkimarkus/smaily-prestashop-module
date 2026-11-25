@@ -9,10 +9,15 @@ services:
     - DEBUG_MODE=true
     ports:
     - ${PS_PORT:-8080}:80
-    # A dev shop never reaches the receiver of the installation report: the name answers inside
-    # the shop container, where nothing listens unless the egress guard runs its mock.
+    # A dev shop never reaches the receiver of the installation report, the Campaign Intelligence
+    # engine, nor GitHub, which the module's update check asks for the newest release: each name
+    # answers inside the shop container, where its own web server refuses it (a certificate for
+    # another name). The egress guard's proxy reaches its mocks by its own route, not by these
+    # names.
     extra_hosts:
     - subscription.smaily.com:127.0.0.1
+    - intelligence.smaily.com:127.0.0.1
+    - api.github.com:127.0.0.1
     volumes:
     - prestashop-data:/var/www/html
     - .vscode:/var/www/html/.vscode

@@ -171,8 +171,9 @@ registration on a request that works after its response). It reaches the web ser
 container where PHPUnit runs, and it is skipped where that server cannot send a response early (Apache
 with mod_php).
 
-Page traffic in the dev shop runs the fallback tick, and with it the daily update check against the
-real GitHub (`api.github.com`, no store data). Two tests pin the tick's full job list
+Page traffic in the dev shop runs the fallback tick, and with it the daily update check, which asks
+GitHub (`api.github.com`, no store data): `docker-compose.yaml` resolves that name to 127.0.0.1
+inside the shop container, so the check gets no answer (section 4a). Two tests pin the tick's full job list
 (`SchedulerProviderTest`, `PendingMigrationTest`): a change that registers a scheduler job edits both.
 
 A shop with two or more active languages may answer 302 at `/` (to `/en/`; flashlight 8.2.8 does,
@@ -298,13 +299,24 @@ wait a minute between two ticks removes `engine_import` and `ingest_flush` from 
 `SMAILY_CONNECT_TICK_STATE` before each tick. The health check runs with the tick too. `install.sh` keeps an engine state that exists, so a shop's
 stored connections stay known to the mock when the guard is installed again.
 
-**The installation report** (ARCHITECTURE 11.1). `docker-compose.yaml` and the two Compose files of
-`tests/ci/` resolve `subscription.smaily.com` to 127.0.0.1 inside the shop container
-(`extra_hosts`), so a shop without the guard gets no answer there and never reaches the real
-receiver; a report then waits on its retries and leaves a line in the shop's log. A shop container
-made before that setting is recreated (section 8: the demo database comes back), and
-`tests/bootstrap.php` refuses to run the suite in a shop where the name resolves elsewhere. Behind
-the guard the subscription mock is the receiver. Its state is
+**The hosts a shop never reaches.** `docker-compose.yaml` and the two Compose files of `tests/ci/`
+resolve `subscription.smaily.com` (the installation report, ARCHITECTURE 11.1),
+`intelligence.smaily.com` (the Campaign Intelligence engine) and `api.github.com` (the update
+check) to 127.0.0.1 inside the shop container (`extra_hosts`). A call that skips the guard, a
+page request in a shop without it or a `docker compose exec` command without the proxy flags
+below, then meets the shop's own web server, whose certificate names another host, and fails
+inside the container (verified on 9.2.0: the setup exchange of Campaign Intelligence, run from the
+CLI without the proxy, ended in `network_error`, and the proxy's log got no line). The guard's proxy
+tunnels to its mocks by its own route, not by these names. A report then waits on its retries and
+leaves a line in the shop's log. A shop container made before these settings (the engine's name
+and GitHub's came on 2026-11-25) is recreated (section 8: the demo database comes back), and
+`tests/bootstrap.php` refuses to run the suite in a shop where the report's or the engine's name
+resolves elsewhere. The Smaily API is not fenced this way: every name under `sendsmaily.net`, an
+invented subdomain too, resolves to the real service, so only the guard keeps a shop that holds an
+account away from it.
+
+**The installation report** (ARCHITECTURE 11.1). Behind the guard the subscription mock is the
+receiver. Its state is
 `/tmp/smaily-mock/subscription-state.json` in the container: under `requests` every report it got
 (the time, the answered status, the body, the contract rules the body broke, the fields the
 contract does not name, and whether the credentials were the ones the Smaily mock accepts; never
@@ -323,6 +335,8 @@ shows the order of an uninstall: `TUNNEL subscription.smaily.com -> subscription
 The guard covers page requests. A command that you run with `docker compose exec` (the console,
 PHPUnit) reads its own environment: give it the proxy with
 `-e https_proxy=http://127.0.0.1:3128 -e http_proxy=http://127.0.0.1:3128 -e no_proxy=localhost,127.0.0.1`.
+Write these flags out one by one: zsh does not split an unquoted variable, so flags kept in one
+shell variable reach `docker compose` as one argument and the command runs without the proxy.
 The mock's state (the requests it received, the workflows it lists) is `/tmp/smaily-mock/state.json`
 in the container. `install.sh` seeds one workflow in it (id 11, "Welcome", a "form submitted"
 workflow that is switched on); a walk that needs more workflows, or one per account, edits the
@@ -511,6 +525,8 @@ Results on 2026-11-20:
 - On 2026-11-23, with `api.github.com` resolved inside the shop and the fixes of that day up
   to the Log's retry checkbox: 10 of 10 checks on flashlight 8.2.8 and 9.2.0 with the packaged
   zip, and 2230 tests in the shop on each (11922 assertions on 8.2.8, 11927 on 9.2.0).
+- On 2026-11-25, with `intelligence.smaily.com` resolved inside the shop: 10 of 10 checks on
+  flashlight 9.2.0 with the packaged zip, and 2246 tests in the shop (12005 assertions).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
@@ -526,8 +542,9 @@ its containers, volumes and network at the end; `KEEP=1` leaves the shop up.
 The script's shop is not behind the egress guard. A fresh install holds no account and no
 connection, so it calls no Smaily service. Its storefront request runs the fallback tick, and
 with it the update check, which asks `api.github.com` for the newest release: the two Compose
-files of `tests/ci/` resolve that name to 127.0.0.1 inside the shop container (`extra_hosts`),
-so the check gets no answer and the script never reaches the real GitHub.
+files of `tests/ci/` resolve that name, the report's and the engine's to 127.0.0.1 inside the
+shop container (`extra_hosts`, section 4a), so the check gets no answer and the script never
+reaches the real GitHub.
 
 ## 7. Installing or upgrading from a built zip
 

@@ -320,8 +320,14 @@ ask (Linear discipline below).
   area's uses `Services::listenFirst()`.
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
-  (`Engine\Client::isEngineUrl()`). The connection prefix is stored as the
-  engine sent it: PrestaShop strips tags in `pSQL()` without its second
+  (`Engine\Client::isEngineUrl()`), and no test or dev shop may reach it:
+  the Compose files resolve the host to 127.0.0.1, as they do the report's
+  and `api.github.com` (a shop made before 2026-11-25 is recreated;
+  `tests/bootstrap.php` refuses it), and a walk reaches the engine mock
+  behind the egress guard. A `docker compose exec` command gets the guard's
+  proxy through `-e` flags written out one by one, never through one
+  unquoted zsh variable (`docs/DEV_ENVIRONMENT.md` 4a). The connection
+  prefix is stored as the engine sent it: PrestaShop strips tags in `pSQL()` without its second
   argument and in every `Configuration` value, so such a value is written
   with `pSQL($value, true)`. The tick's health check pings every stored
   connection: a test that stores one removes it
