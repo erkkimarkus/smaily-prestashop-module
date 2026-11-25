@@ -3152,6 +3152,11 @@
         <target>Kinnitan, et minu poe küpsiste bänneris saab külastaja valida, kas lubada Smailyl oma sirvimistegevust jälgida.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="614c8dbe1514aaeb8f6c41fc49e0db32">
+        <source>Cookie banner</source>
+        <target>Küpsiste bänner</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="f5a40ba3fe56421ffbbd28276dc03517">
         <source>Off by default. While it is off, the store runs no browse tracking (product views, searches, cart activity), shows no recommendations and sets no tracking cookie.</source>
         <target>Vaikimisi väljas. Kuni see on väljas, ei jälgi pood sirvimist (toodete vaatamised, otsingud, ostukorvi tegevused), ei näita soovitusi ega sea ühtegi jälgimisküpsist.</target>
