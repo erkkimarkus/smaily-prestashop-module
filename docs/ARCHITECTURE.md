@@ -2954,7 +2954,7 @@ its source's.
 Ten strings of the Log are PrestaShop's own ("Search", "Reset", "Select all", "Cancel", "Close",
 "From", "To", "Previous", "Next", "No records found", domains `Admin.Actions` and `Admin.Global`):
 their Estonian comes from PrestaShop's language pack, not from the module. The Smaily client's own
-message of a failure is stored in English and shows as stored (section 10.8).
+message of a failure is stored in English and shows in the admin's language (section 10.8).
 
 **Walked in Estonian** (2026-11-23, PrestaShop 8.2.8 and 9.2.0, in a browser against the mocks;
 `docs/internal/walks/2026-11-23-capability-14-estonian.md`): every screen, and every state the
@@ -3066,8 +3066,17 @@ stays on one line. A narrower window scrolls the table in its own box, not the p
   section 7), whose row stands for no event and was never pending, has a sentence of its own. A
   row with `malformed_payload` failed, and its sentence says so without "Skipped". An import job
   that left contacts out for `no_account` or `no_credentials` has a sentence of its own, as the job
-  sent the other contacts. A code without a sentence, and the Smaily client's own message of a
-  failure ("Smaily API request failed with HTTP 500"), show as stored.
+  sent the other contacts. A message that a client or the queue words itself is stored as its
+  English source with its values filled in, and shows translated with those values
+  (`FailureMessage::MESSAGES`, as Magento's `FailureMessage::TRANSLATED`): the Smaily client's
+  (refused credentials, a package without API access, `with HTTP <status>`, a network failure as
+  `no answer within 30 seconds` or `could not connect to Smaily`, a malformed answer, `returned
+  code <code>`), the Campaign Intelligence failure that `Privacy\EngineFailure` stores, the queue's
+  own two and the type of any other error. The client never stores the HTTP client's text of a
+  network failure (Magento keeps it after the sentence; WooCommerce keeps only WordPress's error
+  code); a row stored before that, `Smaily API request failed: <text>`, shows that text after the
+  translated words. The filter finds such a row by the translated words, not by its values. A code
+  without a sentence, and any other text, show as stored.
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
   selected shops, and its button applies the filter `status=failed`, as Magento's does.
 

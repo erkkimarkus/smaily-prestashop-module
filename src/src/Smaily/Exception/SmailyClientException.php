@@ -32,8 +32,9 @@ if (!defined('_PS_VERSION_')) {
 /**
  * The base of every failure of the Smaily API client.
  *
- * The message names the HTTP status, Smaily's code or the network error, in English. It never
- * quotes Smaily's answer, which can name a contact, and never a credential.
+ * The message names the HTTP status, Smaily's code or the kind of network failure, in English;
+ * the Log shows it in the admin's language (Log\FailureMessage::MESSAGES). It never quotes
+ * Smaily's answer, which can name a contact, nor a credential.
  */
 class SmailyClientException extends \RuntimeException
 {

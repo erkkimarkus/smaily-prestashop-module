@@ -66,7 +66,6 @@ admin screen on 9.2.0 (psgdpr 1.4.3 fails there); one unexplained PHP 8.0.30 seg
 
 - A `cart_add` of a product with combinations and no chosen combination gets a key that has no catalog row. A product
   that gets its first combination keeps its old row at the engine until the next nightly list.
-- The Smaily client's own failure messages show in English in the Log.
 - `Privacy\EngineFailure` builds the permanent-failure reason itself.
 - `Config\Settings::setJson()` writes without the tag-safe flag; adding it changes the stored bytes of the notices
   and the update-check keys, so it needs a decision first.

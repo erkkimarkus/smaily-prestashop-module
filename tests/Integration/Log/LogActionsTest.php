@@ -177,7 +177,7 @@ final class LogActionsTest extends AbandonedCartTestCase
         $erased = $this->sync('shopper4@example.test', ['entity_id' => ResendGuard::ERASED_ENTITY] + $failed);
         $delivered = $this->sync('shopper5@example.test', ['status' => 'sent']);
         $otherShop = $this->sync('shopper6@example.test', ['id_shop' => $this->idShop + 100] + $failed);
-        $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
+        $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::patternsShowing($term, static fn (string $text): string => $text));
         $retry = new Retry($rows, new ResendGuard(), $this->queue());
 
         self::assertSame([1, 0], $retry->retry(new LogFilter(), [$sync, $delivered, $otherShop]), 'the ticked rows: one failed row of this shop');
@@ -227,7 +227,7 @@ final class LogActionsTest extends AbandonedCartTestCase
         $erased = $this->sync('shopper4@example.test', ['entity_id' => ResendGuard::ERASED_ENTITY] + $failed);
         $sync = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
         $this->sync('shopper5@example.test', ['status' => 'sent', 'payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":false,"consent_changed":true}']);
-        $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
+        $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::patternsShowing($term, static fn (string $text): string => $text));
         $retry = new Retry($rows, new ResendGuard(), $this->queue());
 
         try {

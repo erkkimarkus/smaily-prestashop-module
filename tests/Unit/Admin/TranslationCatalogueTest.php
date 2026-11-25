@@ -64,7 +64,7 @@ final class TranslationCatalogueTest extends TestCase
                 }
             }
         }
-        foreach (FailureMessage::REASONS + FailureMessage::JOB_REASONS as $sentence) {
+        foreach ([...array_values(FailureMessage::REASONS + FailureMessage::JOB_REASONS), ...FailureMessage::MESSAGES] as $sentence) {
             ++$calls;
             if (!isset($known[$sentence])) {
                 $missing[] = 'FailureMessage: ' . $sentence;

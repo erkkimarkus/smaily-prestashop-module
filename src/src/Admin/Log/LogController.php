@@ -120,7 +120,7 @@ final class LogController extends BaseController
             : null;
         $translate = self::translate();
 
-        return new LogRows($shops, static fn (string $term): array => FailureMessage::codesShowing($term, $translate));
+        return new LogRows($shops, static fn (string $term): array => FailureMessage::patternsShowing($term, $translate));
     }
 
     /**

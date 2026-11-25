@@ -41,7 +41,7 @@ abstract class LogTestCase extends IntegrationTestCase
      */
     protected static function rows(?array $shops = null): LogRows
     {
-        return new LogRows($shops, static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
+        return new LogRows($shops, static fn (string $term): array => FailureMessage::patternsShowing($term, static fn (string $text): string => $text));
     }
 
     /**

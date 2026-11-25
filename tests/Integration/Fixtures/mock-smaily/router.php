@@ -27,7 +27,9 @@
  *                               subdomain, so that two accounts can have different lists.
  * - GET  /api/autoresponder.php?status=  the workflows of that status, all without it.
  * - POST /api/contact.php      one contact or a list; each needs an email, else code 203; while
- *                               contact writes fail, HTTP 500.
+ *                               contact writes fail, HTTP 500, or as `contact_writes_fail` names:
+ *                               "code_203" answers code 203, "malformed" an answer that is not
+ *                               JSON, and "timeout" waits 35 seconds first.
  * - POST /api/autoresponder.php `addresses`, each with an email, else code 203; `autoresponder` is
  *                               optional (without it Smaily starts its "opted in" workflows);
  *                               while automation posts fail, HTTP 500.
@@ -150,7 +152,23 @@ if ($method === 'GET' && $path === '/api/workflows.php') {
 }
 
 if ($method === 'POST' && $path === '/api/contact.php') {
-    if (!empty($state['contact_writes_fail'])) {
+    $fail = $state['contact_writes_fail'] ?? false;
+    if ($fail === 'timeout') {
+        // Longer than the module waits (Smaily\Client::TIMEOUT_SECONDS).
+        sleep(35);
+    }
+    if ($fail === 'malformed') {
+        http_response_code(200);
+        echo '<html>Bad gateway</html>';
+
+        return true;
+    }
+    if ($fail === 'code_203') {
+        $answer(200, ['code' => 203, 'message' => 'Invalid data']);
+
+        return true;
+    }
+    if (!empty($fail)) {
         $answer(500, ['message' => 'Internal Server Error']);
 
         return true;

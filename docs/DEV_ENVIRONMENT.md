@@ -349,7 +349,9 @@ accepted it, and of any other request the state says only whether an Authorizati
 header are never written. The typed subdomain stays, as the request's `host`. The
 console's `prestashop:module upgrade` asks PrestaShop's Distribution API first and fails behind the
 guard (seen on 8.2.8): a walk that stages an upgrade lets the first tick run the pending migration. `"contact_writes_fail": true` in it makes the mock answer HTTP 500 to every contact
-write, so a contact row fails and waits on the retry ladder; `"contact_reads_fail"` does the same for
+write, so a contact row fails and waits on the retry ladder (`"code_203"` answers Smaily's code
+203 instead, `"malformed"` an answer that is not JSON, and `"timeout"` waits 35 seconds, longer
+than the module waits); `"contact_reads_fail"` does the same for
 a single-contact read, and `"automation_posts_fail"` for every automation email (`POST autoresponder.php`), so an automation row fails and waits for its retry. The guard is not installed in the shop of `tests/ci/validate.sh`; a walk in that shop (`KEEP=1`) installs it with `DC="docker compose -f tests/ci/docker-compose.yaml"` and the script's `COMPOSE_PROJECT_NAME` and `CI_PORT` (verified on 8.2.8 and 9.2.0).
 
 In a shop with debug mode on (the dev stack), `prestashop:module upgrade` stops behind the guard with

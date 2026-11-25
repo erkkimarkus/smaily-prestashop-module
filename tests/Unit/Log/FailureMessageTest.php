@@ -15,7 +15,7 @@ final class FailureMessageTest extends TestCase
 {
     public function testAParkedRefusalShowsItsMessageAndKeepsItsClassForDetails(): void
     {
-        $same = static fn (string $text): string => $text;
+        $same = static fn (string $text, array $values = []): string => strtr($text, $values);
 
         self::assertSame('Smaily API credentials were rejected', FailureMessage::forDisplay('permanent_http_401: Smaily API credentials were rejected', $same));
         self::assertSame('permanent_http_401', FailureMessage::failureClass('permanent_http_401: Smaily API credentials were rejected'));
@@ -61,7 +61,7 @@ final class FailureMessageTest extends TestCase
 
     public function testAnImportJobHasItsOwnSentenceWhereOnlySomeContactsWereLeftOut(): void
     {
-        $same = static fn (string $text): string => $text;
+        $same = static fn (string $text, array $values = []): string => strtr($text, $values);
 
         self::assertSame('Skipped: no Smaily account is saved for this shop and language. Nothing was sent.', FailureMessage::forDisplay('no_account', $same));
         self::assertSame('Some contacts were left out: no Smaily account is saved for their shop and language.', FailureMessage::forDisplay('no_account', $same, true));
@@ -73,20 +73,86 @@ final class FailureMessageTest extends TestCase
         self::assertSame('Smaily API request failed with HTTP 500', FailureMessage::forDisplay('Smaily API request failed with HTTP 500', $same, true));
     }
 
+    public function testAStoredMessageShowsTranslatedWithItsValues(): void
+    {
+        $estonian = static fn (string $text, array $values = []): string => 'ET: ' . strtr($text, $values);
+        $stored = [
+            'permanent_http_401: Smaily API credentials were rejected' => 'ET: Smaily API credentials were rejected',
+            'permanent_http_403: Smaily refused the request: the account\'s package does not include API access.' => 'ET: Smaily refused the request: the account\'s package does not include API access.',
+            'Smaily API request failed with HTTP 503' => 'ET: Smaily API request failed with HTTP 503',
+            'permanent_http_404: Smaily API request failed with HTTP 404' => 'ET: Smaily API request failed with HTTP 404',
+            'Smaily API request failed: no answer within 30 seconds' => 'ET: Smaily API request failed: no answer within 30 seconds',
+            'Smaily API request failed: could not connect to Smaily' => 'ET: Smaily API request failed: could not connect to Smaily',
+            'Smaily API returned a malformed response body' => 'ET: Smaily API returned a malformed response body',
+            'permanent_envelope_203: Smaily API returned code 203' => 'ET: Smaily API returned code 203',
+            'Smaily API returned code 225' => 'ET: Smaily API returned code 225',
+            'permanent_http_400: Campaign Intelligence answered HTTP 400 (validation_failed).' => 'ET: Campaign Intelligence answered HTTP 400 (validation_failed).',
+            'The Campaign Intelligence request failed (network_error).' => 'ET: The Campaign Intelligence request failed (network_error).',
+            'No handler takes the event type "contact.unknown"' => 'ET: No handler takes the event type "contact.unknown"',
+            'The handler returned no outcome for the row' => 'ET: The handler returned no outcome for the row',
+            'RuntimeException at Flusher.php:120 (code 0)' => 'ET: RuntimeException at Flusher.php:120 (code 0)',
+            // Stored by earlier code, with the HTTP client's own text: the wording is translated.
+            'Smaily API request failed: Could not resolve host: demo.sendsmaily.net' => 'ET: Smaily API request failed: Could not resolve host: demo.sendsmaily.net',
+            // Not one of the module's messages: shown as stored.
+            'Something nobody worded' => 'Something nobody worded',
+        ];
+
+        foreach ($stored as $lastError => $shown) {
+            self::assertSame($shown, FailureMessage::forDisplay($lastError, $estonian), $lastError);
+        }
+    }
+
+    public function testAMessageIsReadAsItsSourceWithItsValues(): void
+    {
+        $sources = [];
+        $record = static function (string $text, array $values = []) use (&$sources): string {
+            $sources[] = [$text, $values];
+
+            return $text;
+        };
+
+        FailureMessage::forDisplay('Smaily API request failed: no answer within 30 seconds', $record);
+        FailureMessage::forDisplay('Smaily API request failed: Connection refused', $record);
+        FailureMessage::forDisplay('permanent_http_401: Campaign Intelligence answered HTTP 401 (unauthorized).', $record);
+
+        self::assertSame([
+            ['Smaily API request failed: no answer within %seconds% seconds', ['%seconds%' => '30']],
+            ['Smaily API request failed: %error%', ['%error%' => 'Connection refused']],
+            ['Campaign Intelligence answered HTTP %status% (%code%).', ['%status%' => '401', '%code%' => 'unauthorized']],
+        ], $sources);
+    }
+
     public function testTheErrorFilterFindsAReasonByTheWordsItShows(): void
     {
         $same = static fn (string $text): string => $text;
 
-        self::assertSame(['no_marketing_consent'], FailureMessage::codesShowing('marketing EMAILS', $same));
+        self::assertSame(['no\\_marketing\\_consent'], FailureMessage::patternsShowing('marketing EMAILS', $same));
         $withoutThoseWords = [
             'capture_limit', 'malformed_payload',
             'engine_item_refused', 'engine_manifest_too_many', 'engine_customer_not_sent', 'engine_customer_refused', 'engine_customer_not_found',
         ];
-        self::assertSame(array_values(array_diff(array_keys(FailureMessage::REASONS), $withoutThoseWords)), FailureMessage::codesShowing('Nothing was sent', $same));
-        self::assertSame(['no_account', 'no_credentials'], FailureMessage::codesShowing('shop and language', $same), 'a queue row\'s sentence and an import job\'s');
-        self::assertSame(['no_account', 'no_credentials'], FailureMessage::codesShowing('were left out', $same));
-        self::assertSame([], FailureMessage::codesShowing('HTTP 503', $same));
-        self::assertSame([], FailureMessage::codesShowing('', $same));
+        $codes = static fn (array $codes): array => array_map(static fn (string $code): string => str_replace('_', '\\_', $code), $codes);
+        self::assertSame($codes(array_values(array_diff(array_keys(FailureMessage::REASONS), $withoutThoseWords))), FailureMessage::patternsShowing('Nothing was sent', $same));
+        self::assertSame($codes(['no_account', 'no_credentials']), FailureMessage::patternsShowing('shop and language', $same), 'a queue row\'s sentence and an import job\'s');
+        self::assertSame($codes(['no_account', 'no_credentials']), FailureMessage::patternsShowing('were left out', $same));
+        self::assertSame([], FailureMessage::patternsShowing('HTTP 503', $same), 'a value is found in the stored text itself');
+        self::assertSame([], FailureMessage::patternsShowing('', $same));
+    }
+
+    public function testTheErrorFilterFindsAMessageByItsTranslatedWording(): void
+    {
+        $estonian = static fn (string $text): string => strtr($text, [
+            'Smaily API request failed' => 'Smaily API päring ebaõnnestus',
+            'could not connect to Smaily' => 'Smailyga ei saadud ühendust',
+        ]);
+
+        self::assertSame(
+            ['%Smaily API request failed with HTTP %', '%Smaily API request failed: no answer within % seconds', '%Smaily API request failed: could not connect to Smaily', '%Smaily API request failed: %'],
+            FailureMessage::patternsShowing('päring EBAÕNNESTUS', $estonian)
+        );
+        self::assertSame(['%Smaily API request failed: could not connect to Smaily'], FailureMessage::patternsShowing('ei saadud', $estonian));
+        self::assertSame(['%No handler takes the event type "%"'], FailureMessage::patternsShowing('event type', $estonian));
+        self::assertSame([], FailureMessage::patternsShowing('30', $estonian), 'a value is not part of the wording');
     }
 
     public function testTheAttemptsListWhatTheRowStores(): void

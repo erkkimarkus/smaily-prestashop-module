@@ -49,9 +49,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
  * Every failure is typed where it is thrown, as Smaily Connect for Magento types it: an HTTP 4xx
  * other than 429 is a RequestRefusedException (401 and 403 an AuthenticationException, Smaily code
  * 227 a PlanBlockedException); a 429, a 5xx, a malformed answer and a network failure are a
- * TransportException; an answer whose code is not 101 is an ApiException. A message names the HTTP
- * status, the code or the network error, never Smaily's answer and never a credential. The client
- * does not retry and writes no log line: the caller decides both.
+ * TransportException; an answer whose code is not 101 is an ApiException. A message is English
+ * source text that names the HTTP status, the code or whether a network failure was a timeout,
+ * never Smaily's answer, the HTTP client's text or a credential; the Log translates it
+ * (Log\FailureMessage::MESSAGES). The client does not retry and writes no log line: the caller
+ * decides both.
  *
  * lastExchange() holds what the last request sent and what came back, for the Log's Details: the
  * request body (or the query of a read), and the answer's HTTP status with its JSON body, less any
@@ -168,7 +170,9 @@ class Client
             );
         } catch (NetworkException $exception) {
             $this->tell(ConnectionHealth::UNREACHABLE);
-            throw new TransportException(sprintf('Smaily API request failed: %s', $exception->getMessage()));
+            // The kind of failure, never the HTTP client's text: it is English, whatever the admin's.
+            $failure = $exception->timedOut() ? sprintf('no answer within %d seconds', self::TIMEOUT_SECONDS) : 'could not connect to Smaily';
+            throw new TransportException('Smaily API request failed: ' . $failure);
         }
 
         $status = $response->status();

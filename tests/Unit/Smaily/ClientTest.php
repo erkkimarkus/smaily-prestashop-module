@@ -189,9 +189,23 @@ final class ClientTest extends TestCase
             self::fail('Expected a TransportException');
         } catch (TransportException $exception) {
             self::assertSame(0, $exception->getHttpStatus());
-            self::assertStringContainsString('https://demo.sendsmaily.net/api/contact.php', $exception->getMessage());
-            self::assertStringNotContainsString('example.test', $exception->getMessage());
+            self::assertSame('Smaily API request failed: could not connect to Smaily', $exception->getMessage(), 'never the HTTP client\'s own text');
             self::assertNull($exception->getPrevious());
+        }
+    }
+
+    public function testATimeoutNamesTheSecondsItWaited(): void
+    {
+        $client = $this->client([new MockResponse((static function (): \Generator {
+            yield '';
+        })())]);
+
+        try {
+            $client->get(Client::ENDPOINT_CONTACT, ['email' => 'contact@example.test']);
+            self::fail('Expected a TransportException');
+        } catch (TransportException $exception) {
+            self::assertSame(0, $exception->getHttpStatus());
+            self::assertSame('Smaily API request failed: no answer within 30 seconds', $exception->getMessage());
         }
     }
 

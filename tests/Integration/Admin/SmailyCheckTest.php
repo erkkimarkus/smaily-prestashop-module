@@ -27,7 +27,7 @@ final class SmailyCheckTest extends IntegrationTestCase
             'a package without API access' => [new MockResponse('{"code":227}', ['http_code' => 403]), false, 'Smaily refused the request because this account\'s package does not include API access. Upgrade the package in Smaily to connect — until then the credentials cannot be checked at all.'],
             'an unknown subdomain' => [new MockResponse('', ['http_code' => 404]), false, 'Smaily does not know this subdomain. Check the subdomain.'],
             'Smaily down' => [new MockResponse('', ['http_code' => 503]), false, 'Could not reach Smaily: Smaily API request failed with HTTP 503'],
-            'no network' => [new MockResponse('', ['error' => 'Could not resolve host']), false, 'Could not reach Smaily: Smaily API request failed: Could not resolve host'],
+            'no network' => [new MockResponse('', ['error' => 'Could not resolve host']), false, 'Could not reach Smaily: Smaily API request failed: could not connect to Smaily'],
         ];
     }
 

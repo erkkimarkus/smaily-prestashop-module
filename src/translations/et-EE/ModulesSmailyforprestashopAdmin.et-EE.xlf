@@ -2592,9 +2592,9 @@
         <target>Kliendi soovil saad siin tema andmed eksportida või kustutada.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="3d67a169ed033854895f8d28e86197bb">
-        <source>Export or erase what this module holds about one email address: its rows of the Log, its abandoned-cart reminders, order attribution, discount codes and personalization preference, and its Campaign Intelligence data. The customer account, the orders and the Smaily contact are not changed; handle those in PrestaShop and in Smaily.</source>
-        <target>Ekspordi või kustuta see, mida moodul ühe e-posti aadressi kohta hoiab: selle logiread, hüljatud ostukorvi meeldetuletused, tellimuste seosed e-kirjade või tootesoovitustega, sooduskoodid, personaliseerimise eelistus ja Campaign Intelligence'i andmed. Kliendikontot, tellimusi ja Smaily kontakti ei muudeta; nendega tegele PrestaShopis ja Smailys.</target>
+      <trans-unit id="54b2c2c3a05befbce03b345ce6162551">
+        <source>Export or erase what this module holds about one email address: its rows of the Log, its abandoned-cart reminders, order and cart attribution, discount codes and personalization preference, and its Campaign Intelligence data. The customer account, the orders and the Smaily contact are not changed; handle those in PrestaShop and in Smaily.</source>
+        <target>Ekspordi või kustuta see, mida moodul ühe e-posti aadressi kohta hoiab: selle logiread, hüljatud ostukorvi meeldetuletused, tellimuste ja ostukorvide seosed e-kirjade või tootesoovitustega, sooduskoodid, personaliseerimise eelistus ja Campaign Intelligence'i andmed. Kliendikontot, tellimusi ja Smaily kontakti ei muudeta; nendega tegele PrestaShopis ja Smailys.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="b357b524e740bc85b9790a0712d84a30">
@@ -3397,11 +3397,6 @@
         <target>Katkestatud: selle impordi Campaign Intelligence'i ühendust enam ei ole.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="5c95171cf868f864f912a8b770f28f5c">
-        <source>The Campaign Intelligence connection of this shop then serves all shops: %shop%.</source>
-        <target>Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="411167908c6db0c1cf039dd813d59a1d">
         <source>Browse tracking and recommendations stay off until you confirm in Settings &gt; Intelligence that the cookie banner of every shop covers them.</source>
         <target>Sirvimise jälgimine ja soovitused jäävad välja, kuni kinnitad menüüs Seaded &gt; Intelligence, et iga poe küpsiste bänner neid hõlmab.</target>
@@ -3420,6 +3415,76 @@
       <trans-unit id="1c2c6cabf8a8913e49429ff24eee91b4">
         <source>These Campaign Intelligence connections end: %connections%. Campaign Intelligence is told, their imports stop, and connecting again needs a new setup link from Smaily.</source>
         <target>Need Campaign Intelligence'i ühendused lõpetatakse: %connections%. Campaign Intelligence'ile antakse sellest teada, nende impordid peatuvad ning uuesti ühendamiseks on vaja Smailylt uut seadistuslinki.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d26631c9bf5bf2bf2a05608d0fe4e80e">
+        <source>Smaily API credentials were rejected</source>
+        <target>Smaily lükkas API kasutajaandmed tagasi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1bc5f6aafd240f95750d0e8517d1ebf5">
+        <source>Smaily refused the request: the account's package does not include API access.</source>
+        <target>Smaily keeldus päringust: selle konto pakett ei sisalda API-ligipääsu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5e1fdb7b7019f360e89f66274286308a">
+        <source>Smaily API request failed with HTTP %status%</source>
+        <target>Smaily API päring ebaõnnestus (HTTP %status%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f1b1bda4a4289f904345518c7c20a989">
+        <source>Smaily API request failed: no answer within %seconds% seconds</source>
+        <target>Smaily API päring ebaõnnestus: Smaily ei vastanud %seconds% sekundi jooksul</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f8ae0ba02c4db24f7ba073420f5ab99b">
+        <source>Smaily API request failed: could not connect to Smaily</source>
+        <target>Smaily API päring ebaõnnestus: Smailyga ei saadud ühendust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5210b1dd7bc1838e9a1fad3cbaa2d6fc">
+        <source>Smaily API request failed: %error%</source>
+        <target>Smaily API päring ebaõnnestus: %error%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9d01e720c549c1d4ce50068047c766d3">
+        <source>Smaily API returned a malformed response body</source>
+        <target>Smaily API tagastas vigase vastuse</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2343edc9c0a4195154bc71d7d6675bcb">
+        <source>Smaily API returned code %code%</source>
+        <target>Smaily API tagastas koodi %code%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="34170a3a0948bc37bef6058bbefee1ce">
+        <source>Campaign Intelligence answered HTTP %status% (%code%).</source>
+        <target>Campaign Intelligence vastas HTTP olekuga %status% (%code%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a93cafa5a15de0c82f3152467de72071">
+        <source>The Campaign Intelligence request failed (%code%).</source>
+        <target>Campaign Intelligence'i päring ebaõnnestus (%code%).</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="87337e22ed69a96ced0faa65b901a9c7">
+        <source>No handler takes the event type "%type%"</source>
+        <target>Sündmuse tüüpi „%type%“ ei töötle ükski töötleja</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fa47407c71e1a8a0b290d008cd14f414">
+        <source>The handler returned no outcome for the row</source>
+        <target>Töötleja ei andnud selle rea kohta tulemust</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="dce13364f5e4dff108a49b36dca6bb5e">
+        <source>%class% at %file%:%line% (code %code%)</source>
+        <target>%class% failis %file%:%line% (kood %code%)</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="9f279dd4ff4ed8642e4ddec1a21ecd6c">
+        <source>All shops will then use the Campaign Intelligence connection of the shop “%shop%”.</source>
+        <target>Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

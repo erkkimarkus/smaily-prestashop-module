@@ -134,7 +134,7 @@ final class SettingsController extends BaseController
         if ($plan['carried'] !== null) {
             $shop = ['%shop%' => (string) self::shopName($promoted)];
             if ($separate) {
-                $notes[] = $this->trans('The Campaign Intelligence connection of this shop then serves all shops: %shop%.', self::DOMAIN, $shop);
+                $notes[] = $this->trans('All shops will then use the Campaign Intelligence connection of the shop “%shop%”.', self::DOMAIN, $shop);
                 if (Services::instance()->get(EngineSettings::class)->consentConfirmed($promoted)) {
                     $notes[] = $this->trans('Browse tracking and recommendations stay off until you confirm in Settings > Intelligence that the cookie banner of every shop covers them.', self::DOMAIN);
                 }

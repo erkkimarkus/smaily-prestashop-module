@@ -121,7 +121,7 @@ final class IngestLogTest extends IngestTestCase
 
     private static function logRows(): LogRows
     {
-        return new LogRows(null, static fn (string $term): array => FailureMessage::codesShowing($term, static fn (string $text): string => $text));
+        return new LogRows(null, static fn (string $term): array => FailureMessage::patternsShowing($term, static fn (string $text): string => $text));
     }
 
     /**

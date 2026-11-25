@@ -52,7 +52,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * and Details show the class beside it. A skip, and a handler's own verdict that a row can never
  * be sent, is stored as a reason code; every code that a handler or an import can store shows as a
  * sentence, in the admin's language: Magento's sentence where Magento has the reason, else one of
- * the same form. Any other text (the Smaily client's own message) shows as stored.
+ * the same form. A client's or the queue's own message is stored as English source text with its
+ * values (the HTTP status, a code) filled in, whatever the admin's language, and shows translated
+ * with those values (MESSAGES), as Magento's Log shows it. Any other text shows as stored.
  * Magento tells its merchant nothing of its capture limit; that sentence is this module's own.
  */
 final class FailureMessage
@@ -103,18 +105,56 @@ final class FailureMessage
         HistoryJobs::REASON_NO_CONNECTION => 'Cancelled: the Campaign Intelligence connection of this import no longer exists.',
     ];
 
+    /**
+     * The messages that a row stores with values in them, as their English source: a stored text is
+     * read as the first source whose wording it has, each placeholder standing for a value. They are
+     * written in Smaily\Client and Smaily\Exception\ApiException, Engine\Exception\EngineException
+     * (as Privacy\EngineFailure stores it), Queue\Flusher and Queue\Failure::of(); a message added
+     * there that a row can store is added here too, or it shows in English.
+     */
+    public const MESSAGES = [
+        'Smaily API credentials were rejected',
+        'Smaily refused the request: the account\'s package does not include API access.',
+        'Smaily API request failed with HTTP %status%',
+        'Smaily API request failed: no answer within %seconds% seconds',
+        'Smaily API request failed: could not connect to Smaily',
+        // Stored before the two above, with the HTTP client's own text; after them, as their text
+        // has its wording too.
+        'Smaily API request failed: %error%',
+        'Smaily API returned a malformed response body',
+        'Smaily API returned code %code%',
+        'Campaign Intelligence answered HTTP %status% (%code%).',
+        'The Campaign Intelligence request failed (%code%).',
+        'No handler takes the event type "%type%"',
+        'The handler returned no outcome for the row',
+        // Any other error (Queue\Failure::of()); last, as its wording is the loosest.
+        '%class% at %file%:%line% (code %code%)',
+    ];
+
     private const CLASS_PATTERN = '/^(' . Failure::CLASS_REGEX . '):\s*/';
 
+    private const PLACEHOLDER = '/%[a-z]+%/';
+
     /**
-     * @param callable(string): string $translate the admin's translation of an EN string
+     * @param callable(string, array<string, string>=): string $translate the admin's translation of
+     *                                                                    an EN string, with its values
      * @param bool $job whether the error is an import job's
      */
     public static function forDisplay(?string $lastError, callable $translate, bool $job = false): string
     {
         $message = (string) preg_replace(self::CLASS_PATTERN, '', trim((string) $lastError));
         $sentence = ($job ? self::JOB_REASONS[$message] ?? null : null) ?? self::REASONS[$message] ?? null;
+        if ($sentence !== null) {
+            return $translate($sentence);
+        }
+        foreach (self::MESSAGES as $source) {
+            $values = self::valuesIn($message, $source);
+            if ($values !== null) {
+                return $translate($source, $values);
+            }
+        }
 
-        return $sentence !== null ? $translate($sentence) : $message;
+        return $message;
     }
 
     /**
@@ -128,24 +168,60 @@ final class FailureMessage
     }
 
     /**
-     * The reason codes that the admin reads with $term in them, because they show as a sentence:
-     * the Last Error filter finds a row by the words its column shows.
+     * The SQL LIKE patterns of the stored texts that the admin reads with $term in them, because
+     * they show as a sentence or translated: the Last Error filter finds a row by the words its
+     * column shows. A reason code's pattern is the code; a message's takes any values and a
+     * failure class before it. A term is looked for in a message's own wording, not in its values.
      *
      * @param callable(string): string $translate
      *
      * @return list<string>
      */
-    public static function codesShowing(string $term, callable $translate): array
+    public static function patternsShowing(string $term, callable $translate): array
     {
-        $codes = [];
-        foreach ($term === '' ? [] : [self::REASONS, self::JOB_REASONS] as $sentences) {
+        if ($term === '') {
+            return [];
+        }
+        $patterns = [];
+        foreach ([self::REASONS, self::JOB_REASONS] as $sentences) {
             foreach ($sentences as $code => $sentence) {
                 if (mb_stripos($translate($sentence), $term) !== false) {
-                    $codes[] = $code;
+                    $patterns[] = self::likeText($code);
+                }
+            }
+        }
+        foreach (self::MESSAGES as $source) {
+            foreach ((array) preg_split(self::PLACEHOLDER, $translate($source)) as $wording) {
+                if (mb_stripos((string) $wording, $term) !== false) {
+                    $parts = (array) preg_split(self::PLACEHOLDER, $source);
+                    $patterns[] = '%' . implode('%', array_map(static fn ($part): string => self::likeText((string) $part), $parts));
+                    break;
                 }
             }
         }
 
-        return array_values(array_unique($codes));
+        return array_values(array_unique($patterns));
+    }
+
+    /**
+     * The values that $message fills into the placeholders of $source, or null when $message is
+     * not worded as $source.
+     *
+     * @return array<string, string>|null
+     */
+    private static function valuesIn(string $message, string $source): ?array
+    {
+        $pattern = '/^' . preg_replace(self::PLACEHOLDER, '(.*?)', preg_quote($source, '/')) . '$/su';
+        if (preg_match($pattern, $message, $matches) !== 1) {
+            return null;
+        }
+        preg_match_all(self::PLACEHOLDER, $source, $names);
+
+        return array_combine($names[0], array_slice($matches, 1));
+    }
+
+    private static function likeText(string $text): string
+    {
+        return addcslashes($text, '%_\\');
     }
 }

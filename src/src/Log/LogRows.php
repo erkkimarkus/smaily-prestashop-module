@@ -80,18 +80,19 @@ final class LogRows
     private ?array $shops;
 
     /** @var callable(string): list<string> */
-    private $codesShowing;
+    private $patternsShowing;
 
     /**
      * @param list<int>|null $shops the shops whose rows are read; null reads every shop
-     * @param callable(string): list<string> $codesShowing the reason codes that the list shows with
-     *                                                     a term in their wording
-     *                                                     (FailureMessage::codesShowing())
+     * @param callable(string): list<string> $patternsShowing the LIKE patterns of the stored texts
+     *                                                        that the list shows with a term in
+     *                                                        their wording
+     *                                                        (FailureMessage::patternsShowing())
      */
-    public function __construct(?array $shops, callable $codesShowing)
+    public function __construct(?array $shops, callable $patternsShowing)
     {
         $this->shops = $shops === null ? null : array_map('intval', $shops);
-        $this->codesShowing = $codesShowing;
+        $this->patternsShowing = $patternsShowing;
     }
 
     /**
@@ -360,8 +361,8 @@ final class LogRows
         }
         $error = $filter->get(LogFilter::ERROR);
         if ($error !== '') {
-            $codes = array_map(static fn (string $code): string => '\'' . pSQL($code) . '\'', ($this->codesShowing)($error));
-            $where[] = '(`last_error` LIKE ' . self::like($error) . ($codes === [] ? '' : ' OR `last_error` IN (' . implode(', ', $codes) . ')') . ')';
+            $translated = array_map(static fn (string $pattern): string => ' OR `last_error` LIKE \'' . pSQL($pattern) . '\'', ($this->patternsShowing)($error));
+            $where[] = '(`last_error` LIKE ' . self::like($error) . implode('', $translated) . ')';
         }
         foreach (['created' => $created, 'updated' => '`updated_at`'] as $name => $column) {
             if ($filter->get($name . '_from') !== '') {
