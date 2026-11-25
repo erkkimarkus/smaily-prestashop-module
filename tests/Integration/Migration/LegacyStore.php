@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Migration;
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
 
@@ -13,8 +14,17 @@ use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyState;
  */
 final class LegacyStore
 {
+    /**
+     * The door tokens that the shop held before the run's first change, as rows of insertRows():
+     * restore() puts them back, as a merchant's crontab and a walk's cron line name them.
+     *
+     * @var list<array{0: int|null, 1: int|null, 2: string, 3: string|null}>|null
+     */
+    private static ?array $foundTokens = null;
+
     public static function clear(): void
     {
+        self::rememberTokens();
         $db = \Db::getInstance();
         $db->execute(
             'DELETE FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` IN (\''
@@ -29,12 +39,13 @@ final class LegacyStore
     }
 
     /**
-     * The fresh 3.0.0 install the other tests expect.
+     * The fresh 3.0.0 install the other tests expect, with the door tokens that the shop held.
      */
     public static function restore(): void
     {
         self::clear();
         Schema::markCurrent();
+        self::insertRows(self::$foundTokens ?? []);
     }
 
     /**
@@ -42,6 +53,7 @@ final class LegacyStore
      */
     public static function loadFixture(string $file): void
     {
+        self::rememberTokens();
         $sql = (string) file_get_contents(__DIR__ . '/../../fixtures/legacy/' . $file);
         $sql = explode('-- Part 2', $sql)[0];
         $sql = (string) preg_replace('/^--.*$/m', '', $sql);
@@ -137,5 +149,28 @@ final class LegacyStore
         \Shop::resetStaticCache();
         \Configuration::resetStaticCache();
         \Configuration::loadConfiguration();
+    }
+
+    /**
+     * Notes the door tokens of the shop at the run's first change, for restore(). A test that
+     * removes them otherwise (an uninstall) calls it first.
+     */
+    public static function rememberTokens(): void
+    {
+        if (self::$foundTokens === null) {
+            $rows = \Db::getInstance()->executeS(
+                'SELECT `id_shop_group`, `id_shop`, `name`, `value` FROM `' . _DB_PREFIX_ . 'configuration` WHERE `name` IN (\''
+                . implode('\', \'', [TickSettings::TICK_TOKEN, TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN]) . '\')'
+                . ' ORDER BY `id_configuration`',
+                true,
+                false
+            ) ?: [];
+            self::$foundTokens = array_map(static fn (array $row): array => [
+                $row['id_shop_group'] === null ? null : (int) $row['id_shop_group'],
+                $row['id_shop'] === null ? null : (int) $row['id_shop'],
+                (string) $row['name'],
+                $row['value'],
+            ], $rows);
+        }
     }
 }

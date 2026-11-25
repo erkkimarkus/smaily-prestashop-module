@@ -15,6 +15,7 @@ if (!class_exists(Composer\Autoload\ClassLoader::class, false)) {
 }
 
 require __DIR__ . '/Integration/IntegrationTestCase.php';
+require __DIR__ . '/Integration/ShopLeftovers.php';
 
 $psRoot = getenv('PS_ROOT_DIR');
 if ($psRoot) {

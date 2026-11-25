@@ -146,13 +146,23 @@ stores a connection removes it (`tests/Integration/Engine/EngineTestCase.php` do
 connection table the check sends nothing. Each mock hands every test the same HTTP client: a
 client keeps its connection open while it lives, PHPUnit keeps every test until the run ends, and
 with a client per test the suite ran out of open files (the limit is 1024) near its 1740th test
-on 8.2.8. Two known gaps:
+on 8.2.8. One known gap: the Smaily mock's transport sends only `https://<subdomain>.sendsmaily.net`
+to the mock and passes any other host on to the real HTTP client. A test that runs the whole tick
+with that transport could reach a real outside service. Stub every other outside call in such a
+test.
 
-- The Smaily mock's transport sends only `https://<subdomain>.sendsmaily.net` to the mock and passes
-  any other host on to the real HTTP client. A test that runs the whole tick with that transport
-  could reach a real outside service. Stub every other outside call in such a test.
-- Some test does not restore the cron tokens it found. After a full suite run, the dev shop refuses
-  the cron or tick token it had before; read the new token from the `configuration` table.
+The suite leaves the shop's module state as it found it: the rows of the module's tables (per
+table, and per status), the `SMAILY_*` configuration rows and the values of the three door tokens
+(verified on 8.2.8 and 9.2.0 from a fresh shop that held the three tokens). The PHPUnit extension
+`tests/Integration/ShopLeftovers.php` checks it on every run in a shop: it notes that state before
+the first test and compares it once the run has ended, after the shutdown functions that write a
+request's ingest markers and contact changes. A difference prints `The run left the shop's module
+state changed` with each difference (a token by a hash, never its value) and ends the run with exit
+code 1, after PHPUnit's own result. It leaves out `SMAILY_CONNECT_HEALTH` and
+`SMAILY_CONNECT_REPORT_STATE`, which every call and report rewrites; a run of one class that calls a
+mock leaves the first behind. `LegacyStore::restore()` puts back the door tokens that the shop held
+before the run's first `LegacyStore` call, and `EngineTestCase` writes the ingest markers of its
+test's hooks and removes the rows when the test ends.
 
 The suite expects a shop that nobody has set up by hand, and these conventions keep it so:
 

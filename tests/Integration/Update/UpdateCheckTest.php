@@ -31,6 +31,9 @@ final class UpdateCheckTest extends IntegrationTestCase
 
     private const NOW = 1763640000;
 
+    /** The door tokens, which the console uninstall removes and the test puts back. */
+    private const TOKENS = [TickSettings::TICK_TOKEN, TickSettings::CUSTOMER_CRON_TOKEN, TickSettings::CART_CRON_TOKEN];
+
     private GithubMockServer $github;
 
     /** @var array<string, string|false> */
@@ -39,10 +42,12 @@ final class UpdateCheckTest extends IntegrationTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        foreach ([UpdateSettings::KEY, TickSettings::TICK_STATE] as $key) {
+        foreach (array_merge([UpdateSettings::KEY, TickSettings::TICK_STATE], self::TOKENS) as $key) {
             $value = \Configuration::getGlobalValue($key);
             $this->saved[$key] = $value === false ? false : (string) $value;
-            \Configuration::deleteByName($key);
+            if (!in_array($key, self::TOKENS, true)) {
+                \Configuration::deleteByName($key);
+            }
         }
         \Configuration::loadConfiguration();
         $this->github = GithubMockServer::start();

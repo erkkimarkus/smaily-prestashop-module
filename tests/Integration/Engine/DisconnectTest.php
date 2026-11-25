@@ -104,6 +104,7 @@ final class DisconnectTest extends EngineTestCase
 
     public function testAnUninstallEndsEveryConnectionOnceBeforeTheDataGoes(): void
     {
+        LegacyStore::rememberTokens();
         \Configuration::updateGlobalValue(StoreLayout::SEPARATE_STORES, '1');
         $this->services = $this->runtime();
         $first = $this->connect(991);

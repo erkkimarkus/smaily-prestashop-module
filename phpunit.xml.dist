@@ -12,4 +12,7 @@
             <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
+    <extensions>
+        <extension class="Tests\Integration\ShopLeftovers"/>
+    </extensions>
 </phpunit>

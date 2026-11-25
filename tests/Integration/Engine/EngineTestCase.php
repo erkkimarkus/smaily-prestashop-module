@@ -4,8 +4,10 @@ declare(strict_types=1);
 namespace Tests\Integration\Engine;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\IngestMarkers;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -39,9 +41,13 @@ abstract class EngineTestCase extends IntegrationTestCase
 
     private int $tokens = 0;
 
+    /** The last row of the ingest queue before the test. */
+    private int $ingestRows = 0;
+
     protected function setUp(): void
     {
         parent::setUp();
+        $this->ingestRows = (int) self::db()->getValue('SELECT MAX(`id`) FROM `' . _DB_PREFIX_ . IngestQueue::TABLE . '`', false);
         $this->engine = EngineMockServer::start();
         $this->savedAccounts = self::db()->executeS('SELECT * FROM `' . _DB_PREFIX_ . self::ACCOUNT_TABLE . '`', true, false) ?: [];
         self::db()->delete(self::ACCOUNT_TABLE);
@@ -57,6 +63,11 @@ abstract class EngineTestCase extends IntegrationTestCase
             // the real engine about it.
             self::db()->delete(self::CONNECTION_TABLE);
             self::db()->delete(self::ACCOUNT_TABLE);
+            // The test's hooks noted ingest markers in its runtime and in the shop's own, which
+            // would write them when the run ends: they are written now, and the test's rows go.
+            $this->services->get(IngestMarkers::class)->commit();
+            Services::instance()->get(IngestMarkers::class)->commit();
+            self::db()->delete(IngestQueue::TABLE, '`id` > ' . $this->ingestRows);
             foreach ($this->savedAccounts as $row) {
                 self::db()->insert(self::ACCOUNT_TABLE, array_map(static fn ($value) => pSQL((string) $value), $row));
             }
