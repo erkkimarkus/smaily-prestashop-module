@@ -385,6 +385,11 @@ without the answer and the upgrade runs (verified on 8.2.8):
 The command builds `var/cache/prod`; remove that folder afterwards. A shop that runs with debug mode
 off needs no such step: 22 console upgrades from 2.2.0 ran behind the guard in one.
 
+`prestashop:module install` fails the same way on 8.2.8 with debug mode on behind the guard: seen more
+than once on 2026-11-25, while it also succeeded. Reproduced that day: on a fresh shop the command
+installed the module, and a second one on the installed module stopped with the Distribution API
+error. The same command as above with `install` in place of `upgrade` succeeded in both cases.
+
 ## 4b. Walking the storefront: the consent gate, the block and the cache (verified on 8.2.8 and 9.2.0)
 
 Nothing of the storefront runs before the shop has a connection (section 4a). The merchant confirms

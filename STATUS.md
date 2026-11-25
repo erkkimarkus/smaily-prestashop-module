@@ -79,9 +79,6 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS: only the
   egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced now, and
   the PR template still lists them.
-- `prestashop:module install` on 8.2.8 with debug mode on behind the guard failed again on 2026-11-25 (it had
-  succeeded once, and did in the evening's run; late, the module stood installed and a repeated command failed):
-  name `install` next to `upgrade` in `docs/DEV_ENVIRONMENT.md` 4a.
 - `Config\Settings::setJson()` writes without `Configuration`'s `$html` flag, so `strip_tags()` would cut a `<…>`
   out of a value; no value of its two callers (the notices, the update check) can hold `<`, `>` or `&`, so nothing
   is lost today. The flag runs HTMLPurifier, which stores `&`, `<` and `>` as entities and mangles a tag too
