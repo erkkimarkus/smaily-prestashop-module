@@ -75,8 +75,8 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   the PR template still lists them.
 - `prestashop:module install` on 8.2.8 with debug mode on was seen to fail behind the guard as `upgrade` does
   (`docs/DEV_ENVIRONMENT.md` 4a names only the upgrade); on a fresh 8.2.8 shop of 2026-11-25 it succeeded.
-- A `cart_add` of a product with combinations and no chosen combination gets a key that has no catalog row. A product
-  that gets its first combination keeps its old row at the engine until the next nightly list.
+- A product that gets its first combination keeps its old row (`ps-<id>`) at the engine until the next nightly list;
+  ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
 - `Privacy\EngineFailure` builds the permanent-failure reason itself. `Config\Settings::setJson()` writes without
   the tag-safe flag; adding it changes the stored bytes of the notices and the update-check keys: decide first.
 - Tests: some test leaves rows behind after a suite run (event-queue rows, `skipped` ingest rows), and one leaves

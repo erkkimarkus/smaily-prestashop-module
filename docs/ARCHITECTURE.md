@@ -2096,7 +2096,7 @@ connection that lost its prefix reads it from the ping.
 
 | Id | 3.0.0 value |
 |---|---|
-| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder, `Engine\Payload\Keys`, makes the key for every path (contract "Same key from every path"). `ps-` was agreed with the engine team on 2026-11-23 (Linear INT-306). |
+| Catalog `sku`, §3c `sku`, §6 `sku`, order line `sku` | `<prefix>ps-<id_product>` for a product without combinations; `<prefix>ps-<id_product>-<id_product_attribute>` for each combination (decision 6: one row per combination). The platform key stays within 64 characters (contract "Base context"). PrestaShop's `reference` is optional and not unique, so it is never the key (send it as `tags.merchant_sku` only if an operator asks). One builder, `Engine\Payload\Keys`, makes the key for every path (contract "Same key from every path"). A §6 event that names a product with combinations but none of them takes the combination that PrestaShop's cart takes for such an add (section 8.10), so every key it sends is a catalog row's; an order line always names its combination. `ps-` was agreed with the engine team on 2026-11-23 (Linear INT-306). |
 | `tags.product_id`, §3b `product_ids` | `<prefix>ps-<id_product>`: the parent id in the namespace, as contract §3 "Parent product id" names it for PrestaShop since v1.36.1 (the engine team's request, Linear INT-306). |
 | `external_id` (catalog) | `<id_product>` or `<id_product>-<id_product_attribute>`, no prefix. |
 | `external_order_id` | `<prefix><id_order>` |
@@ -2428,7 +2428,14 @@ the event goes without `sku`, which §6 allows. The listener is Story 5.2's key 
 (`Engine\Payload\Keys::sku()`, registered by `EngineIngestProvider`; sections 8.2 and 8.11), so a
 browse event names its product by the key of the product's catalog row, and nothing here spells
 the platform namespace. The product page gives the combination that it shows, the default one
-when the address names none (`PageScripts`), as the catalog has one row per combination.
+when the address names none (`PageScripts`), as the catalog has one row per combination. An event
+that names a product with combinations but none of them (a theme or a module that posts an add to
+the cart without one) is asked with the combination that PrestaShop's cart takes in that case
+(`Storefront\CartCombination`, as `CartController::processChangeProductInCart()` on 8.2.8 and
+9.2.0): the default combination, or, where the product cannot be ordered out of stock and the
+default has no stock, one that has some. Its key is then the catalog row of what the cart holds
+and of the order line that follows. PrestaShop's own themes already post the combination that the
+cart's answer names.
 
 **The landing** (`Storefront\Landing`). 405 unless a POST; 404 without a stored connection; 429
 beyond 30 requests per address and minute; 400 when nothing posted has its shape; 500 when a cookie
@@ -2727,7 +2734,13 @@ suppressed list (section 10.12), and a change of the shop layout, which carries 
 its rows or ends it (section 8.9).
 
 **Not built.** A product that gets its first combination keeps its old row (`ps-<id>`) at the
-engine until the next nightly list leaves it out.
+engine until the next nightly list leaves it out. A §3b removal cannot end that row alone: it names
+the parent id, which the new combinations' rows share. Ending it at the save would mean sending the
+old row once more as `in_stock: false`, as a deleted combination's: a listener of
+`actionObjectCombinationAddAfter` (a hook the module does not register, so a main-class method and
+a `HookList` entry) that names combination 0 when the product's first combination is added, and a
+catalog row of combination 0 in `CatalogPayloadBuilder::rows()`, which today sends removed
+combinations only.
 
 ### 8.12 The history import (as built in Story 5.3)
 

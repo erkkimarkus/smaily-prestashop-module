@@ -5,6 +5,7 @@ namespace Tests\Integration\Storefront;
 
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CatalogPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Relay;
@@ -121,6 +122,50 @@ final class BrowseRelayTest extends StorefrontTestCase
         );
         self::assertSame(['c7-ps-1-2', 'c7-ps-6'], [$events[0]['sku'], $events[1]['sku']]);
         self::assertArrayNotHasKey('sku', $events[2], 'an event without a product has no key');
+    }
+
+    public function testACartEventWithoutTheCombinationNamesTheOneTheCartTookWhichHasACatalogRow(): void
+    {
+        $this->engine->set('next_prefix', 'c7-');
+        $connection = $this->connect();
+        $default = (int) self::db()->getValue('SELECT `id_product_attribute` FROM `' . _DB_PREFIX_ . 'product_attribute_shop` WHERE `id_product` = 1 AND `id_shop` = 1 AND `default_on` = 1');
+        self::assertGreaterThan(0, $default, 'the demo product 1 has a default combination');
+
+        $this->relay([
+            self::event('cart_add', '1', ['product_id' => '1']),
+            self::event('cart_add', '2', ['product_id' => '1', 'product_attribute_id' => '2']),
+            self::event('cart_add', '3', ['product_id' => '6']),
+        ]);
+
+        $skus = array_column($this->engine->requestsTo(self::BROWSE)[0]['body']['events'], 'sku');
+        self::assertSame([Keys::sku('c7-', 1, $default), 'c7-ps-1-2', 'c7-ps-6'], $skus, 'the default combination; a chosen one and a product without any as before');
+        $rows = array_column((array) $this->services->get(CatalogPayloadBuilder::class)->rows($connection, 1), 'sku');
+        self::assertContains($skus[0], $rows, 'the key is a catalog row\'s');
+    }
+
+    public function testWhereTheDefaultCombinationHasNoStockTheKeyIsOfOneTheCartCanTake(): void
+    {
+        $this->engine->set('next_prefix', 'c7-');
+        $this->connect();
+        $stock = 'UPDATE `' . _DB_PREFIX_ . 'stock_available` SET `quantity` = %d WHERE `id_product` = 1 AND `id_product_attribute` = %d';
+        $default = (int) self::db()->getValue('SELECT `id_product_attribute` FROM `' . _DB_PREFIX_ . 'product_attribute_shop` WHERE `id_product` = 1 AND `id_shop` = 1 AND `default_on` = 1');
+        $quantity = (int) self::db()->getValue('SELECT `quantity` FROM `' . _DB_PREFIX_ . 'stock_available` WHERE `id_product` = 1 AND `id_product_attribute` = ' . $default);
+        self::assertSame(2, \StockAvailable::outOfStock(1), 'the shop\'s default: no orders out of stock');
+        self::assertFalse((bool) \Configuration::get('PS_ORDER_OUT_OF_STOCK'));
+        self::db()->execute(sprintf($stock, 0, $default));
+        \Product::getDefaultAttribute(1, 0, true);
+        try {
+            $this->relay([self::event('cart_add', '1', ['product_id' => '1'])]);
+        } finally {
+            self::db()->execute(sprintf($stock, $quantity, $default));
+            \Product::getDefaultAttribute(1, 0, true);
+        }
+
+        $sku = (string) $this->engine->requestsTo(self::BROWSE)[0]['body']['events'][0]['sku'];
+        self::assertMatchesRegularExpression('/^c7-ps-1-\d+$/', $sku);
+        $taken = (int) substr($sku, strlen('c7-ps-1-'));
+        self::assertNotSame($default, $taken);
+        self::assertGreaterThan(0, (int) self::db()->getValue('SELECT `quantity` FROM `' . _DB_PREFIX_ . 'stock_available` WHERE `id_product` = 1 AND `id_product_attribute` = ' . $taken));
     }
 
     public function testAShopWithoutAConnectionOrWithARefusedOneRelaysNothing(): void

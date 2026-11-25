@@ -42,6 +42,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Attribution;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartAttribution;
+use PrestaShop\Module\SmailyForPrestaShop\Storefront\CartCombination;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Landing;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
@@ -74,8 +75,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\VisitorToken;
  * One seam lets another area answer without this one knowing it. PRODUCT_KEY is a list of
  * listeners (`Services::listen()`) that give the engine's `sku` of a product on a connection, for
  * the browse events: a listener takes `connection` (Engine\Connection), `id_product` and
- * `id_product_attribute` (0 for none) and answers the key or null. Without a listener a browse
- * event carries no `sku`.
+ * `id_product_attribute` (0 for a product without combinations) and answers the key or null. An
+ * event that names a product with combinations but none of them asks with the combination that
+ * the cart takes for it (Storefront\CartCombination). Without a listener a browse event carries
+ * no `sku`.
  */
 final class StorefrontProvider implements ProviderInterface
 {
@@ -135,6 +138,8 @@ final class StorefrontProvider implements ProviderInterface
             $services->get(Attribution::class),
             $services->get(Client::class),
             static function (Connection $connection, int $idProduct, int $idProductAttribute) use ($services): ?string {
+                // A product named without its combination is the combination the cart took for it.
+                $idProductAttribute = $idProductAttribute > 0 ? $idProductAttribute : CartCombination::of($idProduct);
                 foreach ($services->listeners(self::PRODUCT_KEY) as $listener) {
                     $key = $listener(['connection' => $connection, 'id_product' => $idProduct, 'id_product_attribute' => $idProductAttribute]);
                     if (is_string($key) && $key !== '') {
