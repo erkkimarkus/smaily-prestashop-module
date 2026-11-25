@@ -158,9 +158,11 @@ table, and per status), the `SMAILY_*` configuration rows and the values of the 
 the first test and compares it once the run has ended, after the shutdown functions that write a
 request's ingest markers and contact changes. A difference prints `The run left the shop's module
 state changed` with each difference (a token by a hash, never its value) and ends the run with exit
-code 1, after PHPUnit's own result. It leaves out `SMAILY_CONNECT_HEALTH` and
-`SMAILY_CONNECT_REPORT_STATE`, which every call and report rewrites; a run of one class that calls a
-mock leaves the first behind. `LegacyStore::restore()` puts back the door tokens that the shop held
+code 1, after PHPUnit's own result. It leaves out `SMAILY_CONNECT_HEALTH`,
+`SMAILY_CONNECT_REPORT_STATE` and `SMAILY_CONNECT_TICK_STATE`, which every call, report and tick
+rewrites; a run of one class that calls a mock leaves the first behind, and the tick tests remove
+the last, which a shop holds once its storefront was opened after the install (the shop of
+`tests/ci/validate.sh` does). `LegacyStore::restore()` puts back the door tokens that the shop held
 before the run's first `LegacyStore` call, and `EngineTestCase` writes the ingest markers of its
 test's hooks and removes the rows when the test ends.
 
