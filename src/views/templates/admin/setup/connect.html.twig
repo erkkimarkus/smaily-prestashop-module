@@ -29,7 +29,7 @@
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set panel = '@Modules/smailyforprestashop/views/templates/admin/panel/' %}
-{% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name, setup: true} only %}
+{% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name, setup: true, connection_notes: smaily_setup.connection_notes} only %}
 <div data-smaily-shape-page>
   {% if smaily_setup.connection is null %}
     {# The bar of separate stores above says it already. #}

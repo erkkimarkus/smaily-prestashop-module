@@ -105,6 +105,9 @@
       if (input.name === 'smaily-shape-change') {
         showShapeNote();
       }
+      if (input.name === 'smaily-shape') {
+        showFirstShapeNote();
+      }
     });
 
     /*
@@ -320,6 +323,23 @@
       });
     }
 
+    /* The first answer: what "Separate stores" does with the Campaign Intelligence connections. */
+    function showFirstShapeNote() {
+      var chosen = checked(shape, 'smaily-shape');
+      shape.querySelectorAll('[data-smaily-shape-note]').forEach(function (note) {
+        note.hidden = note.getAttribute('data-smaily-shape-note') !== chosen;
+      });
+    }
+
+    /* The notes the page asks the merchant to confirm before it saves the answer chosen in card. */
+    function shapeAsked(card, chosen) {
+      var asked = [];
+      card.querySelectorAll('[data-smaily-shape-ask][data-smaily-shape-note="' + chosen + '"]').forEach(function (note) {
+        asked.push(note.textContent.trim());
+      });
+      return asked;
+    }
+
     function showShapeChoice(open) {
       shapeChange.hidden = !open;
       shapePage.hidden = open;
@@ -365,17 +385,18 @@
       } else if (action === 'shape-save') {
         var chosen = checked(shapeChange, 'smaily-shape-change');
         // What the change removes or ends: the other shops' settings, Campaign Intelligence connections.
-        var asked = [];
-        shapeChange.querySelectorAll('[data-smaily-shape-ask][data-smaily-shape-note="' + chosen + '"]').forEach(function (note) {
-          asked.push(note.textContent.trim());
-        });
+        var asked = shapeAsked(shapeChange, chosen);
         if (chosen === shape.getAttribute('data-shape')) {
           showShapeChoice(false);
         } else if (!asked.length || window.confirm(asked.join('\n\n'))) {
           saveLayout(target, chosen, shapeChange.querySelector('[data-smaily-shape-result]'));
         }
       } else if (action === 'save-shape') {
-        saveLayout(target, checked(shape, 'smaily-shape'), shape.querySelector('[data-smaily-shape-result]'));
+        var answer = checked(shape, 'smaily-shape');
+        var askedFirst = shapeAsked(shape, answer);
+        if (!askedFirst.length || window.confirm(askedFirst.join('\n\n'))) {
+          saveLayout(target, answer, shape.querySelector('[data-smaily-shape-result]'));
+        }
       }
     });
 

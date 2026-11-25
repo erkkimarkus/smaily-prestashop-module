@@ -2267,7 +2267,7 @@ the change to one store promotes).
   others end: each `disconnected` report then shows the carried connection where the new layout
   reads it.
 - **The question before the change** names the shop that keeps the connection and the connections
-  that end, in plain words (`Admin\Settings\SettingsController::connectionNotes()`,
+  that end, in plain words (`Admin\Settings\SettingsPanels::connectionNotes()`,
   `panel/store-shape.html.twig`). The page now also asks before a change to separate stores when
   it carries or ends a connection; without a connection that direction still asks nothing.
 - **The cookie-banner confirmation** (section 9) never comes to cover visitors it was not given
@@ -2289,6 +2289,10 @@ the change to one store promotes).
   is the change to separate stores above, on Settings and in the Initial setup alike
   (`Api\Settings\ChangeLayout`, `Api\Setup\SaveStep`), with its settings, its connection and
   its cookie-banner confirmation: Magento's wizard runs its `toSeparateStores()` there as well.
+  The first-answer card says so before it saves: while "Separate stores" is picked it shows the
+  same connection notes as Settings' Change from one store, and Continue asks the merchant to
+  confirm them; a store without a connection sees no note and is not asked. Magento's first
+  answer shows no note: its `toSeparateStores()` moves no Campaign Intelligence connection.
 
 **Storage.** The API key is encrypted with `Smaily\Crypto`, as the Smaily password is (section 2.3);
 a key that does not decrypt reads as no key, and the connection then needs a new setup link. The
@@ -2904,7 +2908,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
-| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown. Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
+| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 

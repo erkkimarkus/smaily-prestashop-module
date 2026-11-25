@@ -62,6 +62,9 @@
         panels.pickLanguageMode(input);
         smailyConnect.setup.refresh();
       }
+      if (input.name === 'smaily-shape') {
+        showShapeNotes();
+      }
     });
 
     /*
@@ -138,8 +141,24 @@
       }
     }
 
+    /* What the answer does with the Campaign Intelligence connections shows while it is picked. */
+    function showShapeNotes() {
+      var chosen = panels.checked(shape, 'smaily-shape');
+      shape.querySelectorAll('[data-smaily-shape-note]').forEach(function (note) {
+        note.hidden = note.getAttribute('data-smaily-shape-note') !== chosen;
+      });
+    }
+
     function saveShape(button) {
       var shapeResult = shape.querySelector('[data-smaily-shape-result]');
+      // An answer that carries or ends a connection is asked first, as Settings' Change is.
+      var asked = [];
+      shape.querySelectorAll('[data-smaily-shape-ask][data-smaily-shape-note="' + panels.checked(shape, 'smaily-shape') + '"]').forEach(function (note) {
+        asked.push(note.textContent.trim());
+      });
+      if (asked.length && !window.confirm(asked.join('\n\n'))) {
+        return;
+      }
       button.disabled = true;
       result(shapeResult, label('saving'), true);
       post('save', {step: 'shape', data: {shape: panels.checked(shape, 'smaily-shape')}}).then(function () {

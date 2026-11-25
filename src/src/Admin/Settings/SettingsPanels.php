@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
@@ -36,6 +37,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\RssSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\EngineAutomations;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Disconnector;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
@@ -49,7 +51,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * Builds what the Settings page and its endpoints use from the runtime's services, with the
  * admin's translator: the Initial setup's panels (one writer for both pages), the page's scope,
- * the shops' own values, the change of the shop layout and the RSS panel.
+ * the shops' own values, the change of the shop layout with what it does to the Campaign
+ * Intelligence connections, and the RSS panel.
  */
 final class SettingsPanels
 {
@@ -109,6 +112,49 @@ final class SettingsPanels
             $this->services->get(EngineSettings::class),
             $this->services->get(HistoryJobs::class)
         );
+    }
+
+    /**
+     * What a change to the other shop layout does with the Campaign Intelligence connections
+     * (Engine\LayoutConnections), in the words of the page's question before the change; [] while
+     * the store holds no connection. Settings' Change asks it, and the first answer "Separate
+     * stores" asks it in the Initial setup and on Settings, from one store.
+     *
+     * @param bool $separate whether the shops are separate stores now
+     * @param int $promoted the shop that keeps the connection
+     *
+     * @return list<string>
+     */
+    public function connectionNotes(bool $separate, int $promoted): array
+    {
+        $plan = $this->layoutConnections()->plan($separate ? $promoted : 0);
+        $notes = [];
+        if ($plan['carried'] !== null) {
+            $shop = ['%shop%' => (string) BaseController::shopName($promoted)];
+            if ($separate) {
+                $notes[] = $this->translator->trans('All shops will then use the Campaign Intelligence connection of the shop “%shop%”.', $shop, BaseController::DOMAIN);
+                if ($this->services->get(EngineSettings::class)->consentConfirmed($promoted)) {
+                    $notes[] = $this->translator->trans('Browse tracking and recommendations stay off until you confirm in Settings > Intelligence that the cookie banner of every shop covers them.', [], BaseController::DOMAIN);
+                }
+            } else {
+                $notes[] = $this->translator->trans('The Campaign Intelligence connection stays with this shop: %shop%. Every other shop connects on its own, with its own setup link from Smaily.', $shop, BaseController::DOMAIN);
+            }
+        }
+        if ($plan['ended'] !== []) {
+            $names = array_map(
+                fn (Connection $connection): string => $connection->idShop() > 0
+                    ? (string) BaseController::shopName($connection->idShop())
+                    : $this->translator->trans('all shops', [], BaseController::DOMAIN),
+                $plan['ended']
+            );
+            $notes[] = $this->translator->trans(
+                'These Campaign Intelligence connections end: %connections%. Campaign Intelligence is told, their imports stop, and connecting again needs a new setup link from Smaily.',
+                ['%connections%' => implode(', ', $names)],
+                BaseController::DOMAIN
+            );
+        }
+
+        return $notes;
     }
 
     public function rss(): RssPanel

@@ -67,7 +67,6 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 
 ## Queue (technical, for the orchestrator)
 
-- Initial setup: the first-answer card of "Separate stores" names no connection that moves.
 - Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next
   nightly list; ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row

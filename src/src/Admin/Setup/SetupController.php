@@ -31,6 +31,8 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -60,7 +62,8 @@ final class SetupController extends BaseController
 
         $services = Services::instance();
         $panels = new SetupPanels($services, self::translator());
-        $scope = $panels->scope(AbstractJsonAction::shopId());
+        $selected = AbstractJsonAction::shopId();
+        $scope = $panels->scope($selected);
         $target = $scope->targetShop();
         $reached = $panels->progress()->reachedStep($scope);
         $step = max(1, min($reached, (int) $request->query->get('step', 1)));
@@ -79,6 +82,10 @@ final class SetupController extends BaseController
             'smaily_setup' => [
                 'shape' => $panels->shape()->values($scope),
                 'shop_name' => $scope->separateStores() && $target !== null ? (string) self::shopName($target) : '',
+                // The first answer "Separate stores" is Settings' change from one store (Api\Setup\SaveStep).
+                'connection_notes' => $scope->asksLayoutFirst()
+                    ? (new SettingsPanels($services, self::translator()))->connectionNotes(false, LayoutChange::promotedShop($selected))
+                    : [],
                 'connection' => $connection,
                 'languages' => $scope->languages(),
                 'language_modes' => $scope->languageModes(),
