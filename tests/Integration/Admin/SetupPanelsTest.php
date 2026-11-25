@@ -4,12 +4,15 @@ declare(strict_types=1);
 namespace Tests\Integration\Admin;
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\ContactImportAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
@@ -62,6 +65,9 @@ final class SetupPanelsTest extends IntegrationTestCase
     /** @var array<string, list<array<string, mixed>>> */
     private array $savedKeys = [];
 
+    /** The newest job id before a test started an import; the jobs after it are removed. */
+    private ?int $jobsAfter = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -83,6 +89,9 @@ final class SetupPanelsTest extends IntegrationTestCase
     {
         if (defined('_PS_ROOT_DIR_')) {
             $this->restoreShopRuntime();
+            if ($this->jobsAfter !== null) {
+                self::db()->delete(JobStore::TABLE, '`id` > ' . $this->jobsAfter);
+            }
             self::db()->delete(EventQueue::TABLE);
             self::db()->delete(self::ACCOUNT_TABLE);
             foreach ($this->savedAccounts as $row) {
@@ -234,6 +243,34 @@ final class SetupPanelsTest extends IntegrationTestCase
         self::assertSame(200, $this->post(new SaveStep(), ['step' => 'connect', 'data' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD, 'language_mode' => 'single']])->getStatusCode());
         self::assertSame(200, $this->post(new SaveStep(), $contacts)->getStatusCode(), 'a stored account opens the later steps');
         self::assertSame(ContactSyncMode::ALL_CUSTOMERS, (new ContactsSettings())->mode(0)->mode());
+    }
+
+    /**
+     * The first contact import of step 2 starts only with a Smaily account of the scope stored, as
+     * the later steps save (owner, 2026-11-25); Settings > Contacts calls the same endpoint.
+     */
+    public function testAContactImportStraightToTheEndpointWithoutAnAccountStartsNothing(): void
+    {
+        $this->useAsShopRuntime($this->services);
+        $this->jobsAfter = (int) self::db()->getValue('SELECT COALESCE(MAX(`id`), 0) FROM `' . _DB_PREFIX_ . JobStore::TABLE . '`', false);
+        $imports = fn (): int => (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id` > ' . $this->jobsAfter . ' AND `type` = \'' . ContactImport::TYPE_IMPORT . '\'', false);
+        $routes = [
+            'AdminSmailyConnectSetup' => 'smailyforprestashop_api_setup_import',
+            'AdminSmailyConnectSettings' => 'smailyforprestashop_api_settings_import',
+        ];
+
+        foreach ($routes as $tab => $route) {
+            $response = $this->adminRequest(new ContactImportAction(), ['action' => 'start'], ['_legacy_controller' => $tab, '_route' => $route]);
+            $answer = json_decode((string) $response->getContent(), true);
+            self::assertSame([422, 'invalid_fields', 'Test your Smaily connection to continue.'], [$response->getStatusCode(), $answer['error']['code'], $answer['error']['message']], $route);
+        }
+        self::assertSame(0, $imports(), 'no import was started');
+        self::assertCount(0, $this->mock->requests(), 'Smaily is not asked');
+
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'connect', 'data' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD, 'language_mode' => 'single']])->getStatusCode());
+        $response = $this->adminRequest(new ContactImportAction(), ['action' => 'start'], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => $routes['AdminSmailyConnectSetup']]);
+        self::assertSame(200, $response->getStatusCode(), 'a stored account starts it');
+        self::assertSame(1, $imports());
     }
 
     public function testAnAccountPerLanguageSavesEachLanguageAndTheFallback(): void

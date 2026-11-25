@@ -758,7 +758,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Press <strong>Save Contacts</strong>. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.</li>
       </ol>
       <p><strong>Show a newsletter checkbox at checkout</strong> reads <strong>PrestaShop's newsletter module shows it</strong>: PrestaShop's newsletter module (<code>ps_emailsubscription</code>) already shows a newsletter checkbox at checkout, so Smaily Connect adds none of its own.</p>
-      <p>Under <strong>Initial contact import</strong>, <strong>Start import</strong> sends the contacts that your Contacts settings sync to Smaily once, in the background (see <a href="#imp-what">What gets imported</a>). New and changed contacts are synced on their own afterwards.</p>
+      <p>Under <strong>Initial contact import</strong>, <strong>Start import</strong> sends the contacts that your Contacts settings sync to Smaily once, in the background (see <a href="#imp-what">What gets imported</a>). New and changed contacts are synced on their own afterwards. While no Smaily account is saved, it starts nothing and says <em>Test your Smaily connection to continue.</em></p>
       <p>An upgraded store starts in <strong>Subscribers only (consent)</strong> with <strong>Include guests</strong> on, the narrowest mode that matches what version 2.x did. In that mode, the first check of each Smaily account takes only unsubscribes from Smaily, and marks nobody subscribed again.</p>
     </div>
     <div data-lang="et">
@@ -776,7 +776,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Vajuta <strong>Salvesta kontaktid</strong>. Kui salvestamine muudab seda, keda sünkroonitakse, ütleb leht, mida edaspidi saadetakse, ja palub kinnitust.</li>
       </ol>
       <p>Valiku <strong>Näita kassas uudiskirja märkeruutu</strong> juures on kirjas <strong>Seda näitab PrestaShopi uudiskirjamoodul</strong>: PrestaShopi uudiskirjamoodul (<code>ps_emailsubscription</code>) näitab juba kassas uudiskirja märkeruutu, seega Smaily Connect oma märkeruutu ei lisa.</p>
-      <p>Jaotises <strong>Esmane kontaktide import</strong> saadab <strong>Alusta importi</strong> taustal üks kord Smailysse kontaktid, keda sinu kontaktide seaded sünkroonivad (vt <a href="#imp-what">Mida imporditakse</a>). Uued ja muutunud kontaktid sünkroonitakse edaspidi ise.</p>
+      <p>Jaotises <strong>Esmane kontaktide import</strong> saadab <strong>Alusta importi</strong> taustal üks kord Smailysse kontaktid, keda sinu kontaktide seaded sünkroonivad (vt <a href="#imp-what">Mida imporditakse</a>). Uued ja muutunud kontaktid sünkroonitakse edaspidi ise. Kuni Smaily kontot pole salvestatud, ei alusta see midagi ja ütleb <em>Jätkamiseks testi oma Smaily ühendust.</em></p>
       <p>Uuendatud pood alustab valikuga <strong>Ainult turunduskirjade tellijad (nõusolekuga)</strong> ja sisselülitatud valikuga <strong>Kaasa külalised</strong> — kitsaim režiim, mis vastab sellele, mida tegi versioon 2.x. Selles režiimis võtab iga Smaily konto esimene kontroll Smailyst ainult loobumised ega märgi kedagi uuesti tellijaks.</p>
     </div>
   </div>
@@ -1532,6 +1532,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td>"Setup token not recognised. Verify the URL is correct."</td><td>The link was cut or mistyped.</td><td>Copy the whole link again.</td></tr>
             <tr><td>"This setup link is for the Campaign Intelligence store of another Smaily account, …"</td><td>The link belongs to another Smaily account than the store's. The link is used up.</td><td>Ask Smaily for a new setup link for this store's Smaily account.</td></tr>
             <tr><td>"Paste the setup URL or token from Smaily first."</td><td>The field is empty. Nothing was sent.</td><td>Paste the link exactly as Smaily gave it.</td></tr>
+            <tr><td>"Test your Smaily connection to continue."</td><td>No Smaily account is saved for the store. Nothing was sent.</td><td>Connect your Smaily account first (<a href="#set-connection">Settings › Connection</a> or <a href="#setup-connect">step 1</a>), then connect again.</td></tr>
             <tr><td>"Campaign Intelligence rejected the stored API key." · Dashboard: "Key rejected"</td><td>The key was revoked or rotated.</td><td><strong>Disconnect</strong> and connect again with a fresh setup link.</td></tr>
             <tr><td>"Campaign Intelligence needs a newer version of Smaily Connect." · Dashboard: "Update needed"</td><td>The module is too old for Campaign Intelligence.</td><td>Update the module (see <a href="#faq-update">A newer version</a>), then press <strong>Check again</strong>.</td></tr>
             <tr><td>Dashboard: "Account not active on the Smaily side"</td><td>Smaily suspended or closed the account.</td><td>See <a href="#set-deactivated">A deactivated account</a>.</td></tr>
@@ -1552,6 +1553,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td>„Seadistusvõtit ei tuntud ära. Kontrolli, et URL on õige.“</td><td>Link oli katkine või valesti sisestatud.</td><td>Kopeeri kogu link uuesti.</td></tr>
             <tr><td>„See seadistuslink kuulub teise Smaily konto Campaign Intelligence'i poele, …“</td><td>Link kuulub teisele Smaily kontole kui poe oma. Link on ära kasutatud.</td><td>Küsi Smailylt uus seadistuslink selle poe Smaily konto jaoks.</td></tr>
             <tr><td>„Kleebi esmalt Smailylt saadud seadistus-URL või -võti.“</td><td>Väli on tühi. Midagi ei saadetud.</td><td>Kleebi link täpselt nii, nagu Smaily selle andis.</td></tr>
+            <tr><td>„Jätkamiseks testi oma Smaily ühendust.“</td><td>Poel pole salvestatud Smaily kontot. Midagi ei saadetud.</td><td>Ühenda esmalt oma Smaily konto (<a href="#set-connection">Seaded › Ühendus</a> või <a href="#setup-connect">samm 1</a>) ja ühenda siis uuesti.</td></tr>
             <tr><td>„Campaign Intelligence lükkas salvestatud API võtme tagasi.“ · töölaud: „Võti tagasi lükatud“</td><td>Võti on tühistatud või välja vahetatud.</td><td>Vajuta <strong>Katkesta ühendus</strong> ja ühenda uuesti värske seadistuslingiga.</td></tr>
             <tr><td>„Campaign Intelligence vajab Smaily Connecti uuemat versiooni.“ · töölaud: „Vajab uuendust“</td><td>Moodul on Campaign Intelligence'i jaoks liiga vana.</td><td>Uuenda moodul (vt <a href="#faq-update">Uuem versioon</a>) ja vajuta siis <strong>Kontrolli uuesti</strong>.</td></tr>
             <tr><td>Töölaud: „Konto ei ole Smaily poolel aktiivne“</td><td>Smaily peatas või sulges konto.</td><td>Vt <a href="#set-deactivated">Deaktiveeritud konto</a>.</td></tr>

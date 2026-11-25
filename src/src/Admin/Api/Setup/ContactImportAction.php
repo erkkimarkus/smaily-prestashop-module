@@ -38,12 +38,19 @@ use Symfony\Component\HttpFoundation\Request;
  * The first contact import of the page's scope (Contacts\Import\ContactImport): POST {"action":
  * "start"} starts it (or resumes a stopped one), {"action": "stop"} stops it after the page it
  * sends. Both answer `{"import": <progress>|null}`; the counts and the state carry no contact.
+ *
+ * A start, which the Initial setup offers on step 2, starts nothing while the scope has no Smaily
+ * account stored and answers the words of step 1, as SaveStep's later steps
+ * (ConnectionPanel::laterStepErrors()); a stop always stops. Settings' Contacts tab calls the same
+ * endpoint.
  */
 final class ContactImportAction extends AbstractSetupAction
 {
     protected function handle(Request $request, int $idShop)
     {
-        $target = $this->panels()->scope($idShop)->targetShop();
+        $panels = $this->panels();
+        $scope = $panels->scope($idShop);
+        $target = $scope->targetShop();
         if ($target === null) {
             return $this->error('no_shop', $this->trans('These shops are set up as separate stores. Reload the page and set each shop up on its own.', BaseController::DOMAIN));
         }
@@ -51,6 +58,10 @@ final class ContactImportAction extends AbstractSetupAction
         $import = Services::instance()->get(ContactImport::class);
         $action = (string) ($this->body($request)['action'] ?? '');
         if ($action === 'start') {
+            $refused = $panels->connection()->laterStepErrors($scope);
+            if ($refused !== []) {
+                return $this->fieldErrors($refused);
+            }
             $import->start($target);
         } elseif ($action === 'stop') {
             $import->stop($target);

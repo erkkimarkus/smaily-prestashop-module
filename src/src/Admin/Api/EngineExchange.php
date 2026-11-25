@@ -38,12 +38,23 @@ use Symfony\Component\HttpFoundation\Request;
  * panel's values>}`; the catalog, customers and orders imports are then queued. A link that is not
  * taken answers 422 `link_refused` with the module's own sentence for the reason, never the
  * engine's text. The link is not stored and not logged.
+ *
+ * The exchange names the store's Smaily account (contract §1, `smaily_subdomain`), so while the
+ * scope has no Smaily account stored it sends nothing and answers the words of step 1, as
+ * Setup\SaveStep's later steps (ConnectionPanel::laterStepErrors()). Step 4 of the Initial setup
+ * and Settings' Intelligence tab call the same endpoint.
  */
 final class EngineExchange extends AbstractSetupAction
 {
     protected function handle(Request $request, int $idShop)
     {
-        $result = $this->panels()->intelligence()->connect($this->panels()->scope($idShop), (string) ($this->body($request)['link'] ?? ''));
+        $panels = $this->panels();
+        $scope = $panels->scope($idShop);
+        $refused = $panels->connection()->laterStepErrors($scope);
+        if ($refused !== []) {
+            return $this->fieldErrors($refused);
+        }
+        $result = $panels->intelligence()->connect($scope, (string) ($this->body($request)['link'] ?? ''));
 
         return $result['error'] !== null ? $this->error('link_refused', $result['error'], 422) : ['intelligence' => $result['values']];
     }

@@ -67,8 +67,7 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 
 ## Queue (technical, for the orchestrator)
 
-- Initial setup: the first-answer card of "Separate stores" names no connection that moves. The first contact import
-  and `Api\Setup\EngineExchange` do not check for a Smaily account (SaveStep does).
+- Initial setup: the first-answer card of "Separate stores" names no connection that moves.
 - The Log: a Done `contacts_refresh` job shows "Smaily API returned code 203" in Last Error; check whether a Done
   job should show an error at all.
 - Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next

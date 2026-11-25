@@ -3409,7 +3409,7 @@ again. While an import is queued or running, the Settings tab asks for the state
 
 | Endpoint (`Admin\Api`) | Right | Does |
 |---|---|---|
-| `EngineExchange` | update | Exchanges the pasted setup link (section 8.9) and queues the three imports (section 8.12). A link that is not taken answers 422 `link_refused` with the module's sentence. |
+| `EngineExchange` | update | Exchanges the pasted setup link (section 8.9) and queues the three imports (section 8.12). A link that is not taken answers 422 `link_refused` with the module's sentence. While the scope has no Smaily account stored it sends nothing and answers 422 `invalid_fields` with step 1's words (section 15, 2026-11-25). |
 | `EnginePing` | update | "Check again": `HealthCheck::check()` now; answers a sentence when the engine refuses the store or does not answer. Settings only. |
 | `EngineDisconnect` | update | "Disconnect": `Disconnector::disconnect()`, after the page's question. Settings only. |
 | `BackfillState` | read | The panel's state, for the cards of an open page. Settings only. |
@@ -4960,7 +4960,11 @@ Decisions of 2026-11-25:
   too, as Shopify's `goto` gate: `Api\Setup\SaveStep` saves `contacts`, `automations`,
   `intelligence` and `finish` only while the scope has a Smaily account with its credentials stored
   (`ConnectionPanel::laterStepErrors()`), and answers the same words; it asks Smaily nothing, as
-  step 1 stores only an account that Smaily accepts. An edit of a connection field hides the
+  step 1 stores only an account that Smaily accepts. The start of the first contact import
+  (`Api\Setup\ContactImportAction`) and the Campaign Intelligence setup exchange
+  (`Api\EngineExchange`, whose request names the store's Smaily account, contract §1) refuse the
+  same way and start, save and send nothing; Settings > Contacts and Settings > Intelligence call
+  the same two endpoints, so they refuse there too. A stop of an import is never refused. An edit of a connection field hides the
   connection status of the account of no language until a test or a save answers again, in the
   Initial setup and on Settings > Connection, which share the panel, as WooCommerce's one reducer
   resets the connection state in both. Smaily's answer about a stored account that arrives after

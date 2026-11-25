@@ -3,12 +3,15 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Engine;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\IntelligencePanel;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 
 /**
  * The Intelligence panel of Story 5.3 against the engine mock: a connection starts the three
@@ -27,6 +30,7 @@ final class IntelligencePanelTest extends EngineTestCase
     protected function tearDown(): void
     {
         if (defined('_PS_ROOT_DIR_')) {
+            $this->restoreShopRuntime();
             self::db()->delete(JobStore::TABLE, '`type` LIKE \'engine\\_%\'');
             \Configuration::deleteByName(EngineSettings::CONSENT_CONFIRMED);
         }
@@ -74,6 +78,34 @@ final class IntelligencePanelTest extends EngineTestCase
         ], $said);
         self::assertSame(0, self::connectionRows());
         self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `type` LIKE \'engine\\_%\''), 'no import without a connection');
+    }
+
+    /**
+     * The exchange names the store's Smaily account (contract §1), so a request straight to the
+     * endpoint while the scope has no Smaily account stored sends the engine nothing, on step 4 of
+     * the Initial setup and on Settings > Intelligence alike (owner, 2026-11-25).
+     */
+    public function testAnExchangeStraightToTheEndpointWithoutAnAccountSendsNothing(): void
+    {
+        $this->useAsShopRuntime($this->services);
+        $routes = [
+            'AdminSmailyConnectSetup' => 'smailyforprestashop_api_setup_engine_exchange',
+            'AdminSmailyConnectSettings' => 'smailyforprestashop_api_settings_engine_exchange',
+        ];
+
+        foreach ($routes as $tab => $route) {
+            $response = $this->adminRequest(new EngineExchange(), ['link' => $this->engine->setupLink('gate' . $tab)], ['_legacy_controller' => $tab, '_route' => $route]);
+            $answer = json_decode((string) $response->getContent(), true);
+            self::assertSame([422, 'invalid_fields', 'Test your Smaily connection to continue.'], [$response->getStatusCode(), $answer['error']['code'], $answer['error']['message']], $route);
+        }
+        self::assertSame([], $this->engine->requests(), 'the engine is not asked');
+        self::assertSame(0, self::connectionRows());
+        self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `type` LIKE \'engine\\_%\''), 'no import without a connection');
+
+        $this->storeAccount((int) SetupScope::current(new StoreLayout(), AbstractJsonAction::shopId())->targetShop(), 'demoshop');
+        $response = $this->adminRequest(new EngineExchange(), ['link' => $this->engine->setupLink('gateopen')], ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => $routes['AdminSmailyConnectSetup']]);
+        self::assertSame(200, $response->getStatusCode(), 'a stored account opens it');
+        self::assertSame(1, self::connectionRows());
     }
 
     public function testTheStateFollowsTheCheckAndADisconnectEndsTheConnection(): void
