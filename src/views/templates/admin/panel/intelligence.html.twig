@@ -168,7 +168,8 @@
       <div class="smaily-card__head"><strong>{{ 'Show recommendations in your store'|trans }}</strong></div>
       <p class="smaily-note">
         {{ 'Open Design > Positions, pick Smaily Connect as the module and a position, for example displayHome for the home page or displayFooterProduct for the product page. A theme developer can also write {widget name=\'smailyforprestashop\'} in a template. Shoppers who accept marketing cookies see the products Smaily recommends to them.'|trans }}
-        <a href="https://github.com/sendsmaily/smaily-prestashop-module/blob/master/USERGUIDE.md#product-recommendations-in-your-store" target="_blank" rel="noopener noreferrer">{{ 'How to add it →'|trans }}</a>
+        {% set guide = 'PrestaShop\\Module\\SmailyForPrestaShop\\Admin\\UserGuide' %}
+        <a href="{{ constant(guide ~ '::URL') }}#{{ constant(guide ~ '::SECTION_STOREFRONT_RECOMMENDATIONS') }}" target="_blank" rel="noopener noreferrer">{{ 'How to add it →'|trans }}</a>
       </p>
     </div>
   {% endif %}

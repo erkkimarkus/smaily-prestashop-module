@@ -52,6 +52,7 @@
 - The Log words every reason of a skipped or refused row, and every failure of a row to Campaign Intelligence, as a sentence, where it showed a code such as `too_old` or `network_error`. A failure from Campaign Intelligence shows its HTTP status or its code, never Campaign Intelligence's own text.
 - The cron line of the Background tasks card has no language prefix in its address, so it is the same line for every employee of a store with several languages.
 - Keeps the product RSS feed at its 2.x address with its 2.x parameters (`category_id`, `limit`, `sort_by`, `sort_order`), so feed URLs in existing Smaily templates keep working.
+- The merchant guide is at https://smaily.com/connect-presta/, in English and Estonian, as the guides of the other Smaily Connect modules are. "How to add it →" under Settings > Intelligence opens its section on the recommendations block.
 
 ### 2.2.0
 
