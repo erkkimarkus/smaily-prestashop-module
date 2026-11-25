@@ -12,6 +12,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\Migration\LegacyStore;
 use Tests\Integration\MultistoreShop;
 
@@ -55,7 +56,7 @@ final class CatalogManifestTest extends IngestTestCase
 
         $requests = $this->engine->requestsTo(self::MANIFEST);
         self::assertCount(1, $requests);
-        self::assertSame('Bearer ' . $connection->apiKey(), $requests[0]['authorization']);
+        self::assertSame(EngineMockServer::keyId($connection->apiKey()), $requests[0]['key']);
         self::assertSame(['products'], array_keys($requests[0]['body']));
         $products = $requests[0]['body']['products'];
         self::assertSame($expected, array_column($products, 'sku'), 'every row of every product that is switched on, and no other');
@@ -139,7 +140,7 @@ final class CatalogManifestTest extends IngestTestCase
         $this->manifest()->run(self::deadline());
 
         $requests = $this->engine->requestsTo(self::MANIFEST);
-        self::assertSame(['Bearer ' . $one->apiKey(), 'Bearer ' . $two->apiKey()], array_column($requests, 'authorization'));
+        self::assertSame([EngineMockServer::keyId($one->apiKey()), EngineMockServer::keyId($two->apiKey())], array_column($requests, 'key'));
         self::assertSame(self::expectedSkus('c2-', $first), array_column($requests[0]['body']['products'], 'sku'));
         self::assertSame(self::expectedSkus('c3-', $second), array_column($requests[1]['body']['products'], 'sku'), 'the second shop lists its own two products');
         self::assertCount(count(self::combinations(1)) + count(self::combinations(2)), $requests[1]['body']['products']);
@@ -159,7 +160,7 @@ final class CatalogManifestTest extends IngestTestCase
         $this->manifest()->run(self::deadline());
 
         $requests = $this->engine->requestsTo(self::MANIFEST);
-        self::assertSame(['Bearer ' . $own->apiKey()], array_column($requests, 'authorization'), 'the shop\'s own connection sends its list');
+        self::assertSame([EngineMockServer::keyId($own->apiKey())], array_column($requests, 'key'), 'the shop\'s own connection sends its list');
         self::assertNotSame($shared->apiKey(), $own->apiKey());
     }
 

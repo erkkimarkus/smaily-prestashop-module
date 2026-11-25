@@ -230,8 +230,7 @@ final class RecommendationsBlockTest extends StorefrontTestCase
 
     public function testEveryPageOfAConnectedShopGetsTheScriptsAndADefinitionThatNamesNoVisitor(): void
     {
-        $this->connect();
-        $key = (string) array_key_first($this->engine->connections());
+        $key = $this->connect()->apiKey();
         \Context::getContext()->customer = new \Customer($this->fixture->customer('scripts-shopper@example.test', false, true));
         $controller = $this->storefrontRequest(['smaily_rec_uid' => 'vt_8f3k2a9xq4'], 'search');
 

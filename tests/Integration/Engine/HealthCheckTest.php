@@ -14,6 +14,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Tick;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickReport;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Tests\Integration\Fixtures\EngineMockServer;
 
 require_once __DIR__ . '/EngineTestCase.php';
 
@@ -73,7 +74,7 @@ final class HealthCheckTest extends EngineTestCase
         self::assertSame('', $stored->refusedAt());
         $pings = $this->engine->requestsTo('/api/v1/ingest/ping');
         self::assertCount(1, $pings);
-        self::assertSame(['GET', 'Bearer ' . $connection->apiKey(), '', []], [$pings[0]['method'], $pings[0]['authorization'], $pings[0]['raw'], $pings[0]['query']]);
+        self::assertSame(['GET', EngineMockServer::keyId($connection->apiKey()), '', []], [$pings[0]['method'], $pings[0]['key'], $pings[0]['raw'], $pings[0]['query']]);
     }
 
     /**
@@ -221,9 +222,9 @@ final class HealthCheckTest extends EngineTestCase
         self::assertSame(self::NOW_UTC, $this->connections()->find(992)->health()['checked_at'], 'the other waits for the next run');
 
         $this->check(self::NOW + 1800)->run(self::deadline());
-        $pings = array_column($this->engine->requestsTo('/api/v1/ingest/ping'), 'authorization');
+        $pings = array_column($this->engine->requestsTo('/api/v1/ingest/ping'), 'key');
         self::assertSame(
-            ['Bearer ' . $second->apiKey(), 'Bearer ' . $first->apiKey(), 'Bearer ' . $second->apiKey(), 'Bearer ' . $first->apiKey()],
+            [EngineMockServer::keyId($second->apiKey()), EngineMockServer::keyId($first->apiKey()), EngineMockServer::keyId($second->apiKey()), EngineMockServer::keyId($first->apiKey())],
             $pings
         );
     }

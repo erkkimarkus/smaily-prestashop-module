@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestFlusher;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use Tests\Integration\Fixtures\EngineMockServer;
 
 require_once __DIR__ . '/IngestTestCase.php';
 
@@ -76,7 +77,7 @@ final class CatalogIngestTest extends IngestTestCase
 
         $requests = $this->engine->requestsTo(self::CATALOG);
         self::assertCount(1, $requests);
-        self::assertSame('Bearer ' . $connection->apiKey(), $requests[0]['authorization']);
+        self::assertSame(EngineMockServer::keyId($connection->apiKey()), $requests[0]['key']);
         self::assertSame(['products'], array_keys($requests[0]['body']));
         $sent = $requests[0]['body']['products'];
         $combinations = self::combinations(self::SHIRT);

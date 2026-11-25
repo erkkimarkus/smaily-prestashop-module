@@ -11,6 +11,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportExcept
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\MultistoreShop;
 
 require_once __DIR__ . '/EngineTestCase.php';
@@ -53,7 +54,7 @@ final class SetupExchangeTest extends EngineTestCase
         $issued = $this->engine->connections();
         self::assertCount(1, $issued);
         $key = (string) array_key_first($issued);
-        self::assertSame($key, $connection->apiKey());
+        self::assertSame($key, EngineMockServer::keyId($connection->apiKey()));
         self::assertSame($issued[$key]['tenant_id'], $connection->tenantId());
         self::assertSame(0, $connection->idShop());
         self::assertSame('c2-', $connection->prefix());
@@ -93,7 +94,7 @@ final class SetupExchangeTest extends EngineTestCase
         );
         $shop = new \Shop((int) \Configuration::get('PS_SHOP_DEFAULT'));
         self::assertMatchesRegularExpression('~^https?://' . preg_quote($shop->domain, '~') . '/~', $body['plugin_info']['site_url']);
-        self::assertNull($requests[0]['authorization']);
+        self::assertNull($requests[0]['key']);
     }
 
     /**

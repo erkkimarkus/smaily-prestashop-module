@@ -175,8 +175,17 @@ final class EngineMockServer
     }
 
     /**
-     * The connections the mock holds, by API key: `tenant_id`, `prefix`, `revoked` (false,
-     * "uninstall" or "operator") and the `site_url` the exchange named.
+     * How the mock names an API key in its state: by its SHA-256, so that the state file holds no
+     * key it issued or was sent.
+     */
+    public static function keyId(string $apiKey): string
+    {
+        return hash('sha256', $apiKey);
+    }
+
+    /**
+     * The connections the mock holds, by keyId() of their API key: `tenant_id`, `prefix`,
+     * `revoked` (false, "uninstall" or "operator") and the `site_url` the exchange named.
      *
      * @return array<string, array{tenant_id: string, prefix: string, revoked: string|false, site_url: ?string}>
      */
@@ -186,14 +195,22 @@ final class EngineMockServer
     }
 
     /**
-     * Every request received, oldest first; `authorization` is the whole header, `raw` the body as
-     * sent and `body` the body as JSON.
+     * Every request received, oldest first; `key` is keyId() of the bearer key it carried (null
+     * without one), `raw` the body as sent and `body` the body as JSON.
      *
-     * @return list<array{method: string, path: string, query: array<string, string>, user_agent: ?string, accept: ?string, content_type: ?string, authorization: ?string, raw: string, body: mixed}>
+     * @return list<array{method: string, path: string, query: array<string, string>, user_agent: ?string, accept: ?string, content_type: ?string, key: ?string, raw: string, body: mixed}>
      */
     public function requests(): array
     {
         return $this->state()['requests'] ?? [];
+    }
+
+    /**
+     * The state file as the mock last wrote it.
+     */
+    public function stateText(): string
+    {
+        return (string) file_get_contents($this->stateFile);
     }
 
     /**

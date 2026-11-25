@@ -258,10 +258,13 @@ engine mock` is a Campaign Intelligence call that the engine mock answered; `REF
 is a call that did not leave the container (PrestaShop's own calls and the module's update check
 show here).
 
-The engine mock's state is `/tmp/smaily-mock/engine-state.json` in the container: the connections
-by the API key it issued (never copy a key into a report), the used setup tokens, every request it
-received, and its switches, which `mock-engine/router.php` lists (`smaily_subdomain`, `tenant_id`,
-`next_prefix`, `prefix_answer`, `require_capability`, `tenant_inactive`, `fail`, `delay`). It
+The engine mock's state is `/tmp/smaily-mock/engine-state.json` in the container: the connections by
+the SHA-256 of the API key it issued, the used setup tokens, every request it received (its key as
+`key`, the same SHA-256, or null), and its switches, which `mock-engine/router.php` lists
+(`smaily_subdomain`, `tenant_id`, `next_prefix`, `prefix_answer`, `require_capability`,
+`tenant_inactive`, `fail`, `delay`). The state holds no API key, also none the mock issued; a state
+written before the mock hashed its keys is converted at its next request, so a shop's connections
+keep working. It
 also answers the three privacy routes (contract §8, §9 and §10): it knows every address but one
 that `unknown_customers` lists or that a deletion put into `deleted_customers` (both answer
 HTTP 404, one list for every engine store), keeps each address's choice under `opt_outs`, and

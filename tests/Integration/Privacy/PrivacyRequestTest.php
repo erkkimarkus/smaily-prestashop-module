@@ -75,7 +75,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
         self::assertNotSame($export['campaign_intelligence'][0]['data']['export_metadata']['tenant_id'], $export['campaign_intelligence'][1]['data']['export_metadata']['tenant_id']);
         $gets = $this->engineRequests('GET', self::SHOPPER, '/export');
         self::assertCount(2, $gets, 'one attempt per connection, with the address in lower case');
-        self::assertNotSame($gets[0]['authorization'], $gets[1]['authorization']);
+        self::assertNotSame($gets[0]['key'], $gets[1]['key']);
         self::assertStringNotContainsString('shopper2', (string) json_encode($export), 'nothing of another shopper');
         self::assertStringNotContainsString($history['others_code'], (string) json_encode($export));
     }
@@ -270,7 +270,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
         $deletes = $this->engineRequests('DELETE', self::SHOPPER);
         self::assertCount(4, $deletes, 'two failed attempts, then one delivery per connection');
         self::assertSame(['confirm' => true, 'reason' => 'user_request'], $deletes[2]['body']);
-        self::assertNotSame($deletes[2]['authorization'], $deletes[3]['authorization']);
+        self::assertNotSame($deletes[2]['key'], $deletes[3]['key']);
         self::assertNull($rows[0]['last_request'], 'the row keeps no request');
 
         // The engine has deleted the shopper: a later deletion meets HTTP 404, which is done.

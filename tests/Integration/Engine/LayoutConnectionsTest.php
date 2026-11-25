@@ -32,6 +32,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\LayoutConnections;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\MultistoreShop;
 
 /**
@@ -110,9 +111,9 @@ final class LayoutConnectionsTest extends EngineTestCase
         self::assertSame([$second->id(), $second->apiKey()], [$carried->id(), $carried->apiKey()]);
         $requests = $this->engine->requestsTo(self::UNINSTALL);
         self::assertCount(1, $requests, 'the engine is told once, of the connection that ended');
-        self::assertSame('Bearer ' . $first->apiKey(), $requests[0]['authorization']);
-        self::assertSame('uninstall', $this->engine->connections()[$first->apiKey()]['revoked']);
-        self::assertFalse($this->engine->connections()[$second->apiKey()]['revoked'], 'the carried connection keeps its key');
+        self::assertSame(EngineMockServer::keyId($first->apiKey()), $requests[0]['key']);
+        self::assertSame('uninstall', $this->engine->connections()[EngineMockServer::keyId($first->apiKey())]['revoked']);
+        self::assertFalse($this->engine->connections()[EngineMockServer::keyId($second->apiKey())]['revoked'], 'the carried connection keeps its key');
         self::assertSame($first->prefix(), $this->services->get(EngineSettings::class)->previousPrefix($this->shopA), 'as a Disconnect remembers it');
         self::assertSame(HealthCheck::CONNECTED, $this->services->get(HealthCheck::class)->check($carried));
         self::assertSame('queued', $this->jobs()->latest($first->id(), HistoryJobs::CATALOG)['status'], 'the ended connection\'s import waits for the tick to cancel it');
@@ -130,8 +131,8 @@ final class LayoutConnectionsTest extends EngineTestCase
         self::assertSame(1, self::connectionRows());
         self::assertSame($shared->apiKey(), $this->connections()->find($this->shopA)->apiKey());
         self::assertSame(
-            ['Bearer ' . $stale->apiKey(), 'Bearer ' . $other->apiKey()],
-            array_column($this->engine->requestsTo(self::UNINSTALL), 'authorization'),
+            [EngineMockServer::keyId($stale->apiKey()), EngineMockServer::keyId($other->apiKey())],
+            array_column($this->engine->requestsTo(self::UNINSTALL), 'key'),
             'the row that held the place first, then every other one'
         );
     }
@@ -146,7 +147,7 @@ final class LayoutConnectionsTest extends EngineTestCase
         $this->change()->change($this->shopB, 0);
 
         self::assertSame(0, self::connectionRows());
-        self::assertSame(['Bearer ' . $first->apiKey()], array_column($this->engine->requestsTo(self::UNINSTALL), 'authorization'));
+        self::assertSame([EngineMockServer::keyId($first->apiKey())], array_column($this->engine->requestsTo(self::UNINSTALL), 'key'));
     }
 
     public function testAnEngineThatDoesNotAnswerDoesNotStopTheChange(): void

@@ -7,6 +7,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\Keys;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use Tests\Integration\Contacts\ContactRows;
+use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\Migration\LegacyStore;
 use Tests\Integration\MultistoreShop;
 
@@ -106,21 +107,21 @@ final class MultishopIngestTest extends IngestTestCase
         $byKey = [];
         foreach ($this->engine->requestsTo(self::CATALOG) as $request) {
             foreach ($request['body']['products'] as $product) {
-                $byKey[$request['authorization']][] = $product;
+                $byKey[$request['key']][] = $product;
             }
         }
-        $firstSkus = array_column($byKey['Bearer ' . $one->apiKey()], 'sku');
-        $secondSkus = array_column($byKey['Bearer ' . $two->apiKey()], 'sku');
+        $firstSkus = array_column($byKey[EngineMockServer::keyId($one->apiKey())], 'sku');
+        $secondSkus = array_column($byKey[EngineMockServer::keyId($two->apiKey())], 'sku');
         self::assertCount(9, $firstSkus);
         self::assertSame([], array_filter($firstSkus, static fn (string $sku): bool => strpos($sku, 'c2-') !== 0), 'the first shop\'s products go under its prefix');
         self::assertCount(8, $secondSkus, 'the second shop sends the shirt, which it holds, and not the mug');
         self::assertSame([], array_filter($secondSkus, static fn (string $sku): bool => strpos($sku, 'c3-') !== 0));
-        self::assertSame('c3-' . Keys::PLATFORM_NAMESPACE . self::SHIRT, $byKey['Bearer ' . $two->apiKey()][0]['tags']['product_id']);
-        self::assertArrayNotHasKey('websites', $byKey['Bearer ' . $two->apiKey()][0], 'a connection of one shop names no website');
-        self::assertStringContainsString('shop' . $second . '.example.invalid', $byKey['Bearer ' . $two->apiKey()][0]['product_url']);
+        self::assertSame('c3-' . Keys::PLATFORM_NAMESPACE . self::SHIRT, $byKey[EngineMockServer::keyId($two->apiKey())][0]['tags']['product_id']);
+        self::assertArrayNotHasKey('websites', $byKey[EngineMockServer::keyId($two->apiKey())][0], 'a connection of one shop names no website');
+        self::assertStringContainsString('shop' . $second . '.example.invalid', $byKey[EngineMockServer::keyId($two->apiKey())][0]['product_url']);
 
         $orders = $this->engine->requestsTo(self::ORDERS);
-        self::assertSame(['Bearer ' . $two->apiKey()], array_column($orders, 'authorization'), 'an order goes through the connection of its shop');
+        self::assertSame([EngineMockServer::keyId($two->apiKey())], array_column($orders, 'key'), 'an order goes through the connection of its shop');
         self::assertSame('c3-' . $order->id, $orders[0]['body']['orders'][0]['external_order_id']);
         self::assertArrayNotHasKey('website', $orders[0]['body']['orders'][0]);
         $ordersRow = self::rows(IngestQueue::DOMAIN_ORDERS)[0];
@@ -160,7 +161,7 @@ final class MultishopIngestTest extends IngestTestCase
         self::assertSame([(string) $two->id(), (string) $product->id], [$row['id_connection'], $row['entity_key']], 'the removal belongs to the second shop\'s connection');
         $this->flush();
         $removals = $this->engine->requestsTo(self::REMOVE);
-        self::assertSame(['Bearer ' . $two->apiKey()], array_column($removals, 'authorization'));
+        self::assertSame([EngineMockServer::keyId($two->apiKey())], array_column($removals, 'key'));
         self::assertSame(['product_ids' => ['c3-' . Keys::PLATFORM_NAMESPACE . $product->id]], $removals[0]['body']);
         self::assertNotSame($one->apiKey(), $two->apiKey());
     }

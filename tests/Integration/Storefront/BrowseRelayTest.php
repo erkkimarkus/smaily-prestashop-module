@@ -44,7 +44,7 @@ final class BrowseRelayTest extends StorefrontTestCase
         $requests = $this->engine->requestsTo(self::BROWSE);
         self::assertCount(1, $requests);
         self::assertSame('POST', $requests[0]['method']);
-        self::assertSame('Bearer ' . array_key_first($this->engine->connections()), $requests[0]['authorization']);
+        self::assertSame(array_key_first($this->engine->connections()), $requests[0]['key']);
         self::assertSame(['events'], array_keys($requests[0]['body']));
         foreach ($requests[0]['body']['events'] as $event) {
             self::assertSame([], array_diff(array_keys($event), ['event_id', 'session_id', 'event_type', 'event_ts', 'search_query', 'sku']));
@@ -56,8 +56,7 @@ final class BrowseRelayTest extends StorefrontTestCase
 
     public function testTheBrowserNeverSeesTheKeyAndTheEngineNeverSeesAnAddress(): void
     {
-        $this->connect();
-        $key = (string) array_key_first($this->engine->connections());
+        $key = $this->connect()->apiKey();
 
         [, $answer] = $this->relay([self::event('search', '1', ['search_query' => 'mug'])]);
 

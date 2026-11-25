@@ -7,8 +7,9 @@
  *
  * State lives in the JSON file that ENGINE_MOCK_STATE names. EngineMockServer writes and reads it;
  * in a dev shop the egress guard seeds it (docs/DEV_ENVIRONMENT.md 4a). It holds what the engine
- * would hold (the connections by API key, the used setup tokens, the prefixes the store assigned),
- * every request received, and the switches a test sets:
+ * would hold (the connections by the SHA-256 of their API key, the used setup tokens, the prefixes
+ * the store assigned), every request received (its key, too, as a SHA-256), and the switches a test
+ * sets:
  *
  *   smaily_subdomain    string|null  the Smaily account the exchange names (§1; default null)
  *   tenant_id           string       the engine store the next exchange joins (default: a new one)
@@ -61,10 +62,38 @@ declare(strict_types=1);
 const HISTORY = ['start_months' => 18, 'horizon_months' => 60, 'order' => 'newest_first'];
 
 $stateFile = (string) getenv('ENGINE_MOCK_STATE');
-$read = static function () use ($stateFile): array {
+// The mock keeps no API key in its state, also none it issued: whatever it holds by key (the
+// connections, `history`, `manifests`) and every request it records name a key by its SHA-256.
+$keyId = static fn (string $key): string => hash('sha256', $key);
+$read = static function () use ($stateFile, $keyId): array {
     $state = is_file($stateFile) ? json_decode((string) file_get_contents($stateFile), true) : [];
+    if (!is_array($state)) {
+        return [];
+    }
+    // A state written before the mock hashed its keys (a dev shop's, docs/DEV_ENVIRONMENT.md 4a)
+    // holds the issued keys themselves (`sk_…`): they are hashed, and the requests lose them.
+    foreach (['connections', 'history', 'manifests'] as $byKey) {
+        foreach (is_array($state[$byKey] ?? null) ? $state[$byKey] : [] as $id => $value) {
+            if (strpos((string) $id, 'sk_') === 0) {
+                unset($state[$byKey][$id]);
+                $state[$byKey][$keyId((string) $id)] = $value;
+            }
+        }
+    }
+    foreach (is_array($state['requests'] ?? null) ? $state['requests'] : [] as $index => $request) {
+        if (array_key_exists('authorization', $request)) {
+            $bearer = preg_match('/^Bearer (\S+)$/', (string) $request['authorization'], $match) === 1 ? $match[1] : null;
+            unset($state['requests'][$index]['authorization']);
+            $state['requests'][$index]['key'] = $bearer === null ? null : $keyId($bearer);
+        }
+    }
+    foreach (is_array($state['history_calls'] ?? null) ? $state['history_calls'] : [] as $index => $call) {
+        if (strpos((string) ($call['key'] ?? ''), 'sk_') === 0) {
+            $state['history_calls'][$index]['key'] = $keyId((string) $call['key']);
+        }
+    }
 
-    return is_array($state) ? $state : [];
+    return $state;
 };
 $write = static function (array $state) use ($stateFile): void {
     file_put_contents($stateFile, json_encode($state));
@@ -75,7 +104,8 @@ $path = (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $raw = (string) file_get_contents('php://input');
 $body = json_decode($raw, true);
 $authorization = (string) ($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-$key = preg_match('/^Bearer (\S+)$/', $authorization, $match) === 1 ? $match[1] : null;
+// The key's SHA-256: the connections and every record of the state name a key by it.
+$key = preg_match('/^Bearer (\S+)$/', $authorization, $match) === 1 ? $keyId($match[1]) : null;
 $routes = [
     'POST /api/setup/exchange' => 'exchange',
     'GET /api/v1/ingest/ping' => 'ping',
@@ -101,7 +131,7 @@ $state['requests'][] = [
     'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
     'accept' => $_SERVER['HTTP_ACCEPT'] ?? null,
     'content_type' => $_SERVER['CONTENT_TYPE'] ?? null,
-    'authorization' => $authorization === '' ? null : $authorization,
+    'key' => $key,
     'raw' => $raw,
     'body' => $body,
 ];
@@ -232,7 +262,7 @@ if ($route === 'exchange') {
         substr(bin2hex(random_bytes(2)), 1),
         bin2hex(random_bytes(6))
     ));
-    $connections[$apiKey] = [
+    $connections[$keyId($apiKey)] = [
         'tenant_id' => $tenantId,
         'prefix' => $prefix,
         'revoked' => false,

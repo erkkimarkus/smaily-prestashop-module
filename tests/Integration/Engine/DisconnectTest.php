@@ -10,6 +10,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Install\Schema;
 use PrestaShop\Module\SmailyForPrestaShop\Install\Uninstaller;
 use PrestaShop\Module\SmailyForPrestaShop\Migration\LegacyOverride;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use Tests\Integration\Fixtures\EngineMockServer;
 use Tests\Integration\Migration\LegacyStore;
 
 require_once __DIR__ . '/EngineTestCase.php';
@@ -43,8 +44,8 @@ final class DisconnectTest extends EngineTestCase
         self::assertSame(Disconnector::PAUSED, $outcome);
         $requests = $this->engine->requestsTo(self::UNINSTALL);
         self::assertCount(1, $requests);
-        self::assertSame(['POST', 'Bearer ' . $connection->apiKey(), ''], [$requests[0]['method'], $requests[0]['authorization'], $requests[0]['raw']]);
-        self::assertSame('uninstall', $this->engine->connections()[$connection->apiKey()]['revoked']);
+        self::assertSame(['POST', EngineMockServer::keyId($connection->apiKey()), ''], [$requests[0]['method'], $requests[0]['key'], $requests[0]['raw']]);
+        self::assertSame('uninstall', $this->engine->connections()[EngineMockServer::keyId($connection->apiKey())]['revoked']);
         self::assertSame(0, self::connectionRows(), 'no connection row and no key remains');
         self::assertNull($this->connections()->find(0));
         self::assertSame('c2-', $this->services->get(EngineSettings::class)->previousPrefix(0));
@@ -111,8 +112,8 @@ final class DisconnectTest extends EngineTestCase
         self::assertTrue((new Uninstaller($this->services, new LegacyOverride(_PS_OVERRIDE_DIR_)))->uninstall());
 
         self::assertSame(
-            ['Bearer ' . $first->apiKey(), 'Bearer ' . $second->apiKey()],
-            array_column($this->engine->requestsTo(self::UNINSTALL), 'authorization'),
+            [EngineMockServer::keyId($first->apiKey()), EngineMockServer::keyId($second->apiKey())],
+            array_column($this->engine->requestsTo(self::UNINSTALL), 'key'),
             'one call per connection, each with its own key'
         );
         self::assertSame(['uninstall', 'uninstall'], array_column($this->engine->connections(), 'revoked'));

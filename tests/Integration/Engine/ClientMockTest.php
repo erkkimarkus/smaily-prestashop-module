@@ -8,6 +8,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
+use Tests\Integration\Fixtures\EngineMockServer;
 
 require_once __DIR__ . '/EngineTestCase.php';
 
@@ -72,7 +73,7 @@ final class ClientMockTest extends EngineTestCase
         self::assertSame('application/json', $request['content_type']);
         self::assertSame('application/json', $request['accept']);
         self::assertMatchesRegularExpression('~^SmailyConnect-PrestaShopModule/\d+\.\d+\.\d+$~', (string) $request['user_agent']);
-        self::assertNull($request['authorization'], 'the exchange carries no key');
+        self::assertNull($request['key'], 'the exchange carries no key');
         self::assertSame(['setup_token' => 'tok1', 'capabilities' => ['connection_prefix']], $request['body']);
     }
 
@@ -148,7 +149,7 @@ final class ClientMockTest extends EngineTestCase
 
         $request = $this->engine->requestsTo('/api/v1/ingest/ping')[0];
         self::assertSame('GET', $request['method']);
-        self::assertSame('Bearer ' . $connection->apiKey(), $request['authorization']);
+        self::assertSame(EngineMockServer::keyId($connection->apiKey()), $request['key']);
         self::assertSame('', $request['raw']);
         self::assertSame([], $request['query']);
     }
@@ -164,6 +165,37 @@ final class ClientMockTest extends EngineTestCase
         $this->engine->revokeKeys();
         self::assertSame([401, 'unauthorised'], $this->refusal(fn () => $this->client->ping($connection)));
         self::assertSame([401, 'unauthorised'], $this->refusal(fn () => $this->client->storeUninstall($connection)), 'revoked other than by the disconnect');
+    }
+
+    public function testTheMocksStateHoldsNoKeyThatItIssuedOrWasSent(): void
+    {
+        $connection = $this->exchanged();
+        $unknown = new Connection(2, 0, '', 'tenant', 'sk_' . str_repeat('1', 32), $connection->settings());
+
+        $this->client->ping($connection);
+        $this->refusal(fn () => $this->client->ping($unknown));
+
+        self::assertSame([EngineMockServer::keyId($connection->apiKey()), EngineMockServer::keyId($unknown->apiKey())], array_column($this->engine->requestsTo('/api/v1/ingest/ping'), 'key'));
+        self::assertStringNotContainsString($connection->apiKey(), $this->engine->stateText());
+        self::assertStringNotContainsString($unknown->apiKey(), $this->engine->stateText());
+    }
+
+    /**
+     * A dev shop's state from before the mock hashed its keys held them as they are: its
+     * connections keep working, and the keys leave the state.
+     */
+    public function testAStateThatHeldTheKeysThemselvesKeepsItsConnectionsByTheirHash(): void
+    {
+        $settings = $this->exchanged()->settings();
+        $key = 'sk_' . str_repeat('2', 32);
+        $this->engine->set('connections', [$key => ['tenant_id' => 'tenant-1', 'prefix' => '', 'revoked' => false, 'site_url' => null]]);
+        $this->engine->set('requests', [['method' => 'GET', 'path' => '/api/v1/ingest/ping', 'authorization' => 'Bearer ' . $key]]);
+
+        self::assertTrue($this->client->ping(new Connection(3, 0, '', 'tenant-1', $key, $settings))['pong']);
+
+        self::assertSame([EngineMockServer::keyId($key)], array_keys($this->engine->connections()));
+        self::assertSame([EngineMockServer::keyId($key), EngineMockServer::keyId($key)], array_column($this->engine->requests(), 'key'));
+        self::assertStringNotContainsString($key, $this->engine->stateText());
     }
 
     public function testADeactivatedAccountRefusesThePingAndMayStillDisconnect(): void
@@ -186,7 +218,7 @@ final class ClientMockTest extends EngineTestCase
         self::assertSame(['ok' => true, 'status' => 'connection_removed', 'other_connections_remain' => true], $answer);
         $request = $this->engine->requestsTo('/api/v1/store/uninstall')[0];
         self::assertSame('POST', $request['method']);
-        self::assertSame('Bearer ' . $first->apiKey(), $request['authorization']);
+        self::assertSame(EngineMockServer::keyId($first->apiKey()), $request['key']);
         self::assertSame('', $request['raw'], 'the disconnect has no body');
         self::assertSame([401, 'unauthorised'], $this->refusal(fn () => $this->client->ping($first)), 'the key is revoked');
         self::assertTrue($this->client->ping($second)['pong'], 'the store\'s other connection keeps working');

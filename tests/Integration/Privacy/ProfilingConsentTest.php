@@ -78,7 +78,7 @@ final class ProfilingConsentTest extends PrivacyTestCase
         $posts = $this->engineRequests('POST', self::ADDRESS_A, '/opt-out');
         self::assertCount(2, $posts);
         self::assertSame(['opt_out' => false, 'reason' => 'user_preference'], $posts[0]['body'], 'an opt-in carries no time');
-        self::assertNotSame($posts[0]['authorization'], $posts[1]['authorization'], 'each with its own connection\'s key');
+        self::assertNotSame($posts[0]['key'], $posts[1]['key'], 'each with its own connection\'s key');
         self::assertSame(['sent', 'sent'], array_column(self::table('smaily_connect_event_queue', '`id`'), 'status'));
     }
 
