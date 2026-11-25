@@ -468,8 +468,9 @@ Epic (a top-level issue in the project) → Story (a sub-issue of the Epic).
 Linear tool; it puts what it wants posted in the `LINEAR:` section of its
 report, and the orchestrator writes it.
 
-1. **Anchor before work.** Work anchors on the initiatives *Smaily
-   E-Commerce native integrations* and *Campaign Intelligence*, and on the
+1. **Anchor before work.** Work anchors on the initiative *Smaily earns
+   revenue beyond email sending* (owner, 2026-11-25: every project moved
+   under it, and the other initiatives went away), and on the
    Feature [Smaily Connect for PrestaShop — v3
    rewrite](https://linear.app/smaily/project/smaily-connect-for-prestashop-v3-rewrite-cb6b41ae3cb1)
    (P-CON-324, lead team Connect) — outcome: 3.0.0 with the 14 capabilities
