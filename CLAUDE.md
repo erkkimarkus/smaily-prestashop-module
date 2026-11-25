@@ -58,7 +58,7 @@ are written as finished-product public documentation. Internal process talk
    unified Log with retry. Only the technical stack and the visual shell come
    from what PrestaShop offers.
 4. **Shared contracts are byte-identical copies, never edited here.**
-   `docs/RECENGINE_API_CONTRACT.md` v1.36.0 (source of truth: the engine
+   `docs/RECENGINE_API_CONTRACT.md` v1.37.0 (source of truth: the engine
    repo `../intelligence/docs/`; refresh by copying and checking with `cmp`)
    and `docs/contracts/installation-report-v1.md` v1.2.0 (source of truth:
    `../subscription/docs/contracts/`; refreshed and checked the same way).

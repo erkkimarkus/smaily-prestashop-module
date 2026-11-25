@@ -4,7 +4,7 @@
  * catalog (§3), the product removal (§3b), the nightly product list (§3c), the customers (§4),
  * the orders (§5), the identity merge (§7) and the history import's progress (§25: `history`
  * holds each connection's import by its key, `history_calls` every call), each answered as
- * docs/RECENGINE_API_CONTRACT.md v1.36.0 states it. Every check and every answer below names the
+ * docs/RECENGINE_API_CONTRACT.md v1.37.0 states it. Every check and every answer below names the
  * sentence of the contract it comes from; the shapes were taken from the contract text, section by
  * section, not from another connector's mock.
  *

@@ -28,7 +28,7 @@ Short names for sibling sources:
 |---|---|
 | `magento:` | `/Users/erkkimarkus/Downloads/smaily/connect-magento/` (Smaily Connect for Magento, 3.0.0, the closest analog: a PHP module rewritten in place with a legacy upgrade) |
 | `woo:` | `/Users/erkkimarkus/Downloads/smaily/connect-woo/` (Smaily Connect for WooCommerce, the reference for platform-neutral parts) |
-| contract | `docs/RECENGINE_API_CONTRACT.md` v1.36.0, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
+| contract | `docs/RECENGINE_API_CONTRACT.md` v1.37.0, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
 | report contract | `docs/contracts/installation-report-v1.md` v1.2.0, a byte copy of the subscription repository's `docs/contracts/installation-report-v1.md` (`/Users/erkkimarkus/Downloads/smaily/subscription/`, the source of truth). Never edited here. |
 
 A sentence about "the module today" describes 2.2.0 (git tag `2.2.0`); the sources that section 0
@@ -3986,8 +3986,11 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
    listener, left `Install\HookList` and the main class (section 7).
 
 The contract copy `docs/RECENGINE_API_CONTRACT.md` was re-synced three times on 2026-11-20 (`docs:`
-commits). It is v1.36.0 now: 1.36.0 adds price groups (§3 `group_prices`, §4 `price_group`), §6c is
-switched on at the engine, and the list of synchronized repositories names this repository.
+commits), and again on 2026-11-25. It is v1.37.0 now: 1.36.0 adds price groups (§3 `group_prices`,
+§4 `price_group`), §6c is switched on at the engine, and the list of synchronized repositories names
+this repository; 1.36.1 names PrestaShop's keys (§3) and one currency per store (§5, section 8.3);
+1.37.0 adds customers without an email address (§4 `external_id` and `loyalty_id`, §5
+`customer_external_id`, §8b–§10b), switched off at the engine and not built in 3.0.0.
 
 **[D]** The main class (`src/smailyforprestashop.php`). After Story 1.1, only these Stories edit it,
 each for its named wiring only, and each in a commit of its own:

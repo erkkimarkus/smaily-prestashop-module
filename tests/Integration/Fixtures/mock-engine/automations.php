@@ -2,7 +2,7 @@
 /**
  * The automation routes of the engine mock (router.php includes this file in its own scope): the
  * catalogue of the engine's automated emails (§11), the store's configuration rows (§12) and their
- * save (§13), each answered as docs/RECENGINE_API_CONTRACT.md v1.36.0 states it. Every check and
+ * save (§13), each answered as docs/RECENGINE_API_CONTRACT.md v1.37.0 states it. Every check and
  * every answer below names the sentence of the contract it comes from; the shapes were taken from
  * the contract text, not from another connector's mock.
  *
