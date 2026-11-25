@@ -3007,6 +3007,12 @@ palette. The module's own components use these colours:
 | Dark brand surfaces | `#2A1028` (plum) |
 | Small accent only | `#E91E63` (magenta) |
 
+The module's own primary buttons, the Log's Search included, are primary. Magenta is never text: the
+word "Intelligence" in the Campaign Intelligence title is primary, as in Magento, and magenta marks
+icons only. Muted text is `#60686f`, which keeps 4.5:1 on every background of the module and of the
+back-office page (the tint, the setup pane and PrestaShop's page background); status colours are
+PrestaShop's (checked against Linear CON-377 on 9.2.0, 2026-11-25).
+
 Only the module's own components change colour. The back office keeps its native look: the page frame,
 the toolbar and PrestaShop's own controls stay as PrestaShop draws them. The full palette, dark mode
 included, is in Linear CON-377; Story 3.1 reads it there.

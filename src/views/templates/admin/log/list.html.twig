@@ -130,7 +130,7 @@
                 </th>
               {% endfor %}
               <th class="smaily-log__search">
-                <button type="submit" class="btn btn-primary">{{ 'Search'|trans({}, 'Admin.Actions') }}</button>
+                <button type="submit" class="btn smaily-btn-primary">{{ 'Search'|trans({}, 'Admin.Actions') }}</button>
                 {% if log.filter is not empty %}
                   <a class="btn btn-link" href="{{ path(route) }}">{{ 'Reset'|trans({}, 'Admin.Actions') }}</a>
                 {% endif %}

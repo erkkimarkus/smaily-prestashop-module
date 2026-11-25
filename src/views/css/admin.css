@@ -29,7 +29,8 @@
  * Product palette: primary #5E3B72 with white text (the module's own primary buttons, the active
  * step and tab, focus); brand text and links #4A2D5C; selected tint #EFE5FB with text #4A2D5C and
  * border #E2D3F6; plum #2A1028 for dark brand surfaces and banner headings; Smaily magenta #E91E63
- * as a small accent only, never a button or text. Status colours are PrestaShop's.
+ * as a small accent only, never a button or text. Status colours are PrestaShop's. Muted text is
+ * #60686f, which keeps 4.5:1 on every background of the module and of the back-office page.
  */
 .smaily-ui {
   --smaily-primary: #5e3b72;
@@ -42,7 +43,7 @@
   --smaily-plum: #2a1028;
   --smaily-accent: #e91e63;
   --smaily-text: #363a41;
-  --smaily-muted: #6c757d;
+  --smaily-muted: #60686f;
   --smaily-border: #dbe6e9;
   --smaily-surface: #fff;
   --smaily-surface-2: #f8f9fb;
@@ -1962,7 +1963,7 @@
 }
 
 .smaily-ui .smaily-ci-invite__title span {
-  color: var(--smaily-accent);
+  color: var(--smaily-primary);
 }
 
 /* The copy on top of the Dashboard and of the Settings tabs, which Dismiss closes. */
