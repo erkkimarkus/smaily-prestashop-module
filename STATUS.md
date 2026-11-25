@@ -82,7 +82,10 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 - `prestashop:module install` on 8.2.8 with debug mode on behind the guard failed again on 2026-11-25 (it had
   succeeded once, and did in the evening's run; late, the module stood installed and a repeated command failed):
   name `install` next to `upgrade` in `docs/DEV_ENVIRONMENT.md` 4a.
-- `Config\Settings::setJson()` writes without the tag-safe flag; adding it changes the stored bytes of the notices and the update-check keys: decide first.
+- `Config\Settings::setJson()` writes without `Configuration`'s `$html` flag, so `strip_tags()` would cut a `<…>`
+  out of a value; no value of its two callers (the notices, the update check) can hold `<`, `>` or `&`, so nothing
+  is lost today. The flag runs HTMLPurifier, which stores `&`, `<` and `>` as entities and mangles a tag too
+  (2026-11-25, 9.2.0): decide between leaving it, `JSON_HEX_TAG` in `setJson()`, or the flag.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's
