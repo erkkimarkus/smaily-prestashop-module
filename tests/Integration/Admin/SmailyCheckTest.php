@@ -3,10 +3,13 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Admin;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SmailyCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Http\SymfonyTransport;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\Translation\Loader\XliffFileLoader;
+use Symfony\Component\Translation\Translator;
 use Tests\Integration\IntegrationTestCase;
 
 /**
@@ -62,5 +65,22 @@ final class SmailyCheckTest extends IntegrationTestCase
             ['connected' => false, 'error' => 'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.'],
             $check->check('evil.example.com/x', 'api-user', 'a-secret-password')
         );
+    }
+
+    public function testSaysWhySmailyCouldNotBeReachedInTheAdminsLanguage(): void
+    {
+        $translator = new Translator('et-EE');
+        $translator->addLoader('xlf', new XliffFileLoader());
+        $translator->addResource('xlf', dirname(__DIR__, 3) . '/src/translations/et-EE/ModulesSmailyforprestashopAdmin.et-EE.xlf', 'et-EE', BaseController::DOMAIN);
+        $answers = [
+            'Smailyga ei saadud ühendust: Smaily API päring ebaõnnestus (HTTP 503)' => new MockResponse('', ['http_code' => 503]),
+            'Smailyga ei saadud ühendust: Smaily API päring ebaõnnestus: Smailyga ei saadud ühendust' => new MockResponse('', ['error' => 'Could not resolve host']),
+        ];
+
+        foreach ($answers as $said => $response) {
+            $check = new SmailyCheck(new SymfonyTransport(new MockHttpClient([$response])), $translator);
+
+            self::assertSame(['connected' => false, 'error' => $said], $check->check('demo', 'api-user', 'a-secret-password'));
+        }
     }
 }

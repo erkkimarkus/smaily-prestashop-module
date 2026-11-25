@@ -116,6 +116,8 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
 4. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
 5. CON-397 also decides: late or retried contact changes, workflows after an account or mode change, two shops on
    one account.
+6. A stored Smaily subdomain that is not one plain label fails a contact change with a translated sentence and
+   takes the retry ladder, as Magento keeps it. Parking it at once would differ from Magento: a CON-397 question.
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for a live walk (it also
 shows whether the real service takes an installation report); get the engine team's answer on the `source` value of

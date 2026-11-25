@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\InvalidSubdomainException;
@@ -77,13 +78,24 @@ final class SmailyCheck
         } catch (RequestRefusedException $exception) {
             $error = $exception->getHttpStatus() === 404
                 ? $this->trans('Smaily does not know this subdomain. Check the subdomain.')
-                : $this->trans('Could not reach Smaily: %error%', ['%error%' => $exception->getMessage()]);
+                : $this->unreachable($exception);
         } catch (SmailyClientException $exception) {
-            // The client's message names the HTTP status or the network error, never a credential.
-            $error = $this->trans('Could not reach Smaily: %error%', ['%error%' => $exception->getMessage()]);
+            $error = $this->unreachable($exception);
         }
 
         return ['connected' => false, 'error' => $error];
+    }
+
+    /**
+     * The client's message, in the admin's language as the Log shows it, after the words that
+     * Smaily could not be reached. It names the HTTP status or the network error, never a
+     * credential.
+     */
+    private function unreachable(SmailyClientException $exception): string
+    {
+        $translate = fn (string $message, array $parameters = []): string => $this->trans($message, $parameters);
+
+        return $this->trans('Could not reach Smaily: %error%', ['%error%' => FailureMessage::forDisplay($exception->getMessage(), $translate)]);
     }
 
     /**

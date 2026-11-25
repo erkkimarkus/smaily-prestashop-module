@@ -132,7 +132,10 @@ final class FailureMessageTest extends TestCase
             'engine_item_refused', 'engine_manifest_too_many', 'engine_customer_not_sent', 'engine_customer_refused', 'engine_customer_not_found',
         ];
         $codes = static fn (array $codes): array => array_map(static fn (string $code): string => str_replace('_', '\\_', $code), $codes);
-        self::assertSame($codes(array_values(array_diff(array_keys(FailureMessage::REASONS), $withoutThoseWords))), FailureMessage::patternsShowing('Nothing was sent', $same));
+        self::assertSame(
+            [...$codes(array_values(array_diff(array_keys(FailureMessage::REASONS), $withoutThoseWords))), 'host\\_not\\_allowed', '%: host\\_not\\_allowed', 'key\\_unreadable', '%: key\\_unreadable'],
+            FailureMessage::patternsShowing('Nothing was sent', $same)
+        );
         self::assertSame($codes(['no_account', 'no_credentials']), FailureMessage::patternsShowing('shop and language', $same), 'a queue row\'s sentence and an import job\'s');
         self::assertSame($codes(['no_account', 'no_credentials']), FailureMessage::patternsShowing('were left out', $same));
         self::assertSame([], FailureMessage::patternsShowing('HTTP 503', $same), 'a value is found in the stored text itself');
@@ -153,6 +156,44 @@ final class FailureMessageTest extends TestCase
         self::assertSame(['%Smaily API request failed: could not connect to Smaily'], FailureMessage::patternsShowing('ei saadud', $estonian));
         self::assertSame(['%No handler takes the event type "%"'], FailureMessage::patternsShowing('event type', $estonian));
         self::assertSame([], FailureMessage::patternsShowing('30', $estonian), 'a value is not part of the wording');
+    }
+
+    public function testACampaignIntelligenceCodeShowsAsASentenceInTheAdminsLanguage(): void
+    {
+        $estonian = static fn (string $text, array $values = []): string => 'ET: ' . strtr($text, $values);
+        $stored = [
+            'network_error' => 'ET: Campaign Intelligence did not answer: the store could not connect to it, or no answer came in time.',
+            'malformed_answer' => 'ET: Campaign Intelligence returned a malformed answer.',
+            'rate_limit_exceeded' => 'ET: Campaign Intelligence asked the store to send more slowly for a while.',
+            'http_503' => 'ET: Campaign Intelligence answered with an error (HTTP 503).',
+            'permanent_http_404: http_404' => 'ET: Campaign Intelligence answered with an error (HTTP 404).',
+            'permanent_http_422: validation_failed' => 'ET: Campaign Intelligence refused the data of this row as invalid.',
+            'permanent_http_400: invalid_json' => 'ET: Campaign Intelligence could not read the request.',
+            'permanent_http_401: unauthorised' => 'ET: Campaign Intelligence did not accept this store\'s connection. Connect again under Settings > Intelligence.',
+            'permanent_http_403: tenant_inactive' => 'ET: This store is no longer active in Campaign Intelligence.',
+            'permanent_http_409: plugin_update_required' => 'ET: Campaign Intelligence needs a newer version of Smaily Connect. Update the module.',
+            'permanent_http_0: host_not_allowed' => 'ET: The address of this request is not an address of Campaign Intelligence, so nothing was sent.',
+            'permanent_http_0: key_unreadable' => 'ET: The API key of this Campaign Intelligence connection cannot be read, so nothing was sent. Connect again under Settings > Intelligence.',
+            // A code that the contract does not name: the code, as a refusal or as a failure that may pass.
+            'permanent_http_418: teapot_refused' => 'ET: Campaign Intelligence refused the request (teapot_refused).',
+            'engine_overloaded' => 'ET: The Campaign Intelligence request failed (engine_overloaded).',
+            // A reason code of an ingest row keeps its own sentence.
+            'engine_product_gone' => 'ET: Skipped: this product is no longer in the shop. Nothing was sent.',
+        ];
+
+        foreach ($stored as $lastError => $shown) {
+            self::assertSame($shown, FailureMessage::forDisplay($lastError, $estonian, false, true), $lastError);
+        }
+        self::assertSame('permanent_http_422', FailureMessage::failureClass('permanent_http_422: validation_failed'), 'Details show the status');
+        self::assertSame('engine_overloaded', FailureMessage::forDisplay('engine_overloaded', $estonian), 'a row to Smaily shows an unknown code as stored');
+    }
+
+    public function testTheErrorFilterFindsACampaignIntelligenceCodeByItsSentence(): void
+    {
+        $same = static fn (string $text): string => $text;
+
+        self::assertSame(['validation\\_failed', '%: validation\\_failed'], FailureMessage::patternsShowing('as invalid', $same));
+        self::assertSame(['http\\_%', '%: http\\_%'], FailureMessage::patternsShowing('answered with an error', $same));
     }
 
     public function testTheAttemptsListWhatTheRowStores(): void

@@ -7,6 +7,7 @@ use PHPUnit\Framework\TestCase;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\AuthenticationException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\InvalidSubdomainException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
 
 /**
@@ -86,6 +87,18 @@ final class FailureTest extends TestCase
         self::assertFalse($failure->isPermanent());
         self::assertSame('Smaily API request failed with HTTP 429', $failure->reason());
         self::assertSame(120, $failure->retryAfter());
+    }
+
+    /**
+     * As Magento keeps it: the row takes the retry ladder with the client's message, which the Log
+     * shows translated.
+     */
+    public function testRetriesASubdomainThatIsNotOnePlainLabelWithItsMessage(): void
+    {
+        $failure = Failure::of(new InvalidSubdomainException());
+
+        self::assertFalse($failure->isPermanent());
+        self::assertSame('The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.', $failure->reason());
     }
 
     public function testParksAHandlersOwnVerdict(): void

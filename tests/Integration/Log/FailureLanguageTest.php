@@ -75,6 +75,62 @@ final class FailureLanguageTest extends LogTestCase
         }
     }
 
+    public function testEveryFailureOfACampaignIntelligenceRowReadsAsASentenceInTheAdminsLanguage(): void
+    {
+        // What the ingest flusher stores: a code that may pass later alone, a refusal after its class.
+        $kinds = [
+            'network_error' => [
+                'Campaign Intelligence did not answer: the store could not connect to it, or no answer came in time.',
+                'Campaign Intelligence ei vastanud: pood ei saanud sellega ühendust või vastus ei tulnud õigel ajal.',
+            ],
+            'http_503' => ['Campaign Intelligence answered with an error (HTTP 503).', 'Campaign Intelligence vastas veaga (HTTP 503).'],
+            'rate_limit_exceeded' => [
+                'Campaign Intelligence asked the store to send more slowly for a while.',
+                'Campaign Intelligence palus poel mõnda aega aeglasemalt saata.',
+            ],
+            'internal_error' => ['The Campaign Intelligence request failed (internal_error).', 'Campaign Intelligence\'i päring ebaõnnestus (internal_error).'],
+            'permanent_http_400: validation_failed' => [
+                'Campaign Intelligence refused the data of this row as invalid.',
+                'Campaign Intelligence lükkas selle rea andmed vigastena tagasi.',
+            ],
+            'permanent_http_404: http_404' => ['Campaign Intelligence answered with an error (HTTP 404).', 'Campaign Intelligence vastas veaga (HTTP 404).'],
+            'permanent_http_410: gone_for_good' => ['Campaign Intelligence refused the request (gone_for_good).', 'Campaign Intelligence keeldus päringust (gone_for_good).'],
+        ];
+        $connection = self::connection(1);
+        $ids = [];
+        foreach (array_keys($kinds) as $index => $stored) {
+            $ids[$stored] = self::ingest(['id_connection' => $connection, 'entity_key' => 'ps-' . $index, 'status' => 'failed', 'attempts' => 5, 'last_error' => $stored]);
+        }
+
+        foreach (['en' => 0, 'et' => 1] as $language => $column) {
+            $view = new LogView(self::translate($language));
+            $rows = array_column(self::rows()->page(new LogFilter(), 0, 50), null, 'id');
+            foreach ($ids as $stored => $id) {
+                $expected = $kinds[$stored][$column];
+                self::assertSame($expected, $view->row($rows[$id], false)['error'], $stored . ' in ' . $language);
+                self::assertSame($expected, $view->details(self::rows()->find('intelligence-' . $id), null)['error'], $stored . ' in the Details, in ' . $language);
+            }
+        }
+    }
+
+    public function testASubdomainThatIsNotOnePlainLabelReadsInTheAdminsLanguage(): void
+    {
+        $queue = new EventQueue();
+        $queue->enqueue('contact.sync', 1, ['email' => 'shopper1@example.test'], 'shopper1@example.test', 'en');
+        $row = $queue->claim(1)[0];
+        try {
+            (new Client(new SymfonyTransport(new MockHttpClient([])), 'not a label', 'api-user', 'not-a-real-password'))->post(Client::ENDPOINT_CONTACT, [['email' => 'shopper1@example.test']]);
+            self::fail('expected a failure');
+        } catch (SmailyClientException $error) {
+            $queue->markFailed($row, Failure::of($error));
+        }
+        $listed = array_column(self::rows()->page(new LogFilter(), 0, 50), null, 'id')[(int) $row['id']];
+
+        self::assertSame('pending', $listed['status'], 'it takes the retry ladder, as Magento keeps it');
+        self::assertSame('Alamdomeen peab olema lihtne Smaily alamdomeen, näiteks „demo“: ainult tähed, numbrid ja sidekriipsud.', (new LogView(self::translate('et')))->row($listed, false)['error']);
+        self::assertSame('The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.', (new LogView(self::translate('en')))->row($listed, false)['error']);
+    }
+
     public function testTheErrorFilterFindsARowByTheWordsTheEstonianAdminReads(): void
     {
         $ids = $this->failEachKind();

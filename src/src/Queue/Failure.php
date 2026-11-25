@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\ApiException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\RequestRefusedException;
+use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\TransportException;
 
 /**
@@ -116,6 +117,10 @@ final class Failure
         }
         if ($error instanceof TransportException) {
             return self::temporary($error->getMessage(), $error->getRetryAfter());
+        }
+        if ($error instanceof SmailyClientException) {
+            // A subdomain that is not one plain label (InvalidSubdomainException), as Magento keeps it.
+            return self::temporary($error->getMessage());
         }
 
         return self::temporary(sprintf(

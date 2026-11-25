@@ -3487,6 +3487,66 @@
         <target>Kõik poed hakkavad kasutama poe „%shop%“ Campaign Intelligence'i ühendust.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="76771568910d386c803b3df0e9a1f6cd">
+        <source>Campaign Intelligence did not answer: the store could not connect to it, or no answer came in time.</source>
+        <target>Campaign Intelligence ei vastanud: pood ei saanud sellega ühendust või vastus ei tulnud õigel ajal.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd03b5cdb7015e4cf3364ed3b496a703">
+        <source>Campaign Intelligence returned a malformed answer.</source>
+        <target>Campaign Intelligence tagastas vigase vastuse.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f7b4aa7df0d16170604986af2257d505">
+        <source>The address of this request is not an address of Campaign Intelligence, so nothing was sent.</source>
+        <target>Selle päringu aadress ei ole Campaign Intelligence'i aadress, seega midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f871c37abca08651e15827262e70705d">
+        <source>The API key of this Campaign Intelligence connection cannot be read, so nothing was sent. Connect again under Settings &gt; Intelligence.</source>
+        <target>Selle Campaign Intelligence'i ühenduse API võtit ei saa lugeda, seega midagi ei saadetud. Ühenda uuesti jaotises Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7d502e790a1e758f13d66c1b128eb929">
+        <source>Campaign Intelligence did not accept this store's connection. Connect again under Settings &gt; Intelligence.</source>
+        <target>Campaign Intelligence ei võtnud selle poe ühendust vastu. Ühenda uuesti jaotises Seaded &gt; Intelligence.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="97590a5bbbc3732fdc5c488acc2c634d">
+        <source>This store is no longer active in Campaign Intelligence.</source>
+        <target>See pood ei ole Campaign Intelligence'is enam aktiivne.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f7c7b03ca64daa374d690781794f4bba">
+        <source>Campaign Intelligence needs a newer version of Smaily Connect. Update the module.</source>
+        <target>Campaign Intelligence vajab Smaily Connecti uuemat versiooni. Uuenda moodulit.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a0d112a069cfb83eaaf928ffa88cc983">
+        <source>Campaign Intelligence refused the data of this row as invalid.</source>
+        <target>Campaign Intelligence lükkas selle rea andmed vigastena tagasi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="62fc95b5f09ea432ee06b902741f684e">
+        <source>Campaign Intelligence could not read the request.</source>
+        <target>Campaign Intelligence ei saanud päringut lugeda.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="504a0626e803364f4b96201d16ad5d1a">
+        <source>Campaign Intelligence asked the store to send more slowly for a while.</source>
+        <target>Campaign Intelligence palus poel mõnda aega aeglasemalt saata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="03ba2b70affbde77de3fce5676f741ae">
+        <source>Campaign Intelligence does not have this customer.</source>
+        <target>Campaign Intelligence'il pole seda klienti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="416139d7eab81f2671a9b73fe2cc64f2">
+        <source>Campaign Intelligence answered with an error (HTTP %status%).</source>
+        <target>Campaign Intelligence vastas veaga (HTTP %status%).</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

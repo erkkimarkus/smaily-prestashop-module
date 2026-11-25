@@ -83,7 +83,7 @@ final class LogView
             'entity' => $this->entity($row),
             'status' => ['label' => $this->statusLabel($status), 'variant' => LogStatus::pill($status)],
             'attempts' => $row['attempts'] === null ? '—' : (string) (int) $row['attempts'],
-            'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB),
+            'error' => $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, $row['kind'] === LogRows::JOB, $row['source'] === LogRows::INTELLIGENCE),
             'created' => self::time((string) $row['created_at']),
             'updated' => self::time((string) $row['updated_at']),
             // An erased row is never sent again (ResendGuard), so it gets no retry checkbox.
@@ -118,14 +118,14 @@ final class LogView
             return $details + [
                 'job' => true,
                 'outcome' => ['text' => $this->jobOutcome($row), 'terminal' => !in_array($row['status'], JobStore::ACTIVE, true)],
-                'error' => FailureMessage::forDisplay($row['last_error'], $this->translate, true),
+                'error' => FailureMessage::forDisplay($row['last_error'], $this->translate, true, $row['source'] === LogRows::INTELLIGENCE),
                 'error_title' => $this->trans($row['status'] === JobStore::STATUS_FAILED ? 'Last error' : 'Reason'),
                 'error_is_reason' => $row['status'] !== JobStore::STATUS_FAILED,
             ];
         }
 
         $attempts = (int) $row['attempts'];
-        $lastError = $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate);
+        $lastError = $status === LogStatus::WITHDRAWN ? '' : FailureMessage::forDisplay($row['last_error'], $this->translate, false, $row['source'] === LogRows::INTELLIGENCE);
         $sentence = $refusal === ResendGuard::REASON_WITHDRAWN || ($refusal !== null && $status === LogStatus::FAILED)
             ? ResendGuard::message($refusal)
             : '';

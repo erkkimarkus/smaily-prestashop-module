@@ -35,6 +35,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\Capture\Captu
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MarketingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IdentityMergeHandler;
@@ -54,7 +56,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * sentence, in the admin's language: Magento's sentence where Magento has the reason, else one of
  * the same form. A client's or the queue's own message is stored as English source text with its
  * values (the HTTP status, a code) filled in, whatever the admin's language, and shows translated
- * with those values (MESSAGES), as Magento's Log shows it. Any other text shows as stored.
+ * with those values (MESSAGES), as Magento's Log shows it. A Campaign Intelligence row stores the
+ * error code of Engine\Client, or of the engine's answer, and shows a sentence for it
+ * (ENGINE_CODES), with the HTTP status or the code where it has none; never the engine's text.
+ * Any other text shows as stored.
  * Magento tells its merchant nothing of its capture limit; that sentence is this module's own.
  */
 final class FailureMessage
@@ -106,11 +111,42 @@ final class FailureMessage
     ];
 
     /**
+     * The sentence of each error code that a Campaign Intelligence row stores (Engine\Client): the
+     * client's own codes and the codes of the contract's error answers to an ingest request or an
+     * identity merge. A request that may pass later stores the code alone, a refusal stores it
+     * after its failure class (`permanent_http_<status>: <code>`). Another code shows as ENGINE_HTTP
+     * when it is `http_<status>`, else as ENGINE_REFUSED or ENGINE_FAILED with the code.
+     */
+    public const ENGINE_CODES = [
+        Client::NETWORK_ERROR => 'Campaign Intelligence did not answer: the store could not connect to it, or no answer came in time.',
+        Client::MALFORMED_ANSWER => 'Campaign Intelligence returned a malformed answer.',
+        Client::HOST_NOT_ALLOWED => 'The address of this request is not an address of Campaign Intelligence, so nothing was sent.',
+        Client::KEY_UNREADABLE => 'The API key of this Campaign Intelligence connection cannot be read, so nothing was sent. Connect again under Settings > Intelligence.',
+        'unauthorised' => 'Campaign Intelligence did not accept this store\'s connection. Connect again under Settings > Intelligence.',
+        'tenant_inactive' => 'This store is no longer active in Campaign Intelligence.',
+        'plugin_update_required' => 'Campaign Intelligence needs a newer version of Smaily Connect. Update the module.',
+        'validation_failed' => 'Campaign Intelligence refused the data of this row as invalid.',
+        'invalid_json' => 'Campaign Intelligence could not read the request.',
+        'rate_limit_exceeded' => 'Campaign Intelligence asked the store to send more slowly for a while.',
+        'customer_not_found' => 'Campaign Intelligence does not have this customer.',
+    ];
+
+    /** A Campaign Intelligence row's `http_<status>`: the engine's answer named no code. */
+    public const ENGINE_HTTP = 'Campaign Intelligence answered with an error (HTTP %status%).';
+
+    /** A Campaign Intelligence refusal with a code that ENGINE_CODES does not hold. */
+    public const ENGINE_REFUSED = 'Campaign Intelligence refused the request (%code%).';
+
+    /** A Campaign Intelligence request with a code that ENGINE_CODES does not hold that may pass later. */
+    public const ENGINE_FAILED = 'The Campaign Intelligence request failed (%code%).';
+
+    /**
      * The messages that a row stores with values in them, as their English source: a stored text is
      * read as the first source whose wording it has, each placeholder standing for a value. They are
-     * written in Smaily\Client and Smaily\Exception\ApiException, Engine\Exception\EngineException
-     * (as Privacy\EngineFailure stores it), Queue\Flusher and Queue\Failure::of(); a message added
-     * there that a row can store is added here too, or it shows in English.
+     * written in Smaily\Client, Smaily\Exception\ApiException and InvalidSubdomainException,
+     * Engine\Exception\EngineException (as Privacy\EngineFailure stores it), Queue\Flusher and
+     * Queue\Failure::of(); a message added there that a row can store is added here too, or it
+     * shows in English.
      */
     public const MESSAGES = [
         'Smaily API credentials were rejected',
@@ -123,6 +159,7 @@ final class FailureMessage
         'Smaily API request failed: %error%',
         'Smaily API returned a malformed response body',
         'Smaily API returned code %code%',
+        'The subdomain must be a plain Smaily subdomain such as "demo": letters, digits and hyphens only.',
         'Campaign Intelligence answered HTTP %status% (%code%).',
         'The Campaign Intelligence request failed (%code%).',
         'No handler takes the event type "%type%"',
@@ -139,13 +176,17 @@ final class FailureMessage
      * @param callable(string, array<string, string>=): string $translate the admin's translation of
      *                                                                    an EN string, with its values
      * @param bool $job whether the error is an import job's
+     * @param bool $intelligence whether the row goes to Campaign Intelligence (LogRows::sourceOf())
      */
-    public static function forDisplay(?string $lastError, callable $translate, bool $job = false): string
+    public static function forDisplay(?string $lastError, callable $translate, bool $job = false, bool $intelligence = false): string
     {
         $message = (string) preg_replace(self::CLASS_PATTERN, '', trim((string) $lastError));
         $sentence = ($job ? self::JOB_REASONS[$message] ?? null : null) ?? self::REASONS[$message] ?? null;
         if ($sentence !== null) {
             return $translate($sentence);
+        }
+        if ($intelligence && preg_match(EngineException::CODE_PATTERN, $message) === 1) {
+            return self::engineCode($message, self::failureClass($lastError) !== '', $translate);
         }
         foreach (self::MESSAGES as $source) {
             $values = self::valuesIn($message, $source);
@@ -170,8 +211,10 @@ final class FailureMessage
     /**
      * The SQL LIKE patterns of the stored texts that the admin reads with $term in them, because
      * they show as a sentence or translated: the Last Error filter finds a row by the words its
-     * column shows. A reason code's pattern is the code; a message's takes any values and a
-     * failure class before it. A term is looked for in a message's own wording, not in its values.
+     * column shows. A reason code's pattern is the code; an engine code's is the code, alone or
+     * after a failure class; a message's takes any values and a failure class before it. A term is
+     * looked for in a message's own wording, not in its values. The sentence of an engine code
+     * that ENGINE_CODES does not hold is found by the code only.
      *
      * @param callable(string): string $translate
      *
@@ -190,6 +233,12 @@ final class FailureMessage
                 }
             }
         }
+        foreach (self::ENGINE_CODES + ['http_' => self::ENGINE_HTTP] as $code => $sentence) {
+            if (mb_stripos(self::wording($translate($sentence)), $term) !== false) {
+                $stored = self::likeText($code) . ($code === 'http_' ? '%' : '');
+                array_push($patterns, $stored, '%: ' . $stored);
+            }
+        }
         foreach (self::MESSAGES as $source) {
             foreach ((array) preg_split(self::PLACEHOLDER, $translate($source)) as $wording) {
                 if (mb_stripos((string) $wording, $term) !== false) {
@@ -201,6 +250,31 @@ final class FailureMessage
         }
 
         return array_values(array_unique($patterns));
+    }
+
+    /**
+     * The sentence of a Campaign Intelligence row's error code.
+     *
+     * @param bool $refused whether the row was parked at once as a refusal
+     */
+    private static function engineCode(string $code, bool $refused, callable $translate): string
+    {
+        if (isset(self::ENGINE_CODES[$code])) {
+            return $translate(self::ENGINE_CODES[$code]);
+        }
+        if (preg_match('/^http_([0-9]{3})$/D', $code, $status) === 1) {
+            return $translate(self::ENGINE_HTTP, ['%status%' => $status[1]]);
+        }
+
+        return $translate($refused ? self::ENGINE_REFUSED : self::ENGINE_FAILED, ['%code%' => $code]);
+    }
+
+    /**
+     * A sentence's own words, without the placeholders.
+     */
+    private static function wording(string $sentence): string
+    {
+        return (string) preg_replace(self::PLACEHOLDER, '', $sentence);
     }
 
     /**

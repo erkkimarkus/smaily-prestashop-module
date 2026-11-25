@@ -1168,7 +1168,9 @@ holds no tick.
   the client's error types (`Smaily\Exception\*`); the queue keeps no copy of it. `Failure::http()`
   does the same for a status that a handler reads itself. Any other failure takes the ladder of
   60 s, 5 min, 15 min and 1 h and parks after 5 attempts (`Queue\RetryPolicy`). A 429 waits the
-  delay it asked for, at most 6 h.
+  delay it asked for, at most 6 h. A Smaily client error of no other type, the subdomain that is
+  not one plain label (`InvalidSubdomainException`), takes the ladder with its message, as Magento
+  keeps it (`FailureText`); any other error is stored by its type and place.
 
 **Dashboard.** A "Background tasks" card shows the last tick time and whether it came from the cron
 URL or from shop visits. Its state comes from the tick state alone (`Admin\Dashboard\BackgroundTasks`):
@@ -2954,7 +2956,9 @@ its source's.
 Ten strings of the Log are PrestaShop's own ("Search", "Reset", "Select all", "Cancel", "Close",
 "From", "To", "Previous", "Next", "No records found", domains `Admin.Actions` and `Admin.Global`):
 their Estonian comes from PrestaShop's language pack, not from the module. The Smaily client's own
-message of a failure is stored in English and shows in the admin's language (section 10.8).
+message of a failure is stored in English and shows in the admin's language (section 10.8), also
+after "Could not reach Smaily:" of Test connection; a Campaign Intelligence row's error code shows
+as a sentence in the admin's language.
 
 **Walked in Estonian** (2026-11-23, PrestaShop 8.2.8 and 9.2.0, in a browser against the mocks;
 `docs/internal/walks/2026-11-23-capability-14-estonian.md`): every screen, and every state the
@@ -3072,11 +3076,25 @@ stays on one line. A narrower window scrolls the table in its own box, not the p
   (refused credentials, a package without API access, `with HTTP <status>`, a network failure as
   `no answer within 30 seconds` or `could not connect to Smaily`, a malformed answer, `returned
   code <code>`), the Campaign Intelligence failure that `Privacy\EngineFailure` stores, the queue's
-  own two and the type of any other error. The client never stores the HTTP client's text of a
+  own two, the subdomain that is not one plain label, and the type of any other error. The client
+  never stores the HTTP client's text of a
   network failure (Magento keeps it after the sentence; WooCommerce keeps only WordPress's error
   code); a row stored before that, `Smaily API request failed: <text>`, shows that text after the
-  translated words. The filter finds such a row by the translated words, not by its values. A code
-  without a sentence, and any other text, show as stored.
+  translated words. The filter finds such a row by the translated words, not by its values. A
+  Campaign Intelligence row (source "Campaign Intelligence") stores the error code of
+  `Engine\Client`, alone when the request may pass later and after its class
+  (`permanent_http_<status>: <code>`) when it was refused, and shows a sentence for it
+  (`FailureMessage::ENGINE_CODES`): the client's own `network_error`, `malformed_answer`,
+  `host_not_allowed` and `key_unreadable`, and the contract's `unauthorised`, `tenant_inactive`,
+  `plugin_update_required`, `validation_failed`, `invalid_json`, `rate_limit_exceeded` and
+  `customer_not_found`, with Magento's English and Estonian where Magento has the sentence. An
+  answer without a code, `http_<status>`, shows "Campaign Intelligence answered with an error (HTTP
+  <status>)."; another code shows in "Campaign Intelligence refused the request (<code>)." or, when
+  the request may pass later, "The Campaign Intelligence request failed (<code>).". The engine's
+  text is never stored or shown, and Details show the HTTP status in the failure class. The filter
+  finds such a row by the words of the sentence, an unnamed code by the code. Magento's Log shows
+  its engine failures as stored ("Engine request failed with HTTP <status>: <code>").
+  A code without a sentence on a row to Smaily, and any other text, show as stored.
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
   selected shops, and its button applies the filter `status=failed`, as Magento's does.
 
