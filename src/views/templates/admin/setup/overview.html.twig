@@ -22,12 +22,15 @@
  *#}
 {#
  # Initial setup, step 5 (Overview, "Summary and last check"): what is set, each line with an Edit
- # link back to its step, then Magento's closing card (where everything lives from now on: Settings,
- # the Log, the product RSS feed in the store's default language with the URL builder, which offers
- # the other languages, and the User Guide, Admin\UserGuide) and its
- # two ways on, Open Settings and Go to Dashboard. The setup is finished by Finish on the step
- # before (SaveStep `finish`), as in Magento; this step only shows the result. The connection
- # state of each Smaily account is asked of Smaily when the step shows (setup.js).
+ # link back to its step, each store automation with its Active, No workflow or Off as WooCommerce's
+ # step 6 lists what is active; the card on the background tasks with the store's cron line, which
+ # the page asks the server for (Admin\Dashboard\CronLine, dashboard.js) and never carries, and
+ # the guide's cron section; then Magento's closing card (where everything lives from now on:
+ # Settings, the Log, the product RSS feed in the store's default language with the URL builder,
+ # which offers the other languages, and the User Guide, Admin\UserGuide). Step 4's Continue opens
+ # the page again on this step, so it shows what the steps saved; Finish ends the setup (SaveStep
+ # `finish`) and opens the Dashboard, as WooCommerce's Finish (owner, 2026-11-26; Linear CON-460).
+ # The connection state of each Smaily account is asked of Smaily when the step shows (setup.js).
  #
  # `smaily_setup` comes from Admin\Setup\SetupController.
  #}
@@ -35,9 +38,9 @@
 {% set o = smaily_setup.overview %}
 {% set language_modes = {
   single: 'Single language'|trans,
-  a: 'Per-language Smaily accounts'|trans,
-  b: 'One account, per-language workflows'|trans,
-  c: 'One workflow branching by language'|trans,
+  a: 'Separate Smaily accounts'|trans,
+  b: 'One account, per-language automations'|trans,
+  c: 'One account, one automation with branches'|trans,
 } %}
 {% set contact_modes = {
   subscribers: 'Subscribers only (consent)'|trans,
@@ -48,6 +51,9 @@
 {% macro edit(step, label) %}<a href="#" class="smaily-summary__edit" data-smaily-action="setup-goto" data-step="{{ step }}">{{ label }}</a>{% endmacro %}
 {% set edit_label = 'Edit'|trans %}
 {% import _self as summary %}
+{% set automation_names = {welcome: 'Welcome'|trans, first_order: 'First order'|trans, abandoned_cart: 'Abandoned cart'|trans} %}
+
+<p>{{ 'Smaily Connect is configured and ready. Make sure that all settings are correct and click Finish to save.'|trans }}</p>
 
 {% if o is not null %}
   <div class="smaily-card smaily-summary" data-smaily-overview>
@@ -97,11 +103,13 @@
         </dd>
         <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
       </div>
-      <div class="smaily-summary__row">
-        <dt>{{ 'Include guests'|trans }}</dt>
-        <dd>{{ o.contacts.guests ? 'On'|trans : 'Off'|trans }}</dd>
-        <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
-      </div>
+      {% if o.contacts.mode == 'all_customers' %}
+        <div class="smaily-summary__row">
+          <dt>{{ 'Also sync guest buyers who did not tick the newsletter box'|trans }}</dt>
+          <dd>{{ o.contacts.guests ? 'On'|trans : 'Off'|trans }}</dd>
+          <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
+        </div>
+      {% endif %}
       <div class="smaily-summary__row">
         <dt>{{ 'Show a newsletter checkbox at checkout'|trans }}</dt>
         <dd>
@@ -130,6 +138,21 @@
         </dd>
         <dd class="smaily-summary__action">{{ summary.edit(2, edit_label) }}</dd>
       </div>
+      {% set a = smaily_setup.automations %}
+      {% if a is not null %}
+        {% for trigger, name in automation_names %}
+          {% set saved = a.triggers[trigger] %}
+          {% set has_workflow = (a.mode not in ['a', 'b'] and saved.workflow != '') or saved.languages|filter(workflow => workflow != '')|length > 0 %}
+          <div class="smaily-summary__row">
+            <dt>{{ name }}</dt>
+            <dd>
+              <span class="smaily-pill{{ saved.enabled ? (has_workflow ? ' smaily-pill--active' : ' smaily-pill--pending') : ' smaily-pill--off' }}"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ saved.enabled ? (has_workflow ? 'Active'|trans : 'No workflow'|trans) : 'Off'|trans }}</span>
+              {% if trigger == 'abandoned_cart' and saved.enabled %}<span class="smaily-note">{{ 'Wait (minutes)'|trans }}: {{ a.cart_delay }}</span>{% endif %}
+            </dd>
+            <dd class="smaily-summary__action">{{ summary.edit(3, edit_label) }}</dd>
+          </div>
+        {% endfor %}
+      {% endif %}
       {% set ci = o.intelligence %}
       {% if ci is not null %}
         <div class="smaily-summary__row">
@@ -183,6 +206,24 @@
   </div>
 {% endif %}
 
+<div class="smaily-card smaily-summary smaily-overview-background" data-smaily-overview-background>
+  <div class="smaily-card__head"><h2>{{ 'Background tasks'|trans }}</h2></div>
+  <p>{{ 'Background tasks run with your shop\'s traffic. For reliable timing, add the line below to your server\'s cron.'|trans }}</p>
+  {% if smaily_setup.can_configure %}
+    <div data-smaily-cron-line="{{ path('smailyforprestashop_api_cron_line') }}"{% if smaily_setup_step|default(1) == 5 %} data-smaily-cron-open{% endif %}>
+      <div class="smaily-cron-ask" data-smaily-cron-ask>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-smaily-action="cron-line">{{ 'Show the cron line'|trans }}</button>
+        <span class="smaily-note">{{ 'Add it to your server\'s cron for reliable timing.'|trans }}</span>
+      </div>
+      <code class="smaily-cron" data-smaily-cron hidden></code>
+      <div class="smaily-result" data-smaily-result role="status"></div>
+    </div>
+  {% else %}
+    <p class="smaily-note">{{ 'Ask an administrator who may change the Smaily Connect settings to add the cron line.'|trans }}</p>
+  {% endif %}
+  <p class="smaily-note"><a href="{{ smaily_setup.cron_guide }}" target="_blank" rel="noopener noreferrer">{{ 'How to add the cron line'|trans }}</a></p>
+</div>
+
 <div class="smaily-card smaily-summary">
   <p data-smaily-overview-connected hidden>{{ 'Smaily Connect is now syncing in near-real-time. Here is where everything lives from now on:'|trans }}</p>
   <p data-smaily-overview-not-connected>{{ 'Syncing starts once Smaily accepts the credentials — check them in Settings > Connection and test the connection. Here is where everything lives from now on:'|trans }}</p>
@@ -196,7 +237,10 @@
   </ul>
 </div>
 {# Not .smaily-footer: common.js takes the setup's first .smaily-footer for Back and Continue. #}
-<div class="d-flex justify-content-end mt-4 pt-3 border-top">
-  <a class="btn btn-outline-secondary mr-2" href="{{ path('smailyforprestashop_settings') }}">{{ 'Open Settings'|trans }}</a>
-  <a class="btn smaily-btn-primary" href="{{ path('smailyforprestashop_dashboard') }}">{{ 'Go to Dashboard'|trans }}</a>
+<div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+  <a href="#" class="btn btn-outline-secondary" data-smaily-action="setup-goto" data-step="4">{{ 'Back'|trans }}</a>
+  <div class="smaily-footer__end">
+    <span class="smaily-result" data-smaily-finish-result role="status"></span>
+    <button type="button" class="btn smaily-btn-primary" data-smaily-action="setup-finish">{{ 'Finish'|trans }}</button>
+  </div>
 </div>

@@ -29,6 +29,10 @@
  # 2.x's Website, as ContactsPanel::FIELD_LABELS lists them; Gender, Customer ID, Customer group
  # and Subscription type are off until the merchant ticks them.
  #
+ # The guest switch, WooCommerce's "Also sync guest buyers who did not tick the newsletter box",
+ # shows in All customers only (owner, 2026-11-26; Linear CON-460); in the other modes it is hidden
+ # and keeps its stored value, which the save posts unchanged.
+ #
  # Above the card, a warning where shops on this Smaily account use different consent modes
  # (`contacts.shared_account_modes`, Admin\Setup\SharedAccountModes), named by the cards' labels.
  #
@@ -90,6 +94,11 @@
       {% endfor %}
     </div>
 
+    {# Under the mode cards, as WooCommerce's step 2 draws it. #}
+    <div class="smaily-inline-toggle" data-smaily-guests{% if contacts.mode != 'all_customers' %} hidden{% endif %}>
+      <label><input type="checkbox" data-smaily-field="guests"{{ contacts.guests ? ' checked' : '' }}> {{ 'Also sync guest buyers who did not tick the newsletter box'|trans }}</label>
+    </div>
+
     <fieldset class="smaily-field smaily-checkboxes" data-smaily-field="fields">
       <legend>{{ 'Extra fields to sync with each contact'|trans }}</legend>
       <div class="smaily-checkboxes__grid">
@@ -100,10 +109,6 @@
       <p class="smaily-note">{{ 'Empty values are never sent, so existing Smaily data is not wiped.'|trans }}</p>
     </fieldset>
 
-    <div class="smaily-inline-toggle">
-      <label><input type="checkbox" data-smaily-field="guests"{{ contacts.guests ? ' checked' : '' }}> {{ 'Include guests'|trans }}</label>
-      <p class="smaily-note">{{ 'Also sync customers who checked out as guests. A guest who ticks the checkout newsletter checkbox is synced in every mode either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in Checkout opt-in only.'|trans }}</p>
-    </div>
 
     <div class="smaily-inline-toggle">
       <label><input type="checkbox" data-smaily-field="checkout_checkbox"{{ contacts.checkout_checkbox ? ' checked' : '' }}> {{ 'Show a newsletter checkbox at checkout'|trans }}</label>

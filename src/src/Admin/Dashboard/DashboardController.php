@@ -32,6 +32,7 @@ if (!defined('_PS_VERSION_')) {
 use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\UserGuide;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
@@ -94,6 +95,7 @@ final class DashboardController extends BaseController
             'smaily_dashboard' => $view,
             'smaily_invitation' => $view['invitation'],
             'smaily_intelligence_invitation' => $view['intelligence_invitation'],
+            'smaily_user_guide' => UserGuide::URL,
         ]);
     }
 }

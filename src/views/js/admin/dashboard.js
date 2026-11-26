@@ -22,11 +22,12 @@
  */
 
 /*
- * The Dashboard's cron line: the Background tasks card asks the server for the cron line
- * (Admin\Dashboard\CronLine) and shows it in place of the button "Show the cron line". While the
- * background tasks do not run from a cron URL (`data-smaily-cron-open`), the card asks at once, so
- * the line shows without a click; a failed request brings the button back. Plain JavaScript;
- * window.smailyConnect.api() and ready() come from common.js.
+ * The cron line of the Dashboard's Background tasks card and of the Initial setup's Overview: the
+ * box asks the server for the cron line (Admin\Dashboard\CronLine) and shows it in place of the
+ * button "Show the cron line" and its reason. While the background tasks do not run from a cron URL
+ * (`data-smaily-cron-open`), the box asks at once, so the line shows without a click; a failed
+ * request brings the button back. Plain JavaScript; window.smailyConnect.api() and ready() come
+ * from common.js.
  */
 (function () {
   'use strict';
@@ -37,6 +38,7 @@
       return;
     }
     var button = box.querySelector('[data-smaily-action="cron-line"]');
+    var ask = box.querySelector('[data-smaily-cron-ask]');
     var line = box.querySelector('[data-smaily-cron]');
     var result = box.querySelector('[data-smaily-result]');
 
@@ -47,12 +49,12 @@
       window.smailyConnect.api(box.getAttribute('data-smaily-cron-line')).then(function (data) {
         line.textContent = data.line;
         line.hidden = false;
-        button.hidden = true;
+        ask.hidden = true;
       }).catch(function (error) {
         result.textContent = error.message;
         result.classList.add('is-error');
         button.disabled = false;
-        button.hidden = false;
+        ask.hidden = false;
       });
     });
     if (box.hasAttribute('data-smaily-cron-open')) {

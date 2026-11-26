@@ -1256,7 +1256,13 @@ fails shows its error and the button. The line's address carries no language pre
 employee of a store with several languages; the URL answers with a prefix and without one. An employee without that right is told to ask an
 administrator. The card lists only the tick URL: the two 2.x cron URLs keep working (section 3.4),
 and the one line replaces both in a crontab. The Initial setup's Overview step shows one line,
-"Background tasks last ran", with the time.
+"Background tasks last ran", with the time, and a card "Background tasks" (owner, 2026-11-26;
+Linear CON-460): the tasks run with the shop's traffic, and for reliable timing the merchant adds
+the line to the server's cron. The card asks the same endpoint for the line at once when the page
+opens on the Overview, behind "Show the cron line" otherwise, tells an employee without the right
+to ask an administrator, and links the guide's cron section (`Admin\UserGuide::SECTION_CRON`).
+On the Dashboard's card the button stands below the status pill with its reason beside it, "Add it
+to your server's cron for reliable timing."
 
 **Why PrestaShop forces a departure.** Woo and Magento delegate scheduling to the platform. PrestaShop
 has none, so the module owns the trigger, the lock and the time budget.
@@ -1319,7 +1325,12 @@ mapping rows).
 `single`; `a` one Smaily account per language with a fallback account; `b` one account, one workflow
 per language; `c` one workflow that branches on the contact's `language` field. As in Magento, mode `a`
 is always a shop's own setting (owner decision 2026-10-22 in Magento), and a store-wide save on a
-multishop install does not offer it.
+multishop install does not offer it. The page offers WooCommerce's three cards (owner, 2026-11-26;
+Linear CON-460; `woo:admin/src/components/wizard/MultilingualModePicker.tsx`): "Separate Smaily
+accounts" (`a`), "One account, per-language automations" (`b`), "One account, one automation with
+branches" (`c`), and a store with one language sees none. `single` stays a stored mode with no
+card: a store on it (every upgraded store, and one that never picked) keeps its routing and sees
+no card selected until it picks one; a save without a pick keeps `single`.
 
 **[D]** A change of the language mode or of the account behaves as in Magento (owner, 2026-11-21;
 `Admin\Setup\ConnectionPanel`, `views/js/admin/panels.js`; Magento's
@@ -1463,7 +1474,9 @@ authority and `force_opt_in = false` on every automation trigger.
 "Guest-checkout customer" below is a `customer` row with `is_guest = 1`. "Newsletter-block
 subscriber" is an `emailsubscription` row, a subscriber without an account. "Include guests"
 (`SMAILY_CONNECT_CONTACTS_GUESTS`) covers the guest-checkout customers only (owner, 2026-11-21,
-below); upgraded stores have it on.
+below); upgraded stores have it on. The page words the switch as WooCommerce, "Also sync guest
+buyers who did not tick the newsletter box", and shows it in All customers only (owner, 2026-11-26;
+Linear CON-460); in the other modes it is hidden and keeps its stored value and its meaning.
 
 | | Subscribers only (default; upgrades) | All customers | Checkout opt-in only |
 |---|---|---|---|
@@ -3076,7 +3089,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. Aligned with Magento item by item on 2026-11-26 (owner; Linear CON-445): "Setup incomplete" while the Initial setup is not finished (`SetupProgress::isComplete()`), as well as while contact sync is on and not confirmed; no verdict while the upgrade is not finished, as the shell's banner says it; a connection card has the green or grey dot in a column of its own; Recent activity shows each status as the Log does (Withdrawn included) and its times as the employee's language writes them (`Admin\AdminTime`, the language's `date_format_full`), as the Background tasks card's "Last run" and the Overview's last run of the background tasks do (CON-454); "View full log" and each Quick link end in →; the Contact syncs tile counts every contact sync sent in 30 days (`DashboardQueries::contactSyncs()`, one COUNT through the index on `status`); an account whose last answer from Smaily was code 227 reads "Not connected" with "Package does not include API access" and Magento's verdict sentence (`Report\ConnectionHealth`). The invitation to a Smaily account has Magento's row weight and grey Dismiss, and hides its preview at 960 px and below instead of stacking. |
-| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. As Magento's (Linear CON-445): a finished setup opens step 1 marked "Completed" on a summary of the connection (subdomain, API username, Smaily's answer about the stored account), where Continue saves nothing until "Edit credentials" shows the form; Back is a secondary button; the step's intro sits in the credentials card; the Overview's closing card lists Settings, the Log, the product RSS feed with "Open the URL builder" and the User Guide (`Admin\UserGuide::URL`). Settings > Connection's state names the account: Connected as "<subdomain>". Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
+| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. As Magento's (Linear CON-445): a finished setup opens step 1 marked "Completed" on a summary of the connection (subdomain, API username, Smaily's answer about the stored account), where Continue saves nothing until "Edit credentials" shows the form; Back is a secondary button; the step's intro sits in the credentials card; the Overview's closing card lists Settings, the Log, the product RSS feed with "Open the URL builder" and the User Guide (`Admin\UserGuide::URL`). As WooCommerce's step 6 (owner, 2026-11-26; Linear CON-460): step 4's Continue opens the page again on the Overview (`?step=5` opens it once a Smaily account is stored), which lists each store automation with its Active, No workflow or Off, has the card "Background tasks" with the cron line (section 4.3), and ends with Back and "Finish", which ends the setup and opens the Dashboard. Settings > Connection's state names the account: Connected as "<subdomain>". Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 
@@ -3415,15 +3428,26 @@ Settings > Automations and step 3 of the Initial setup show one panel
 **The panel.** One card per store automation (Welcome, First order, Abandoned cart) with the
 Off/Active pill ("No workflow" in the pending colour while the card is on and no workflow is
 picked), "Enabled" and, while the card is on, "Smaily Workflow"; the abandoned cart also has
-"Wait (minutes)". A switched-off card hides its settings and keeps their values. In the language
-modes `a` and `b` the card "Per-language workflows" follows, one table per automation that is on:
-Language, Workflow, Default fallback, and the row "None". In mode `a` a card has no workflow of its
-own: it belongs to no language's account. The panel is drawn for the saved mode (section 10.3).
-In mode `a` the card holds Magento's warning "Some languages have no workflow" (CON-445): for each
-automation that is on, the languages whose contacts get no workflow, read as the Router reads the
-rows (the language's own row, else the automation's default fallback, else the row of the
-fallback account's language, `values()['account_fallback']`); `panels.js` redraws it on every
-change and once the lists have loaded.
+"Wait (minutes)". A switched-off card hides its settings and keeps their values. In mode `b` a
+card that is on holds, in place of "Smaily Workflow", a table of Language, Workflow and Default
+fallback with one row per language and the fallback's radio on one of them, as WooCommerce's and
+Shopify's cards (owner, 2026-11-26; Linear CON-460): no workflow of no language and no row "None".
+The row of no language stays stored for the modes `single` and `c`, and the Router reads it last in
+mode `b` as before, so a store whose mode-`b` rows were saved with it and "None" sends the same
+until it saves the page. The page shows what the Router does (`AutomationsPanel::values()`): the
+radio on the stored fallback; without one, on the first language without a workflow of its own,
+whose row then shows the workflow of no language; else on the first language with a workflow. A
+save of that row stores a copy of the row of no language (its workflow, also one that the list no
+longer offers, or the 2.x opt-in trigger) with the fallback flag, so the same workflows are sent
+(`AutomationsPanelTest`). In mode `a` the card "Per-language workflows" follows, as Magento draws
+it, one table per automation that is on: Language, Workflow, Default fallback, and the row "None";
+a card has no workflow of its own there: it belongs to no language's account. The panel is drawn
+for the saved mode (section 10.3). In the modes `a` and `b` the panel holds Magento's warning "Some
+languages have no workflow" (CON-445): for each automation that is on, the languages whose
+contacts get no workflow, read as the Router reads the rows (the language's own row, else the
+automation's default fallback, else in mode `a` the row of the fallback account's language,
+`values()['account_fallback']`); `panels.js` redraws it on every change and once the lists have
+loaded. A lost workflow of no language is not listed in mode `b`, which draws no select for it.
 
 **Lost workflows** (owner, 2026-11-26; section 5.1). Above the cards, the banner "Some automations
 have no workflow" names the automations, and in the modes `a` and `b` their language ("Abandoned
@@ -3665,7 +3689,7 @@ again. While an import is queued or running, the Settings tab asks for the state
 | `EngineDisconnect` | update | "Disconnect": `Disconnector::disconnect()`, after the page's question. Settings only. |
 | `BackfillState` | read | The panel's state, for the cards of an open page. Settings only. |
 | `BackfillAction` | update | `start` or `cancel` of one import; "Hold back the import" is a cancel of the catalog import. |
-| `Settings\SaveTab` (`intelligence`), `Setup\SaveStep` (`intelligence`) | update | The cookie-banner confirmation (section 9). On the Initial setup, Finish saves it for a connected store and then ends the setup. |
+| `Settings\SaveTab` (`intelligence`), `Setup\SaveStep` (`intelligence`) | update | The cookie-banner confirmation (section 9). On the Initial setup, Continue saves it for a connected store and then opens the Overview, whose Finish ends the setup (CON-460). |
 
 **A link that is not taken.** The page shows the module's own sentence for the reason, by the
 error code alone, never the engine's text: an empty field; not an https address on
@@ -5354,3 +5378,21 @@ engine (outside the customer scope, for example without the marketing consent of
 quietly, as WooCommerce's: no failed Log row and no Dashboard "Needs attention". The row is
 skipped (`engine_customer_not_sent`). A customer whom the store does send is still sent and the
 merge tried once more (contract §7 "Retry after 404"; section 8.11).
+
+Decisions of 2026-11-26 (Linear CON-460, the owner's answers in CON-444): these parts follow
+WooCommerce and Shopify, where Magento was the odd one out.
+
+- The language modes are WooCommerce's three cards, and a store with one language sees none; a
+  store on `single` keeps it and sees no card selected (section 5.1).
+- In mode `b` each automation is one card with a row per language and the default fallback's radio
+  on one of them; no workflow of no language and no "None". A store that saved a workflow of no
+  language sends the same workflows (section 10.9).
+- "Include guests" is WooCommerce's "Also sync guest buyers who did not tick the newsletter box",
+  shown in All customers only, its value and meaning unchanged (section 6.2).
+- The Initial setup's step 4 continues to the Overview, which lists each automation beside the
+  connection, the contact sync, the import and Campaign Intelligence, has a card on the background
+  tasks with the cron line (section 4.3) and "Finish", which ends the setup (`SaveStep` `finish`) and
+  opens the Dashboard, as WooCommerce's step 6.
+- The Dashboard's Quick links get a fourth entry, "User Guide" (`Admin\UserGuide::URL`, in a new
+  tab), with the Overview's line "the full merchant documentation: every feature, setting and
+  troubleshooting steps"; the same for every connector.

@@ -45,6 +45,9 @@ final class UserGuide
     /** Section "Recommendations on your store's pages": where the recommendations block is placed. */
     public const SECTION_STOREFRONT_RECOMMENDATIONS = 'set-storefront-recs';
 
+    /** Section "Adding the cron line": the Initial setup's Overview links it beside the cron line. */
+    public const SECTION_CRON = 'bg-cron';
+
     /**
      * The address of a section of the guide.
      *

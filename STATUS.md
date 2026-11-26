@@ -49,6 +49,16 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   attempt each; the save no longer sends `test_mode`. Host 2410 tests (4236 assertions, 1232 skipped), `node
   --test` 55, CS 0 of 370, PHP 8.0 lint; fresh shops behind the guard: 2410 tests on 9.2.0 (12921 assertions)
   and on 8.2.8 (12916), leftovers silent; a headless walk of 65 checks per version, EN and ET, all pass.
+- CON-460 (owner's answers of 26 Nov in CON-444, as WooCommerce and Shopify): WooCommerce's three language-mode cards
+  (a store on `single` keeps it, no card selected); in mode b one card per automation with a row per language and the
+  fallback radio, a stored default workflow shown on the row it serves (same sends after a save); "Also sync guest
+  buyers who did not tick the newsletter box" in All customers only; step 4 continues to the Overview, which lists
+  each automation, has a Background tasks card with the cron line and Finish (→ Dashboard); the Dashboard's cron
+  button has its reason and a top margin; a fourth Quick link "User Guide". Host 2385 tests, 4196 assertions, 1218
+  skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 368; PHP 8.0 lint of the 7 changed PHP files; fresh
+  shops behind the guard: 2385 tests on 9.2.0 (12803 assertions) and 8.2.8 (12798), leftovers silent. Walked in
+  headless Chromium, EN and ET, on 9.2.0 and 8.2.8: one language, two languages in a, b, c and `single`, and a
+  2.2.0 fixture upgraded and moved to b (routes the same before and after the Automations save).
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.

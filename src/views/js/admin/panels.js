@@ -538,11 +538,11 @@
     }
 
     /*
-     * An account per language (mode `a`): the banner "Some languages have no workflow" names, for
-     * each automation that is on, the languages whose contacts get no workflow, read as the
-     * Router reads the rows: the language's own row, else the automation's default fallback, else
-     * the row of the fallback account's language (Magento's showUnmappedLanguages(), CON-188). A
-     * list not loaded yet counts its saved workflow.
+     * A workflow or an account per language (modes `b` and `a`): the banner "Some languages have no
+     * workflow" names, for each automation that is on, the languages whose contacts get no
+     * workflow, read as the Router reads the rows: the language's own row, else the automation's
+     * default fallback, else in mode `a` the row of the fallback account's language (Magento's
+     * showUnmappedLanguages(), CON-188). A list not loaded yet counts its saved workflow.
      */
     function showUnmappedLanguages() {
       var banner = automations ? automations.querySelector('[data-smaily-unmapped]') : null;
@@ -581,20 +581,27 @@
 
     /*
      * After a Connection save that removed workflows, while the page stays (Settings): their
-     * selects hold none, their cards say so, and the banner names them.
+     * selects hold none, their cards say so, and the banner names them. A workflow that the page
+     * draws no select for (in mode `b` the one of no language) is not named, as the panel's
+     * `lost` leaves it out (AutomationsPanel::values()).
      */
     function lostWorkflows(entries) {
       if (!automations) {
         return;
       }
-      var names = entries.map(function (entry) {
+      var shown = entries.filter(function (entry) {
+        var field = entry.trigger + (entry.language === '' ? '.workflow' : '.languages.' + entry.language);
+        return automations.querySelector('[data-smaily-field="' + field + '"]') !== null;
+      });
+      if (shown.length === 0) {
+        return;
+      }
+      var names = shown.map(function (entry) {
         var field = entry.trigger + (entry.language === '' ? '.workflow' : '.languages.' + entry.language);
         var select = automations.querySelector('[data-smaily-field="' + field + '"]');
-        if (select) {
-          select.setAttribute('data-saved', '');
-          if (select.options.length) {
-            select.value = '';
-          }
+        select.setAttribute('data-saved', '');
+        if (select.options.length) {
+          select.value = '';
         }
         showTrigger(automations.querySelector('[data-smaily-trigger="' + entry.trigger + '"]'));
         var name = automations.querySelector('[data-smaily-trigger="' + entry.trigger + '"] .smaily-trigger__name').textContent.trim();
@@ -820,6 +827,8 @@
       }
       if (input.name === 'smaily-contacts-mode') {
         importCard.mode(input.value);
+        // As WooCommerce (CON-439): the guest switch is drawn in All customers only; it keeps its value.
+        root.querySelector('[data-smaily-guests]').hidden = input.value !== 'all_customers';
       }
       if (automations && automations.contains(input)) {
         showUnmappedLanguages();

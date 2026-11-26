@@ -281,7 +281,7 @@
       });
       footer.hidden = step === last;
       back.hidden = step === 1;
-      next.textContent = container.getAttribute(step === last - 1 ? 'data-label-finish' : 'data-label-continue');
+      next.textContent = container.getAttribute('data-label-continue');
       show(result, '', true);
       hinted = false;
       gate();

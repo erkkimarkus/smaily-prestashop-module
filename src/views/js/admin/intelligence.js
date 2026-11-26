@@ -31,7 +31,7 @@
  * BackfillState); draw() shows the parts of the page that belong to it, so Connect, Check again
  * and Disconnect change the page without a reload. While an import is queued or running the
  * state is asked again every few seconds. Save sends the cookie-banner confirmation; on the
- * Initial setup Finish sends it and then ends the setup.
+ * Initial setup Continue sends it and then opens the Overview.
  */
 (function () {
   'use strict';
@@ -253,10 +253,10 @@
       }
     });
 
-    if (inSetup && smailyConnect.setup && smailyConnect.setup.finish) {
-      // Finish: the confirmation of a connected store is saved first; the step is optional.
+    if (inSetup && smailyConnect.setup && smailyConnect.setup.overview) {
+      // Continue: the confirmation of a connected store is saved first; the step is optional.
       smailyConnect.setup.onContinue(4, function () {
-        return (state.connected ? saveConsent() : Promise.resolve()).then(smailyConnect.setup.finish);
+        return (state.connected ? saveConsent() : Promise.resolve()).then(smailyConnect.setup.overview);
       });
     }
 

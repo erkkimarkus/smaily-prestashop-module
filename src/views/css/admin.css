@@ -1009,6 +1009,11 @@
   font-size: 13px;
 }
 
+/* The Overview's card on the background tasks and its cron line (CON-460). */
+.smaily-ui .smaily-overview-background {
+  margin-top: 24px;
+}
+
 /* The Overview's summary. */
 .smaily-ui .smaily-summary {
   max-width: 780px;
@@ -1209,6 +1214,23 @@
 .smaily-ui .smaily-connection__hint {
   margin: 10px 0 6px;
   font-size: 12px;
+}
+
+/* The cron line's button stands below the status pill, its reason beside it (CON-460). */
+.smaily-ui .smaily-cron-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+
+.smaily-ui .smaily-cron-ask[hidden] {
+  display: none;
+}
+
+.smaily-ui .smaily-cron-ask .smaily-note {
+  margin: 0;
 }
 
 .smaily-ui .smaily-cron {

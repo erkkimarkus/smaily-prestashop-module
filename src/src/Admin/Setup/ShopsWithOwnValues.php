@@ -130,9 +130,9 @@ final class ShopsWithOwnValues
         if ($section === ShopOverrides::CONNECTION) {
             $modes = [
                 StoreLayout::MODE_SINGLE => 'Single language',
-                StoreLayout::MODE_ACCOUNT_PER_LANGUAGE => 'Per-language Smaily accounts',
-                StoreLayout::MODE_WORKFLOW_PER_LANGUAGE => 'One account, per-language workflows',
-                StoreLayout::MODE_BRANCH_ON_LANGUAGE => 'One workflow branching by language',
+                StoreLayout::MODE_ACCOUNT_PER_LANGUAGE => 'Separate Smaily accounts',
+                StoreLayout::MODE_WORKFLOW_PER_LANGUAGE => 'One account, per-language automations',
+                StoreLayout::MODE_BRANCH_ON_LANGUAGE => 'One account, one automation with branches',
             ];
             if (isset($own[StoreLayout::LANGUAGE_MODE])) {
                 $mode = $own[StoreLayout::LANGUAGE_MODE];
@@ -167,7 +167,7 @@ final class ShopsWithOwnValues
                         $lines[] = ['', isset($modes[$value]) ? $this->trans($modes[$value]) : $value];
                         break;
                     case ContactsSettings::GUESTS:
-                        $lines[] = [$this->trans('Include guests'), $this->flag($value)];
+                        $lines[] = [$this->trans('Also sync guest buyers who did not tick the newsletter box'), $this->flag($value)];
                         break;
                     case ContactsSettings::FIELDS:
                         $names = [];

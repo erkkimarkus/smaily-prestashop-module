@@ -3947,6 +3947,76 @@
         <target>Lülita testrežiim välja</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="868b286f885199fbf693970384eb09c6">
+        <source>Separate Smaily accounts</source>
+        <target>Eraldi Smaily kontod</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="396ba09908b540fb66f73c3d72f3be1f">
+        <source>One account, per-language automations</source>
+        <target>Üks konto, keelepõhised automaatikad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bf2052f947242b804a3b2a76a2fee242">
+        <source>One account, one automation with branches</source>
+        <target>Üks konto, üks hargnev automaatika</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="61fb96926c5b3e8234f37a1d056dabed">
+        <source>One Smaily subdomain per language. Each language has its own subscriber list and credentials.</source>
+        <target>Üks Smaily alamdomeen keele kohta. Igal keelel on oma tellijaloend ja mandaadid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ad8161c8d7afbf4bdf680823ceebff6b">
+        <source>Single Smaily account, but a separate automation workflow per language. Most common setup.</source>
+        <target>Üks Smaily konto, kuid eraldi automaatika-töövoog iga keele kohta. Kõige levinum seadistus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2fad87c97e6d73d46a877dcee6749299">
+        <source>Single Smaily workflow that branches on the contact’s language inside Smaily.</source>
+        <target>Üks Smaily töövoog, mis hargneb kontakti keele järgi Smaily sees.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3eb9dc83da7c31486b647a7bff69ec00">
+        <source>Also sync guest buyers who did not tick the newsletter box</source>
+        <target>Sünkroniseeri ka need külalisostjad, kes ei märkinud kassas uudiskirja linnukest</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="13ae0028772085909587e65c80b200b3">
+        <source>Guest buyers: from now on guest-checkout customers are synced too, and the daily refresh sends the existing ones.</source>
+        <target>Külalisostjad: edaspidi sünkroonitakse ka külalisena ostnud kliendid ning igapäevane värskendus saadab ka olemasolevad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b97726f18b19bd241dd78d5487ed3243">
+        <source>Separate Smaily accounts are set for one shop: under Settings &gt; Connection, pick the shop and tick Use its own Smaily account on this shop.</source>
+        <target>Eraldi Smaily kontod seadistatakse ühele poele: vali pood, ava Seaded &gt; Ühendus ja märgi „Kasuta selles poes oma Smaily kontot“.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="da568fa7f6d9ac5eda072fffe261cbcf">
+        <source>Pick a workflow for each language. The default fallback handles contacts whose language has no workflow.</source>
+        <target>Vali iga keele jaoks töövoog. Vaikimisi varuvalik on kontaktidele, kelle keelel töövoogu pole.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="781ccbb4dd14191a19f33a175a9bbd09">
+        <source>Add it to your server's cron for reliable timing.</source>
+        <target>Lisa see oma serveri cron'i, et taustatööd käivituksid õigel ajal.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="74569761c169936200e7f8e7584e6424">
+        <source>Smaily Connect is configured and ready. Make sure that all settings are correct and click Finish to save.</source>
+        <target>Smaily Connect on seadistatud ja valmis kasutamiseks. Veendu, et kõik seadistused on õiged ning kliki „Lõpeta“ nupul, et seadistused salvestada.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="929bad88076f2f793a62688a6b6ca5be">
+        <source>Background tasks run with your shop's traffic. For reliable timing, add the line below to your server's cron.</source>
+        <target>Taustatööd käivituvad koos poe külastustega. Et need käivituksid õigel ajal, lisa allolev rida oma serveri cron'i.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5b8308c81ec875ea5e91c78e848d4927">
+        <source>How to add the cron line</source>
+        <target>Kuidas cron-rida lisada</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -48,8 +48,9 @@ use Symfony\Component\HttpFoundation\Response;
  * by the panels for the scope of PrestaShop's shop selector (SetupScope).
  *
  * Like Magento, the page opens on Connect with every step reached so far open in the rail
- * (SetupProgress); `?step=n` opens a step already reached, which the setup uses to show the
- * Overview after Finish. A finished setup opens step 1 on a summary of the connection with "Edit
+ * (SetupProgress); `?step=n` opens a step already reached, and `?step=5` the Overview once a
+ * Smaily account is stored, which step 4's Continue opens so that it shows what the steps saved
+ * (CON-460). A finished setup opens step 1 on a summary of the connection with "Edit
  * credentials", and in one store of several shops steps 1 to 3 list the shops that hold their own
  * values (ShopsWithOwnValues), as Magento's wizard does. The invitation shows above step 1 while
  * the scope has no Smaily account. No password reaches the page: the panels say only whether one
@@ -72,7 +73,10 @@ final class SetupController extends BaseController
         $scope = $panels->scope($selected);
         $target = $scope->targetShop();
         $reached = $panels->progress()->reachedStep($scope);
-        $step = max(1, min($reached, (int) $request->query->get('step', 1)));
+        $asked = (int) $request->query->get('step', 1);
+        // Step 4's Continue opens the Overview once a Smaily account is stored (CON-460).
+        $step = $asked === SetupProgress::STEPS && $reached >= 2 ? $asked : max(1, min($reached, $asked));
+        $reached = max($reached, $step);
 
         $connection = $panels->connection()->values($scope);
         $contacts = $panels->contacts()->values($scope);
@@ -125,6 +129,9 @@ final class SetupController extends BaseController
                 ],
                 'rss_feed' => $settings->rss()->values()['base_url'],
                 'user_guide' => UserGuide::URL,
+                'cron_guide' => UserGuide::link(UserGuide::SECTION_CRON),
+                // The Overview's cron line needs the right to change the settings (Dashboard\CronLine).
+                'can_configure' => $this->isGranted('update', self::PAGES['settings']['tab']),
             ],
         ], self::TEMPLATE);
     }

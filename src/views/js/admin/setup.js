@@ -35,9 +35,10 @@
  * Smaily account takes a stored one's place while an automation has a workflow picked. Back keeps
  * what was typed: the steps stay on the page. The Automations step is drawn for the saved language
  * mode and workflows, so a Connect save that changes the mode, or that removed workflows
- * (Automation\LostWorkflows), opens the page again on step 2. The Intelligence
- * step belongs to later work; Continue passes through it, and Finish on step 4 runs
- * window.smailyConnect.setup.finish(), which a later saver of step 4 calls after its own save.
+ * (Automation\LostWorkflows), opens the page again on step 2. Continue on step 4 runs
+ * window.smailyConnect.setup.overview(), which intelligence.js calls after its own save: the page
+ * opens again on the Overview, which then shows what the steps saved. The Overview's Finish ends
+ * the setup and opens the Dashboard, as WooCommerce's Finish (owner, 2026-11-26; Linear CON-460).
  *
  * As in Magento's wizard: a finished setup opens step 1 on the connection's summary, where
  * Continue saves nothing until "Edit credentials" shows the form; the store-layout bar's Change
@@ -338,17 +339,28 @@
       });
     }
 
-    /* Finish: the setup is done; the page opens again on the Overview. */
-    smailyConnect.setup.finish = function () {
-      return post('save', {step: 'finish'}).then(function () {
-        return reopen(5);
-      });
+    /* Step 4's Continue: the page opens again on the Overview, drawn from what is saved. */
+    smailyConnect.setup.overview = function () {
+      return reopen(5);
     };
+
+    /* The Overview's Finish: the setup is done, and the Dashboard opens. */
+    function finish(button) {
+      var line = container.querySelector('[data-smaily-finish-result]');
+      button.disabled = true;
+      result(line, label('saving'), true);
+      post('save', {step: 'finish'}).then(function (answer) {
+        window.location.href = answer.dashboard;
+      }).catch(function (error) {
+        result(line, error && error.message ? error.message : label('saving-failed'), false);
+        button.disabled = false;
+      });
+    }
 
     smailyConnect.setup.onContinue(1, saveConnect);
     smailyConnect.setup.onContinue(2, saveContacts);
     smailyConnect.setup.onContinue(3, saveAutomations);
-    smailyConnect.setup.onContinue(4, smailyConnect.setup.finish);
+    smailyConnect.setup.onContinue(4, smailyConnect.setup.overview);
 
     /* The Overview asks Smaily about each stored account when it shows. */
     function checkAccounts() {
@@ -394,6 +406,8 @@
         changeShape(target);
       } else if (action === 'edit-credentials') {
         editCredentials(target);
+      } else if (action === 'setup-finish') {
+        finish(target);
       } else if (action === 'refresh-workflows') {
         // A list that cannot be loaded says why beside the step's buttons, as in Magento.
         panels.loadWorkflows(container.querySelector('.smaily-footer [data-smaily-result]'));
