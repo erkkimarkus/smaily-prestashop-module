@@ -29,6 +29,7 @@ final class ClientMockTest extends EngineTestCase
         'customer_export', 'customer_delete', 'customer_opt_out', 'recommendations_preview',
         'recommendations_issue', 'recommendations_customer', 'automations_catalog', 'automations_config',
         'notifications_ingest', 'store_uninstall', 'automations_setup_link', 'store_branding',
+        'automations_test_send', 'automations_go_live',
         'emails_design_link', 'emails_designs',
     ];
 

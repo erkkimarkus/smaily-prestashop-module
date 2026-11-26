@@ -30,8 +30,10 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * One row of the Automations tab's card as the engine takes it at a save (contract §13): all eight
- * keys, as the Magento connector's ConfigRowNormalizer builds them.
+ * One row of the Automations tab's card as the engine takes it at a save (contract §13): every key
+ * but `test_mode`, as the Magento connector's ConfigRowNormalizer builds them. The card's Test mode
+ * switch is the real-sends switch of §20, and an omitted `test_mode` keeps the stored value, so a
+ * save never switches real sends off (CON-459, as CON-455 and CON-458).
  *
  * A save never drops a workflow that the page could not show as a choice:
  * - a per-language map, which another connector on the same engine store saved, is kept whole
@@ -50,14 +52,14 @@ final class ConfigRow
     public const MAX_TEST_EMAILS = 50;
 
     /**
-     * @param array<string, mixed> $data the row as the page posts it: `enabled`, `test_mode`,
-     *                                   `workflow_id`, `cooldown_days`, `daily_cap`, `test_emails`
-     *                                   (separated by commas), and the `language_mode` and
-     *                                   `original_map` that the page was drawn with
+     * @param array<string, mixed> $data the row as the page posts it: `enabled`, `workflow_id`,
+     *                                   `cooldown_days`, `daily_cap`, `test_emails` (separated by
+     *                                   commas), and the `language_mode` and `original_map` that
+     *                                   the page was drawn with
      * @param list<string> $offered the workflow ids of the Smaily list now; none when the list
      *                              could not be loaded, and every stored id then counts as missing
      *
-     * @return array{trigger_key: string, enabled: bool, language_mode: string, automation_map: array<string, string>, cooldown_days: int, daily_cap: int|null, test_mode: bool, test_emails: list<string>}
+     * @return array{trigger_key: string, enabled: bool, language_mode: string, automation_map: array<string, string>, cooldown_days: int, daily_cap: int|null, test_emails: list<string>}
      */
     public static function normalize(string $triggerKey, array $data, array $offered): array
     {
@@ -94,7 +96,6 @@ final class ConfigRow
             'automation_map' => $map,
             'cooldown_days' => max(1, min(self::MAX_COOLDOWN_DAYS, (int) ($data['cooldown_days'] ?? AutomationList::DEFAULT_COOLDOWN_DAYS))),
             'daily_cap' => $dailyCap === '' ? null : max(1, min(self::MAX_DAILY_CAP, (int) $dailyCap)),
-            'test_mode' => !empty($data['test_mode']),
             'test_emails' => array_slice($emails, 0, self::MAX_TEST_EMAILS),
         ];
     }

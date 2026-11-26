@@ -2887,11 +2887,6 @@
         <target>Testrežiim</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="58d3078cc3c2afe6fffc1534cab81ce4">
-        <source>Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.</source>
-        <target>Saatmise päris klientidele lülitab Smaily sisse pärast sinu kinnitust. Seni töötab päästik testrežiimis.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="3617a564d77f246a6b421508ad15f78d">
         <source>Cooldown (days)</source>
         <target>Puhkeaeg (päevades)</target>
@@ -3810,6 +3805,146 @@
       <trans-unit id="57a7693607f2cf7499b0296cbda44a50">
         <source>Open Contacts settings</source>
         <target>Ava kontaktide seaded</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="306656b6638c4cd740cbc614e75df83e">
+        <source>Test email sent to %email%. Check the inbox.</source>
+        <target>Testkiri saadeti aadressile %email%. Vaata postkasti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e960a30a4e4789cd1b3123a124fdf913">
+        <source>Campaign Intelligence did not take the request. Try again in a moment.</source>
+        <target>Campaign Intelligence ei võtnud päringut vastu. Proovi hetke pärast uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5528826dc4666a266cdae852438d529a">
+        <source>The test email cannot be sent yet:</source>
+        <target>Testkirja ei saa veel saata:</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="51b45256fd115e52a9a7b319aabb1f83">
+        <source>Test mode stays on until this is fixed:</source>
+        <target>Testrežiim jääb sisse, kuni see on korras:</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a536972ae77ff35951691c66d4604cde">
+        <source>Smaily refused to send from your sender address: its domain is not verified in Smaily yet, or the address is not allowed. Real sends are not affected.</source>
+        <target>Smaily keeldus sinu saatja aadressilt saatmast: selle domeen pole Smailys veel kinnitatud või aadress pole lubatud. See ei mõjuta päris saatmist.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1ed8da1423c6c08e3f90d387697ec820">
+        <source>Too many requests. Up to 10 test emails can be sent an hour. Try again later.</source>
+        <target>Liiga palju päringuid. Tunnis saab saata kuni 10 testkirja. Proovi hiljem uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="2cd4bc086ad6da98df2a0bd4068794f8">
+        <source>Test mode was switched too often. Try again in a minute.</source>
+        <target>Testrežiimi lülitati liiga tihti. Proovi minuti pärast uuesti.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d92300bd1f4f2b8e75f83d2714676ba7">
+        <source>Smaily did not answer, so the test email was not sent. Press the button again to try once more.</source>
+        <target>Smaily ei vastanud, nii et testkirja ei saadetud. Vajuta nuppu uuesti, et veel kord proovida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4e67c2d4837918e74db1fbc1a47b7717">
+        <source>No Smaily workflow is linked to this email.</source>
+        <target>Selle kirjaga pole seotud ühtegi Smaily töövoogu.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8954ea1123cb5a3e8b29588eb8b8570f">
+        <source>The email's Smaily workflow is not active yet, for example because its sender domain is not verified.</source>
+        <target>Kirja Smaily töövoog pole veel aktiivne, näiteks seetõttu, et selle saatja domeen pole kinnitatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7c3c27f3d16db5db1bd468e8c00a3e9b">
+        <source>The email has no design yet.</source>
+        <target>Kirjal pole veel kujundust.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b257d5901dbe26c09511227dd0d0a97e">
+        <source>The design check failed.</source>
+        <target>Kujunduse kontroll ebaõnnestus.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cd53044908bfee854c96e2d723c69240">
+        <source>The email has no subject.</source>
+        <target>Kirjal pole teemarida.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="fdf56ea854b895a51756df14d6a72735">
+        <source>The email has no sender address.</source>
+        <target>Kirjal pole saatja aadressi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c68015ed95f6d791207eef02d0b84679">
+        <source>No customer has recommendations for this email yet.</source>
+        <target>Selle kirja jaoks pole veel ühelgi kliendil soovitusi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d977c7a76933dc4bf2dfb1ec28f9f045">
+        <source>Smaily reviews this stop before the email can send again.</source>
+        <target>Smaily vaatab peatamise üle, enne kui kirja saab uuesti saata.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b130a9c565cfa04e7b9d8ea72eb7ac7">
+        <source>A Smaily operator switches real sends on for this email.</source>
+        <target>Selle kirja päris saatmise lülitab sisse Smaily operaator.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a20d156a1ed1724c6fa83a3dc79ff22f">
+        <source>Setup is not complete.</source>
+        <target>Seadistus pole lõpetatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="448b06c8796ae576f4b8f765f192d314">
+        <source>Sending to real customers · up to %count% emails today</source>
+        <target>Saadab päris klientidele · täna kuni %count% kirja</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5da3c009736e9c91c210d8fc450b1582">
+        <source>Sending to real customers</source>
+        <target>Saadab päris klientidele</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7d5e578b549845673ae9173a316868ce">
+        <source>Starts when your sender domain is verified in Smaily.</source>
+        <target>Algab, kui sinu saatja domeen on Smailys kinnitatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="34cd80920edb1d6866d4e30f308de3ee">
+        <source>“%name%” will start going to your store's real customers, at first up to 10 emails a day, then 25 and 50.</source>
+        <target>„%name%“ hakkab minema sinu poe päris klientidele, alguses kuni 10 kirja päevas, seejärel 25 ja 50.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="179bb02b2043cf10f0a5db6a3257063d">
+        <source>The email goes to test addresses only.</source>
+        <target>Kiri läheb ainult test-aadressidele.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5f23f9739fa16efc7ddd06bb03096998">
+        <source>Send a test email to</source>
+        <target>Saada testkiri aadressile</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="ee1851440a6a7a4169d217a454c10895">
+        <source>Send test email</source>
+        <target>Saada testkiri</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="873d0a20d2cf9378c8235f3a7375ce99">
+        <source>This address is added to the Smaily list as a test contact.</source>
+        <target>See aadress lisatakse Smaily listi testkontaktina.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="f4b93e2912b7857c7321cf0d514e340d">
+        <source>Turn off test mode?</source>
+        <target>Kas lülitada testrežiim välja?</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8e61d99ca246955cc31b67a365b2a216">
+        <source>Turn off</source>
+        <target>Lülita testrežiim välja</target>
         <note>Line: </note>
       </trans-unit>
     </body>

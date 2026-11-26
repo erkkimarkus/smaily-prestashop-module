@@ -40,18 +40,22 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
- * The automated emails that Campaign Intelligence runs itself (contract §11 to §13), for the
- * connection that serves a shop: read for the Automations tab, and saved from it. The module keeps
- * no copy: every read asks the engine, and the engine's answer is what the page shows.
+ * The automated emails that Campaign Intelligence runs itself (contract §11 to §13, §19, §20), for
+ * the connection that serves a shop: read for the Automations tab, saved from it, tested and
+ * switched out of test mode and back. The module keeps no copy: every read asks the engine, and the
+ * engine's answer is what the page shows.
  *
  * - The list is the engine's catalogue of that moment with the store's configuration rows. While
  *   either cannot be read, nothing is listed and nothing can be saved, so no stored row is
  *   replaced by a default.
  * - The workflows offered are those of the Smaily account that the connection belongs to
  *   (Connection::smailySubdomain()), among the accounts of the shops that the connection serves.
- * - A save sends every row of the page with all eight keys, as the Magento connector does
- *   (ConfigRow). An enabled row without a workflow is not sent, and neither is any other row of
- *   that save. The engine checks all rows before it writes any.
+ * - A save sends every row of the page with every key but `test_mode`, as the Magento connector
+ *   does (ConfigRow). An enabled row without a workflow is not sent, and neither is any other row
+ *   of that save. The engine checks all rows before it writes any.
+ * - An email's test send (§19) and its test mode switch (§20) are one call each, never repeated: a
+ *   second test send can send a second email. After a call that the engine answered, the email's
+ *   state is read again from §12. The typed test address is passed on and kept nowhere.
  * - A refusal of the connection itself (401, 403, 409) is checked with the health check, as the
  *   ingest does: a refused connection shows as refused, not as a failed read.
  *
@@ -89,6 +93,15 @@ final class EngineAutomations
 
     /** The fault of a field that the engine refused. */
     public const FAULT_REFUSED = 'refused';
+
+    /** A test send or a test mode switch that the engine took. */
+    public const DONE = 'done';
+
+    /** The test address is not one email address; nothing was sent. */
+    public const INVALID_EMAIL = 'invalid_email';
+
+    /** The longest test address that §19 takes. */
+    public const MAX_EMAIL_LENGTH = 254;
 
     private Client $client;
 
@@ -162,8 +175,7 @@ final class EngineAutomations
     /**
      * Saves the rows that the page posted, by catalogue key (ConfigRow::normalize() names a row's
      * fields). `outcome` is:
-     * - SAVED, with the `view` that the engine answers now and `kept_in_test`: whether a row asked
-     *   for real sends and the engine keeps it in test mode;
+     * - SAVED, with the `view` that the engine answers now;
      * - INVALID, with the `faults`: each a row's `key`, its `field` and the `fault`
      *   (FAULT_WORKFLOW_REQUIRED, or FAULT_REFUSED for a field that the engine refused);
      * - FAILED, with the `failure`;
@@ -172,7 +184,7 @@ final class EngineAutomations
      *
      * @param array<mixed> $posted
      *
-     * @return array{outcome: string, view?: array<string, mixed>, kept_in_test?: bool, faults?: list<array{key: string, field: string, fault: string}>, failure?: EngineException}
+     * @return array{outcome: string, view?: array<string, mixed>, faults?: list<array{key: string, field: string, fault: string}>, failure?: EngineException}
      */
     public function save(int $idShop, array $posted, string $language): array
     {
@@ -227,15 +239,94 @@ final class EngineAutomations
             return ['outcome' => self::FAILED, 'failure' => $failure];
         }
 
-        $view = $this->read($idShop, $language, $list);
-        $stored = array_column($view['rows'] ?? [], null, 'key');
-        $keptInTest = false;
-        foreach ($rows as $row) {
-            $now = $stored[$row['trigger_key']] ?? null;
-            $keptInTest = $keptInTest || ($row['enabled'] && !$row['test_mode'] && $now !== null && $now['enabled'] && $now['test_mode']);
+        return ['outcome' => self::SAVED, 'view' => $this->read($idShop, $language, $list)];
+    }
+
+    /**
+     * Sends one test email of the catalogue email $key to $email (§19), in $language where the
+     * store has it. `outcome` is DONE, INVALID_EMAIL (nothing was asked), FAILED with the
+     * `failure`, NOT_CONNECTED or REFUSED; `state` is the email's state as §12 reads after a call
+     * that the engine answered (AutomationList::states()), else null.
+     *
+     * @return array{outcome: string, failure?: EngineException, state: array<string, mixed>|null}
+     */
+    public function testSend(int $idShop, string $key, string $email, string $language): array
+    {
+        $email = trim($email);
+        if ($email === '' || strlen($email) > self::MAX_EMAIL_LENGTH || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return ['outcome' => self::INVALID_EMAIL, 'state' => null];
+        }
+        $body = ['email' => $email];
+        if (preg_match('/^[a-z]{2}$/D', $language) === 1) {
+            $body['language'] = $language;
         }
 
-        return ['outcome' => self::SAVED, 'view' => $view, 'kept_in_test' => $keptInTest];
+        return $this->call($idShop, $key, fn (Connection $connection): array => $this->client->automationTestSend($connection, $key, $body));
+    }
+
+    /**
+     * Turns the test mode of the catalogue email $key off (§20 `live: true`, which the merchant
+     * confirmed in the page's dialog) or on again (`live: false`). $switchedBy is the employee's
+     * id ('' sends none). The outcome and the state are those of testSend().
+     *
+     * @return array{outcome: string, failure?: EngineException, state: array<string, mixed>|null}
+     */
+    public function switchTestMode(int $idShop, string $key, bool $testMode, string $switchedBy): array
+    {
+        $body = $testMode ? ['live' => false] : ['live' => true, 'confirmed' => true];
+        if ($switchedBy !== '') {
+            $body['switched_by'] = $switchedBy;
+        }
+
+        return $this->call($idShop, $key, fn (Connection $connection): array => $this->client->automationGoLive($connection, $key, $body));
+    }
+
+    /**
+     * One call of an email's endpoint, and the email's state read again where the engine answered.
+     * Only a 401 or a 403 asks the health check whether the connection is refused: a 409 here is
+     * the email's own refusal (§19 `not_ready`, `sender_refused`; §20 `go_live_blocked`).
+     *
+     * @param callable(Connection): array<string, mixed> $request
+     *
+     * @return array{outcome: string, failure?: EngineException, state: array<string, mixed>|null}
+     */
+    private function call(int $idShop, string $key, callable $request): array
+    {
+        $connection = $this->connection($idShop);
+        if (is_string($connection)) {
+            return ['outcome' => $connection, 'state' => null];
+        }
+        if (preg_match(AutomationList::KEY_PATTERN, $key) !== 1) {
+            return ['outcome' => self::FAILED, 'failure' => new EngineRequestException('unknown_automation'), 'state' => null];
+        }
+
+        try {
+            $request($connection);
+        } catch (EngineRequestException $refusal) {
+            if (in_array($refusal->httpStatus(), [401, 403], true) && $this->health->refuses($connection, $refusal)) {
+                return ['outcome' => self::REFUSED, 'state' => null];
+            }
+
+            return ['outcome' => self::FAILED, 'failure' => $refusal, 'state' => $this->state($connection, $key)];
+        } catch (EngineException $failure) {
+            return ['outcome' => self::FAILED, 'failure' => $failure, 'state' => null];
+        }
+
+        return ['outcome' => self::DONE, 'state' => $this->state($connection, $key)];
+    }
+
+    /**
+     * The email's state as §12 reads now, or null when the read fails or names no such email.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function state(Connection $connection, string $key): ?array
+    {
+        try {
+            return AutomationList::states($this->client->automationsConfig($connection))[$key] ?? null;
+        } catch (EngineException $failure) {
+            return null;
+        }
     }
 
     /**

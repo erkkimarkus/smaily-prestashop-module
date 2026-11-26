@@ -27,6 +27,12 @@ services:
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations
 
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestSend:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestSend
+
+  PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestMode:
+    class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestMode
+
   PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange:
     class: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange
 

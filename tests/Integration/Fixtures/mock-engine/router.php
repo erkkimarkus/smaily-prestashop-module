@@ -51,8 +51,8 @@
  *   names for `fail` and `delay` are `customer_export`, `customer_delete` and `customer_opt_out`.
  * - POST /api/v1/ingest/browse     §6. Validates each event on its own; an `event_id` counts once.
  * - POST /api/v1/recommendations/customer  §15.
- * - GET /api/v1/automations/catalog, GET and PUT /api/v1/automations/config  §11, §12, §13
- *   (automations.php).
+ * - GET /api/v1/automations/catalog, GET and PUT /api/v1/automations/config, POST
+ *   /api/v1/automations/{key}/test-send and /go-live  §11, §12, §13, §19, §20 (automations.php).
  * - Anything else: HTTP 404.
  *
  * An authenticated call needs a key that an exchange of this mock issued and that is not revoked
@@ -310,10 +310,10 @@ if ($route === 'exchange') {
         'api_key' => $apiKey,
         'engine_base_url' => $base,
         'engine_version' => '1.0.0',
-        // §1: the map as the contract prints it. `automations_test_send`, `automations_go_live`
-        // and `console_entry` are absent, as the engine returns them only once they are live;
-        // `ingest_stock_alerts` is returned since 2026-11-20. `{email}`, `{key}` and
-        // `{email_key}` are the engine's own placeholders.
+        // §1: the map as the contract prints it. `console_entry` is absent, as the engine returns
+        // it only once it is live; `ingest_stock_alerts` is returned since 2026-11-20, and
+        // `automations_test_send` and `automations_go_live` since 2026-11-26. `{email}`, `{key}`
+        // and `{email_key}` are the engine's own placeholders.
         'endpoints' => [
             'ingest_ping' => $base . '/api/v1/ingest/ping',
             'ingest_catalog' => $base . '/api/v1/ingest/catalog',
@@ -337,6 +337,8 @@ if ($route === 'exchange') {
             'store_uninstall' => $base . '/api/v1/store/uninstall',
             'automations_setup_link' => $base . '/api/v1/automations/{key}/setup-link',
             'store_branding' => $base . '/api/v1/store/branding',
+            'automations_test_send' => $base . '/api/v1/automations/{key}/test-send',
+            'automations_go_live' => $base . '/api/v1/automations/{key}/go-live',
             'emails_design_link' => $base . '/api/v1/emails/{email_key}/design-link',
             'emails_designs' => $base . '/api/v1/emails/designs',
         ],

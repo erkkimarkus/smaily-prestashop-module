@@ -15,7 +15,7 @@ final class ConfigRowTest extends TestCase
 {
     private const OFFERED = ['21', '24'];
 
-    public function testARowCarriesAllEightKeys(): void
+    public function testARowCarriesEveryKeyButTestMode(): void
     {
         $row = ConfigRow::normalize('replenish_due', [
             'enabled' => true,
@@ -35,9 +35,8 @@ final class ConfigRowTest extends TestCase
             'automation_map' => ['id' => '21'],
             'cooldown_days' => 30,
             'daily_cap' => 10,
-            'test_mode' => true,
             'test_emails' => ['owner@shop.example', 'marketing@shop.example'],
-        ], $row);
+        ], $row, 'a posted test_mode is not sent: the Test mode switch is §20, and a save never switches real sends off');
     }
 
     public function testARowWithNothingPostedIsOffWithTheDefaults(): void
@@ -49,7 +48,6 @@ final class ConfigRowTest extends TestCase
             'automation_map' => [],
             'cooldown_days' => 7,
             'daily_cap' => null,
-            'test_mode' => false,
             'test_emails' => [],
         ], ConfigRow::normalize('winback_rescue', [], self::OFFERED));
     }

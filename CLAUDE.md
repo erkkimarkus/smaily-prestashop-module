@@ -337,9 +337,12 @@ ask (Linear discipline below).
   lists the engine's catalogue of that moment: never name an automation by its key, and store
   nothing of it. The card is asked of the engine after the page has loaded (a walk waits for it).
   While the catalogue or the configuration cannot be read, nothing is listed and nothing is saved.
-  A save sends every row with all eight keys, as Magento, and hands a workflow map that the page
-  could not offer back as stored (`Engine\Automations\ConfigRow`). `Engine\Client` reads of a
-  refusal the status, the code and the field names of `errors[]`, never a `message`.
+  A save sends every row with every key but `test_mode`, as Magento, and hands a workflow map that
+  the page could not offer back as stored (`Engine\Automations\ConfigRow`). An email's Test mode
+  switch is §20 and "Send test email" §19 (owner, 2026-11-26; CON-459): no form fields, one
+  attempt each, never repeated on their own, test mode off only after the dialog. `Engine\Client`
+  reads of a refusal the status, the code, the field names of `errors[]` and the codes of
+  `details` (`EngineRequestException::details()`), never a `message`.
 - **The installation report** (ARCHITECTURE 11.1) is sent only to
   `https://subscription.smaily.com` (`Report\ReportSender::ENDPOINT`), and no
   test or dev shop may reach it: a test gives the sender a transport, the

@@ -301,13 +301,18 @@ the names `catalog`, `catalog_remove`, `catalog_manifest`, `customers`, `orders`
 `identity_merge`. It answers the history import's progress too (contract §25): `history` holds
 each connection's import with its phase and stop reason, `history_calls` every call.
 It answers the automation routes too (`mock-engine/automations.php`, written
-from the contract's text: §11 catalogue, §12 configuration, §13 save with its all-or-nothing
-check and its `errors[]`). `automations` lists the emails the engine offers (a walk changes it
-between two page loads; without it the mock offers two), `automation_configs` holds the saved
-rows per engine store (a walk writes a row there to play another connector or a Smaily
-operator), `automations_live` lists per engine store the emails whose real sends are on (a save
-that asks for real sends keeps test mode for every other email, as the engine does), and `fail`
-and `delay` take the names `automations_catalog`, `automations_config` and `automations_save`.
+from the contract's text: §11 catalogue, §12 configuration with its `setup[]`, §13 save with its
+all-or-nothing check and its `errors[]`, §19 test send and §20 real-sends switch). `automations`
+lists the emails the engine offers (a walk changes it between two page loads; without it the mock
+offers two), `automation_configs` holds the saved rows per engine store (a walk writes a row there
+to play another connector or a Smaily operator), `automations_live` lists per engine store the
+emails whose real sends are on (§20 writes it; a save that asks for real sends keeps test mode for
+every other email, as the engine does), `automations_stopped` the emails stopped until a Smaily
+operator's review, `automations_blockers` more go-live blockers per email, `automations_notice` an
+email's notice and `automations_daily_limit` a live email's limit of today (default 10). `fail`
+and `delay` take the names `automations_catalog`, `automations_config`, `automations_save`,
+`automations_test_send` and `automations_go_live`; a `fail` may carry `details`, for example
+`{"status": 409, "error": "not_ready", "details": {"reasons": ["no_design"]}}`.
 The card of Settings > Automations is asked of the engine after the page has loaded: a walk
 waits for it before it reads the card. Any token
 that the mock has not seen works once as a setup link

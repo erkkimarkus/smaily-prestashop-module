@@ -68,7 +68,7 @@ final class SetupExchangeTest extends EngineTestCase
             ['tenant_name', 'engine_base_url', 'engine_version', 'endpoints', 'config', 'issued_at', 'refused_at', 'health'],
             array_keys($settings)
         );
-        self::assertCount(24, $settings['endpoints']);
+        self::assertCount(26, $settings['endpoints']);
         self::assertSame('https://intelligence.smaily.com/api/v1/store/uninstall', $settings['endpoints']['store_uninstall']);
         self::assertSame(['start_months' => 18, 'horizon_months' => 60, 'order' => 'newest_first'], $settings['config']['history']);
         self::assertSame(['prefix' => 'c2-'], $settings['config']['connection']);

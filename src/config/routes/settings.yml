@@ -64,6 +64,20 @@ smailyforprestashop_api_settings_engine_automations_save:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\SaveEngineAutomations::execute
     _legacy_controller: AdminSmailyConnectSettings
 
+smailyforprestashop_api_settings_engine_test_send:
+  path: /smailyforprestashop/api/settings/engine-automations/test-send
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestSend::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
+smailyforprestashop_api_settings_engine_test_mode:
+  path: /smailyforprestashop/api/settings/engine-automations/test-mode
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestMode::execute
+    _legacy_controller: AdminSmailyConnectSettings
+
 smailyforprestashop_api_settings_engine_exchange:
   path: /smailyforprestashop/api/settings/engine-exchange
   methods: [POST]

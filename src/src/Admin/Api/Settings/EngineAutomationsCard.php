@@ -56,8 +56,23 @@ final class EngineAutomationsCard extends AbstractSettingsAction
             return $this->error('no_shop', $this->trans('These shops are set up as separate stores. Reload the page and set each shop up on its own.', BaseController::DOMAIN));
         }
 
-        return ['html' => $this->renderView(self::TEMPLATE, [
-            'card' => $settings->engineAutomations()->card($target, (string) \Context::getContext()->language->iso_code),
-        ])];
+        return ['html' => $this->renderView(self::TEMPLATE, self::view(
+            $settings->engineAutomations()->card($target, (string) \Context::getContext()->language->iso_code)
+        ))];
+    }
+
+    /**
+     * What the card's template takes: the `card`, and the employee's own address, which "Send test
+     * email" offers first (`admin_email`).
+     *
+     * @param array<string, mixed> $card Admin\Settings\EngineAutomationsPanel::card()
+     *
+     * @return array{card: array<string, mixed>, admin_email: string}
+     */
+    public static function view(array $card): array
+    {
+        $employee = \Context::getContext()->employee;
+
+        return ['card' => $card, 'admin_email' => $employee !== null ? (string) $employee->email : ''];
     }
 }

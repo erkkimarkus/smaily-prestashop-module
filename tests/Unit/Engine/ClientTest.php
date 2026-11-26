@@ -321,6 +321,48 @@ final class ClientTest extends TestCase
         }
     }
 
+    public function testAnEmailsTestSendAndSwitchNameTheEmailInThePathAndSendTheBodyOnce(): void
+    {
+        $transport = new EngineRecordingTransport(new Response(200, '{"ok": true}'));
+        $connection = EngineClientFixture::connection([Client::ENDPOINT_AUTOMATIONS_TEST_SEND => Client::BASE_URL . '/api/v1/automations/{key}/test-send']);
+        $client = new Client($transport, '3.0.0');
+
+        $client->automationTestSend($connection, 'replenish due', ['email' => 'owner@shop.example', 'language' => 'et']);
+        $client->automationGoLive($connection, 'replenish_due', ['live' => true, 'confirmed' => true, 'switched_by' => '7']);
+
+        self::assertCount(2, $transport->requests, 'one request each, no retry');
+        self::assertSame('POST', $transport->requests[0][0]);
+        self::assertSame('https://intelligence.smaily.com/api/v1/automations/replenish%20due/test-send', $transport->requests[0][1]);
+        self::assertSame(['email' => 'owner@shop.example', 'language' => 'et'], $transport->requests[0][2]['json']);
+        self::assertSame(10, $transport->requests[0][2]['timeout']);
+        self::assertSame('https://intelligence.smaily.com/api/v1/automations/replenish_due/go-live', $transport->requests[1][1], 'a map without the key takes the fallback path');
+        self::assertSame(['live' => true, 'confirmed' => true, 'switched_by' => '7'], $transport->requests[1][2]['json']);
+    }
+
+    public function testARefusalKeepsTheCodesOfItsDetailsAndNoText(): void
+    {
+        $client = new Client(new EngineRecordingTransport(new Response(409, (string) json_encode([
+            'error' => 'not_ready',
+            'message' => self::REMOTE_TEXT,
+            'details' => [
+                'reasons' => ['no_workflow', self::REMOTE_TEXT, 'no_workflow', 17, 'missing_subject'],
+                'sender_state' => 'unverified',
+                'from_address' => 'news@shop.example',
+            ],
+        ]))), '3.0.0');
+
+        try {
+            $client->automationTestSend(EngineClientFixture::connection(), 'replenish_due', ['email' => 'owner@shop.example']);
+            self::fail('HTTP 409 is a refusal.');
+        } catch (EngineRequestException $refusal) {
+            self::assertSame('not_ready', $refusal->errorCode());
+            self::assertSame(['no_workflow', 'missing_subject'], $refusal->details('reasons'));
+            self::assertSame(['unverified'], $refusal->details('sender_state'));
+            self::assertSame([], $refusal->details('from_address'), 'an address is no code');
+            self::assertSame([], $refusal->details('blockers'));
+        }
+    }
+
     private static function connection(): Connection
     {
         return EngineClientFixture::connection(['ingest_ping' => Client::BASE_URL . '/api/v1/ingest/ping']);

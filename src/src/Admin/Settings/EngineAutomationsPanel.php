@@ -30,8 +30,10 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\AutomationList;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\EngineAutomations;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -111,12 +113,7 @@ final class EngineAutomationsPanel
         switch ($result['outcome']) {
             case EngineAutomations::SAVED:
                 $ready = $result['view']['state'] === EngineAutomations::READY;
-                $message = $this->trans('Saved.');
-                if (!$ready) {
-                    $message = $this->trans('Saved. Reload the page to see the state of each trigger.');
-                } elseif ($result['kept_in_test']) {
-                    $message .= ' ' . $this->trans('Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.');
-                }
+                $message = $ready ? $this->trans('Saved.') : $this->trans('Saved. Reload the page to see the state of each trigger.');
 
                 return ['saved' => true, 'code' => '', 'message' => $message, 'card' => $ready ? $this->worded($result['view'], $idShop) : null, 'fields' => []];
             case EngineAutomations::INVALID:
@@ -129,6 +126,173 @@ final class EngineAutomationsPanel
                 // The account is refused, or the connection is gone: the card says which.
                 return self::notSaved($this->trans('Saving failed.'), 'card_changed');
         }
+    }
+
+    /**
+     * Sends one test email of an email (contract §19) to the typed address, in the shop's default
+     * language. The answer: `code` '' when the engine was asked, else `card_changed` (as save());
+     * `done` whether the engine took it; the `message` and the `reasons` in the admin's words; and
+     * the email's `state` as Campaign Intelligence reads it now (state()), null when unknown.
+     *
+     * @return array{code: string, done: bool, message: string, reasons: list<string>, state: array<string, mixed>|null}
+     */
+    public function testSend(int $idShop, string $key, string $email, string $language): array
+    {
+        $result = $this->automations->testSend($idShop, $key, $email, $language);
+        if ($result['outcome'] === EngineAutomations::DONE) {
+            return $this->answered(true, $this->trans('Test email sent to %email%. Check the inbox.', ['%email%' => trim($email)]), [], $result['state']);
+        }
+        if ($result['outcome'] === EngineAutomations::INVALID_EMAIL) {
+            return $this->answered(false, $this->trans('Enter a valid email address.'), [], null);
+        }
+
+        return $this->failed($result, true);
+    }
+
+    /**
+     * Turns an email's test mode off (contract §20 `live: true`, after the page's dialog) or on
+     * again (`live: false`), as the employee $switchedBy. The answer is that of testSend().
+     *
+     * @return array{code: string, done: bool, message: string, reasons: list<string>, state: array<string, mixed>|null}
+     */
+    public function switchTestMode(int $idShop, string $key, bool $testMode, string $switchedBy): array
+    {
+        $result = $this->automations->switchTestMode($idShop, $key, $testMode, $switchedBy);
+        if ($result['outcome'] === EngineAutomations::DONE) {
+            return $this->answered(true, '', [], $result['state']);
+        }
+
+        return $this->failed($result, false);
+    }
+
+    /**
+     * A test send or a switch that did not go through, in the admin's words: the engine's codes
+     * only, never its message.
+     *
+     * @param array{outcome: string, failure?: EngineException, state: array<string, mixed>|null} $result
+     *
+     * @return array{code: string, done: bool, message: string, reasons: list<string>, state: array<string, mixed>|null}
+     */
+    private function failed(array $result, bool $testSend): array
+    {
+        $failure = $result['failure'] ?? null;
+        if (!$failure instanceof EngineException) {
+            // The account is refused, or the connection is gone: the card says which.
+            return ['code' => 'card_changed', 'done' => false, 'message' => $this->trans('Campaign Intelligence did not take the request. Try again in a moment.'), 'reasons' => [], 'state' => null];
+        }
+        $status = $failure->httpStatus();
+        $code = $failure->errorCode();
+        $reasons = [];
+        if ($failure instanceof EngineRequestException && $status === 409 && $code === 'not_ready') {
+            $message = $this->trans('The test email cannot be sent yet:');
+            $reasons = $this->reasons($failure->details('reasons'));
+        } elseif ($failure instanceof EngineRequestException && $status === 409 && $code === 'go_live_blocked') {
+            $message = $this->trans('Test mode stays on until this is fixed:');
+            $reasons = $this->reasons($failure->details('blockers'));
+        } elseif ($status === 409 && $code === 'sender_refused') {
+            $message = $this->trans('Smaily refused to send from your sender address: its domain is not verified in Smaily yet, or the address is not allowed. Real sends are not affected.');
+        } elseif ($status === 422 && $testSend) {
+            $message = $this->trans('Enter a valid email address.');
+        } elseif ($status === 429) {
+            $message = $testSend
+                ? $this->trans('Too many requests. Up to 10 test emails can be sent an hour. Try again later.')
+                : $this->trans('Test mode was switched too often. Try again in a minute.');
+        } elseif ($status === 502 && $code === 'smaily_unavailable' && $testSend) {
+            $message = $this->trans('Smaily did not answer, so the test email was not sent. Press the button again to try once more.');
+        } else {
+            $message = $this->trans('Campaign Intelligence did not take the request. Try again in a moment.');
+        }
+
+        return $this->answered(false, $message, $reasons, $result['state']);
+    }
+
+    /**
+     * Each §19 `not_ready` reason or §20 blocker in plain words, none twice; an unknown code, or a
+     * refusal that names none, reads "Setup is not complete.".
+     *
+     * @param list<string> $codes
+     *
+     * @return list<string>
+     */
+    private function reasons(array $codes): array
+    {
+        $texts = [];
+        foreach ($codes === [] ? [''] : $codes as $code) {
+            switch ($code) {
+                case 'no_workflow':
+                    $texts[] = $this->trans('No Smaily workflow is linked to this email.');
+                    break;
+                case 'workflow_not_active':
+                    $texts[] = $this->trans('The email\'s Smaily workflow is not active yet, for example because its sender domain is not verified.');
+                    break;
+                case 'no_design':
+                    $texts[] = $this->trans('The email has no design yet.');
+                    break;
+                case 'design_check_failed':
+                    $texts[] = $this->trans('The design check failed.');
+                    break;
+                case 'missing_subject':
+                    $texts[] = $this->trans('The email has no subject.');
+                    break;
+                case 'no_sender':
+                    $texts[] = $this->trans('The email has no sender address.');
+                    break;
+                case 'no_products':
+                    $texts[] = $this->trans('No customer has recommendations for this email yet.');
+                    break;
+                case AutomationList::STOPPED_NEEDS_REVIEW:
+                    $texts[] = $this->trans('Smaily reviews this stop before the email can send again.');
+                    break;
+                case 'operator_switch_required':
+                    $texts[] = $this->trans('A Smaily operator switches real sends on for this email.');
+                    break;
+                default:
+                    $texts[] = $this->trans('Setup is not complete.');
+            }
+        }
+
+        return array_values(array_unique($texts));
+    }
+
+    /**
+     * @param list<string> $reasons
+     * @param array<string, mixed>|null $state AutomationList::states() of the email
+     *
+     * @return array{code: string, done: bool, message: string, reasons: list<string>, state: array<string, mixed>|null}
+     */
+    private function answered(bool $done, string $message, array $reasons, ?array $state): array
+    {
+        return ['code' => '', 'done' => $done, 'message' => $message, 'reasons' => $reasons, 'state' => $state === null ? null : $this->state($state)];
+    }
+
+    /**
+     * An email's state in the admin's words: whether test mode is on, the pill's `mode` and its
+     * `pill` label, the `status` line ('' while test mode is on and nothing waits for Smaily) and
+     * the `notice` ('' when there is none).
+     *
+     * @param array<string, mixed> $state AutomationList::states() of the email; a row's `setup`
+     *                                    carries no `mode`, which the row gives as $mode
+     *
+     * @return array{test_mode: bool, mode: string, pill: string, status: string, notice: string}
+     */
+    private function state(array $state, string $mode = ''): array
+    {
+        $mode = (string) ($state['mode'] ?? $mode);
+        if (!$state['test_mode']) {
+            $status = $state['daily_limit'] !== null
+                ? $this->trans('Sending to real customers · up to %count% emails today', ['%count%' => $state['daily_limit']])
+                : $this->trans('Sending to real customers');
+        } else {
+            $status = $state['stopped'] ? $this->trans('Smaily reviews this stop before the email can send again.') : '';
+        }
+
+        return [
+            'test_mode' => (bool) $state['test_mode'],
+            'mode' => $mode,
+            'pill' => $mode === 'active' ? $this->trans('Active') : ($mode === 'test' ? $this->trans('Test mode') : $this->trans('Off')),
+            'status' => $status,
+            'notice' => $state['notice'] === AutomationList::NOTICE_SENDER ? $this->trans('Starts when your sender domain is verified in Smaily.') : '',
+        ];
     }
 
     /**
@@ -149,7 +313,10 @@ final class EngineAutomationsPanel
         return [
             'state' => $view['state'],
             'reason' => isset($view['failure']) ? $this->reason($view['failure']) : '',
-            'rows' => $view['rows'] ?? [],
+            'rows' => array_map(
+                fn (array $row): array => array_replace($row, ['setup' => $row['setup'] === null ? null : $this->state($row['setup'], $row['mode'])]),
+                $view['rows'] ?? []
+            ),
             'workflows' => $view['workflows'] ?? [],
             'workflow_error' => $workflowError === null ? '' : ($this->workflowListError)($workflowError),
             'account' => $other ? $account : '',

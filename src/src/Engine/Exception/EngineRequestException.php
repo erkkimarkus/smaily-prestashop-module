@@ -38,15 +38,32 @@ class EngineRequestException extends EngineException
     /** @var list<array{index: int|null, key: string, field: string}> */
     private array $fields;
 
+    /** @var array<string, list<string>> */
+    private array $details;
+
     /**
      * @param list<array{index: int|null, key: string, field: string}> $fields the fields that the
      *                                                                         engine names in its
      *                                                                         refusal (fields())
+     * @param array<string, list<string>> $details the codes of the refusal's `details` (details())
      */
-    public function __construct(string $errorCode, int $httpStatus = 0, array $fields = [])
+    public function __construct(string $errorCode, int $httpStatus = 0, array $fields = [], array $details = [])
     {
         parent::__construct($errorCode, $httpStatus);
         $this->fields = $fields;
+        $this->details = $details;
+    }
+
+    /**
+     * The codes that a refusal's `details` holds under $name (contract §19 `reasons` and
+     * `sender_state`, §20 `blockers`): each a plain code (CODE_PATTERN), in the engine's order,
+     * none twice. Never a text of the engine.
+     *
+     * @return list<string>
+     */
+    public function details(string $name): array
+    {
+        return $this->details[$name] ?? [];
     }
 
     /**

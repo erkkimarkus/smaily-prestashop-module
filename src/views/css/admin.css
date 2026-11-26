@@ -2008,8 +2008,63 @@
   gap: 0 20px;
 }
 
-.smaily-ui .smaily-engine-automations .smaily-trigger__settings > .smaily-note {
-  margin: 0 0 10px;
+/* An email's Test mode switch, its state and its test send (CON-459), above its controls. */
+.smaily-ui .smaily-test-mode {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--smaily-surface-2);
+  border-radius: 4px;
+}
+
+.smaily-ui .smaily-test-mode .smaily-trigger__enable {
+  margin: 0;
+  font-weight: 600;
+}
+
+.smaily-ui .smaily-test-mode .smaily-note,
+.smaily-ui .smaily-test-mode__status,
+.smaily-ui .smaily-test-mode__result p {
+  margin: 0;
+}
+
+.smaily-ui .smaily-test-mode__status {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--smaily-text);
+}
+
+.smaily-ui .smaily-test-mode__test {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.smaily-ui .smaily-test-mode__send {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.smaily-ui .smaily-test-mode__result {
+  font-size: 13px;
+  color: var(--smaily-success);
+}
+
+.smaily-ui .smaily-test-mode__result p {
+  color: inherit;
+}
+
+.smaily-ui .smaily-test-mode__result.is-error {
+  color: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-test-mode__result ul {
+  margin: 4px 0 0 1.2em;
+  padding: 0;
 }
 
 .smaily-ui .smaily-engine-empty {

@@ -38,6 +38,9 @@ if (!defined('_PS_VERSION_')) {
  * An automation without a configuration row is off and in test mode, with the defaults of the
  * sibling connectors. The name and the description are the engine's own text, in the employee's
  * language where the engine gives it, else in English.
+ *
+ * An email's state comes from its §12 `setup[]` item where the engine gives one (setup()): test
+ * mode is on in every state but `live`, as in the sibling connectors (CON-455, CON-458).
  */
 final class AutomationList
 {
@@ -47,12 +50,18 @@ final class AutomationList
     /** The days between two emails to one customer that a row without a stored value shows. */
     public const DEFAULT_COOLDOWN_DAYS = 7;
 
+    /** §12 `notice`: the email starts by itself once its Smaily workflow is active. */
+    public const NOTICE_SENDER = 'starts_when_sender_verified';
+
+    /** §12 blocker after an automatic or an operator's stop, until Smaily reviews it. */
+    public const STOPPED_NEEDS_REVIEW = 'stopped_needs_review';
+
     /**
      * @param array<string, mixed> $catalog the answer of §11
      * @param array<string, mixed> $config the answer of §12
      * @param string $language the employee's language, an ISO 639-1 code
      *
-     * @return list<array{key: string, name: string, description: string, enabled: bool, test_mode: bool, workflow_id: string, language_mode: string, original_map: array<string, string>, cooldown_days: int, daily_cap: int|null, test_emails: string}>
+     * @return list<array{key: string, name: string, description: string, enabled: bool, mode: string, setup: array{test_mode: bool, daily_limit: int|null, stopped: bool, notice: string}|null, workflow_id: string, language_mode: string, original_map: array<string, string>, cooldown_days: int, daily_cap: int|null, test_emails: string}>
      */
     public static function rows(array $catalog, array $config, string $language): array
     {
@@ -62,6 +71,7 @@ final class AutomationList
                 $configured[$row['trigger_key']] = $row;
             }
         }
+        $states = self::states($config);
 
         $rows = [];
         foreach (is_array($catalog['triggers'] ?? null) ? $catalog['triggers'] : [] as $trigger) {
@@ -72,13 +82,17 @@ final class AutomationList
             $stored = $configured[$key] ?? [];
             $map = self::map($stored['automation_map'] ?? null);
             $emails = is_array($stored['test_emails'] ?? null) ? array_filter($stored['test_emails'], 'is_string') : [];
+            $enabled = ($stored['enabled'] ?? false) === true;
+            $setup = $states[$key] ?? null;
             $rows[] = [
                 'key' => $key,
                 'name' => self::localized($trigger, 'name', $language, $key),
                 'description' => self::localized($trigger, 'description', $language, ''),
-                'enabled' => ($stored['enabled'] ?? false) === true,
-                // Fail closed: only a stored `false` shows an automation out of test mode.
-                'test_mode' => ($stored['test_mode'] ?? true) !== false,
+                'enabled' => $enabled,
+                // The pill: Off, Test mode or Active. Without a setup item, fail closed: only a
+                // stored `false` shows an automation out of test mode.
+                'mode' => $setup !== null ? $setup['mode'] : (!$enabled ? 'off' : (($stored['test_mode'] ?? true) !== false ? 'test' : 'active')),
+                'setup' => $setup === null ? null : array_diff_key($setup, ['mode' => true]),
                 // A per-language map of another connector holds its workflow of no language under
                 // `fallback`.
                 'workflow_id' => $map['id'] ?? $map['fallback'] ?? '',
@@ -91,6 +105,38 @@ final class AutomationList
         }
 
         return $rows;
+    }
+
+    /**
+     * Each catalogue email's state from a §12 answer, by key (an engine before contract v1.15.0
+     * gives none): the pill's `mode` (`off`, `test` or `active`), whether test mode is on (every
+     * state but `live`), today's `daily_limit` of a live email, whether a stop waits for Smaily's
+     * review, and the `notice` where it is one the contract names ('' otherwise).
+     *
+     * @param array<string, mixed> $config the answer of §12
+     *
+     * @return array<string, array{mode: string, test_mode: bool, daily_limit: int|null, stopped: bool, notice: string}>
+     */
+    public static function states(array $config): array
+    {
+        $states = [];
+        foreach (is_array($config['setup'] ?? null) ? $config['setup'] : [] as $item) {
+            if (!is_array($item) || !is_string($item['trigger_key'] ?? null)) {
+                continue;
+            }
+            $state = $item['setup_state'] ?? null;
+            $live = $state === 'live';
+            $states[$item['trigger_key']] = [
+                'mode' => $live ? 'active' : (in_array($state, ['test', 'stopped'], true) ? 'test' : 'off'),
+                'test_mode' => !$live,
+                'daily_limit' => $live && is_int($item['daily_limit'] ?? null) ? $item['daily_limit'] : null,
+                'stopped' => $state === 'stopped'
+                    || (is_array($item['go_live_blockers'] ?? null) && in_array(self::STOPPED_NEEDS_REVIEW, $item['go_live_blockers'], true)),
+                'notice' => ($item['notice'] ?? null) === self::NOTICE_SENDER ? self::NOTICE_SENDER : '',
+            ];
+        }
+
+        return $states;
     }
 
     /**

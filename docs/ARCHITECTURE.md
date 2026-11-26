@@ -3505,15 +3505,15 @@ transactional emails (out of 3.0.0). The Campaign Intelligence card is section 1
 
 Settings > Automations shows, under the store automations and their Save, the card "Campaign
 Intelligence Automations" with its own Save: the automated emails that Campaign Intelligence runs
-itself (contract §11 to §13), as Magento's `config/engine-automations.phtml`,
+itself (contract §11 to §13, §19 and §20), as Magento's `config/engine-automations.phtml`,
 `ViewModel/Adminhtml/AutomationsForm` and `Controller/Adminhtml/Automations/Save`. The owner
 approved its sketch on 2026-11-23 (section 15). The card is on Settings only, not in the Initial
 setup, and the switch "Use its own automations on this shop" does not cover it: the automations
 belong to the Campaign Intelligence connection, not to a shop's store automations.
 
 **Where it reads and saves.** `Engine\Automations\EngineAutomations` asks the engine through
-`Engine\Client` (`automationsCatalog()`, `automationsConfig()`, `saveAutomationsConfig()`; one
-attempt of 10 seconds each); `Admin\Settings\EngineAutomationsPanel` words the outcome. The module
+`Engine\Client` (`automationsCatalog()`, `automationsConfig()`, `saveAutomationsConfig()`,
+`automationTestSend()`, `automationGoLive()`; one attempt of 10 seconds each); `Admin\Settings\EngineAutomationsPanel` words the outcome. The module
 keeps no copy and stores nothing: no configuration key, no table. The connection is the one that
 serves the shop the page saves for (`Connections::forShop()`): the installation's in one store,
 whichever shop is selected; the selected shop's in separate stores, where "All shops" shows the
@@ -3538,10 +3538,10 @@ page.
 nothing is listed that it does not name, none is known by its key, and an automation that the
 engine adds appears at the next load. A row shows the engine's name and description, in the
 employee's language where the engine gives it (`name_<language>`), else in English; the pill Off,
-Test mode or Active, from the stored row's `enabled` and `test_mode`; and Enabled. While Enabled is
-ticked it also shows Test mode, the note "Smaily switches real sends on after you confirm. …"
-(not on an active row), Smaily Workflow, Cooldown (days), Daily Cap (empty = no cap) and Test
-Emails. A row without a stored configuration is off and in test mode, with a cooldown of 7 days and
+Test mode or Active, from the email's §12 `setup[]` item (`live` is Active, `test` and `stopped`
+are Test mode, every other state Off), or from the stored row's `enabled` and `test_mode` where
+the engine gives no item; and Enabled. While Enabled is ticked it also shows the email's Test mode
+block (below), Smaily Workflow, Cooldown (days), Daily Cap (empty = no cap) and Test Emails. A row without a stored configuration is off and in test mode, with a cooldown of 7 days and
 no cap (Magento's defaults), so a newly enabled automation is in test mode. A row that is off
 keeps its values in the form.
 
@@ -3558,10 +3558,11 @@ in Magento.
 
 **A save** (`Admin\Api\Settings\SaveEngineAutomations`, the right to change the Settings tab; it
 tells the installation report as every Settings save does). It sends every row of the card with
-all eight keys of §13 in one request (`Engine\Automations\ConfigRow`, Magento's
+every key of §13 but `test_mode` in one request (`Engine\Automations\ConfigRow`, Magento's
 `ConfigRowNormalizer`): `trigger_key`, `enabled`, `language_mode`, `automation_map`,
-`cooldown_days` (kept within 1 to 365), `daily_cap` (1 to 100000, or `null`), `test_mode` and
-`test_emails` (at most 50). An empty workflow map is sent as `{}`. The two reads carry the
+`cooldown_days` (kept within 1 to 365), `daily_cap` (1 to 100000, or `null`) and `test_emails`
+(at most 50). An omitted `test_mode` keeps the engine's value, so a save never switches real
+sends off (CON-459, as WooCommerce's CON-455 and Magento's CON-458). An empty workflow map is sent as `{}`. The two reads carry the
 connection's key and nothing else; the save carries no customer, order or product data, and the
 test addresses are the ones that the merchant typed.
 
@@ -3574,30 +3575,60 @@ test addresses are the ones that the merchant typed.
   workflow here, or while its `fallback` is not in the list. A single workflow that the list does
   not offer is kept where the page posts none. A workflow that the list offers and the merchant
   cleared is cleared. The page hands back the mode and the map that each row was drawn with.
-- After a save the card is drawn again from a new read of §11 and §12, not from the request: a row
-  that asked for real sends (Test mode unticked) stays in test mode until Smaily switches them on,
-  and the result line then adds the note. When that read fails, the line reads "Saved. Reload the
-  page to see the state of each trigger."
+- After a save the card is drawn again from a new read of §11 and §12, not from the request.
+  When that read fails, the line reads "Saved. Reload the page to see the state of each
+  trigger."
 - The engine checks all rows before it writes any. A field that it refuses (its `errors[]`) is
   marked with the module's own sentence, chosen by the field's name: the workflow, the test
   emails, or the automation as a whole. A row that is off opens while it has a field to fix.
 - A save that fails otherwise reads "Nothing was saved: …" and keeps what was typed.
 
+**Test mode and the test send** (owner, 2026-11-26; Linear CON-459, the same design and wording
+as WooCommerce's CON-455 and Magento's CON-458). An email whose §12 `setup[]` item the engine
+gives has a Test mode switch below Enabled, on in every state but `live`. It is no form field:
+each change calls the engine at once, one attempt, and the save never sends it.
+
+- Turning it off opens the dialog "Turn off test mode?" with "“<email name>” will start going to
+  your store's real customers, at first up to 10 emails a day, then 25 and 50." and the buttons
+  "Turn off" and Cancel. Turn off calls §20 `{live: true, confirmed: true, switched_by: <the
+  employee's id>}` (`Admin\Api\Settings\EngineTestMode`, which refuses `test_mode: false` without
+  `confirmed: true`). Turning it on again asks nothing and calls §20 `{live: false}`.
+- While it is on, the block says "The email goes to test addresses only." and offers "Send test
+  email" with an address field that starts as the employee's own address and the note "This
+  address is added to the Smaily list as a test contact." (`Admin\Api\Settings\EngineTestSend`:
+  §19 `{email, language}`, the shop's default language). The module checks that the address is one
+  email address and keeps it nowhere.
+- Every answer carries the email's state as a new read of §12 gives it after a call that the
+  engine answered (`AutomationList::states()`): the switch, the pill, the line "Sending to real
+  customers · up to N emails today" (`daily_limit`; without a limit "Sending to real customers"),
+  "Smaily reviews this stop before the email can send again." while a stop waits for Smaily's
+  review (`stopped`, or the blocker `stopped_needs_review`), and the `notice`
+  `starts_when_sender_verified` as "Starts when your sender domain is verified in Smaily." An
+  unknown notice shows nothing.
+- A refusal is said in the module's words and never repeated on its own (a second test send can
+  send a second email): `not_ready` and `go_live_blocked` with each reason or blocker of `details`
+  as a sentence (an unknown code, or none, "Setup is not complete."), `sender_refused`, the rate
+  limits of §19 and §20, and §19's 502 `smaily_unavailable`; any other failure "Campaign
+  Intelligence did not take the request. Try again in a moment." A 401 or 403 runs the health
+  check and, on a refusal, redraws the card. The store's own emails (welcome, abandoned cart,
+  first order) are on the Smaily automations card and have neither control.
+
 **The engine's text.** The names and descriptions of the automations are the one text of the
 engine that a screen shows (section 11.2; owner, 2026-11-23). `Engine\Client` reads of a refusal
-only the HTTP status, the error code and, from `errors[]`, each entry's position, key and field
-name (`EngineRequestException::fields()`); never a `message`.
+only the HTTP status, the error code, from `errors[]` each entry's position, key and field name
+(`EngineRequestException::fields()`), and from `details` the plain codes of each key
+(`EngineRequestException::details()`: §19 `reasons` and `sender_state`, §20 `blockers`); never a
+`message` or any other text.
 
-**Not built** (out of 3.0.0): "Edit design" and the setup page (§17, §22), the test send (§19),
-the go-live action (§20), the engine's setup states (`setup[]` of §12: `stopped`, the go-live
-blockers, the notice) and a workflow per language. The merchant asks for real sends by unticking
-Test mode, as in Magento today.
+**Not built** (out of 3.0.0): "Edit design" and the setup page (§17, §22) and a workflow per
+language.
 
 **Walked** (2026-11-23, PrestaShop 8.2.8 and 9.2.0, in a browser against the engine mock and the
-Smaily mock, with a connection made through `Engine\Setup`): every state of the table, a save,
-the request for real sends that stays in test mode, an automation added and removed at the engine
-between two page loads, a per-language setup of another connector, a refused field, and the card
-in Estonian.
+Smaily mock, with a connection made through `Engine\Setup`): every state of the table, a save, an
+automation added and removed at the engine between two page loads, a per-language setup of another
+connector, a refused field, and the card in Estonian. On 2026-11-26 (CON-459, both versions, in
+English and Estonian): a test send and each of its refusals, the dialog and its Cancel, test mode
+off and a blocked switch, test mode on again, and a stop that waits for Smaily's review.
 
 ### 10.11 The Intelligence panel (as built in Story 5.3)
 
@@ -4816,7 +4847,8 @@ has one owner:
 - **Depends on.** 5.1, 4.1.
 - **Acceptance.**
   1. The list comes from §11 at page load; nothing is hard-coded.
-  2. A save sends all eight keys per row and redraws from §12, not from the request.
+  2. A save sends all eight keys per row and redraws from §12, not from the request (since
+     CON-459 every key but `test_mode`, section 10.10).
   3. Rows of other platforms (`per_language`) survive a save.
 - **As built.** Section 10.10; the acceptance criteria of Linear CON-406 were walked in a browser
   on 8.2.8 and 9.2.0.
@@ -4952,9 +4984,9 @@ has one owner:
 | 50 | A batch that names the shopper is refused | The relay answers 400 to the whole batch (section 8.10); the Magento connector drops the key and forwards the rest. The module's own script sends no such key, so only a foreign caller meets the difference. | Owner; cross-connector analysis (Linear CON-397) |
 | 53 | The connections of a shop with a Smaily account per language | Built as Magento builds them: one connection per language of the shop, each with the account that serves it, so a language without an account of its own shows the fallback account. WooCommerce reports the default account and each language's own account. The service takes both forms (section 11.1). | Cross-connector analysis (Linear CON-397) |
 | 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
-| 55 | Which keys a save of the engine's automations sends | Built as Magento does today: every row with all eight keys of contract §13, `automation_map`, `test_mode` and `test_emails` included (section 10.10). Since v1.15.0 the contract advises a connector to leave those three out unless the merchant set them here: a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored, a sent `test_mode: true` switches off real sends that were switched on there, and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored) and shows `test_mode` as the engine holds it, but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
+| 55 | Which keys a save of the engine's automations sends | Every row with every key of contract §13 but `test_mode`, which the card's Test mode switch sets through §20 since CON-459 (owner, 2026-11-26, as WooCommerce and Magento; section 10.10). `automation_map` and `test_emails` are still sent: since v1.15.0 the contract advises a connector to leave them out unless the merchant set them here, as a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored), but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
-| 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
+| 57 | The engine's setup states are not shown | Done (owner, 2026-11-26; Linear CON-459): the card reads `setup[]` of §12 for the pill, today's limit of a live email, a stop that waits for Smaily's review and the notice "starts when your sender domain is verified", and offers the test send (§19) and the test mode switch (§20), as WooCommerce and Magento (section 10.10). A stopped email's pill reads Test mode, as in Magento; WooCommerce's reads Stopped. "Edit design" stays out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
 | 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
@@ -5176,7 +5208,9 @@ Decisions of 2026-11-23:
     a save is explained by the module's own sentence (section 11.2).
   - A save sends what Magento sends today, all eight keys per row. The contract's advice to leave
     out the workflow, the test mode and the test emails is a question for all connectors (section
-    14, row 55; Linear CON-397).
+    14, row 55; Linear CON-397). Since 2026-11-26 (owner; Linear CON-459) no connector sends
+    `test_mode`: the card's Test mode switch is §20, with a confirmation dialog, and the test send
+    is §19 (section 10.10).
   - The workflows offered for an automation are those of the Smaily account that the connection
     belongs to.
   - Creating or editing a workflow or an email design ("Edit design"), "Try Intelligence free"

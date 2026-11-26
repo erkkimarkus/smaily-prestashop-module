@@ -28,12 +28,15 @@
  #
  # This is the card's frame. Its content comes from Campaign Intelligence once the tab shows
  # (Admin\Api\Settings\EngineAutomationsCard, settings/engine-automations-card.html.twig), and
- # views/js/admin/engine-automations.js loads and saves it.
+ # views/js/admin/engine-automations.js loads and saves it, and sends an email's test send and its
+ # test mode switch.
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 <div class="smaily-panel smaily-engine-automations" data-smaily-engine-automations
      data-api-load="{{ path('smailyforprestashop_api_settings_engine_automations') }}"
      data-api-save="{{ path('smailyforprestashop_api_settings_engine_automations_save') }}"
+     data-api-test-send="{{ path('smailyforprestashop_api_settings_engine_test_send') }}"
+     data-api-test-mode="{{ path('smailyforprestashop_api_settings_engine_test_mode') }}"
      data-label-saving="{{ 'Saving…'|trans }}"
      data-label-saving-failed="{{ 'Saving failed.'|trans }}">
   <div class="smaily-card">

@@ -32,7 +32,14 @@
  *   fix; the values of a closed row stay in the form;
  * - the card saves on its own (Admin\Api\Settings\SaveEngineAutomations), every field of every
  *   row. After a save the card is drawn again from what Campaign Intelligence answers; a refused
- *   save marks each field at fault with its message and changes nothing else.
+ *   save marks each field at fault with its message and changes nothing else;
+ * - an email's Test mode switch and "Send test email" (CON-459, as Magento's CON-458) are no form
+ *   fields: each calls Campaign Intelligence at once, once per press, and is never repeated on its
+ *   own (Admin\Api\Settings\EngineTestMode, EngineTestSend). Turning test mode off asks "Turn off
+ *   test mode?" first; turning it on again asks nothing. The switch shows the change only once
+ *   Campaign Intelligence made it: every answer carries the email's state as Campaign
+ *   Intelligence reads it after the call, which the row then shows (the switch, the pill, the
+ *   state line and the notice), with the answer's message and reasons.
  */
 (function () {
   'use strict';
@@ -46,6 +53,8 @@
     }
     var body = card.querySelector('[data-smaily-engine-body]');
     var asked = false;
+    /* The Test mode block whose switch waits for the dialog's answer. */
+    var pending = null;
 
     function field(name) {
       return body.querySelector('[data-smaily-engine-field="' + name + '"]');
@@ -130,7 +139,6 @@
         var key = trigger.getAttribute('data-smaily-engine-trigger');
         triggers[key] = {
           enabled: field(key + '.enabled').checked,
-          test_mode: field(key + '.test_mode').checked,
           workflow_id: field(key + '.workflow_id').value,
           cooldown_days: field(key + '.cooldown_days').value,
           daily_cap: field(key + '.daily_cap').value,
@@ -167,8 +175,122 @@
       });
     }
 
+    /* The email's state as Campaign Intelligence reads it now; null leaves the row as it is. */
+    function showState(block, state) {
+      if (!state) {
+        return;
+      }
+      var trigger = block.closest('[data-smaily-engine-trigger]');
+      var pill = trigger.querySelector('[data-smaily-engine-pill]');
+      var status = block.querySelector('[data-smaily-test-mode-status]');
+      var notice = block.querySelector('[data-smaily-test-mode-notice]');
+      block.querySelector('[data-smaily-test-mode-switch]').checked = state.test_mode;
+      block.querySelector('[data-smaily-test-mode-test]').hidden = !state.test_mode;
+      status.textContent = state.status;
+      status.hidden = state.status === '';
+      notice.textContent = state.notice;
+      notice.hidden = state.notice === '';
+      trigger.classList.remove('is-off', 'is-test', 'is-active');
+      trigger.classList.add('is-' + state.mode);
+      pill.classList.toggle('smaily-pill--active', state.mode === 'active');
+      pill.classList.toggle('smaily-pill--pending', state.mode === 'test');
+      pill.querySelector('[data-smaily-engine-pill-text]').textContent = state.pill;
+    }
+
+    /* The answer's message, with the engine's reasons in a list under it. */
+    function showAnswer(block, answer) {
+      var box = block.querySelector('[data-smaily-test-mode-result]');
+      box.textContent = '';
+      box.classList.toggle('is-error', !answer.done);
+      if (answer.message !== '') {
+        var line = document.createElement('p');
+        line.textContent = answer.message;
+        box.appendChild(line);
+      }
+      if (answer.reasons.length) {
+        var list = document.createElement('ul');
+        answer.reasons.forEach(function (reason) {
+          var item = document.createElement('li');
+          item.textContent = reason;
+          list.appendChild(item);
+        });
+        box.appendChild(list);
+      }
+      box.hidden = box.childNodes.length === 0;
+      showState(block, answer.state);
+    }
+
+    function showFailure(block, error) {
+      if (error.code === 'card_changed') {
+        // The account is refused, or the connection is gone: the card says which.
+        load();
+        return;
+      }
+      showAnswer(block, {done: false, message: error.message, reasons: [], state: null});
+    }
+
+    function call(block, url, data, control) {
+      control.disabled = true;
+      data.key = block.closest('[data-smaily-engine-trigger]').getAttribute('data-smaily-engine-trigger');
+      smailyConnect.api(url, data).then(function (answer) {
+        control.disabled = false;
+        showAnswer(block, answer);
+      }).catch(function (error) {
+        control.disabled = false;
+        showFailure(block, error);
+      });
+    }
+
+    function switchTestMode(block, on) {
+      var data = {test_mode: on};
+      if (!on) {
+        data.confirmed = true;
+      }
+      call(block, card.getAttribute('data-api-test-mode'), data, block.querySelector('[data-smaily-test-mode-switch]'));
+    }
+
+    function dialog() {
+      return body.querySelector('[data-smaily-test-mode-dialog]');
+    }
+
+    function closeDialog() {
+      var block = pending;
+      pending = null;
+      dialog().hidden = true;
+      if (block) {
+        block.querySelector('[data-smaily-test-mode-switch]').focus();
+      }
+      return block;
+    }
+
+    /* Test mode off asks first: the switch stays on until Campaign Intelligence turned it off. */
+    function askTestModeOff(block) {
+      var box = dialog();
+      block.querySelector('[data-smaily-test-mode-switch]').checked = true;
+      pending = block;
+      box.querySelector('[data-smaily-test-mode-dialog-message]').textContent = block.getAttribute('data-confirm');
+      box.hidden = false;
+      box.querySelector('[data-smaily-test-mode-dialog-cancel]').focus();
+    }
+
+    card.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && pending) {
+        event.preventDefault();
+        closeDialog();
+      }
+    });
+
     card.addEventListener('change', function (event) {
       var input = event.target;
+      if (input.hasAttribute('data-smaily-test-mode-switch')) {
+        var block = input.closest('[data-smaily-test-mode]');
+        if (input.checked) {
+          switchTestMode(block, true);
+        } else {
+          askTestModeOff(block);
+        }
+        return;
+      }
       var trigger = input.closest('[data-smaily-engine-trigger]');
       if (trigger && /\.enabled$/.test(input.getAttribute('data-smaily-engine-field') || '')) {
         if (!input.checked) {
@@ -183,6 +305,23 @@
       var button = event.target.closest('[data-smaily-action="save-engine-automations"]');
       if (button) {
         save(button);
+        return;
+      }
+      button = event.target.closest('[data-smaily-action="send-test-email"]');
+      if (button) {
+        var block = button.closest('[data-smaily-test-mode]');
+        var box = block.querySelector('[data-smaily-test-mode-result]');
+        box.hidden = true;
+        // One press, one test email: a refusal is shown, never sent again on its own.
+        call(block, card.getAttribute('data-api-test-send'), {
+          email: block.querySelector('[data-smaily-test-send-address]').value
+        }, button);
+        return;
+      }
+      if (event.target.closest('[data-smaily-test-mode-dialog-cancel]')) {
+        closeDialog();
+      } else if (event.target.closest('[data-smaily-test-mode-dialog-confirm]')) {
+        switchTestMode(closeDialog(), false);
       }
     });
 

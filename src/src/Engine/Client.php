@@ -235,7 +235,7 @@ class Client
             throw new EngineTransportException($code, $status);
         }
 
-        throw new EngineRequestException($code, $status, self::refusedFields($answer));
+        throw new EngineRequestException($code, $status, self::refusedFields($answer), self::refusedDetails($answer));
     }
 
     /**
@@ -282,6 +282,33 @@ class Client
         }
 
         return $fields;
+    }
+
+    /**
+     * The codes that a refusal's `details` names (§19 `{reasons: [...]}` and `{sender_state}`, §20
+     * `{blockers: [...]}`): under each key, the plain codes of a code or a list of codes. Anything
+     * else of `details`, a sentence too, is not read.
+     *
+     * @param mixed $answer the refusal's body
+     *
+     * @return array<string, list<string>>
+     */
+    private static function refusedDetails($answer): array
+    {
+        $details = [];
+        foreach (is_array($answer) && is_array($answer['details'] ?? null) ? $answer['details'] : [] as $name => $value) {
+            $codes = [];
+            foreach (is_array($value) ? $value : [$value] as $code) {
+                if (is_string($code) && preg_match(EngineRequestException::CODE_PATTERN, $code) === 1 && !in_array($code, $codes, true)) {
+                    $codes[] = $code;
+                }
+            }
+            if (is_string($name) && $codes !== []) {
+                $details[$name] = $codes;
+            }
+        }
+
+        return $details;
     }
 
     /**
@@ -529,7 +556,8 @@ class Client
     }
 
     // --- The engine's automated emails (Story 5.4): the catalogue (§11), the store's
-    // configuration rows (§12) and their save (§13). Each is one attempt: the merchant's page asks.
+    // configuration rows (§12) and their save (§13), an email's test send (§19) and its real-sends
+    // switch (§20). Each is one attempt: the merchant's page asks.
 
     /** The endpoints map key and the fallback path of the automation catalogue (§11). */
     public const ENDPOINT_AUTOMATIONS_CATALOG = 'automations_catalog';
@@ -590,6 +618,61 @@ class Client
             $connection,
             ['configs' => $rows]
         );
+    }
+
+    /** The endpoints map key and the fallback path of an email's test send (§19). */
+    public const ENDPOINT_AUTOMATIONS_TEST_SEND = 'automations_test_send';
+    public const PATH_AUTOMATIONS_TEST_SEND = '/api/v1/automations/{key}/test-send';
+
+    /** The endpoints map key and the fallback path of an email's real-sends switch (§20). */
+    public const ENDPOINT_AUTOMATIONS_GO_LIVE = 'automations_go_live';
+    public const PATH_AUTOMATIONS_GO_LIVE = '/api/v1/automations/{key}/go-live';
+
+    /**
+     * Sends one test email of the catalogue email $key to one address (§19). One attempt: a
+     * repeated call can send a second email, so only the merchant's next press sends again.
+     *
+     * @param array{email: string, language?: string} $body
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function automationTestSend(Connection $connection, string $key, array $body): array
+    {
+        return $this->request(
+            'POST',
+            self::keyUrl($connection, self::ENDPOINT_AUTOMATIONS_TEST_SEND, self::PATH_AUTOMATIONS_TEST_SEND, $key),
+            self::AUTOMATIONS_TIMEOUT_SECONDS,
+            $connection,
+            $body
+        );
+    }
+
+    /**
+     * Switches real sends of the catalogue email $key on (`live: true`, with the merchant's
+     * `confirmed: true`) or off (`live: false`) (§20). `switched_by` is the employee's id.
+     *
+     * @param array{live: bool, confirmed?: bool, switched_by?: string} $body
+     *
+     * @return array<string, mixed> the engine's answer, unchecked
+     */
+    public function automationGoLive(Connection $connection, string $key, array $body): array
+    {
+        return $this->request(
+            'POST',
+            self::keyUrl($connection, self::ENDPOINT_AUTOMATIONS_GO_LIVE, self::PATH_AUTOMATIONS_GO_LIVE, $key),
+            self::AUTOMATIONS_TIMEOUT_SECONDS,
+            $connection,
+            $body
+        );
+    }
+
+    /**
+     * The URL of an endpoint of one catalogue email: the key, URL-encoded, stands where the endpoint
+     * names `{key}` (§1 "Automation setup keys").
+     */
+    private static function keyUrl(Connection $connection, string $endpoint, string $fallbackPath, string $key): string
+    {
+        return str_replace('{key}', rawurlencode($key), $connection->endpoint($endpoint, $fallbackPath));
     }
 
     // --- History import (Story 5.3): where the import stands (§25). One attempt; the import's

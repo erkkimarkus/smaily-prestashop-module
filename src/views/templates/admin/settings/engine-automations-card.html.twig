@@ -28,9 +28,17 @@
  # - the account is not active: nothing is read or saved;
  # - the list could not be loaded: nothing is listed, so nothing can be saved;
  # - else one row per automation that Campaign Intelligence offers the store now: its name, the
- #   pill Off, Test mode or Active, its description and Enabled; while it is on, also Test mode,
- #   the Smaily workflow it starts, Cooldown, Daily Cap and Test Emails. A row that is off keeps
- #   its values in the form, and the save posts every field of every row.
+ #   pill Off, Test mode or Active, its description and Enabled; while it is on, also its Test mode
+ #   switch, the Smaily workflow it starts, Cooldown, Daily Cap and Test Emails. A row that is off
+ #   keeps its values in the form, and the save posts every field of every row.
+ #
+ # Test mode (CON-459, as WooCommerce's CON-455 and Magento's CON-458) shows for an email that
+ # Campaign Intelligence reports a state for (contract §12 `setup[]`), and is on in every state but
+ # live. It is no form field: views/js/admin/engine-automations.js calls Campaign Intelligence at
+ # once (§20), turning it off only after the dialog "Turn off test mode?", which names the email.
+ # While it is on, "Send test email" sends one test email (§19) to an address that starts as the
+ # employee's own (`admin_email`). `row.setup` is the email's state in the admin's words
+ # (Admin\Settings\EngineAutomationsPanel): the switch, the state line and the notice.
  #
  # `row.name` and `row.description` are Campaign Intelligence's own text (contract §11), the one
  # text of the engine that a screen shows; Twig escapes it as any other value. A row carries the
@@ -38,7 +46,7 @@
  # per-language setup of another connector stays (Engine\Automations\ConfigRow). `card.account`
  # names the connection's Smaily account where it is not the shop's own, whose workflows are listed.
  #
- # Takes `card` (Admin\Settings\EngineAutomationsPanel::card()).
+ # Takes `card` (Admin\Settings\EngineAutomationsPanel::card()) and `admin_email`.
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if card.state == 'not_connected' %}
@@ -83,23 +91,39 @@
     </div>
     <div class="smaily-triggers">
       {% for row in card.rows %}
-        {% set mode = not row.enabled ? 'off' : (row.test_mode ? 'test' : 'active') %}
+        {% set mode = row.mode %}
         <div class="smaily-trigger is-{{ mode }}" data-smaily-engine-trigger="{{ row.key }}"
              data-language-mode="{{ row.language_mode }}" data-original-map="{{ row.original_map|json_encode }}">
           <div class="smaily-trigger__head">
             <div class="smaily-trigger__name-row">
               <span class="smaily-trigger__name">{{ row.name }}</span>
-              <span class="smaily-pill{{ mode == 'active' ? ' smaily-pill--active' : (mode == 'test' ? ' smaily-pill--pending' : '') }}"><span class="smaily-pill__dot"></span>{{ mode == 'active' ? 'Active'|trans : (mode == 'test' ? 'Test mode'|trans : 'Off'|trans) }}</span>
+              <span class="smaily-pill{{ mode == 'active' ? ' smaily-pill--active' : (mode == 'test' ? ' smaily-pill--pending' : '') }}" data-smaily-engine-pill><span class="smaily-pill__dot"></span><span data-smaily-engine-pill-text>{{ mode == 'active' ? 'Active'|trans : (mode == 'test' ? 'Test mode'|trans : 'Off'|trans) }}</span></span>
             </div>
             <div class="smaily-trigger__desc">{{ row.description }}</div>
             <div class="smaily-engine-switches">
               <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-engine-field="{{ row.key }}.enabled"{{ row.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>
-              <label class="smaily-trigger__enable" data-smaily-engine-settings{% if not row.enabled %} hidden{% endif %}><input type="checkbox" data-smaily-engine-field="{{ row.key }}.test_mode"{{ row.test_mode ? ' checked' : '' }}> {{ 'Test mode'|trans }}</label>
             </div>
           </div>
           <div class="smaily-trigger__settings" data-smaily-engine-settings{% if not row.enabled %} hidden{% endif %}>
-            {% if mode != 'active' %}
-              <p class="smaily-note">{{ 'Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.'|trans }}</p>
+            {% if row.setup is not null %}
+              <div class="smaily-test-mode" data-smaily-test-mode
+                   data-confirm="{{ '“%name%” will start going to your store\'s real customers, at first up to 10 emails a day, then 25 and 50.'|trans({'%name%': row.name}) }}">
+                <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-test-mode-switch{{ row.setup.test_mode ? ' checked' : '' }}> {{ 'Test mode'|trans }}</label>
+                <p class="smaily-test-mode__status" data-smaily-test-mode-status{% if row.setup.status == '' %} hidden{% endif %}>{{ row.setup.status }}</p>
+                <p class="smaily-note" data-smaily-test-mode-notice{% if row.setup.notice == '' %} hidden{% endif %}>{{ row.setup.notice }}</p>
+                <div class="smaily-test-mode__test" data-smaily-test-mode-test{% if not row.setup.test_mode %} hidden{% endif %}>
+                  <p class="smaily-note">{{ 'The email goes to test addresses only.'|trans }}</p>
+                  <div class="smaily-trigger__ctrl">
+                    <span>{{ 'Send a test email to'|trans }}</span>
+                    <div class="smaily-test-mode__send">
+                      <input type="email" class="form-control smaily-engine-emails" data-smaily-test-send-address value="{{ admin_email }}" aria-label="{{ 'Send a test email to'|trans }}">
+                      <button type="button" class="btn btn-outline-secondary" data-smaily-action="send-test-email">{{ 'Send test email'|trans }}</button>
+                    </div>
+                  </div>
+                  <p class="smaily-note">{{ 'This address is added to the Smaily list as a test contact.'|trans }}</p>
+                </div>
+                <div class="smaily-test-mode__result" data-smaily-test-mode-result role="status" hidden></div>
+              </div>
             {% endif %}
             <div class="smaily-trigger__controls">
               <label class="smaily-trigger__ctrl">
@@ -135,6 +159,16 @@
     <div class="smaily-tab-footer">
       <button type="button" class="btn smaily-btn-primary" data-smaily-action="save-engine-automations">{{ 'Save Intelligence Automations'|trans }}</button>
       <span class="smaily-result" data-smaily-engine-result role="status"></span>
+    </div>
+    <div class="smaily-dialog" data-smaily-test-mode-dialog hidden>
+      <div class="smaily-dialog__box" role="alertdialog" aria-modal="true" aria-labelledby="smaily-test-mode-dialog-title" aria-describedby="smaily-test-mode-dialog-message">
+        <h2 class="smaily-dialog__title" id="smaily-test-mode-dialog-title">{{ 'Turn off test mode?'|trans }}</h2>
+        <p class="smaily-dialog__message" id="smaily-test-mode-dialog-message" data-smaily-test-mode-dialog-message></p>
+        <div class="smaily-dialog__actions">
+          <button type="button" class="btn btn-outline-secondary" data-smaily-test-mode-dialog-cancel>{{ 'Cancel'|trans({}, 'Admin.Actions') }}</button>
+          <button type="button" class="btn smaily-btn-primary" data-smaily-test-mode-dialog-confirm>{{ 'Turn off'|trans }}</button>
+        </div>
+      </div>
     </div>
   {% endif %}
 {% endif %}

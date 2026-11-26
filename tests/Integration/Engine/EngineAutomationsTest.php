@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Engine;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestMode;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\EngineTestSend;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\EngineAutomationsPanel;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
@@ -21,11 +23,12 @@ require_once __DIR__ . '/EngineTestCase.php';
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 
 /**
- * The card "Campaign Intelligence Automations" against the engine mock (contract §11 to §13) and
- * the Smaily mock: it lists what the engine offers at that moment, shows after a save what the
- * engine holds, refuses an enabled automation without a workflow, leaves another connector's
+ * The card "Campaign Intelligence Automations" against the engine mock (contract §11 to §13, §19,
+ * §20) and the Smaily mock: it lists what the engine offers at that moment, shows after a save what
+ * the engine holds, refuses an enabled automation without a workflow, leaves another connector's
  * per-language setup as it is, and saves nothing while the list cannot be read or the account is
- * not active. No sentence of the card carries the engine's text.
+ * not active. An email's test send and its test mode switch go once each and show the state the
+ * engine reads afterwards. No sentence of the card carries the engine's text.
  */
 final class EngineAutomationsTest extends EngineTestCase
 {
@@ -112,7 +115,8 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame(['replenish_due', 'winback_rescue'], array_column($card['rows'], 'key'));
         self::assertSame(['Replenishment due', 'Win-back'], array_column($card['rows'], 'name'));
         self::assertSame([false, false], array_column($card['rows'], 'enabled'));
-        self::assertSame([true, true], array_column($card['rows'], 'test_mode'));
+        self::assertSame(['off', 'off'], array_column($card['rows'], 'mode'));
+        self::assertSame([true, true], array_column(array_column($card['rows'], 'setup'), 'test_mode'));
         self::assertSame([['id' => 21, 'name' => 'Workflow 21'], ['id' => 24, 'name' => 'Workflow 24']], $card['workflows']);
         self::assertSame('', $card['workflow_error']);
         self::assertSame('', $card['account'], 'the shop\'s own account is not named');
@@ -138,12 +142,12 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame(['Taastäitumine', 'Tagasivõitmine'], array_column($this->panel()->card(0, 'et')['rows'], 'name'));
     }
 
-    public function testASaveSendsEveryRowWithAllEightKeysAndShowsWhatTheEngineHolds(): void
+    public function testASaveSendsEveryRowWithEveryKeyButTestModeAndShowsWhatTheEngineHolds(): void
     {
         $this->connect();
 
         $result = $this->panel()->save(0, [
-            'replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21', 'cooldown_days' => '30', 'daily_cap' => '10', 'test_emails' => 'owner@shop.example, marketing@shop.example']),
+            'replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21', 'cooldown_days' => '30', 'daily_cap' => '10', 'test_emails' => 'owner@shop.example, marketing@shop.example']),
             'winback_rescue' => self::posted(),
         ], 'en');
 
@@ -159,7 +163,6 @@ final class EngineAutomationsTest extends EngineTestCase
                 'automation_map' => ['id' => '21'],
                 'cooldown_days' => 30,
                 'daily_cap' => 10,
-                'test_mode' => true,
                 'test_emails' => ['owner@shop.example', 'marketing@shop.example'],
             ],
             [
@@ -169,7 +172,6 @@ final class EngineAutomationsTest extends EngineTestCase
                 'automation_map' => [],
                 'cooldown_days' => 7,
                 'daily_cap' => null,
-                'test_mode' => true,
                 'test_emails' => [],
             ],
         ], $puts[0]['body']['configs']);
@@ -179,29 +181,209 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame(30, $result['card']['rows'][0]['cooldown_days']);
     }
 
-    public function testARequestForRealSendsShowsTheTestModeThatTheEngineKeeps(): void
+    public function testASaveNeverSwitchesRealSends(): void
+    {
+        $this->connect();
+        $this->enable();
+
+        $result = $this->panel()->switchTestMode(0, 'replenish_due', false, '7');
+        self::assertSame('active', $result['state']['mode']);
+
+        $saved = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21', 'test_mode' => true])], 'en');
+
+        self::assertSame('Saved.', $saved['message']);
+        self::assertArrayNotHasKey('test_mode', $this->puts()[1]['body']['configs'][0], 'a posted test_mode is not sent');
+        self::assertSame('active', $saved['card']['rows'][0]['mode'], 'real sends stay on');
+        self::assertFalse($saved['card']['rows'][0]['setup']['test_mode']);
+    }
+
+    public function testATestSendGoesOnceInTheShopsLanguageAndTheCardShowsTheState(): void
+    {
+        $this->connect();
+        $this->enable();
+
+        $result = $this->panel()->testSend(0, 'replenish_due', ' owner@shop.example ', 'et');
+
+        self::assertSame('', $result['code']);
+        self::assertTrue($result['done']);
+        self::assertSame('Test email sent to owner@shop.example. Check the inbox.', $result['message']);
+        self::assertSame([], $result['reasons']);
+        self::assertSame(['test_mode' => true, 'mode' => 'test', 'pill' => 'Test mode', 'status' => '', 'notice' => ''], $result['state']);
+        $sends = $this->engine->requestsTo('/api/v1/automations/replenish_due/test-send');
+        self::assertCount(1, $sends);
+        self::assertSame(['email' => 'owner@shop.example', 'language' => 'et'], $sends[0]['body']);
+    }
+
+    public function testAnAddressThatIsNotOneEmailAsksNothing(): void
     {
         $this->connect();
 
-        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => false, 'workflow_id' => '21'])], 'en');
-
-        self::assertTrue($result['saved']);
-        self::assertFalse($this->puts()[0]['body']['configs'][0]['test_mode'], 'the request asked for real sends');
-        self::assertTrue($result['card']['rows'][0]['enabled']);
-        self::assertTrue($result['card']['rows'][0]['test_mode'], 'the page shows the engine\'s state');
-        self::assertSame('Saved. Smaily switches real sends on after you confirm. Until then the trigger runs in test mode.', $result['message']);
+        foreach (['', 'not-an-address', 'owner@shop.example, marketing@shop.example'] as $address) {
+            $result = $this->panel()->testSend(0, 'replenish_due', $address, 'en');
+            self::assertSame([false, 'Enter a valid email address.', null], [$result['done'], $result['message'], $result['state']], $address);
+        }
+        self::assertSame([], $this->engine->requestsTo('/api/v1/automations/replenish_due/test-send'));
     }
 
-    public function testAnAutomationWhoseRealSendsAreOnStaysActiveAtASave(): void
+    public function testAnEmailWithoutAWorkflowIsNotReady(): void
+    {
+        $this->connect();
+
+        $result = $this->panel()->testSend(0, 'replenish_due', 'owner@shop.example', 'en');
+
+        self::assertFalse($result['done']);
+        self::assertSame('The test email cannot be sent yet:', $result['message']);
+        self::assertSame(['No Smaily workflow is linked to this email.'], $result['reasons']);
+        self::assertSame('off', $result['state']['mode'], 'the state is read again after a refusal');
+    }
+
+    /**
+     * @dataProvider refusedTestSends
+     *
+     * @param array<string, mixed> $failure
+     * @param list<string> $reasons
+     */
+    public function testEachRefusalOfATestSendIsSaidOnceInTheModulesWords(array $failure, string $message, array $reasons): void
+    {
+        $this->connect();
+        $this->enable();
+        $this->engine->set('fail', ['automations_test_send' => $failure + ['message' => 'The engine\'s own sentence.']]);
+
+        $result = $this->panel()->testSend(0, 'replenish_due', 'owner@shop.example', 'en');
+
+        self::assertFalse($result['done']);
+        self::assertSame($message, $result['message']);
+        self::assertSame($reasons, $result['reasons']);
+        self::assertStringNotContainsString('own sentence', (string) json_encode($result));
+        self::assertCount(1, $this->engine->requestsTo('/api/v1/automations/replenish_due/test-send'), 'never sent again on its own');
+    }
+
+    /**
+     * @return array<string, array{array<string, mixed>, string, list<string>}>
+     */
+    public function refusedTestSends(): array
+    {
+        return [
+            'not ready' => [
+                ['status' => 409, 'error' => 'not_ready', 'details' => ['reasons' => ['workflow_not_active', 'no_design', 'design_check_failed', 'missing_subject', 'no_sender', 'no_products', 'a_reason_of_tomorrow']]],
+                'The test email cannot be sent yet:',
+                [
+                    'The email\'s Smaily workflow is not active yet, for example because its sender domain is not verified.',
+                    'The email has no design yet.',
+                    'The design check failed.',
+                    'The email has no subject.',
+                    'The email has no sender address.',
+                    'No customer has recommendations for this email yet.',
+                    'Setup is not complete.',
+                ],
+            ],
+            'not ready without reasons' => [['status' => 409, 'error' => 'not_ready'], 'The test email cannot be sent yet:', ['Setup is not complete.']],
+            'a refused sender' => [
+                ['status' => 409, 'error' => 'sender_refused', 'details' => ['sender_state' => 'unverified', 'from_address' => 'news@shop.example']],
+                'Smaily refused to send from your sender address: its domain is not verified in Smaily yet, or the address is not allowed. Real sends are not affected.',
+                [],
+            ],
+            'the rate limit' => [['status' => 429], 'Too many requests. Up to 10 test emails can be sent an hour. Try again later.', []],
+            'Smaily does not answer' => [['status' => 502, 'error' => 'smaily_unavailable'], 'Smaily did not answer, so the test email was not sent. Press the button again to try once more.', []],
+            'an engine error' => [['status' => 500], 'Campaign Intelligence did not take the request. Try again in a moment.', []],
+            'an unknown email' => [['status' => 404, 'error' => 'unknown_automation'], 'Campaign Intelligence did not take the request. Try again in a moment.', []],
+        ];
+    }
+
+    public function testTurningTestModeOffAndOnSwitchesRealSendsAsTheEmployee(): void
+    {
+        $this->connect();
+        $this->enable();
+
+        $off = $this->panel()->switchTestMode(0, 'replenish_due', false, '7');
+
+        self::assertTrue($off['done']);
+        self::assertSame('', $off['message']);
+        self::assertSame(['test_mode' => false, 'mode' => 'active', 'pill' => 'Active', 'status' => 'Sending to real customers · up to 10 emails today', 'notice' => ''], $off['state']);
+
+        $connection = $this->connections()->forShop(0);
+        $this->engine->set('automations_daily_limit', [$connection->tenantId() => ['replenish_due' => 25]]);
+        self::assertSame('Sending to real customers · up to 25 emails today', $this->panel()->card(0, 'en')['rows'][0]['setup']['status'], 'the card reads today\'s limit');
+
+        $on = $this->panel()->switchTestMode(0, 'replenish_due', true, '7');
+
+        self::assertTrue($on['done']);
+        self::assertSame(['test_mode' => true, 'mode' => 'test', 'pill' => 'Test mode', 'status' => '', 'notice' => ''], $on['state']);
+        $switches = $this->engine->requestsTo('/api/v1/automations/replenish_due/go-live');
+        self::assertSame([
+            ['live' => true, 'confirmed' => true, 'switched_by' => '7'],
+            ['live' => false, 'switched_by' => '7'],
+        ], array_column($switches, 'body'));
+    }
+
+    public function testABlockedSwitchListsWhatBlocksItAndKeepsTestMode(): void
     {
         $connection = $this->connect();
-        $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
-        $this->engine->set('automations_live', [$connection->tenantId() => ['replenish_due']]);
+        $this->enable();
+        $this->engine->set('automations_blockers', [$connection->tenantId() => ['replenish_due' => ['missing_subject', 'operator_switch_required', 'a_blocker_of_tomorrow']]]);
 
-        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => false, 'workflow_id' => '21'])], 'en');
+        $result = $this->panel()->switchTestMode(0, 'replenish_due', false, '7');
 
-        self::assertFalse($result['card']['rows'][0]['test_mode']);
-        self::assertSame('Saved.', $result['message']);
+        self::assertFalse($result['done']);
+        self::assertSame('Test mode stays on until this is fixed:', $result['message']);
+        self::assertSame(['The email has no subject.', 'A Smaily operator switches real sends on for this email.', 'Setup is not complete.'], $result['reasons']);
+        self::assertTrue($result['state']['test_mode']);
+        self::assertCount(1, $this->engine->requestsTo('/api/v1/automations/replenish_due/go-live'));
+    }
+
+    public function testAStopWaitsForSmailysReview(): void
+    {
+        $connection = $this->connect();
+        $this->enable();
+        $this->engine->set('automations_stopped', [$connection->tenantId() => ['replenish_due']]);
+
+        $card = $this->panel()->card(0, 'en');
+        $off = $this->panel()->switchTestMode(0, 'replenish_due', false, '7');
+        $on = $this->panel()->switchTestMode(0, 'replenish_due', true, '7');
+
+        self::assertSame(['test_mode' => true, 'mode' => 'test', 'pill' => 'Test mode', 'status' => 'Smaily reviews this stop before the email can send again.', 'notice' => ''], $card['rows'][0]['setup']);
+        self::assertSame(['Test mode stays on until this is fixed:', ['Smaily reviews this stop before the email can send again.']], [$off['message'], $off['reasons']]);
+        self::assertTrue($on['done']);
+        self::assertSame('Smaily reviews this stop before the email can send again.', $on['state']['status'], 'only Smaily\'s review ends the stop');
+    }
+
+    public function testTheNoticeOfAnEmailThatWaitsForItsSenderShows(): void
+    {
+        $connection = $this->connect();
+        $this->enable();
+        $this->engine->set('automations_notice', [$connection->tenantId() => ['replenish_due' => 'starts_when_sender_verified', 'winback_rescue' => 'starts_when_sender_verified']]);
+
+        $rows = $this->panel()->card(0, 'en')['rows'];
+
+        self::assertSame('Starts when your sender domain is verified in Smaily.', $rows[0]['setup']['notice']);
+        self::assertSame('', $rows[1]['setup']['notice'], 'an email that is off has no notice');
+    }
+
+    public function testTheEndpointsAskNothingWithoutTheDialogOrWithoutOneAddress(): void
+    {
+        // The endpoints run on the shop's own runtime, so these two answers are the ones that ask
+        // no engine; the panel's tests above take the engine's answers.
+        $route = ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_settings_engine_test_mode'];
+
+        $unconfirmed = $this->adminRequest(new EngineTestMode(), ['key' => 'replenish_due', 'test_mode' => false], $route);
+        $send = $this->adminRequest(new EngineTestSend(), ['key' => 'replenish_due', 'email' => 'owner@shop.example, marketing@shop.example'], ['_route' => 'smailyforprestashop_api_settings_engine_test_send'] + $route);
+
+        self::assertSame([400, 'not_confirmed'], [$unconfirmed->getStatusCode(), json_decode((string) $unconfirmed->getContent(), true)['error']['code']]);
+        self::assertSame(200, $send->getStatusCode(), (string) $send->getContent());
+        self::assertSame(
+            ['done' => false, 'message' => 'Enter a valid email address.', 'reasons' => [], 'state' => null],
+            json_decode((string) $send->getContent(), true)['data']
+        );
+    }
+
+    public function testAnAccountThatIsNotActiveIsNeitherTestedNorSwitched(): void
+    {
+        $this->connect();
+        $this->enable();
+        $this->engine->set('tenant_inactive', true);
+
+        self::assertSame('card_changed', $this->panel()->testSend(0, 'replenish_due', 'owner@shop.example', 'en')['code']);
+        self::assertSame('card_changed', $this->panel()->switchTestMode(0, 'replenish_due', false, '7')['code']);
     }
 
     public function testAnEnabledAutomationWithoutAWorkflowIsNotSaved(): void
@@ -209,8 +391,8 @@ final class EngineAutomationsTest extends EngineTestCase
         $this->connect();
 
         $result = $this->panel()->save(0, [
-            'replenish_due' => self::posted(['enabled' => true, 'test_mode' => true]),
-            'winback_rescue' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '24']),
+            'replenish_due' => self::posted(['enabled' => true]),
+            'winback_rescue' => self::posted(['enabled' => true, 'workflow_id' => '24']),
         ], 'en');
 
         self::assertFalse($result['saved']);
@@ -231,8 +413,8 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame(['per_language', '24', $map], [$row['language_mode'], $row['workflow_id'], $row['original_map']]);
 
         $result = $this->panel()->save(0, [
-            'replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21']),
-            'winback_rescue' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '24', 'cooldown_days' => '14', 'language_mode' => 'per_language', 'original_map' => $map]),
+            'replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21']),
+            'winback_rescue' => self::posted(['enabled' => true, 'workflow_id' => '24', 'cooldown_days' => '14', 'language_mode' => 'per_language', 'original_map' => $map]),
         ], 'en');
 
         self::assertTrue($result['saved']);
@@ -245,11 +427,11 @@ final class EngineAutomationsTest extends EngineTestCase
     public function testAStoredWorkflowStaysWhileTheSmailyListCannotBeLoaded(): void
     {
         $this->connect();
-        $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
         $this->smaily->acceptCredentials('another-user', 'another-password');
 
         $card = $this->panel()->card(0, 'en');
-        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '', 'original_map' => ['id' => '21']])], 'en');
+        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '', 'original_map' => ['id' => '21']])], 'en');
 
         self::assertSame([], $card['workflows']);
         self::assertStringStartsWith('Could not load the workflow list: Smaily rejected these credentials.', $card['workflow_error']);
@@ -263,7 +445,7 @@ final class EngineAutomationsTest extends EngineTestCase
         $this->connect();
 
         $result = $this->panel()->save(0, [
-            'replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21', 'test_emails' => 'owner@shop.example, not-an-address']),
+            'replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21', 'test_emails' => 'owner@shop.example, not-an-address']),
             'no_longer_offered' => self::posted(),
         ], 'en');
 
@@ -296,7 +478,7 @@ final class EngineAutomationsTest extends EngineTestCase
     public function testWhileTheListCannotBeReadNothingIsListedAndNoDefaultIsShown(string $route, int $status, ?string $error, string $reason): void
     {
         $this->connect();
-        $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
         $this->engine->fail($route, $status, $error, 'engine text that no screen shows');
 
         $card = $this->panel()->card(0, 'en');
@@ -328,7 +510,7 @@ final class EngineAutomationsTest extends EngineTestCase
         $this->connect();
         $this->engine->fail('automations_save', 503);
 
-        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
 
         self::assertFalse($result['saved']);
         self::assertSame('not_saved', $result['code']);
@@ -342,7 +524,7 @@ final class EngineAutomationsTest extends EngineTestCase
         $this->connect();
         $this->engine->fail('automations_config', 503);
 
-        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $result = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
 
         self::assertTrue($result['saved']);
         self::assertNull($result['card']);
@@ -362,7 +544,7 @@ final class EngineAutomationsTest extends EngineTestCase
         // From then on the engine is not asked.
         $before = count($this->engine->requests());
         $again = $this->panel()->card(0, 'en');
-        $save = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $save = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
 
         self::assertSame('refused', $again['state']);
         self::assertFalse($save['saved']);
@@ -375,7 +557,7 @@ final class EngineAutomationsTest extends EngineTestCase
         $this->connect();
         $this->engine->set('tenant_inactive', true);
 
-        $save = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'test_mode' => true, 'workflow_id' => '21'])], 'en');
+        $save = $this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en');
 
         self::assertFalse($save['saved']);
         self::assertSame('card_changed', $save['code']);
@@ -439,7 +621,15 @@ final class EngineAutomationsTest extends EngineTestCase
      */
     private static function posted(array $values = []): array
     {
-        return $values + ['enabled' => false, 'test_mode' => true, 'workflow_id' => '', 'cooldown_days' => '7', 'daily_cap' => '', 'test_emails' => '', 'language_mode' => 'single', 'original_map' => []];
+        return $values + ['enabled' => false, 'workflow_id' => '', 'cooldown_days' => '7', 'daily_cap' => '', 'test_emails' => '', 'language_mode' => 'single', 'original_map' => []];
+    }
+
+    /**
+     * Saves the first email enabled with workflow 21.
+     */
+    private function enable(): void
+    {
+        self::assertTrue($this->panel()->save(0, ['replenish_due' => self::posted(['enabled' => true, 'workflow_id' => '21'])], 'en')['saved']);
     }
 
     /**

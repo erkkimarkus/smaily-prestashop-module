@@ -38,6 +38,13 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
 - CON-454 part b: each import card's finish time in the employee's date format (`Admin\AdminTime`); the Initial
   setup's "Shops with their own values" lists every contact field the Contacts step offers
   (`ContactsPanel::FIELD_LABELS`, which the step reads too).
+- CON-459 (owner, 26 Nov; WooCommerce's CON-455, Magento's CON-458; contract 1.37.2 §19, §20): each Campaign
+  Intelligence email has a Test mode switch below Enabled (§20 at once; off only after "Turn off test mode?",
+  with the employee's id) and, while it is on, "Send test email" (§19, the employee's address first); the card
+  shows the §12 state, today's limit, a stop Smaily reviews and the notice; refusals in the module's words, one
+  attempt each; the save no longer sends `test_mode`. Host 2410 tests (4236 assertions, 1232 skipped), `node
+  --test` 55, CS 0 of 370, PHP 8.0 lint; fresh shops behind the guard: 2410 tests on 9.2.0 (12921 assertions)
+  and on 8.2.8 (12916), leftovers silent; a headless walk of 65 checks per version, EN and ET, all pass.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.

@@ -35,7 +35,8 @@ final class AutomationListTest extends TestCase
         $row = AutomationList::rows(self::CATALOG, ['configs' => []], 'en')[0];
 
         self::assertFalse($row['enabled']);
-        self::assertTrue($row['test_mode']);
+        self::assertSame('off', $row['mode']);
+        self::assertNull($row['setup'], 'an answer without setup[] shows no Test mode switch');
         self::assertSame('', $row['workflow_id']);
         self::assertSame('single', $row['language_mode']);
         self::assertSame([], $row['original_map']);
@@ -59,12 +60,65 @@ final class AutomationListTest extends TestCase
         ]]], 'en')[0];
 
         self::assertTrue($row['enabled']);
-        self::assertFalse($row['test_mode']);
+        self::assertSame('active', $row['mode']);
         self::assertSame('21', $row['workflow_id']);
         self::assertSame(['id' => '21'], $row['original_map']);
         self::assertSame(30, $row['cooldown_days']);
         self::assertSame(10, $row['daily_cap']);
         self::assertSame('owner@shop.example, marketing@shop.example', $row['test_emails']);
+    }
+
+    public function testAnEnabledRowWithoutAStoredTestModeIsInTestMode(): void
+    {
+        $row = AutomationList::rows(self::CATALOG, ['configs' => [['trigger_key' => 'replenish_due', 'enabled' => true]]], 'en')[0];
+
+        self::assertSame('test', $row['mode']);
+    }
+
+    public function testTheSetupItemDecidesTheStateOfAnEmail(): void
+    {
+        $config = [
+            'configs' => [['trigger_key' => 'replenish_due', 'enabled' => true, 'test_mode' => true]],
+            'setup' => [
+                ['trigger_key' => 'replenish_due', 'setup_state' => 'live', 'daily_limit' => 25, 'go_live_blockers' => [], 'notice' => 'starts_when_sender_verified'],
+                ['trigger_key' => 'an_email_of_tomorrow', 'setup_state' => 'set_up', 'daily_limit' => 10, 'notice' => 'a_notice_of_tomorrow'],
+            ],
+        ];
+
+        $rows = AutomationList::rows(self::CATALOG, $config, 'en');
+
+        self::assertSame('active', $rows[0]['mode'], 'the setup item wins over the stored row');
+        self::assertSame(['test_mode' => false, 'daily_limit' => 25, 'stopped' => false, 'notice' => 'starts_when_sender_verified'], $rows[0]['setup']);
+        self::assertSame('off', $rows[1]['mode']);
+        self::assertSame(['test_mode' => true, 'daily_limit' => null, 'stopped' => false, 'notice' => ''], $rows[1]['setup'], 'an unknown notice shows nothing, and only a live email has a limit');
+    }
+
+    /**
+     * @dataProvider setupStates
+     *
+     * @param array<string, mixed> $item
+     */
+    public function testEveryStateButLiveIsTestMode(array $item, string $mode, bool $testMode, bool $stopped): void
+    {
+        $state = AutomationList::states(['setup' => [$item + ['trigger_key' => 'replenish_due']]])['replenish_due'];
+
+        self::assertSame($mode, $state['mode']);
+        self::assertSame($testMode, $state['test_mode']);
+        self::assertSame($stopped, $state['stopped']);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string, bool, bool}>
+     */
+    public static function setupStates(): iterable
+    {
+        yield 'off' => [['setup_state' => 'off'], 'off', true, false];
+        yield 'set up' => [['setup_state' => 'set_up'], 'off', true, false];
+        yield 'test' => [['setup_state' => 'test'], 'test', true, false];
+        yield 'live' => [['setup_state' => 'live'], 'active', false, false];
+        yield 'stopped' => [['setup_state' => 'stopped', 'go_live_blockers' => ['stopped_needs_review']], 'test', true, true];
+        yield 'a stop that waits in test' => [['setup_state' => 'test', 'go_live_blockers' => ['stopped_needs_review']], 'test', true, true];
+        yield 'unknown state' => [['setup_state' => 'paused'], 'off', true, false];
     }
 
     public function testAPerLanguageRowOfAnotherConnectorShowsItsFallbackWorkflow(): void

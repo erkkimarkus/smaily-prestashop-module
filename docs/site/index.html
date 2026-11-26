@@ -999,7 +999,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Create a workflow in Smaily for each automation you want, with the <em>form submitted</em> trigger, in the Smaily account that your Campaign Intelligence connection belongs to. Where that is not the shop's own Smaily account, the card names it.</li>
         <li>Tick <strong>Enabled</strong> on the automation. Its settings open:
           <ul>
-            <li><strong>Test mode</strong>: while it is ticked, only the test addresses get the email. A newly enabled automation is in test mode.</li>
+            <li><strong>Test mode</strong>: while it is on, the card says <strong>The email goes to test addresses only.</strong> A newly enabled automation is in test mode. See <em>Test mode and the test email</em> below.</li>
             <li><strong>Smaily Workflow</strong>: the workflow the automation starts. An enabled automation needs one.</li>
             <li><strong>Cooldown (days)</strong>: the shortest time between two emails of this automation to one customer, from 1 to 365 days.</li>
             <li><strong>Daily Cap</strong>: the most emails a day, from 1 to 100000. Empty means no cap.</li>
@@ -1008,7 +1008,17 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         </li>
         <li>Press <strong>Save Intelligence Automations</strong>. The card then shows the state Campaign Intelligence holds for each automation: <strong>Off</strong>, <strong>Test mode</strong> or <strong>Active</strong>.</li>
       </ol>
-      <p>Every automation is off until you tick <strong>Enabled</strong>: nothing reaches real customers without your own action. To send to real customers, untick <strong>Test mode</strong> and save; Smaily switches real sends on after you confirm, and until then the automation stays in <strong>Test mode</strong>. When the list cannot be loaded, the card says <strong>Could not load the automation catalog</strong>: nothing can be saved then, and your saved automations are unchanged.</p>
+      <p>Every automation is off until you tick <strong>Enabled</strong>: nothing reaches real customers without your own action. When the list cannot be loaded, the card says <strong>Could not load the automation catalog</strong>: nothing can be saved then, and your saved automations are unchanged.</p>
+      <h3>Test mode and the test email</h3>
+      <p>An enabled automation has a <strong>Test mode</strong> switch below <strong>Enabled</strong>. The switch acts at once: it is not part of <strong>Save Intelligence Automations</strong>.</p>
+      <ul>
+        <li><strong>Send test email</strong>: while test mode is on, type an address under <strong>Send a test email to</strong> (your own address is filled in) and press the button. Campaign Intelligence sends one test email of that automation. <strong>This address is added to the Smaily list as a test contact.</strong> When Campaign Intelligence cannot send it yet, the card lists why in plain words, for example <strong>No Smaily workflow is linked to this email.</strong> Nothing is sent again on its own: press the button again to try once more.</li>
+        <li><strong>Turning test mode off</strong> asks first: <strong>Turn off test mode?</strong> says that the automation will start going to your store's real customers, at first up to 10 emails a day, then 25 and 50. Press <strong>Turn off</strong> to start, or <strong>Cancel</strong>. When something must be fixed first, test mode stays on and the card lists what, under <strong>Test mode stays on until this is fixed:</strong>.</li>
+        <li>While the automation sends to real customers, the card says <strong>Sending to real customers · up to 25 emails today</strong>, with today's limit. Where the automation waits for your sender domain, it adds <strong>Starts when your sender domain is verified in Smaily.</strong></li>
+        <li><strong>Turning test mode on again</strong> asks nothing: the automation goes back to the test addresses at once.</li>
+        <li>When Smaily's checks stop an automation (for example after a complaint), the card says <strong>Smaily reviews this stop before the email can send again.</strong> Test mode stays on until Smaily has reviewed it.</li>
+      </ul>
+      <p>The store automations above (welcome, abandoned cart, first order) have neither the switch nor the test email.</p>
     </div>
     <div data-lang="et">
       <p>Poe automaatikate all on jaotises <span class="path">Seaded &gt; Automaatikad</span> kaart <strong>Campaign Intelligence'i automaatikad</strong>. See loetleb automaatseid e-kirju, mida Campaign Intelligence saadab ise, hetkel, mille ta iga kliendi jaoks otsustab, näiteks meeldetuletuse, kui toode hakkab otsa saama. Loend tuleb Campaign Intelligence'ilt iga kord, kui vahekaardi avad, tema antud nimede ja kirjeldustega. Kaart ei ole algseadistuse osa ja sellel on oma nupp <strong>Salvesta Intelligence'i automaatikad</strong>. Ühendamata pood näeb selle asemel teadet <strong>Nende automaatikate seadistamiseks ühenda Campaign Intelligence</strong>.</p>
@@ -1016,7 +1026,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Loo Smailys iga soovitud automaatika jaoks töövoog päästikuga <em>form submitted</em> (vorm on esitatud) sellel Smaily kontol, kuhu sinu Campaign Intelligence'i ühendus kuulub. Kui see pole poe enda Smaily konto, nimetab kaart selle.</li>
         <li>Märgi automaatikal <strong>Lubatud</strong>. Selle seaded avanevad:
           <ul>
-            <li><strong>Testrežiim</strong>: kuni see on märgitud, saavad e-kirja ainult test-aadressid. Äsja lubatud automaatika on testrežiimis.</li>
+            <li><strong>Testrežiim</strong>: kuni see on sees, ütleb kaart <strong>Kiri läheb ainult test-aadressidele.</strong> Äsja lubatud automaatika on testrežiimis. Vt allpool <em>Testrežiim ja testkiri</em>.</li>
             <li><strong>Smaily töövoog</strong>: töövoog, mille automaatika käivitab. Lubatud automaatika vajab seda.</li>
             <li><strong>Puhkeaeg (päevades)</strong>: lühim aeg selle automaatika kahe e-kirja vahel ühele kliendile, 1 kuni 365 päeva.</li>
             <li><strong>Päevalimiit</strong>: kõige rohkem e-kirju päevas, 1 kuni 100000. Tühi tähendab, et limiiti pole.</li>
@@ -1025,7 +1035,17 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         </li>
         <li>Vajuta <strong>Salvesta Intelligence'i automaatikad</strong>. Kaart näitab seejärel iga automaatika olekut, mida Campaign Intelligence hoiab: <strong>Väljas</strong>, <strong>Testrežiim</strong> või <strong>Aktiivne</strong>.</li>
       </ol>
-      <p>Iga automaatika on väljas, kuni märgid <strong>Lubatud</strong>: ilma sinu enda tegevuseta ei jõua päris klientideni midagi. Päris klientidele saatmiseks võta <strong>Testrežiim</strong> maha ja salvesta; Smaily lülitab päris saatmise sisse pärast sinu kinnitust ja seni jääb automaatika <strong>Testrežiimi</strong>. Kui loendit ei õnnestu laadida, ütleb kaart <strong>Automaatikate kataloogi ei õnnestunud laadida</strong>: siis ei saa midagi salvestada ja sinu salvestatud automaatikad jäävad muutmata.</p>
+      <p>Iga automaatika on väljas, kuni märgid <strong>Lubatud</strong>: ilma sinu enda tegevuseta ei jõua päris klientideni midagi. Kui loendit ei õnnestu laadida, ütleb kaart <strong>Automaatikate kataloogi ei õnnestunud laadida</strong>: siis ei saa midagi salvestada ja sinu salvestatud automaatikad jäävad muutmata.</p>
+      <h3>Testrežiim ja testkiri</h3>
+      <p>Lubatud automaatikal on lüliti <strong>Lubatud</strong> all lüliti <strong>Testrežiim</strong>. Lüliti mõjub kohe: see ei ole nupu <strong>Salvesta Intelligence'i automaatikad</strong> osa.</p>
+      <ul>
+        <li><strong>Saada testkiri</strong>: kuni testrežiim on sees, kirjuta aadress välja <strong>Saada testkiri aadressile</strong> (sinu enda aadress on ette täidetud) ja vajuta nuppu. Campaign Intelligence saadab selle automaatika ühe testkirja. <strong>See aadress lisatakse Smaily listi testkontaktina.</strong> Kui Campaign Intelligence ei saa seda veel saata, loetleb kaart põhjused lihtsate sõnadega, näiteks <strong>Selle kirjaga pole seotud ühtegi Smaily töövoogu.</strong> Midagi ei saadeta iseenesest uuesti: uuesti proovimiseks vajuta nuppu veel kord.</li>
+        <li><strong>Testrežiimi väljalülitamine</strong> küsib enne: <strong>Kas lülitada testrežiim välja?</strong> ütleb, et automaatika hakkab minema sinu poe päris klientidele, alguses kuni 10 kirja päevas, seejärel 25 ja 50. Alustamiseks vajuta <strong>Lülita testrežiim välja</strong> või <strong>Tühista</strong>. Kui midagi tuleb enne korda teha, jääb testrežiim sisse ja kaart loetleb selle pealkirja <strong>Testrežiim jääb sisse, kuni see on korras:</strong> all.</li>
+        <li>Kuni automaatika saadab päris klientidele, ütleb kaart <strong>Saadab päris klientidele · täna kuni 25 kirja</strong>, tänase limiidiga. Kui automaatika ootab sinu saatja domeeni, lisab kaart <strong>Algab, kui sinu saatja domeen on Smailys kinnitatud.</strong></li>
+        <li><strong>Testrežiimi uuesti sisselülitamine</strong> ei küsi midagi: automaatika läheb kohe tagasi test-aadressidele.</li>
+        <li>Kui Smaily kontrollid peatavad automaatika (näiteks pärast kaebust), ütleb kaart <strong>Smaily vaatab peatamise üle, enne kui kirja saab uuesti saata.</strong> Testrežiim jääb sisse, kuni Smaily on selle üle vaadanud.</li>
+      </ul>
+      <p>Ülal olevatel poe automaatikatel (tervituskiri, hüljatud ostukorv, esimene tellimus) pole lülitit ega testkirja.</p>
     </div>
   </div>
 

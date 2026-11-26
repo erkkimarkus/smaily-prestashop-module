@@ -35,7 +35,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Saves the card "Campaign Intelligence Automations" of Settings > Automations, as Magento's
- * Automations\Save: POST {"triggers": {<catalogue key>: {"enabled", "test_mode", "workflow_id",
+ * Automations\Save: POST {"triggers": {<catalogue key>: {"enabled", "workflow_id",
  * "cooldown_days", "daily_cap", "test_emails", "language_mode", "original_map"}}} with every row
  * of the card.
  *
@@ -68,7 +68,7 @@ final class SaveEngineAutomations extends AbstractSettingsAction
         if ($result['saved']) {
             return [
                 'message' => $result['message'],
-                'html' => $result['card'] === null ? null : $this->renderView(EngineAutomationsCard::TEMPLATE, ['card' => $result['card']]),
+                'html' => $result['card'] === null ? null : $this->renderView(EngineAutomationsCard::TEMPLATE, EngineAutomationsCard::view($result['card'])),
             ];
         }
 
