@@ -311,7 +311,7 @@ ask (Linear discipline below).
   the browser's consent rule (`consent.js`: the store's `consentOverride()`, else the merchant's
   setting, which is off until confirmed); the three landing cookies are not gated, and nothing else
   may join them. Every front script is one IIFE and the scripts add one global,
-  `window.smailyConnect` (`node --test tests/js/`). A page holds nothing about its visitor: what
+  `window.smailyConnect` (`node --test tests/js/*.test.js`). A page holds nothing about its visitor: what
   differs per visitor comes after load from `relay`, `land` and `recommendations`. A store-created
   `vs_` token, and a customer sent to Campaign Intelligence at sign-in, need the merchant's setting
   alone, never the customer's `newsletter` (owner, 2026-11-23); a guest-checkout customer's token
@@ -434,7 +434,7 @@ languages**: every unit is a `data-lang="en"` element followed by its
 `data-lang="et"` twin; edit the pair together, and quote admin labels
 exactly as the module's catalogue shows them (the source string, and its
 unit in `src/translations/et-EE/`). `tests/js/user-guide-site.test.js`
-(`node --test tests/js/`) fails on a broken in-page link, a missing twin,
+(`node --test tests/js/*.test.js`) fails on a broken in-page link, a missing twin,
 twins whose structure drifted, or a section the admin links to that is
 missing. The page lies outside `src/`, so the release zip never holds it.
 `USERGUIDE.md` is only a pointer at the site — do not add content there.

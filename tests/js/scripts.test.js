@@ -6,7 +6,7 @@
  * `function` or `var` is global for every script that follows on the page, and breaks the shop's
  * own scripts.
  *
- * Run: node --test tests/js/
+ * Run: node --test tests/js/*.test.js
  */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

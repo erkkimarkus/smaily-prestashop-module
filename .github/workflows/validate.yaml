@@ -59,7 +59,7 @@ jobs:
           node-version: '22'
       # Node's built-in test runner: every script is one IIFE, the scripts add no global but
       # window.smailyConnect, and the consent rule gates the tracker. No package is installed.
-      - run: node --test tests/js/
+      - run: node --test tests/js/*.test.js
 
   install:
     name: Install on PrestaShop ${{ matrix.prestashop }}

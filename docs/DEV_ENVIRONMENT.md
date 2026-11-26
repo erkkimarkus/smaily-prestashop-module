@@ -101,7 +101,8 @@ a 9.2.0 shop ran beside it. 8.0.0 last
 ran with the upgrade-safe core only (278 tests, 1337 assertions). On the host the same suite runs its unit tests
 and skips the integration tests. The storefront scripts
 and the merchant guide page have their own tests on Node's built-in runner, which needs no package:
-`node --test tests/js/`.
+`node --test tests/js/*.test.js`. Name the files, not the folder: Node 22, which CI runs, reads
+`node --test tests/js/` as one module and fails with "Cannot find module"; newer Node takes either.
 `PS_ROOT_DIR` makes the test bootstrap boot the
 shop, and the integration tests then run against its database. Start PHPUnit from the module folder,
 not from `/smaily/src`: PrestaShop includes the module's `vendor/autoload.php` when it builds a

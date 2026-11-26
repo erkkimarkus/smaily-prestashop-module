@@ -10,7 +10,7 @@
  * Node's built-in modules only: the page is parsed by the small parser below, which takes the
  * page's own strict form (every element closed explicitly).
  *
- * Run: node --test tests/js/
+ * Run: node --test tests/js/*.test.js
  */
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

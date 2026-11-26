@@ -165,7 +165,7 @@ Bugs and feature requests:
 composer install --working-dir src/
 src/vendor/bin/phpunit                                    # unit tests; integration tests skip on the host
 (cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
-node --test tests/js/                                     # storefront scripts and the guide page
+node --test tests/js/*.test.js                            # storefront scripts and the guide page
 composer --working-dir src package                        # writes dist/smailyforprestashop.zip
 ```
 
