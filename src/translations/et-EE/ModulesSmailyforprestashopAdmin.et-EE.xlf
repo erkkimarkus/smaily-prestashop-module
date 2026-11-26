@@ -2537,9 +2537,9 @@
         <target>Sooduskoodita: ostukorvi hinnareegel %rule% ei andnud selle poe jaoks koodi (reegel on kustutatud, selle lõppkuupäev on möödas, see hakkab kehtima alles pärast koodi kehtivuse lõppu, selle kasutuskorrad on otsas, see on piiratud ühe kliendiga või see ei kehti selles poes). E-kiri läheb ilma koodita.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="516a3e2e5caef99ac49fc9c0cbdb2d9e">
-        <source>Also sync customers who checked out as guests. In Checkout opt-in only, a guest who ticks the checkout newsletter checkbox is synced either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in Checkout opt-in only.</source>
-        <target>Sünkrooni ka kliendid, kes ostsid külalisena. Režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“ sünkroonitakse külaline, kes märgib kassas uudiskirja märkeruudu, igal juhul. Uudiskirja tellija, kes liitus uudiskirja plokis ilma kontota, sünkroonitakse sellest seadest olenemata, välja arvatud režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“.</target>
+      <trans-unit id="3b0ac36a2fe10a490a2cf6d39e5e8847">
+        <source>Also sync customers who checked out as guests. A guest who ticks the checkout newsletter checkbox is synced in every mode either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in Checkout opt-in only.</source>
+        <target>Sünkrooni ka kliendid, kes ostsid külalisena. Külaline, kes märgib kassas uudiskirja märkeruudu, sünkroonitakse igas režiimis igal juhul. Uudiskirja tellija, kes liitus uudiskirja plokis ilma kontota, sünkroonitakse sellest seadest olenemata, välja arvatud režiimis „Ainult kassas turunduskirjade nõusoleku andnud kontaktid“.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="31c32a6773f78f6233cf365beb789a6d">

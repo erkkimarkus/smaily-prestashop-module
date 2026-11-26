@@ -267,12 +267,18 @@ ask (Linear discipline below).
   runs only where it is enabled and confirmed. The reconcile is two-way in
   "Subscribers only", but the first run of each Smaily account takes only
   unsubscribes (Smaily's unsubscriber list) and marks nobody subscribed: an
-  upgrade never marks anyone subscribed again. A guest-checkout customer is
-  sent in "All customers", and with a ticked box in "Subscribers only", only
-  when "include guests" is on; "Checkout opt-in only" sends a ticked box
-  always. A newsletter-block subscriber without an account goes by the
-  consent mode alone, whatever "include guests" says, as Magento (owner,
-  2026-11-21). All audience questions go through `Contacts\ContactAudience`.
+  upgrade never marks anyone subscribed again. A checkout with the newsletter
+  box ticked is sent in every mode, a guest-checkout customer's too, whatever
+  "include guests" says (owner, 2026-11-26); a guest's other events, and the
+  imports, follow "include guests" (in "All customers"; in "Subscribers
+  only" with consent), so a tick of before the change is never sent again. An
+  unsubscribe in the store, of any source, is sent with `is_unsubscribed = 1`
+  in every mode (owner, 2026-11-26, as Magento). A newsletter-block
+  subscriber without an account goes by the consent mode alone, whatever
+  "include guests" says, as Magento (owner, 2026-11-21). The welcome email
+  follows the contact sync: nothing is welcomed while the shop's contact sync
+  is not active (owner, 2026-11-26). All audience questions go through
+  `Contacts\ContactAudience`.
 - **Discount codes are cart rules** (ARCHITECTURE 7). The module knows the
   rules it issued by their description (`smaily-connect-issued:`); never
   filter by name. PrestaShop 8 lists a customer's vouchers by the database

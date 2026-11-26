@@ -765,10 +765,11 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <li><strong>Checkout opt-in only</strong>: nobody is synced automatically, only shoppers who tick the newsletter checkbox at checkout.</li>
           </ul>
         </li>
-        <li><strong>Include guests</strong> also syncs customers who checked out as guests. In <strong>Checkout opt-in only</strong>, a guest who ticks the checkout newsletter checkbox is synced either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in <strong>Checkout opt-in only</strong>.</li>
+        <li><strong>Include guests</strong> also syncs customers who checked out as guests. A guest who ticks the checkout newsletter checkbox is synced in every mode either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in <strong>Checkout opt-in only</strong>.</li>
         <li>Under <strong>Extra fields to sync with each contact</strong>, pick the fields that personalize your newsletters: <strong>First name</strong>, <strong>Last name</strong>, <strong>Gender</strong>, <strong>Date of birth</strong>, <strong>Customer ID</strong>, <strong>Customer group</strong>, <strong>Subscription type</strong>, <strong>Website</strong>. <strong>Gender</strong>, <strong>Customer ID</strong>, <strong>Customer group</strong> and <strong>Subscription type</strong> are off until you tick them; an upgraded store keeps the fields it had. Empty values are never sent, so existing Smaily data is not wiped (see <a href="#ef-contact">Contact fields</a>).</li>
         <li>Press <strong>Save Contacts</strong>. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.</li>
       </ol>
+      <p><strong>Unsubscribes.</strong> In every mode, a shopper who unsubscribes in your store — in the newsletter subscription form, or by unticking the newsletter checkbox on their account page — is sent to Smaily as unsubscribed, so Smaily stops emailing that address. Nothing is sent while <strong>Sync contacts to Smaily</strong> is off.</p>
       <p><strong>Show a newsletter checkbox at checkout</strong> reads <strong>PrestaShop's newsletter module shows it</strong>: PrestaShop's newsletter module (<code>ps_emailsubscription</code>) already shows a newsletter checkbox at checkout, so Smaily Connect adds none of its own.</p>
       <p>Under <strong>Initial contact import</strong>, <strong>Start import</strong> sends the contacts that your Contacts settings sync to Smaily once, in the background (see <a href="#imp-what">What gets imported</a>). The card says how many that is in the mode you pick, for example <em>This import sends 120 contacts from this shop.</em> New and changed contacts are synced on their own afterwards. Until the Contacts settings are saved, and in <strong>Checkout opt-in only</strong>, <strong>Start import</strong> stays greyed out. While no Smaily account is saved, it starts nothing and says <em>Test your Smaily connection to continue.</em></p>
       <p>An upgraded store starts in <strong>Subscribers only (consent)</strong> with <strong>Include guests</strong> on, the narrowest mode that matches what version 2.x did. In that mode, the first check of each Smaily account takes only unsubscribes from Smaily, and marks nobody subscribed again.</p>
@@ -784,10 +785,11 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <li><strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong>: kedagi ei sünkroonita automaatselt, ainult ostjad, kes märgivad kassas uudiskirja märkeruudu.</li>
           </ul>
         </li>
-        <li><strong>Kaasa külalised</strong> sünkroonib ka kliendid, kes vormistasid ostu külalisena. Valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral sünkroonitakse kassas uudiskirja märkeruudu märkinud külaline igal juhul. Uudiskirja plokis ilma kontota liitunud tellija sünkroonitakse sellest seadest olenemata, välja arvatud valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral.</li>
+        <li><strong>Kaasa külalised</strong> sünkroonib ka kliendid, kes vormistasid ostu külalisena. Kassas uudiskirja märkeruudu märkinud külaline sünkroonitakse igas režiimis igal juhul. Uudiskirja plokis ilma kontota liitunud tellija sünkroonitakse sellest seadest olenemata, välja arvatud valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral.</li>
         <li>Vali jaotises <strong>Lisaväljad, mis sünkroonitakse iga kontaktiga</strong> väljad, mis isikupärastavad sinu uudiskirju: <strong>Eesnimi</strong>, <strong>Perenimi</strong>, <strong>Sugu</strong>, <strong>Sünnikuupäev</strong>, <strong>Kliendi ID</strong>, <strong>Kliendigrupp</strong>, <strong>Tellimuse tüüp</strong>, <strong>Veebisait</strong>. <strong>Sugu</strong>, <strong>Kliendi ID</strong>, <strong>Kliendigrupp</strong> ja <strong>Tellimuse tüüp</strong> on välja lülitatud, kuni sa need märgid; uuendatud pood jätab alles väljad, mis tal olid. Tühje väärtusi ei saadeta kunagi, nii et Smailys olevaid andmeid ei kustutata (vt <a href="#ef-contact">Kontakti väljad</a>).</li>
         <li>Vajuta <strong>Salvesta kontaktid</strong>. Kui salvestamine muudab seda, keda sünkroonitakse, ütleb leht, mida edaspidi saadetakse, ja palub kinnitust.</li>
       </ol>
+      <p><strong>Loobumised.</strong> Igas režiimis saadetakse ostja, kes loobub uudiskirjast sinu poes — uudiskirjaga liitumise vormis või oma konto lehel uudiskirja märkeruudu eemaldades —, Smailysse loobununa, nii et Smaily lõpetab sellele aadressile kirjade saatmise. Kui <strong>Sünkrooni kontaktid Smailysse</strong> on välja lülitatud, ei saadeta midagi.</p>
       <p>Valiku <strong>Näita kassas uudiskirja märkeruutu</strong> juures on kirjas <strong>Seda näitab PrestaShopi uudiskirjamoodul</strong>: PrestaShopi uudiskirjamoodul (<code>ps_emailsubscription</code>) näitab juba kassas uudiskirja märkeruutu, seega Smaily Connect oma märkeruutu ei lisa.</p>
       <p>Jaotises <strong>Esmane kontaktide import</strong> saadab <strong>Alusta importi</strong> taustal üks kord Smailysse kontaktid, keda sinu kontaktide seaded sünkroonivad (vt <a href="#imp-what">Mida imporditakse</a>). Kaart ütleb, mitu kontakti see valitud režiimis on, näiteks <em>See import saadab sellest poest 120 kontakti.</em> Uued ja muutunud kontaktid sünkroonitakse edaspidi ise. Kuni kontaktide seaded pole salvestatud, ja valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral, on <strong>Alusta importi</strong> hall. Kuni Smaily kontot pole salvestatud, ei alusta see midagi ja ütleb <em>Jätkamiseks testi oma Smaily ühendust.</em></p>
       <p>Uuendatud pood alustab valikuga <strong>Ainult turunduskirjade tellijad (nõusolekuga)</strong> ja sisselülitatud valikuga <strong>Kaasa külalised</strong> — kitsaim režiim, mis vastab sellele, mida tegi versioon 2.x. Selles režiimis võtab iga Smaily konto esimene kontroll Smailyst ainult loobumised ega märgi kedagi uuesti tellijaks.</p>
@@ -803,7 +805,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Open <span class="path">Design &gt; Positions</span> and click <strong>Transplant a module</strong> (PrestaShop 8) or <strong>Hook a module</strong> (PrestaShop 9).</li>
         <li>Pick <strong>Newsletter subscription</strong> as the module and a position for the form, and save.</li>
       </ol>
-      <p>A shopper who subscribes there is synced by the consent mode, and starts the <strong>Welcome</strong> automation when it is on (see <a href="#set-automations">Automations</a>). An upgrade from 2.x leaves the module's verification and confirmation emails and its voucher as 2.x left them; switch them on again in that module if you want them.</p>
+      <p>A shopper who subscribes there is synced by the consent mode, and starts the <strong>Welcome</strong> automation when it and the contact sync are on (see <a href="#set-automations">Automations</a>). An upgrade from 2.x leaves the module's verification and confirmation emails and its voucher as 2.x left them; switch them on again in that module if you want them.</p>
     </div>
     <div data-lang="et">
       <p>Smaily Connect kasutab PrestaShopi enda uudiskirjaga liitumise vormi, moodulit <strong>Newsletter subscription</strong> (<code>ps_emailsubscription</code>). Tellijate otse kogumiseks paiguta see oma poodi:</p>
@@ -811,7 +813,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Ava <span class="path">Kujundus &gt; Positsioonid</span> ja klõpsa <strong>Transplant a module</strong> (PrestaShop 8) või <strong>Hook a module</strong> (PrestaShop 9).</li>
         <li>Vali mooduliks <strong>Newsletter subscription</strong> ja vormile positsioon ning salvesta.</li>
       </ol>
-      <p>Seal liituv ostja sünkroonitakse nõusolekurežiimi järgi ja käivitab automaatika <strong>Tervitus</strong>, kui see on sees (vt <a href="#set-automations">Automaatikad</a>). Uuendamine versioonilt 2.x jätab selle mooduli kontroll- ja kinnituskirjad ning sooduskoodi nii, nagu 2.x need jättis; soovi korral lülita need selles moodulis uuesti sisse.</p>
+      <p>Seal liituv ostja sünkroonitakse nõusolekurežiimi järgi ja käivitab automaatika <strong>Tervitus</strong>, kui see ja kontaktide sünkroonimine on sees (vt <a href="#set-automations">Automaatikad</a>). Uuendamine versioonilt 2.x jätab selle mooduli kontroll- ja kinnituskirjad ning sooduskoodi nii, nagu 2.x need jättis; soovi korral lülita need selles moodulis uuesti sisse.</p>
     </div>
   </div>
 
@@ -823,7 +825,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Create the workflows in Smaily first, each with the <em>form submitted</em> trigger. You can follow Smaily's <a href="https://smaily.com/help/user-manual/automations/automation-workflows/">automation workflows tutorial</a>. The lists on the page come live from your Smaily account; press <strong>Refresh workflows</strong> after you have added one.</li>
         <li>Each automation has an <strong>Enabled</strong> switch and a <strong>Smaily Workflow</strong>:
           <ul>
-            <li><strong>Welcome</strong> fires when a shopper subscribes to the newsletter in your store.</li>
+            <li><strong>Welcome</strong> fires when a shopper subscribes to the newsletter in your store. It follows the contact sync: it goes only while <strong>Sync contacts to Smaily</strong> is on, and only to a shopper whom the consent mode syncs (see <a href="#set-contacts">Contacts</a>).</li>
             <li><strong>First order</strong> fires on a customer's first purchase.</li>
             <li><strong>Abandoned cart</strong> fires when a cart is left behind — see <a href="#set-abandoned">Abandoned cart</a>.</li>
           </ul>
@@ -848,7 +850,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Loo töövood kõigepealt Smailys, igaüks päästikuga <em>form submitted</em> (vorm on esitatud). Võid järgida Smaily <a href="https://smaily.com/help/user-manual/automations/automation-workflows/">automaatikate töövoogude õpetust</a>. Lehe loendid tulevad otse sinu Smaily kontolt; kui oled töövoo lisanud, vajuta <strong>Värskenda töövooge</strong>.</li>
         <li>Igal automaatikal on lüliti <strong>Lubatud</strong> ja <strong>Smaily töövoog</strong>:
           <ul>
-            <li><strong>Tervitus</strong> käivitub, kui ostja liitub sinu poes uudiskirjaga.</li>
+            <li><strong>Tervitus</strong> käivitub, kui ostja liitub sinu poes uudiskirjaga. See järgib kontaktide sünkroonimist: kiri läheb ainult siis, kui <strong>Sünkrooni kontaktid Smailysse</strong> on sees, ja ainult ostjale, kelle nõusolekurežiim sünkroonib (vt <a href="#set-contacts">Kontaktid</a>).</li>
             <li><strong>Esimene tellimus</strong> käivitub kliendi esimesel ostul.</li>
             <li><strong>Hüljatud ostukorv</strong> käivitub, kui ostukorv jäetakse maha — vt <a href="#set-abandoned">Hüljatud ostukorv</a>.</li>
           </ul>

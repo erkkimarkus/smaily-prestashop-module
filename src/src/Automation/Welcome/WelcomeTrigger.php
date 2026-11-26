@@ -47,9 +47,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
  *  - the request is a storefront page (a front controller): a consent that the back office, the
  *    reconcile from Smaily, an import or the upgrade writes starts no welcome;
  *  - the welcome is on in the contact's shop;
- *  - the shop's consent mode sends the contact (ContactAudience), as the siblings' welcome follows
- *    their contact sync's audience. The contact sync itself need not be on: 2.x sent its opt-in
- *    whether or not its customer sync ran, and the upgrade keeps the welcome on where 2.x had it.
+ *  - the shop's contact sync is active (on and confirmed), and its consent mode sends the contact
+ *    (ContactAudience): the welcome follows the contact sync, as in the sibling connectors (owner,
+ *    2026-11-26; Linear CON-452).
  * Each storefront subscribe starts it, a re-subscribe too; there is no once-per-contact record.
  *
  * The row carries the address and the fields that the contact sync sends (`store` and the selected
@@ -95,7 +95,7 @@ final class WelcomeTrigger
         if (!($payload['subscribed'] ?? false) || !($payload['consent_changed'] ?? false) || !($this->storefront)()) {
             return 0;
         }
-        if (!$this->automations->enabled(Trigger::WELCOME, $idShop)) {
+        if (!$this->automations->enabled(Trigger::WELCOME, $idShop) || !$this->contacts->syncActive($idShop)) {
             return 0;
         }
         $audience = new ContactAudience($this->contacts->mode($idShop));

@@ -66,11 +66,14 @@ final class ContactAudience
     /**
      * Whether a store event about a contact goes to Smaily.
      *
-     * A newsletter-block subscriber without an account goes by the mode alone, whatever "include
-     * guests" says (owner, 2026-11-21): the Magento connector syncs a newsletter-form signup in
-     * its consent and legitimate-interest modes whatever its guest setting, and not in its
-     * checkout-only mode. Subscribers only sends the subscribe and the unsubscribe; all customers
-     * the subscribe; checkout opt-in only nothing. The welcome email follows this answer.
+     * Two events go in every mode, whatever "include guests" says (owner, 2026-11-26, the same rule
+     * in every connector; Linear CON-452): an unsubscribe, of any source, and a checkout in which the
+     * newsletter box was ticked, a guest-checkout customer's included (WooCommerce CON-439; Magento's
+     * guest setting gates only guests who did not tick). Otherwise a newsletter-block subscriber
+     * without an account goes by the mode alone, whatever "include guests" says (owner, 2026-11-21):
+     * the Magento connector syncs a newsletter-form signup in its consent and legitimate-interest
+     * modes whatever its guest setting, and not in its checkout-only mode. The welcome email follows
+     * this answer.
      *
      * @param string $source SOURCE_CUSTOMER or SOURCE_NEWSLETTER_BLOCK
      * @param bool $subscribed the contact's consent in the store after the event
@@ -80,37 +83,32 @@ final class ContactAudience
      */
     public function syncs(string $source, bool $subscribed, bool $consentChanged, bool $checkout, bool $guest = false): bool
     {
+        if ($consentChanged && (!$subscribed || $checkout)) {
+            return true;
+        }
         if ($source === self::SOURCE_NEWSLETTER_BLOCK) {
-            switch ($this->mode->mode()) {
-                case ContactSyncMode::CHECKOUT_OPTIN:
-                    return false;
-                case ContactSyncMode::ALL_CUSTOMERS:
-                    // No status is sent in this mode, so an unsubscribe would only upsert the address.
-                    return $subscribed;
-                default:
-                    return $subscribed || $consentChanged;
-            }
+            return $subscribed && $this->mode->mode() !== ContactSyncMode::CHECKOUT_OPTIN;
         }
 
         switch ($this->mode->mode()) {
             case ContactSyncMode::ALL_CUSTOMERS:
                 return $this->sendsGuest($guest);
             case ContactSyncMode::CHECKOUT_OPTIN:
-                return $checkout && $subscribed && $consentChanged;
+                return false;
             default:
-                return $this->sendsGuest($guest) && ($subscribed || $consentChanged);
+                return $this->sendsGuest($guest) && $subscribed;
         }
     }
 
     /**
      * The `is_unsubscribed` a synced contact row carries: true (1) or false (0) only where the store
-     * saw the consent change, and never in all customers; null leaves the field out, so Smaily keeps
-     * the contact's status (and creates a new contact as subscribed). An import or an automation
-     * passes no change, so it never re-subscribes anyone.
+     * saw the consent change; in all customers only an unsubscribe carries it (owner, 2026-11-26).
+     * Null leaves the field out, so Smaily keeps the contact's status (and creates a new contact as
+     * subscribed). An import or an automation passes no change, so it never re-subscribes anyone.
      */
     public function unsubscribedStatus(bool $subscribed, bool $consentChanged): ?bool
     {
-        if (!$consentChanged || $this->mode->mode() === ContactSyncMode::ALL_CUSTOMERS) {
+        if (!$consentChanged || ($subscribed && $this->mode->mode() === ContactSyncMode::ALL_CUSTOMERS)) {
             return null;
         }
 
@@ -135,11 +133,11 @@ final class ContactAudience
     }
 
     /**
-     * All customers and subscribers only send a guest-checkout customer only when "include guests"
-     * is on (owner, 2026-11-20; the legitimate-interest and consent presets of the WooCommerce
-     * connector): in all customers whether or not the newsletter box was ticked, in subscribers only
-     * when it was. A registered customer is not gated. Checkout opt-in only does not ask: there a
-     * ticked box sends a guest as it sends a registered customer, as in WooCommerce.
+     * All customers and subscribers only send a guest-checkout customer's other events only when
+     * "include guests" is on (owner, 2026-11-20; the legitimate-interest and consent presets of the
+     * WooCommerce connector): in all customers every event, in subscribers only one with the consent.
+     * A registered customer is not gated. A checkout with the box ticked and an unsubscribe do not
+     * ask (syncs(); owner, 2026-11-26), nor does checkout opt-in only.
      */
     private function sendsGuest(bool $guest): bool
     {

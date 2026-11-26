@@ -17,7 +17,8 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   refused, lost workflows dropped, refused import contacts named, the consent-mode warning); the identity-merge
   deferral; CON-435 (a console install enables every shop); Gender, Customer ID and group synced; the Campaign
   Intelligence card and CON-445 parts 1–3 as Magento draws them. Verified together below; the merge left one
-  stylesheet rule unclosed, fixed in `0011857`.
+  stylesheet rule unclosed, fixed in `0011857`. CON-452: a ticked checkout box (a guest's too) and a store
+  unsubscribe reach Smaily in every consent mode, and the welcome follows contact sync.
 - CON-454 part a (owner, 26 Nov; Magento's): the Catalog items tile counts exactly; "Last run" and the Overview's
   last run in the employee's date format; every Initial setup step lays its sections on the page; "Subscription
   type" (`subscription_type` = `Subscriber`, opt-in) as a contact field; a stopped import stores where it stopped
@@ -135,6 +136,11 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
    that an account is stored, as Shopify does. A Done contact import keeps its refusal reason in the Log (owner,
    2026-11-25); Magento and WooCommerce keep no error on a completed import.
 5. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
+6. CON-452 (the welcome follows contact sync): a store upgraded with the 2.x opt-in on and the customer sync off
+   (1.6.x rows under 2.x code, or a 2.x store with its customer sync switched off) keeps the welcome on, and it now
+   sends nothing until contact sync is on; no upgrade notice says so. Accept, or add a `welcome_left_off` notice?
+   In all customers an opt-out now carries `is_unsubscribed = 1` while a later re-subscribe carries no status, so
+   Smaily keeps that contact unsubscribed (Magento sends `0` on a subscribe change there): for CON-397.
 
 **Only the owner can do:** enable GitHub Actions on the fork; for the live walk's waiting parts, unsubscribe a
 `walk.*@example.com` address in Smaily (the store follows within 15 minutes) and, if wanted, switch on First order

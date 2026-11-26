@@ -240,19 +240,34 @@ final class WelcomeAutomationTest extends IntegrationTestCase
     }
 
     /**
-     * 2.x sent its opt-in whether or not its customer sync ran, and the upgrade leaves the welcome
-     * on where 2.x had it: the welcome does not wait for the contact sync.
+     * @return iterable<string, array{string}>
      */
-    public function testTheWelcomeGoesWhereTheContactSyncIsNotActive(): void
+    public function inactiveSync(): iterable
     {
-        \Configuration::updateGlobalValue(ContactsSettings::ENABLED, '0');
+        yield 'contact sync off' => [ContactsSettings::ENABLED];
+        yield 'contacts not confirmed' => [ContactsSettings::CONFIRMED];
+    }
+
+    /**
+     * The welcome follows the contact sync (owner, 2026-11-26; Linear CON-452): where the shop's
+     * contact sync is not active, a storefront subscribe, of an account or in the newsletter block,
+     * queues and sends nothing.
+     *
+     * @dataProvider inactiveSync
+     */
+    public function testTheWelcomeWaitsForTheContactSync(string $key): void
+    {
+        \Configuration::updateGlobalValue($key, '0');
         LegacyStore::reloadConfiguration();
 
         $this->fire('actionCustomerAccountAdd', ['newCustomer' => $this->customer('welcome1@example.test', true)]);
         $this->endRequest();
+        $this->addNewsletterRow($this->shop, 'welcome2@example.test', true, $this->idLang);
+        $this->fire('actionNewsletterRegistrationAfter', ['email' => 'welcome2@example.test', 'action' => '0', 'module' => 'ps_emailsubscription']);
+        $this->endRequest();
 
-        self::assertSame([WelcomeTrigger::EVENT_TYPE], array_column($this->rows(), 'event_type'));
-        self::assertCount(1, $this->autoresponderRequests());
+        self::assertSame([], $this->rows());
+        self::assertSame([], $this->autoresponderRequests());
     }
 
     /**
@@ -263,13 +278,15 @@ final class WelcomeAutomationTest extends IntegrationTestCase
         yield 'checkout opt-in only, a registration' => [ContactSyncMode::CHECKOUT_OPTIN, true, false, false, 0];
         yield 'checkout opt-in only, a registration at the order step' => [ContactSyncMode::CHECKOUT_OPTIN, true, true, false, 1];
         yield 'all customers, a registration' => [ContactSyncMode::ALL_CUSTOMERS, true, false, false, 1];
-        yield 'subscribers only, a guest at the order step, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, true, true, 0];
+        yield 'subscribers only, a guest at the order step, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, true, true, 1];
         yield 'subscribers only, a guest at the order step, include guests on' => [ContactSyncMode::SUBSCRIBERS, true, true, true, 1];
+        yield 'all customers, a guest at the order step, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, true, true, 1];
     }
 
     /**
      * The welcome goes to whom the shop's consent mode sends as a contact (ContactAudience), as the
-     * siblings' welcome does.
+     * siblings' welcome does: a guest who ticks the box at the order step in every mode, whatever
+     * "include guests" says (owner, 2026-11-26).
      *
      * @dataProvider audienceCases
      */

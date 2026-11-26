@@ -281,7 +281,8 @@ final class ContactSyncHandlerTest extends TestCase
     }
 
     /**
-     * Acceptance 2: `is_unsubscribed` only where the store saw the consent change.
+     * Acceptance 2: `is_unsubscribed` only where the store saw the consent change; in all customers
+     * only an unsubscribe carries it (owner, 2026-11-26).
      */
     public function testSendsASubscriptionStatusOnlyOnAConsentChange(): void
     {
@@ -290,6 +291,7 @@ final class ContactSyncHandlerTest extends TestCase
             $this->row(2, 1, $this->payload('optout@example.test', ['subscribed' => false, 'consent_changed' => true])),
             $this->row(3, 1, $this->payload('profile@example.test')),
             $this->row(4, 2, $this->payload('allcustomers@example.test', ['subscribed' => false, 'consent_changed' => true])),
+            $this->row(5, 2, $this->payload('allcustomers-optin@example.test', ['consent_changed' => true])),
         ]);
 
         $statuses = [];
@@ -299,7 +301,7 @@ final class ContactSyncHandlerTest extends TestCase
             }
         }
         self::assertSame(
-            ['optin@example.test' => 0, 'optout@example.test' => 1, 'profile@example.test' => null, 'allcustomers@example.test' => null],
+            ['optin@example.test' => 0, 'optout@example.test' => 1, 'profile@example.test' => null, 'allcustomers@example.test' => 1, 'allcustomers-optin@example.test' => null],
             $statuses
         );
     }

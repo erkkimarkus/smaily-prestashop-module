@@ -41,7 +41,7 @@ final class ContactAudienceTest extends TestCase
             'checkout opt-in: checkout with the box ticked' => [self::CHECKOUT, true, true, true, true],
             'checkout opt-in: checkout without the box' => [self::CHECKOUT, false, false, true, false],
             'checkout opt-in: opt-in outside the checkout' => [self::CHECKOUT, true, true, false, false],
-            'checkout opt-in: opt-out' => [self::CHECKOUT, false, true, false, false],
+            'checkout opt-in: opt-out' => [self::CHECKOUT, false, true, false, true],
             'checkout opt-in: profile change of a subscriber' => [self::CHECKOUT, true, false, false, false],
         ];
     }
@@ -60,7 +60,8 @@ final class ContactAudienceTest extends TestCase
 
     /**
      * Row "Newsletter-block subscribers": a newsletter-block subscriber without an account goes by
-     * the mode alone, whatever "include guests" says (owner, 2026-11-21, as Magento).
+     * the mode alone, whatever "include guests" says (owner, 2026-11-21, as Magento); an unsubscribe
+     * goes in every mode (owner, 2026-11-26).
      *
      * @return array<string, array{string, bool, bool, bool, bool}>
      */
@@ -73,11 +74,12 @@ final class ContactAudienceTest extends TestCase
             'subscribers, guests off: subscribe' => [self::SUBSCRIBERS, false, true, true, true],
             'subscribers, guests off: unsubscribe' => [self::SUBSCRIBERS, false, false, true, true],
             'all customers, guests on: subscribe' => [self::ALL, true, true, true, true],
-            'all customers, guests on: unsubscribe' => [self::ALL, true, false, true, false],
+            'all customers, guests on: unsubscribe' => [self::ALL, true, false, true, true],
             'all customers, guests off: subscribe' => [self::ALL, false, true, true, true],
-            'all customers, guests off: unsubscribe' => [self::ALL, false, false, true, false],
+            'all customers, guests off: unsubscribe' => [self::ALL, false, false, true, true],
             'checkout opt-in, guests on: subscribe' => [self::CHECKOUT, true, true, true, false],
             'checkout opt-in, guests off: subscribe' => [self::CHECKOUT, false, true, true, false],
+            'checkout opt-in, guests off: unsubscribe' => [self::CHECKOUT, false, false, true, true],
         ];
     }
 
@@ -122,12 +124,12 @@ final class ContactAudienceTest extends TestCase
     }
 
     /**
-     * A guest-checkout customer (`is_guest = 1`) beside a registered one (owner, 2026-11-20): in all
-     * customers a guest goes only when "include guests" is on, whether or not the newsletter box was
-     * ticked, as WooCommerce's legitimate-interest preset decides; in subscribers only a guest who
-     * ticked the box goes only when "include guests" is on, as WooCommerce's consent preset decides;
-     * in checkout opt-in only a guest is as a registered customer. The live event is a checkout that
-     * ticked the box or not.
+     * A guest-checkout customer (`is_guest = 1`) beside a registered one. A guest who ticks the box
+     * at checkout goes live in every mode, whatever "include guests" says (owner, 2026-11-26, as
+     * WooCommerce CON-439); one who did not goes in all customers only when "include guests" is on
+     * (owner, 2026-11-20). The first import and the daily refresh still send a guest only when
+     * "include guests" is on, so a tick given before the change is not sent again. The live event is
+     * a checkout that ticked the box or not.
      *
      * @return array<string, array{string, bool, bool, bool, bool, bool}>
      */
@@ -140,13 +142,15 @@ final class ContactAudienceTest extends TestCase
             'all customers, guests on: guest' => [self::ALL, true, true, false, true, true],
             'all customers, guests on: guest who ticked the box' => [self::ALL, true, true, true, true, true],
             'all customers, guests off: guest' => [self::ALL, false, true, false, false, false],
-            'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, false, false],
+            'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, true, false],
             'subscribers, guests on: registered who ticked the box' => [self::SUBSCRIBERS, true, false, true, true, true],
             'subscribers, guests off: registered who ticked the box' => [self::SUBSCRIBERS, false, false, true, true, true],
             'subscribers, guests on: guest who ticked the box' => [self::SUBSCRIBERS, true, true, true, true, true],
-            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, false, false],
+            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, true, false],
             'subscribers, guests off: guest' => [self::SUBSCRIBERS, false, true, false, false, false],
+            'subscribers, guests on: guest' => [self::SUBSCRIBERS, true, true, false, false, false],
             'checkout opt-in, guests off: guest who ticked the box' => [self::CHECKOUT, false, true, true, true, false],
+            'checkout opt-in, guests on: guest' => [self::CHECKOUT, true, true, false, false, false],
         ];
     }
 
@@ -159,6 +163,45 @@ final class ContactAudienceTest extends TestCase
 
         self::assertSame($synced, $audience->syncs(ContactAudience::SOURCE_CUSTOMER, $ticked, $ticked, true, $guest));
         self::assertSame($imported, $audience->importsCustomer($ticked, $guest));
+    }
+
+    /**
+     * The order of a guest who ticked the box at the order step: the order's own row carries no
+     * consent change, so it goes as any other event of the guest, by "include guests"; the order
+     * step's row (above) has already sent the tick.
+     */
+    public function testTheOrderRowOfAGuestWhoTickedFollowsIncludeGuests(): void
+    {
+        foreach ([self::SUBSCRIBERS, self::ALL] as $mode) {
+            foreach ([true, false] as $guests) {
+                $audience = new ContactAudience(new ContactSyncMode($mode, $guests));
+
+                self::assertSame($guests, $audience->syncs(ContactAudience::SOURCE_CUSTOMER, true, false, true, true), $mode);
+            }
+        }
+    }
+
+    /**
+     * An unsubscribe in the store reaches Smaily in every mode, whatever "include guests" says, a
+     * guest-checkout customer's and a newsletter-block subscriber's too, and always with
+     * `is_unsubscribed = 1` (owner, 2026-11-26; Linear CON-452, as Magento).
+     */
+    public function testAnUnsubscribeGoesInEveryModeWithItsStatus(): void
+    {
+        $sources = [
+            [ContactAudience::SOURCE_CUSTOMER, false],
+            [ContactAudience::SOURCE_CUSTOMER, true],
+            [ContactAudience::SOURCE_NEWSLETTER_BLOCK, false],
+        ];
+        foreach ([self::SUBSCRIBERS, self::ALL, self::CHECKOUT] as $mode) {
+            foreach ([true, false] as $guests) {
+                $audience = new ContactAudience(new ContactSyncMode($mode, $guests));
+                foreach ($sources as [$source, $guest]) {
+                    self::assertTrue($audience->syncs($source, false, true, false, $guest), $mode . ' ' . $source);
+                }
+                self::assertTrue($audience->unsubscribedStatus(false, true), $mode);
+            }
+        }
     }
 
     /**
@@ -197,10 +240,11 @@ final class ContactAudienceTest extends TestCase
             'subscribers: opt-out' => [self::SUBSCRIBERS, false, true, true],
             'subscribers: no change' => [self::SUBSCRIBERS, true, false, null],
             'all customers: opt-in' => [self::ALL, true, true, null],
-            'all customers: opt-out' => [self::ALL, false, true, null],
+            'all customers: opt-out' => [self::ALL, false, true, true],
             'all customers: no change' => [self::ALL, false, false, null],
             'checkout opt-in: the tick' => [self::CHECKOUT, true, true, false],
             'checkout opt-in: no change' => [self::CHECKOUT, true, false, null],
+            'checkout opt-in: opt-out' => [self::CHECKOUT, false, true, true],
         ];
     }
 

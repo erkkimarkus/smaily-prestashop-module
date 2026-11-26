@@ -148,24 +148,31 @@ final class EnqueueFlushTest extends IntegrationTestCase
     }
 
     /**
-     * @return iterable<string, array{string, bool, string}>
+     * @return iterable<string, array{string, bool, bool, string, int|null}>
      */
     public function guestCases(): iterable
     {
-        yield 'subscribers only, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, EventQueue::STATUS_SKIPPED];
-        yield 'all customers, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, EventQueue::STATUS_SKIPPED];
-        yield 'checkout opt-in only, include guests off' => [ContactSyncMode::CHECKOUT_OPTIN, false, EventQueue::STATUS_SENT];
-        yield 'subscribers only, include guests on' => [ContactSyncMode::SUBSCRIBERS, true, EventQueue::STATUS_SENT];
-        yield 'all customers, include guests on' => [ContactSyncMode::ALL_CUSTOMERS, true, EventQueue::STATUS_SENT];
+        // mode, include guests, box ticked, status, is_unsubscribed sent
+        yield 'subscribers only, include guests off, ticked' => [ContactSyncMode::SUBSCRIBERS, false, true, EventQueue::STATUS_SENT, 0];
+        yield 'all customers, include guests off, ticked' => [ContactSyncMode::ALL_CUSTOMERS, false, true, EventQueue::STATUS_SENT, null];
+        yield 'checkout opt-in only, include guests off, ticked' => [ContactSyncMode::CHECKOUT_OPTIN, false, true, EventQueue::STATUS_SENT, 0];
+        yield 'subscribers only, include guests on, ticked' => [ContactSyncMode::SUBSCRIBERS, true, true, EventQueue::STATUS_SENT, 0];
+        yield 'all customers, include guests on, ticked' => [ContactSyncMode::ALL_CUSTOMERS, true, true, EventQueue::STATUS_SENT, null];
+        yield 'subscribers only, include guests off, not ticked' => [ContactSyncMode::SUBSCRIBERS, false, false, EventQueue::STATUS_SKIPPED, null];
+        yield 'subscribers only, include guests on, not ticked' => [ContactSyncMode::SUBSCRIBERS, true, false, EventQueue::STATUS_SKIPPED, null];
+        yield 'all customers, include guests off, not ticked' => [ContactSyncMode::ALL_CUSTOMERS, false, false, EventQueue::STATUS_SKIPPED, null];
+        yield 'all customers, include guests on, not ticked' => [ContactSyncMode::ALL_CUSTOMERS, true, false, EventQueue::STATUS_SENT, null];
+        yield 'checkout opt-in only, include guests on, not ticked' => [ContactSyncMode::CHECKOUT_OPTIN, true, false, EventQueue::STATUS_SKIPPED, null];
     }
 
     /**
-     * A guest at the order step who ticked the box, end to end: the row says `guest`, and the
-     * handler applies the guest gates of the shop's mode.
+     * A guest at the order step, end to end: the row says `guest`. A guest who ticked the box is
+     * sent in every mode, whatever "include guests" says (owner, 2026-11-26; Linear CON-452); one
+     * who did not follows the guest gate of the shop's mode.
      *
      * @dataProvider guestCases
      */
-    public function testAGuestCheckoutIsSentOnlyWhereTheModeTakesGuests(string $mode, bool $includeGuests, string $status): void
+    public function testAGuestCheckoutIsSentByItsTickOrTheGuestGate(string $mode, bool $includeGuests, bool $ticked, string $status, ?int $isUnsubscribed): void
     {
         \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
         \Configuration::updateGlobalValue(ContactsSettings::GUESTS, $includeGuests ? '1' : '0');
@@ -176,7 +183,7 @@ final class EnqueueFlushTest extends IntegrationTestCase
         $services = $this->services(true, $shutdown);
 
         try {
-            $this->register($services, 'shopper1@example.test', true);
+            $this->register($services, 'shopper1@example.test', true, $ticked);
         } finally {
             \Context::getContext()->controller = null;
         }
@@ -186,7 +193,63 @@ final class EnqueueFlushTest extends IntegrationTestCase
         $row = self::db()->getRow('SELECT `payload`, `last_error` FROM `' . _DB_PREFIX_ . EventQueue::TABLE . '`', false);
         self::assertTrue(json_decode((string) $row['payload'], true)['guest']);
         self::assertSame($status === EventQueue::STATUS_SKIPPED ? ContactSyncHandler::SKIPPED_NOT_IN_AUDIENCE : null, $row['last_error']);
-        self::assertCount($status === EventQueue::STATUS_SENT ? 1 : 0, $this->mock->requests());
+        $requests = $this->mock->requests();
+        self::assertCount($status === EventQueue::STATUS_SENT ? 1 : 0, $requests);
+        if ($status === EventQueue::STATUS_SENT) {
+            self::assertSame(['shopper1@example.test', $isUnsubscribed], [$requests[0]['body'][0]['email'], $requests[0]['body'][0]['is_unsubscribed'] ?? null]);
+        }
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public function unsubscribeCases(): iterable
+    {
+        foreach ([ContactSyncMode::SUBSCRIBERS, ContactSyncMode::ALL_CUSTOMERS, ContactSyncMode::CHECKOUT_OPTIN] as $mode) {
+            yield $mode . ', the block, a subscriber without an account' => [$mode, 'block'];
+            yield $mode . ', the block, a guest-checkout customer' => [$mode, 'block-guest'];
+            yield $mode . ', the account page' => [$mode, 'account'];
+        }
+    }
+
+    /**
+     * An unsubscribe in the newsletter block or on the account page, end to end, with "include
+     * guests" off: it reaches Smaily with `is_unsubscribed = 1` in every mode (owner, 2026-11-26;
+     * Linear CON-452).
+     *
+     * @dataProvider unsubscribeCases
+     */
+    public function testAnUnsubscribeInTheStoreIsSentInEveryMode(string $mode, string $where): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
+        \Configuration::updateGlobalValue(ContactsSettings::GUESTS, '0');
+        $shutdown = [];
+        $services = $this->services(true, $shutdown);
+        $dispatcher = new Dispatcher(static fn (): bool => true, static fn (): Services => $services, static function (): void {
+        });
+        if ($where === 'block') {
+            $this->addNewsletterRow($this->shop, 'block1@example.test', true, $this->idLang);
+            $dispatcher->run('actionNewsletterRegistrationBefore', ['email' => 'block1@example.test', 'action' => '1', 'module' => 'ps_emailsubscription']);
+            // What the block then does: it removes the row.
+            self::db()->delete('emailsubscription', "`email` = 'block1@example.test'");
+        } elseif ($where === 'block-guest') {
+            $id = $this->addCustomer($this->shop, 'block1@example.test', true, $this->idLang, ['is_guest' => 1]);
+            $dispatcher->run('actionNewsletterRegistrationBefore', ['email' => 'block1@example.test', 'action' => '1', 'module' => 'ps_emailsubscription']);
+            // What the block then does: it removes the customer's consent with plain SQL.
+            self::db()->update('customer', ['newsletter' => 0], '`id_customer` = ' . $id);
+        } else {
+            $customer = new \Customer($this->addCustomer($this->shop, 'block1@example.test', true, $this->idLang));
+            $dispatcher->run('actionObjectCustomerUpdateBefore', ['object' => $customer]);
+            $customer->newsletter = false;
+            self::db()->update('customer', ['newsletter' => 0], '`id_customer` = ' . (int) $customer->id);
+            $dispatcher->run('actionObjectCustomerUpdateAfter', ['object' => $customer]);
+        }
+        ($shutdown[0])();
+
+        self::assertSame([EventQueue::STATUS_SENT], $this->statuses());
+        $requests = $this->mock->requests();
+        self::assertCount(1, $requests);
+        self::assertSame(['block1@example.test', 1], [$requests[0]['body'][0]['email'], $requests[0]['body'][0]['is_unsubscribed'] ?? null]);
     }
 
     /**
@@ -260,9 +323,9 @@ final class EnqueueFlushTest extends IntegrationTestCase
         return $services;
     }
 
-    private function register(Services $services, string $email, bool $guest): void
+    private function register(Services $services, string $email, bool $guest, bool $newsletter = true): void
     {
-        $customer = new \Customer($this->addCustomer($this->shop, $email, true, $this->idLang, ['is_guest' => (int) $guest]));
+        $customer = new \Customer($this->addCustomer($this->shop, $email, $newsletter, $this->idLang, ['is_guest' => (int) $guest]));
         (new Dispatcher(static fn (): bool => true, static fn (): Services => $services, static function (): void {
         }))->run('actionCustomerAccountAdd', ['newCustomer' => $customer]);
     }
