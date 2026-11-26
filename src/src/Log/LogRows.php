@@ -267,7 +267,7 @@ final class LogRows
         }
         $rows = Sql::rows(
             'SELECT `id`, `domain`, `entity_key`, `status` FROM ' . self::table(self::QUEUES[self::INTELLIGENCE][0])
-            . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ')'
+            . ' WHERE `id` IN (' . implode(', ', array_map('intval', $ids)) . ') ORDER BY `id`'
         );
 
         return array_column($rows, null, 'id');
