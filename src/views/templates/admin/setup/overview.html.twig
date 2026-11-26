@@ -43,7 +43,7 @@
   all_customers: 'All customers (legitimate interest)'|trans,
   checkout_optin: 'Checkout opt-in only'|trans,
 } %}
-{% set field_labels = {first_name: 'First name'|trans, last_name: 'Last name'|trans, user_gender: 'Gender'|trans, birthday: 'Date of birth'|trans, customer_id: 'Customer ID'|trans, customer_group: 'Customer group'|trans, website: 'Website'|trans} %}
+{% set field_labels = {first_name: 'First name'|trans, last_name: 'Last name'|trans, user_gender: 'Gender'|trans, birthday: 'Date of birth'|trans, customer_id: 'Customer ID'|trans, customer_group: 'Customer group'|trans, subscription_type: 'Subscription type'|trans, website: 'Website'|trans} %}
 {% macro edit(step, label) %}<a href="#" class="smaily-summary__edit" data-smaily-action="setup-goto" data-step="{{ step }}">{{ label }}</a>{% endmacro %}
 {% set edit_label = 'Edit'|trans %}
 {% import _self as summary %}

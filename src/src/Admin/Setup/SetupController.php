@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
@@ -77,7 +78,7 @@ final class SetupController extends BaseController
         $contacts = $panels->contacts()->values($scope);
         /** @var ContactImport $import */
         $import = $services->get(ContactImport::class);
-        $progress = $target === null ? null : $import->progress($target);
+        $progress = $target === null ? null : ImportDetails::contacts($import->progress($target), self::translator());
         $intelligence = $panels->intelligence()->values($scope);
         $settings = new SettingsPanels($services, self::translator());
         $own = $settings->shopsWithOwnValues();
@@ -161,8 +162,8 @@ final class SetupController extends BaseController
     }
 
     /**
-     * When the background tasks last ran, in the shop's time zone, or null before the first run.
-     * (Tools::displayDate() takes other arguments on PrestaShop 8 and 9.)
+     * When the background tasks last ran, in the shop's time zone as the employee's language writes
+     * it (AdminTime), or null before the first run.
      */
     private function lastTick(Services $services): ?string
     {
@@ -170,6 +171,6 @@ final class SetupController extends BaseController
         $tick = $services->get(TickSettings::class);
         $at = $tick->state()->lastTickAt();
 
-        return $at === null ? null : date('Y-m-d H:i', $at);
+        return $at === null ? null : AdminTime::forEmployee()->of($at);
     }
 }

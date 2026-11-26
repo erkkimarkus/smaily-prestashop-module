@@ -106,8 +106,8 @@
         } else if (job.status === 'stalled' || job.status === 'cancelled') {
           text = word(job.status, counts);
         } else {
-          // Where it stopped, as its stored reason code; never a text of the engine (Magento CON-233).
-          text = word('stopped', counts) + (job.reason ? ' ' + word('details', {details: job.reason}) : '');
+          // Where it stopped, in the admin's language (Admin\Setup\ImportDetails); never a text of the engine (Magento CON-233).
+          text = word('stopped', counts) + (job.details ? ' ' + word('details', {details: job.details}) : '');
         }
       }
       var look = job ? (PILLS[job.status] || PILLS.done) : null;

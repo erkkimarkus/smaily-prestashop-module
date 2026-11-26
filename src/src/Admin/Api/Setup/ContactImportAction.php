@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ImportDetails;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
@@ -69,6 +70,6 @@ final class ContactImportAction extends AbstractSetupAction
             return $this->error('unknown_action', $this->trans('Saving failed.', BaseController::DOMAIN));
         }
 
-        return ['import' => $import->progress($target)];
+        return ['import' => ImportDetails::contacts($import->progress($target), BaseController::translator())];
     }
 }

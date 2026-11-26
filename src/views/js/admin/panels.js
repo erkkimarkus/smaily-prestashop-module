@@ -695,8 +695,8 @@
         } else if (state === 'cancelled') {
           text = word('cancelled', counts);
         } else if (state === 'failed') {
-          // Where it stopped, as its stored reason code; never a text of Smaily (Magento CON-233).
-          text = word('stopped', counts) + (job.last_error ? ' ' + word('details', {details: job.last_error}) : '');
+          // Where it stopped, in the admin's language (Admin\Setup\ImportDetails); never a text of Smaily (Magento CON-233).
+          text = word('stopped', counts) + (job.details ? ' ' + word('details', {details: job.details}) : '');
         }
         smailyConnect.drawImport(card, {
           pill: shown[0],

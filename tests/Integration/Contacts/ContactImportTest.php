@@ -354,9 +354,12 @@ final class ContactImportTest extends IntegrationTestCase
         $id = $import->start();
         $import->run($this->deadlineAfter(100));
 
-        self::assertSame(
-            ['status' => JobStore::STATUS_FAILED, 'sent' => 0, 'last_error' => 'Smaily API request failed with HTTP 503'],
-            array_intersect_key($import->progress(), array_flip(['status', 'sent', 'last_error']))
+        $progress = $import->progress();
+        self::assertSame(['status' => JobStore::STATUS_FAILED, 'sent' => 0], array_intersect_key($progress, array_flip(['status', 'sent'])));
+        self::assertMatchesRegularExpression(
+            '/^PrestaShop\\\\Module\\\\SmailyForPrestaShop\\\\Smaily\\\\Exception\\\\TransportException at Client\\.php:[0-9]+ \\(code 503\\)$/',
+            (string) $progress['last_error'],
+            'where it stopped, never the client\'s sentence, as Magento keeps it (CON-233)'
         );
 
         unset($this->outages['shopb']);

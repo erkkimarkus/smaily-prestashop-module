@@ -29,6 +29,8 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ImportDetails;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
@@ -47,6 +49,6 @@ final class ContactImportProgress extends AbstractSetupAction
         /** @var ContactImport $import */
         $import = Services::instance()->get(ContactImport::class);
 
-        return ['import' => $target === null ? null : $import->progress($target)];
+        return ['import' => $target === null ? null : ImportDetails::contacts($import->progress($target), BaseController::translator())];
     }
 }

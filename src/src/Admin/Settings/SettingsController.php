@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ImportDetails;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\UserGuide;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
@@ -104,7 +105,7 @@ final class SettingsController extends BaseController
                 'language_modes' => $context->languageModes(),
                 'account_per_language_elsewhere' => $context->accountPerLanguageElsewhere(),
                 'contacts' => $contacts,
-                'import' => $target === null ? null : $import->progress($target),
+                'import' => $target === null ? null : ImportDetails::contacts($import->progress($target), self::translator()),
                 'estimate' => $target === null ? [] : $import->estimate($target),
                 // One store with several shops: the import, and its estimate, take every shop.
                 'all_shops' => $shared->multishop() && !$shared->separateStores() ? $shared->shopNames() : [],

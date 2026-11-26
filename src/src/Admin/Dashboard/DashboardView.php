@@ -358,7 +358,7 @@ final class DashboardView
         if ($last === null) {
             $sub = $this->trans('Never run');
         } else {
-            $time = date('Y-m-d H:i', $last);
+            $time = $this->time->of($last);
             $sub = BackgroundTasks::source((string) $tick->lastSource()) === BackgroundTasks::SOURCE_CRON
                 ? $this->trans('Last run %time% from the cron URL', ['%time%' => $time])
                 : $this->trans('Last run %time% from shop visits', ['%time%' => $time]);
@@ -406,7 +406,7 @@ final class DashboardView
             ],
             // As Magento, only with a Campaign Intelligence connection.
             'catalog_items' => $catalog === null ? null : [
-                'value' => $catalog['count'] . ($catalog['more'] ? '+' : ''),
+                'value' => (string) $catalog,
                 'caption' => $this->trans('delivered, last 30 days'),
             ],
             'queued_today' => [

@@ -18,6 +18,10 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   deferral; CON-435 (a console install enables every shop); Gender, Customer ID and group synced; the Campaign
   Intelligence card and CON-445 parts 1–3 as Magento draws them. Verified together below; the merge left one
   stylesheet rule unclosed, fixed in `0011857`.
+- CON-454 part a (owner, 26 Nov; Magento's): the Catalog items tile counts exactly; "Last run" and the Overview's
+  last run in the employee's date format; every Initial setup step lays its sections on the page; "Subscription
+  type" (`subscription_type` = `Subscriber`, opt-in) as a contact field; a stopped import stores where it stopped
+  (`Failure::location()`) and its card shows that in the admin's language.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; the live walk against real Smaily and engine (needs a test account); CON-444's seven
   cross-connector questions (owner, later); the demo store (CON-425); the pilot. Open: Tanel's native read, CI.

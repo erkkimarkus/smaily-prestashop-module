@@ -128,13 +128,23 @@ final class Failure
             return self::temporary($error->getMessage(), $error instanceof TransportException ? $error->getRetryAfter() : null);
         }
 
-        return self::temporary(sprintf(
+        return self::temporary(self::location($error));
+    }
+
+    /**
+     * Where an error was thrown, as "Class at File.php:42 (code 0)": its type, the place and its
+     * code, never its text (Magento's ErrorLocation with the code of its FailureText). The Log reads
+     * it in the admin's language (Log\FailureMessage::MESSAGES).
+     */
+    public static function location(\Throwable $error): string
+    {
+        return sprintf(
             '%s at %s:%d (code %s)',
             get_class($error),
             basename($error->getFile()),
             $error->getLine(),
             (string) $error->getCode()
-        ));
+        );
     }
 
     public function reason(): string

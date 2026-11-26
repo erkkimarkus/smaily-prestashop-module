@@ -116,7 +116,7 @@ final class SubscriberPayloadBuilderTest extends TestCase
     {
         $customer = ['firstname' => '  ', 'lastname' => null, 'birthday' => '0000-00-00', 'website' => ''];
 
-        $contact = $this->builder()->build(' Shopper1@Example.TEST ', 3, '', SubscriberPayloadBuilder::FIELDS, $customer, null);
+        $contact = $this->builder()->build(' Shopper1@Example.TEST ', 3, '', array_diff(SubscriberPayloadBuilder::FIELDS, ['subscription_type']), $customer, null);
 
         self::assertSame(['email' => 'shopper1@example.test'], $contact);
     }
@@ -125,7 +125,20 @@ final class SubscriberPayloadBuilderTest extends TestCase
     {
         $contact = $this->builder()->build('guest1@example.test', 1, 'en', SubscriberPayloadBuilder::FIELDS, [], null);
 
-        self::assertSame(['email' => 'guest1@example.test', 'store' => 'shop1.example.test', 'language' => 'en', 'customer_group' => 'Guest'], $contact);
+        self::assertSame(['email' => 'guest1@example.test', 'store' => 'shop1.example.test', 'language' => 'en', 'customer_group' => 'Guest', 'subscription_type' => 'Subscriber'], $contact);
+    }
+
+    /**
+     * Magento sends `Subscriber` for every contact, a customer or a newsletter-block subscriber,
+     * whatever the consent mode; only when the merchant ticks the field.
+     */
+    public function testCarriesSubscriptionTypeSubscriberWhenSelected(): void
+    {
+        $builder = $this->builder();
+
+        self::assertSame('Subscriber', $builder->build('shopper1@example.test', 1, 'en', ['subscription_type'], self::CUSTOMER, null)['subscription_type']);
+        self::assertSame('Subscriber', $builder->build('guest1@example.test', 1, 'en', ['subscription_type'], [], true)['subscription_type']);
+        self::assertArrayNotHasKey('subscription_type', $builder->build('shopper1@example.test', 1, 'en', SubscriberPayloadBuilder::DEFAULT_FIELDS, self::CUSTOMER, null));
     }
 
     public function testCarriesTheSubscriptionStatusOnlyWhenOneIsGiven(): void

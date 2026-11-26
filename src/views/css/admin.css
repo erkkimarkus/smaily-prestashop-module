@@ -2249,14 +2249,22 @@
 
 /* CON-445 part 3: the Contacts, Automations and Intelligence steps and tabs as Magento draws them. */
 
-/* Initial setup step 2: the intro, the consent-mode cards and the fields sit on the step's page,
- * not in a card; the import stays a card (Magento's step panels, PRO-2456). */
-.smaily-ui .smaily-step-panel[data-step="2"] .smaily-panel > .smaily-card:not(.smaily-import) {
+/* Initial setup: every step's sections sit on the step's page, not in cards, as Magento's step
+ * panels (PRO-2456; CON-454): no background, border, padding or corners. The import cards stay
+ * cards, as the finished setup's summary is; Settings keeps its cards (same partials). A section's
+ * heading row reads as a heading. */
+.smaily-ui .smaily-step-panel .smaily-card:not(.smaily-import) {
   padding: 0;
   background: none;
   border: 0;
   border-radius: 0;
   box-shadow: none;
+}
+
+.smaily-ui .smaily-step-panel .smaily-card:not(.smaily-import) > .smaily-card__head {
+  margin: 0 0 12px;
+  padding: 0;
+  border-bottom: 0;
 }
 
 /* The import cards: "X of Y" and the percentage under the bar, the outcome line with its icon. */

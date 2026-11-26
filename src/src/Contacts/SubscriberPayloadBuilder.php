@@ -39,8 +39,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
  * sent and, for the fields that 2.x did not offer, Magento's names: `user_gender` (`Male` or
  * `Female`), `customer_id` and `customer_group` (the group's name in the shop's default language;
  * a newsletter-block subscriber without an account is in the shop's guest group, as Magento sends
- * `Guest`). `is_unsubscribed` is there only when ContactAudience gives a status. An empty value is
- * left out: Smaily keeps a field that is absent and clears one that is empty.
+ * `Guest`) and `subscription_type` (`Subscriber` for every contact, as Magento sends it).
+ * `is_unsubscribed` is there only when ContactAudience gives a status. An empty value is left out:
+ * Smaily keeps a field that is absent and clears one that is empty.
  */
 final class SubscriberPayloadBuilder
 {
@@ -56,16 +57,19 @@ final class SubscriberPayloadBuilder
     ];
 
     /** The Smaily names of the fields a merchant can select. */
-    public const FIELDS = ['first_name', 'last_name', 'birthday', 'website', 'user_gender', 'customer_id', 'customer_group'];
+    public const FIELDS = ['first_name', 'last_name', 'birthday', 'website', 'user_gender', 'customer_id', 'customer_group', 'subscription_type'];
 
     /**
-     * The fields selected where nothing is stored: the fields of 2.x. Gender, Customer ID and
-     * Customer group are the merchant's choice.
+     * The fields selected where nothing is stored: the fields of 2.x. Gender, Customer ID,
+     * Customer group and Subscription type are the merchant's choice.
      */
     public const DEFAULT_FIELDS = ['first_name', 'last_name', 'birthday', 'website'];
 
     /** PrestaShop's value of a birthday that was never entered. */
     private const NO_BIRTHDAY = '0000-00-00';
+
+    /** The `subscription_type` of every contact, as Magento sends it. */
+    private const SUBSCRIPTION_TYPE = 'Subscriber';
 
     /** PrestaShop's gender types (`gender`.`type`) that Smaily takes, by Magento's words. */
     private const GENDERS = ['0' => 'Male', '1' => 'Female'];
@@ -146,6 +150,9 @@ final class SubscriberPayloadBuilder
         $group = $customer === [] ? 0 : (int) ($customer['id_default_group'] ?? 0);
         if (in_array('customer_group', $fields, true) && ($customer === [] || $group > 0)) {
             $contact['customer_group'] = trim((string) ($this->groupName)($group, $idShop));
+        }
+        if (in_array('subscription_type', $fields, true)) {
+            $contact['subscription_type'] = self::SUBSCRIPTION_TYPE;
         }
         if (($contact['customer_id'] ?? '') === '0') {
             $contact['customer_id'] = '';

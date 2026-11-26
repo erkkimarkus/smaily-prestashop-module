@@ -267,9 +267,9 @@ final class DashboardViewTest extends TestCase
         $none = TickState::fromJson(null);
 
         return [
-            'a cron URL a minute ago' => [$none->withTick('tick', self::NOW - 60), true, 'Last run 2025-11-20 11:59 from the cron URL', ['variant' => 'active', 'label' => 'Running'], null],
-            'shop visits only' => [$none->withTick('traffic', self::NOW - 60), false, 'Last run 2025-11-20 11:59 from shop visits', ['variant' => 'pending', 'label' => 'Visitors only'], 'Tasks run only when visitors come; add the cron line.'],
-            'no tick for 16 minutes' => [$none->withTick('customer_cron', self::NOW - 960), false, 'Last run 2025-11-20 11:44 from the cron URL', ['variant' => 'failed', 'label' => 'Not running'], 'Background tasks are not running; add the cron line.'],
+            'a cron URL a minute ago' => [$none->withTick('tick', self::NOW - 60), true, 'Last run 2025-11-20 11:59:00 from the cron URL', ['variant' => 'active', 'label' => 'Running'], null],
+            'shop visits only' => [$none->withTick('traffic', self::NOW - 60), false, 'Last run 2025-11-20 11:59:00 from shop visits', ['variant' => 'pending', 'label' => 'Visitors only'], 'Tasks run only when visitors come; add the cron line.'],
+            'no tick for 16 minutes' => [$none->withTick('customer_cron', self::NOW - 960), false, 'Last run 2025-11-20 11:44:00 from the cron URL', ['variant' => 'failed', 'label' => 'Not running'], 'Background tasks are not running; add the cron line.'],
             'never' => [$none, false, 'Never run', ['variant' => 'failed', 'label' => 'Not running'], 'Background tasks are not running; add the cron line.'],
         ];
     }
@@ -317,16 +317,16 @@ final class DashboardViewTest extends TestCase
         self::assertNull($tiles['catalog_items'], 'hidden without a Campaign Intelligence connection, as Magento does');
         self::assertSame(
             ['value' => '1840', 'caption' => 'delivered, last 30 days'],
-            self::view(self::engine(['catalog_items' => ['count' => 1840, 'more' => false]]))['tiles']['catalog_items']
+            self::view(self::engine(['catalog_items' => 1840]))['tiles']['catalog_items']
         );
         self::assertSame(['value' => '2', 'caption' => 'events waiting to send'], $tiles['queued_today']);
         self::assertSame(['value' => '0', 'caption' => 'last 24 hours', 'attention' => false, 'badge' => null, 'link' => null], $tiles['failed']);
     }
 
-    public function testContactSyncsCountExactlyAndCatalogItemsSayWhenTheyStoppedAtTheirBound(): void
+    public function testContactSyncsAndCatalogItemsCountExactly(): void
     {
         self::assertSame('73512', self::view(['contact_syncs' => 73512])['tiles']['contact_syncs']['value'], 'as Magento, no bound');
-        self::assertSame('50000+', self::view(self::engine(['catalog_items' => ['count' => 50000, 'more' => true]]))['tiles']['catalog_items']['value']);
+        self::assertSame('73512', self::view(self::engine(['catalog_items' => 73512]))['tiles']['catalog_items']['value'], 'as Magento, no bound');
     }
 
     public function testTheFailedTileLinksToTheFailedRows(): void
@@ -414,6 +414,17 @@ final class DashboardViewTest extends TestCase
         self::assertSame('11/20/2025 12:00:00', (new DashboardView($translate, new AdminTime('m/d/Y H:i:s')))->build(self::facts(['activity' => [$row]]))['activity']['rows'][0]['updated']);
     }
 
+    public function testTheLastRunShowsInTheEmployeesFormat(): void
+    {
+        $translate = static fn (string $id, array $parameters = []): string => strtr($id, $parameters);
+        $tick = TickState::fromJson(null)->withTick('tick', self::NOW - 60);
+
+        self::assertSame(
+            'Last run 20.11.2025 11:59:00 from the cron URL',
+            (new DashboardView($translate, new AdminTime('d.m.Y H:i:s')))->build(self::facts(['tick' => $tick]))['connections']['background']['sub']
+        );
+    }
+
     /**
      * The fact `engine` of a store with a healthy Campaign Intelligence connection, changed by $engine.
      *
@@ -430,7 +441,7 @@ final class DashboardViewTest extends TestCase
             'state' => 'connected',
             'unreachable' => false,
             'consent' => false,
-            'catalog_items' => ['count' => 0, 'more' => false],
+            'catalog_items' => 0,
             'unsent_nights' => 0,
         ]];
     }

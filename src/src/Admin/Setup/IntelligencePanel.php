@@ -106,7 +106,7 @@ final class IntelligencePanel
             'account_url' => $connection !== null && $connection->smailySubdomain() !== '' ? 'https://' . $connection->smailySubdomain() . '.sendsmaily.net' : '',
             'consent' => $this->settings->consentConfirmed($shop),
             'shared_store' => $connection !== null && CatalogManifest::suppressed($connection, $this->connections->all()),
-            'imports' => $connection === null ? null : $this->jobs->progress($connection),
+            'imports' => $connection === null ? null : ImportDetails::intelligence($this->jobs->progress($connection), $this->translator),
         ];
     }
 

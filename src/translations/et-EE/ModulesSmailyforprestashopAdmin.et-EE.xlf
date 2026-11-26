@@ -3792,6 +3792,11 @@
         <target>Nende keelte kontaktid ei saa automaatikat. Vali neile töövoog või vaikimisi varuvalik.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="efca3c42bdf604c5c3070c47153ba582">
+        <source>Subscription type</source>
+        <target>Tellimuse tüüp</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -59,8 +59,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * Smaily refuses a whole request at once, so a page group that it refuses as invalid data (203)
  * goes again one contact per request. A permanent refusal counts the contacts as failed and the run
  * goes on; a temporary failure (a 5xx, a 429, the network) ends the run as failed before the page,
- * and start() resumes it from there. The counts, the cursor and `last_error` hold numbers, ids and
- * reason codes only, never a contact.
+ * with where it was thrown as `last_error` (Failure::location()), and start() resumes it from there.
+ * The counts, the cursor and `last_error` hold numbers, ids and reason codes only, never a contact.
  *
  * A contact that Smaily refuses alone in its request (its answer code, as 203) is a refused
  * contact: the counts keep how many (`refused`) and, for the Log, the first REFUSED_KEPT of them
@@ -432,12 +432,24 @@ final class ContactImport
 
                 return [$sent, $last, $refused];
             }
-            $failure = Failure::of($error);
+            $failure = self::failure($error);
 
             return [0, $failure, count($contacts) === 1 && $failure->isPermanent() ? [[$records[0][0], $records[0][1], $failure->reason()]] : []];
         } catch (SmailyClientException $error) {
-            return [0, Failure::of($error), []];
+            return [0, self::failure($error), []];
         }
+    }
+
+    /**
+     * A failed request's outcome (Failure::of()). A failure that stops the run keeps where it was
+     * thrown (Failure::location()) as its reason, never the client's sentence, as Magento's stopped
+     * import keeps its ErrorLocation (CON-233): the card shows it in the admin's language.
+     */
+    private static function failure(SmailyClientException $error): Failure
+    {
+        $failure = Failure::of($error);
+
+        return $failure->isPermanent() ? $failure : Failure::temporary(Failure::location($error));
     }
 
     /**

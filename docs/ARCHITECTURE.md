@@ -1640,8 +1640,9 @@ code of the contact's language; the selected fields of `first_name`, `last_name`
 (`Male` or `Female` by the gender's type; another type is left out), `customer_id` and
 `customer_group` (the name of the customer's default group in the shop's default language; a
 newsletter-block subscriber without an account is in the shop's guest group, `PS_GUEST_GROUP`,
-where Magento sends `Guest`), which the merchant ticks (CON-445; an upgraded store keeps its list,
-section 3.3); and `is_unsubscribed` (`1` or `0`) only when `unsubscribedStatus()` gives a status, that is
+where Magento sends `Guest`) and `subscription_type` (`Subscriber` for every contact, as Magento
+sends it; CON-454), which the merchant ticks (CON-445; an upgraded store keeps its list, section
+3.3); and `is_unsubscribed` (`1` or `0`) only when `unsubscribedStatus()` gives a status, that is
 on a consent change. An empty value is left out, so Smaily keeps the field it has. A birthday that was
 never entered (`0000-00-00`) counts as empty.
 
@@ -1755,7 +1756,7 @@ daily refresh are rows of `smaily_connect_job`:
 | `status` | `queued`, `running`, `done`, `failed` or `cancelled`. |
 | `cursor` | `customer:<id_customer>` or `newsletter_block:<id>`, the last record sent; `NULL` = the start. Customers come first, then the active `emailsubscription` rows, each in primary-key order. |
 | `counts` | JSON `{"total", "sent", "failed", "skipped"}`: `total` is the audience when the run started; `skipped` counts audience contacts whose account is missing or has no credentials. |
-| `last_error` | A reason code or a failure class, never a contact: `contact_sync_off`, `no_account`, `no_credentials`, or a `Failure` reason. |
+| `last_error` | A reason code or a failure class, never a contact: `contact_sync_off`, `no_account`, `no_credentials`, a permanent `Failure` reason, or, for a run that a temporary failure stopped, where it was thrown (`Failure::location()`: "Class at File.php:42 (code 503)", Magento's ErrorLocation; CON-454). A run stopped before 2026-11-26 holds the client's English sentence. |
 
 - Every record is weighed by the settings of its own shop: a shop whose contact sync is not active
   sends nothing, and `ContactAudience` decides who is in the audience. A customer with
@@ -1787,11 +1788,14 @@ daily refresh are rows of `smaily_connect_job`:
 **The import card** (`panel/contact-import.html.twig`, `panels.js`; CON-445, as Magento's
 Backfill card) draws a run as the Campaign Intelligence import cards do (section 10.11): the pill,
 "X of Y" and the percentage, the outcome with its mark and finish time, and for a `failed` run
-"Details for your developer: <last_error>", the stored reason code. A stalled run shows "Stalled"
+"Details for your developer: <details>": the stored `last_error` in the admin's language as the
+Log shows it (`Admin\Setup\ImportDetails`, `Log\FailureMessage::forDisplay()`; CON-454), as the
+Campaign Intelligence import cards show theirs. A stalled run shows "Stalled"
 with Run again and Cancel import. While the Contacts settings are not saved, and in checkout opt-in
-only, the card says why and keeps Start import, disabled. On step 2 of the Initial setup the
-intro, the mode cards and the fields stand on the step's page, the import card below them, as in
-Magento's setup.
+only, the card says why and keeps Start import, disabled. On every step of the Initial setup the
+sections stand on the step's page, not in cards, and only the import cards (and a finished
+setup's connection summary) stay cards, as Magento's step panels (PRO-2456; `admin.css`, CON-454
+for steps 1 and 3 to 5); Settings keeps its cards.
 
 ---
 
@@ -3027,7 +3031,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
-| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. Aligned with Magento item by item on 2026-11-26 (owner; Linear CON-445): "Setup incomplete" while the Initial setup is not finished (`SetupProgress::isComplete()`), as well as while contact sync is on and not confirmed; no verdict while the upgrade is not finished, as the shell's banner says it; a connection card has the green or grey dot in a column of its own; Recent activity shows each status as the Log does (Withdrawn included) and its times as the employee's language writes them (`Admin\AdminTime`, the language's `date_format_full`); "View full log" and each Quick link end in →; the Contact syncs tile counts every contact sync sent in 30 days (`DashboardQueries::contactSyncs()`, one COUNT through the index on `status`); an account whose last answer from Smaily was code 227 reads "Not connected" with "Package does not include API access" and Magento's verdict sentence (`Report\ConnectionHealth`). The invitation to a Smaily account has Magento's row weight and grey Dismiss, and hides its preview at 960 px and below instead of stacking. |
+| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. Aligned with Magento item by item on 2026-11-26 (owner; Linear CON-445): "Setup incomplete" while the Initial setup is not finished (`SetupProgress::isComplete()`), as well as while contact sync is on and not confirmed; no verdict while the upgrade is not finished, as the shell's banner says it; a connection card has the green or grey dot in a column of its own; Recent activity shows each status as the Log does (Withdrawn included) and its times as the employee's language writes them (`Admin\AdminTime`, the language's `date_format_full`), as the Background tasks card's "Last run" and the Overview's last run of the background tasks do (CON-454); "View full log" and each Quick link end in →; the Contact syncs tile counts every contact sync sent in 30 days (`DashboardQueries::contactSyncs()`, one COUNT through the index on `status`); an account whose last answer from Smaily was code 227 reads "Not connected" with "Package does not include API access" and Magento's verdict sentence (`Report\ConnectionHealth`). The invitation to a Smaily account has Magento's row weight and grey Dismiss, and hides its preview at 960 px and below instead of stacking. |
 | Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. As Magento's (Linear CON-445): a finished setup opens step 1 marked "Completed" on a summary of the connection (subdomain, API username, Smaily's answer about the stored account), where Continue saves nothing until "Edit credentials" shows the form; Back is a secondary button; the step's intro sits in the credentials card; the Overview's closing card lists Settings, the Log, the product RSS feed with "Open the URL builder" and the User Guide (`Admin\UserGuide::URL`). Settings > Connection's state names the account: Connected as "<subdomain>". Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
@@ -3613,7 +3617,9 @@ setup field that the nightly product list is not sent for them (`values()['share
 (`smailyConnect.drawImport()` in `panels.js`, CON-445): the pill; "X of Y" and the percentage
 under the bar; the outcome line with its mark (✓ done, ! failures or stalled, × stopped, —
 cancelled) and the finish time in the shop's time zone (`finished`); a stopped import adds
-"Details for your developer: <its reason code>", never the engine's text. An import that waits
+"Details for your developer: <details>", where it stopped (the error's type, place and code,
+`Failure::location()`, Magento's ErrorLocation) in the admin's language
+(`Admin\Setup\ImportDetails`, CON-454), never the engine's text. An import that waits
 behind a stalled one is stalled too and names that import's card (`HistoryJobs::progress()`,
 `blocked_by`, Magento's PRO-3923); its card offers Cancel import, not Run again.
 
@@ -3684,9 +3690,9 @@ active" use the Intelligence tab's sentences. Browse tracking stays "On" while t
 does not answer, as the storefront keeps its scripts then (`Storefront\ActiveConnection::sending()`).
 
 - **The tile "Catalog items"** shows only with a connection, as in Magento: the catalog rows
-  that reached the engine over the connection in the last 30 days
-  (`DashboardQueries::catalogItems()`, the newest 50 000 ingest rows in one pass, with "+" when
-  the count stopped there; the Contact syncs tile counts every row, as Magento's).
+  that reached the engine over the connection in the last 30 days, every one of them
+  (`DashboardQueries::catalogItems()`, one COUNT through the index on (`domain`, `status`), as
+  the Contact syncs tile counts; owner, 2026-11-26, Linear CON-454).
   With "All shops" of separate stores it counts every connection.
 - **The verdict** ("Needs attention") adds three problems, in Magento's order and words where
   Magento has them: Campaign Intelligence refuses the connection (after stopped background

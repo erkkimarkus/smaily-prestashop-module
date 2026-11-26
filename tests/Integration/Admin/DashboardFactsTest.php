@@ -218,7 +218,7 @@ final class DashboardFactsTest extends IntegrationTestCase
         $this->ingestRow($connection, 'customers', '6', 'sent', 1);
         $this->ingestRow($other, 'catalog', '7', 'sent', 1);
 
-        self::assertSame(['count' => 2, 'more' => false], $this->collect()['engine']['catalog_items'], 'the rows of the connection that shows');
+        self::assertSame(2, $this->collect()['engine']['catalog_items'], 'the rows of the connection that shows');
     }
 
     public function testTheMerchantsConfirmationIsReadForTheSelectedSetup(): void
@@ -240,10 +240,10 @@ final class DashboardFactsTest extends IntegrationTestCase
         $this->ingestRow($second, 'catalog', '2', 'sent', 1);
 
         $all = $this->collect(null, 0, true)['engine'];
-        self::assertSame([true, false, '', ['count' => 2, 'more' => false]], [$all['per_shop'], $all['connected'], $all['name'], $all['catalog_items']]);
+        self::assertSame([true, false, '', 2], [$all['per_shop'], $all['connected'], $all['name'], $all['catalog_items']]);
 
         $one = $this->collect(null, 1, true)['engine'];
-        self::assertSame([false, true, 'Demo Store', ['count' => 1, 'more' => false]], [$one['per_shop'], $one['connected'], $one['name'], $one['catalog_items']]);
+        self::assertSame([false, true, 'Demo Store', 1], [$one['per_shop'], $one['connected'], $one['name'], $one['catalog_items']]);
 
         self::assertFalse($this->collect(null, 1, false)['engine']['connected'], 'with multishop off the one store reads the connection of all shops');
     }
