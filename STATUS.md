@@ -12,6 +12,13 @@ _Last updated: 2026-11-26. Gauge 14/14._
 
 ## Next session opens with
 
+- 2026-11-26 (CON-445 part 2, as Magento): a finished Initial setup opens step 1 "Completed" on the account's
+  summary with "Edit credentials"; steps 1–3 list "Shops with their own values" (`use_shared` returns a shop,
+  ARCHITECTURE 5.2); the setup's bar has "Change" (Settings' `ChangeLayout` under a setup route); Back is a
+  button; the intro sits in the credentials card; the Overview lists the RSS feed and the User Guide; Settings >
+  Connection says Connected as "<subdomain>". Host 2328 tests, 4121 assertions; JS 55; CS 0 of 365; PHP 8.0.30
+  lint of 8 files. Fresh shops behind the guard: 2328 tests on 9.2.0 (12555) and 8.2.8 (12550), leftovers
+  silent. Headless walk, two shops, EN and ET, Smaily mock: 45 of 45 checks on 9.2.0 and on 8.2.8.
 - 2026-11-26: the engine contract copy is v1.37.1 (CON-413; wording only). A reconnect already sends the stored
   `previous_prefix`, and `site_url` carries the shop's path. The privacy requests keep to the engine's one limit (10 a
   minute per engine store); a 429 waits as asked and spends no attempt (CON-433b, ARCHITECTURE 11.2).
