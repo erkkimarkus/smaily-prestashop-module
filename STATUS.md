@@ -72,6 +72,11 @@ both (the console-install defect in the queue). **Two shops** walked on 8.2.8 an
 (`docs/internal/walks/2026-11-26-two-shops.md`): Module Manager's install, one shared connection, a connection per
 shop, the layout change both ways, capabilities 8 to 11 per shop: 91 of 91 and 91 of 92 (the one a walk fault).
 
+**Run of 2026-11-26 (CON-433a, a newer contact change wins).** Host 2300 tests, 4054 assertions; JS 55; CS 0 of 359;
+PHP 8.0 lint. Fresh shops behind the guard: 2300 tests on 9.2.0 (12326) and 8.2.8 (12321), leftovers silent. Browser
+walk on both, Smaily mock: held subscription skipped after the newer unsubscribe; "Send again" refused with its
+sentence; an older subscription delivered late leaves the newer unsubscribe to go after it.
+
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
 MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; two shops in two shop
