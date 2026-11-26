@@ -3582,11 +3582,6 @@
         <target>Teine Smaily konto: %account%. Automaatikad, mille töövoogu sellel kontol pole, kaotavad selle töövoo ega saada midagi, kuni valid neile uue.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="05f61da5e431cb02f464fe06365beb00">
-        <source>Saved. Automations without a workflow now: %automations%. Pick their workflows under Settings &gt; Automations.</source>
-        <target>Salvestatud. Nüüd töövoota automaatikad: %automations%. Vali nende töövood menüüs Seaded &gt; Automaatikad.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="7009dc80806179bb465cd30664b2a18f">
         <source>Done, %sent% of %total% synced. Smaily refused %failed% contacts, so they were not imported. Fix them and run the import again.</source>
         <target>Valmis, %sent% / %total% sünkroonitud. Smaily lükkas tagasi %failed% kontakti, seetõttu neid ei imporditud. Paranda andmed ja käivita import uuesti.</target>

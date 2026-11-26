@@ -3310,8 +3310,8 @@ in the account's list: …. They send nothing until you pick a workflow below an
 are kept per shop scope in `SMAILY_CONNECT_LOST_WORKFLOWS` (one global JSON object by shop id) and
 shown while the page shows that automation without a workflow; a save keeps only those still
 without one, and the last takes the key with it. Settings > Connection stays open after such a
-save and says "Saved. Automations without a workflow now: …. Pick their workflows under Settings >
-Automations.", and `panels.js` clears those selects and shows the banner; a save that also changed
+save and says "Saved." (owner, 2026-11-26: the question, the banner and the pill tell the merchant
+enough), and `panels.js` clears those selects and shows the banner; a save that also changed
 the mode loads the page again on the Automations tab. The Initial setup opens again on step 2, and
 step 3 shows the banner.
 

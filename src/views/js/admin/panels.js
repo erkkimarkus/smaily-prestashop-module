@@ -492,11 +492,11 @@
 
     /*
      * After a Connection save that removed workflows, while the page stays (Settings): their
-     * selects hold none, their cards say so, and the banner names them. Answers the names.
+     * selects hold none, their cards say so, and the banner names them.
      */
     function lostWorkflows(entries) {
       if (!automations) {
-        return '';
+        return;
       }
       var names = entries.map(function (entry) {
         var field = entry.trigger + (entry.language === '' ? '.workflow' : '.languages.' + entry.language);
@@ -514,7 +514,6 @@
       var banner = automations.querySelector('[data-smaily-lost-workflows]');
       banner.querySelector('[data-smaily-lost-message]').textContent = labels(banner)('message', {automations: names});
       banner.hidden = false;
-      return names;
     }
 
     /* What the Automations panel would save. */

@@ -36,7 +36,8 @@
  * - Save Connection waits, beside "Test your Smaily connection to continue.", until every account
  *   the tab would save passed Test connection (owner, 2026-11-26), as the Initial setup's step 1;
  *   it asks first before another Smaily account takes a stored one's place while an automation
- *   has a workflow picked, and names the automations whose workflow the save removed;
+ *   has a workflow picked, and the Automations tab then names the automations whose workflow the
+ *   save removed;
  * - the workflow lists of the Automations tab are asked of Smaily when the tab first shows, and
  *   again on Refresh workflows; a saved language mode that changed reloads the page, because the
  *   Automations tab is drawn for the saved mode, and opens it on Automations where the save
@@ -273,8 +274,10 @@
             input.value = '';
           });
           // Smaily accepted every account the save stored (ConnectionPanel).
-          var names = lost.length ? panels.lostWorkflows(lost) : '';
-          result(tabResult, names !== '' ? label('workflows-lost', {automations: names}) : label('saved'), true);
+          if (lost.length) {
+            panels.lostWorkflows(lost);
+          }
+          result(tabResult, label('saved'), true);
         } else {
           if (tab === 'contacts') {
             var region = root.querySelector('[data-smaily-own-region="contacts"]');
