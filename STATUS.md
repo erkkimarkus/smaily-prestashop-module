@@ -26,14 +26,20 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
 release: no live service was called, no pilot store has upgraded, and CI has never run ("NOT verified" below).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
-guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
+guard, mocks only, and a third, live one. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
 
 - Shop A, Compose project `erkki920`: PrestaShop 9.2.0 at http://localhost:8301/, module 3.0.0 from the main
   checkout's `src/`. It shows new code after its cache is cleared.
 - Shop B, Compose project `erkki828`: PrestaShop 8.2.8 at http://127.0.0.1:8302/, a genuine 2.2.0 that the owner
   upgrades by uploading `build/testkeskkond/smailyforprestashop-3.0.0.zip`, **rebuilt on 2026-11-26 from `0011857`**
   (SHA-256 `12d114fd…`; 455 files outside `vendor/`, no `docs/site/`; `src/` is the same at the handoff's commit).
-- After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh`. The guard's certificates last 30 days.
+- Live shop, Compose project `erkkilive` (owner, 2026-11-26): PrestaShop 9.2.0 at http://localhost:8303/, module
+  3.0.0 from the main checkout's `src/`, debug mode off, EN and ET, shop name "Smaily Connect test (Erkki)". It
+  reaches the real Smaily API, engine and installation-report receiver behind the guard's allow-list
+  (DEV_ENVIRONMENT 4a); every other host is refused. A side container `tiksur` calls its tick URL every minute.
+  `build/testkeskkond/live.sh` builds or starts it; no worker's suite or walk runs there without the owner's request.
+- After a reboot: `colima start`, then `build/testkeskkond/kaivita.sh` (it starts the live shop too). The guard's
+  certificates last 30 days.
 
 **Last runs** (2026-11-26, the merged tip `7356f4f` with the stylesheet fix `0011857`). Host: `src/vendor/bin/phpunit`
 2346 tests, 4157 assertions, 1188 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 367 files; PHP 8.0.30

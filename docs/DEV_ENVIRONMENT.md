@@ -393,6 +393,17 @@ than once on 2026-11-25, while it also succeeded. Reproduced that day: on a fres
 installed the module, and a second one on the installed module stopped with the Distribution API
 error. The same command as above with `install` in place of `upgrade` succeeded in both cases.
 
+**The allow-list (the owner's live test shop only).** `SMAILY_EGRESS_LIVE=1 tests/egress-guard/install.sh`
+installs the proxy without mocks and without the CA: it tunnels a `*.sendsmaily.net` host,
+`intelligence.smaily.com` and `subscription.smaily.com` to the real hosts (`TUNNEL <host> -> real
+host` in its log) and refuses every other host, `api.github.com` too. `SMAILY_EGRESS_LIVE=1
+tests/egress-guard/check.sh` prints `allow-list active`: a page request runs with the proxy
+setting, the engine host is tunnelled (one GET of `https://intelligence.smaily.com/` without a key)
+and another host is refused. It is meant for a shop without the `extra_hosts` of the hosts above,
+which the owner's live shop (`erkkilive`, owner 2026-11-26) is; `tests/bootstrap.php` refuses to
+run the suite there, and no walk of a worker runs there without the owner's request. As with the
+guard, a call that does not use the proxy (a CLI command without the `-e` flags) is not fenced.
+
 ## 4b. Walking the storefront: the consent gate, the block and the cache (verified on 8.2.8 and 9.2.0)
 
 Nothing of the storefront runs before the shop has a connection (section 4a). The merchant confirms

@@ -341,6 +341,9 @@ ask (Linear discipline below).
   health through `Smaily\Client::observe()`; a test that names an observer
   puts the one it found back. A listener that must run before another
   area's uses `Services::listenFirst()`.
+  The owner's live test shop (`erkkilive`, owner 2026-11-26) reaches the
+  real Smaily API, engine and receiver on purpose; no test suite or walk
+  script of a worker runs against it without the owner's request.
 - **Campaign Intelligence connections** (ARCHITECTURE 8.9). The engine is
   called at `https://intelligence.smaily.com` only
   (`Engine\Client::isEngineUrl()`), and no test or dev shop may reach it:
@@ -355,6 +358,9 @@ ask (Linear discipline below).
   with `pSQL($value, true)`. The tick's health check pings every stored
   connection: a test that stores one removes it
   (`tests/Integration/Engine/EngineTestCase.php`).
+  The owner's live test shop (`erkkilive`, owner 2026-11-26) reaches the
+  real Smaily API, engine and receiver on purpose; no test suite or walk
+  script of a worker runs against it without the owner's request.
 - **A store-layout change and the connections** (owner, 2026-11-23;
   ARCHITECTURE 8.9). `Admin\Settings\LayoutChange` ends with
   `Engine\LayoutConnections`: the connection of the selected or default shop
