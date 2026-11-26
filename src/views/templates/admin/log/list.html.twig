@@ -23,18 +23,25 @@
 {#
  # The Log's list, in the Magento connector's column order: Source, Type, Entity, Status, Attempts,
  # Last Error, Created (newest first), Updated, Actions; a filter under each heading that has one.
- # Above it the introduction and, while rows failed in the last 24 hours, the failed banner.
+ # Above it the introduction in an info box, as Magento's, and, while rows failed in the last 24
+ # hours, the failed banner.
  #
  # `smaily_log` comes from Admin\Log\LogController. The filter form is a GET form, so it carries
- # PrestaShop's token of the page's address itself. log.js opens Details in the panel at the end, asks
- # before "Send again" and "Retry" in the dialog, and shows their answer in the flash line.
+ # PrestaShop's token of the page's address itself. log.js opens Details in the panel at the end
+ # ("Delivery details", with a header and a foot that stay in place while the body scrolls, as
+ # Magento's slide-out), asks before "Send again" and "Retry" in the dialog, and shows their answer
+ # in the flash line.
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if smaily_log is defined %}
   {% set log = smaily_log %}
   {% set route = 'smailyforprestashop_log' %}
 
-  <p class="smaily-intro">{{ 'Every delivery lands here: contact syncs and automation triggers to Smaily. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.'|trans }}</p>
+  <div class="alert alert-info smaily-log__intro" role="note">
+    <div class="alert-text">
+      <p>{{ 'Every delivery lands here: contact syncs and automation triggers to Smaily, plus catalog, customer, order and browse data to Campaign Intelligence — the Source column tells them apart. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.'|trans }}</p>
+    </div>
+  </div>
 
   {% if log.failed > 0 %}
     <div class="smaily-banner smaily-log__banner" role="status">
@@ -68,7 +75,10 @@
        data-label-retry-message="{{ 'Retry the selected failed events?'|trans }}"
        data-label-retry="{{ 'Retry'|trans }}"
        data-label-copied="{{ 'Copied to the clipboard.'|trans }}"
-       data-label-copy-failed="{{ 'Copying failed — select the payload and copy it manually.'|trans }}">
+       data-label-copy-failed="{{ 'Copying failed — select the payload and copy it manually.'|trans }}"
+       data-label-details-title="{{ 'Delivery details'|trans }}"
+       data-label-loading="{{ 'Loading…'|trans }}"
+       data-label-load-failed="{{ 'Loading the delivery details failed — please try again.'|trans }}">
     <div class="smaily-log__toolbar">
       {% if log.can_update %}
         <button type="button" class="btn btn-outline-secondary" data-smaily-log-retry disabled>{{ 'Retry'|trans }}</button>
@@ -215,9 +225,13 @@
 
   <div class="smaily-drawer" data-smaily-log-drawer hidden>
     <div class="smaily-drawer__backdrop" data-smaily-log-close></div>
-    <aside class="smaily-drawer__panel" role="dialog" aria-modal="true" aria-label="{{ 'Details'|trans }}">
-      <button type="button" class="smaily-drawer__close" data-smaily-log-close aria-label="{{ 'Close'|trans({}, 'Admin.Actions') }}">&times;</button>
+    <aside class="smaily-drawer__panel" role="dialog" aria-modal="true" aria-labelledby="smaily-log-drawer-title">
+      <div class="smaily-drawer__head">
+        <div class="smaily-drawer__title" id="smaily-log-drawer-title" data-smaily-log-drawer-title>{{ 'Delivery details'|trans }}</div>
+        <button type="button" class="smaily-drawer__close" data-smaily-log-close aria-label="{{ 'Close'|trans({}, 'Admin.Actions') }}">&times;</button>
+      </div>
       <div class="smaily-drawer__body" data-smaily-log-drawer-body></div>
+      <div class="smaily-drawer__foot" data-smaily-log-drawer-foot hidden></div>
     </aside>
   </div>
 

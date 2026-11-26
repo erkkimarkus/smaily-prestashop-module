@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogFilter;
@@ -66,7 +67,7 @@ final class LogController extends BaseController
 
         $filter = new LogFilter($request->query->all());
         $rows = self::rows();
-        $view = new LogView(self::translate());
+        $view = new LogView(self::translate(), AdminTime::forEmployee());
         $total = $rows->count($filter);
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         $page = max(1, min($pages, $request->query->getInt('page', 1)));

@@ -29,11 +29,13 @@
  #
  # `details` comes from Admin\Log\LogView::details() through Admin\Log\Details. The payload and the
  # answer are already without secrets (Log\PayloadRedactor); the contact's data shows in full.
- # log.js copies the text of [data-smaily-payload] and sends [data-smaily-log-resend].
+ # log.js moves the [data-smaily-details-head] header into the panel's own header and the
+ # [data-smaily-details-foot] footer into its pinned foot, as Magento's log-actions.js; it copies
+ # the text of [data-smaily-payload] and sends [data-smaily-log-resend].
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 <div class="smaily-log-details">
-  <div class="smaily-log-details__head">
+  <div class="smaily-log-details__head" data-smaily-details-head>
     <span class="smaily-log-details__id">{{ details.title }}</span>
     <span class="smaily-log-details__title">
       <span class="smaily-log-details__type">{{ details.type }}</span>
@@ -47,6 +49,10 @@
     {% if details.entity != '' %}
       <dt>{{ 'Entity'|trans }}</dt>
       <dd>{{ details.entity }}</dd>
+    {% endif %}
+    {% if details.store is not null %}
+      <dt>{{ 'Campaign Intelligence store'|trans }}</dt>
+      <dd>{{ details.store }}</dd>
     {% endif %}
     {% if not details.job %}
       <dt>{{ 'Attempts'|trans }}</dt>
@@ -129,7 +135,7 @@
     <p class="smaily-log-details__note">{{ 'Passwords and API keys are never shown.'|trans }}</p>
 
     {% if details.resend or details.payload != '' %}
-      <div class="smaily-log-details__foot">
+      <div class="smaily-log-details__foot" data-smaily-details-foot>
         {% if details.resend %}
           <button type="button" class="btn btn-outline-secondary" data-smaily-log-resend="{{ details.log_id }}">{{ 'Send again'|trans }}</button>
         {% endif %}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Admin\Log;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogView;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 
@@ -217,6 +218,30 @@ final class LogViewTest extends TestCase
         self::assertSame('This reminder was withdrawn because the shopper completed the purchase; it cannot be re-sent.', $withdrawn['outcome']['text']);
         self::assertSame(['Withdrawn', ''], [$withdrawn['status']['label'], $withdrawn['error']]);
         self::assertSame('Withdrawn', $withdrawn['history'][1]['title']);
+    }
+
+    public function testARowToCampaignIntelligenceNamesItsStoreAndWaitsForItsAccountAsMagentoSays(): void
+    {
+        $ingest = ['kind' => 'intelligence', 'source' => 'intelligence', 'type' => 'catalog', 'entity' => 'ps-412', 'status' => 'pending'];
+
+        $waiting = $this->view()->details(self::storedRow($ingest), ResendGuard::REASON_NOT_FAILED, 'Demo Store (Second shop)', true);
+        self::assertSame('Demo Store (Second shop)', $waiting['store']);
+        self::assertSame('Waiting for your Campaign Intelligence account to be active again; this row is sent then.', $waiting['outcome']['text']);
+        self::assertFalse($waiting['outcome']['terminal']);
+
+        $flowing = $this->view()->details(self::storedRow($ingest), ResendGuard::REASON_NOT_FAILED);
+        self::assertNull($flowing['store'], 'one connection: no store line');
+        self::assertSame('Waiting for the next queue flush (runs every minute).', $flowing['outcome']['text']);
+    }
+
+    public function testTimesShowInTheEmployeesFormat(): void
+    {
+        $view = new LogView(static fn (string $id, array $parameters = []): string => strtr($id, $parameters), new AdminTime('d.m.Y H:i:s'));
+
+        self::assertSame(['20.11.2026 12:00:00', '20.11.2026 12:00:05'], array_values(array_intersect_key($view->row(self::listRow([]), false), ['created' => 1, 'updated' => 1])));
+        $details = $view->details(self::storedRow(['status' => 'pending', 'attempts' => '1', 'next_retry_at' => '2026-11-20 10:15:00']), ResendGuard::REASON_NOT_FAILED);
+        self::assertSame(['20.11.2026 12:00:00', '20.11.2026 12:00:05'], [$details['created'], $details['updated']]);
+        self::assertSame('Next automatic retry: 20.11.2026 12:15:00 (attempt 2 of 5).', $details['outcome']['text']);
     }
 
     public function testARowThatSendAgainQueuedNamesItsOrigin(): void

@@ -138,7 +138,7 @@ src/
     Log/                      LogRows, LogFilter, LogStatus, FailureMessage, AttemptHistory,
                               PayloadRedactor, Resend, ResendGuard, Retry (section 10.8)
     Admin/                    BaseController, ContextTranslation, EntryController, Menu,
-                              NoticeMessages, BackOfficeNotice
+                              NoticeMessages, BackOfficeNotice, AdminTime
     Admin/Dashboard/          DashboardController, DashboardFacts, DashboardQueries, DashboardView,
                               BackgroundTasks, CronLine, EntityLabel, EngineFacts (section 10.12)
     Admin/Setup/              SetupController, SetupPanels, SetupScope, SetupProgress,
@@ -147,7 +147,7 @@ src/
     Admin/Settings/           SettingsController (the page), SettingsPanels, SettingsScope (which
                               values the selected shop reads and saves), TabSaver, ShopOverrides
                               (a shop's own values), LayoutChange (section 5.1), RssPanel
-    Admin/Log/                LogController, LogView, Details, MassRetry, SendAgain
+    Admin/Log/                LogController, LogView, Details, EngineStore, MassRetry, SendAgain
     Admin/Api/                AbstractJsonAction, FinishUpgrade, DismissNotice, DismissUpdate,
                               DismissInvitation, Workflows and DiscountRules (the workflow lists
                               and the cart rules of the Automations panel); Setup/ (AbstractSetupAction, SaveStep, TestSmaily,
@@ -3152,8 +3152,12 @@ The Log is the tab "Log" of the Smaily Connect page. It reads the event queue, t
 job table (`Log\LogRows`; no table of its own, section 2.2) and follows Magento's Log
 (`magento:Controller/Adminhtml/Log/*`, `Model/Log/*`, `view/adminhtml/templates/log/*.phtml`).
 
-**The list.** The columns are Magento's, in its order: a checkbox, Source, Type, Entity, Status,
-Attempts, Last Error, Created, Updated, Actions. The rows are newest first by creation, 20 to a page.
+**The list.** Above it, Magento's introduction in an info box, with its clause on Campaign
+Intelligence and the Source column. The columns are Magento's, in its order: a checkbox, Source,
+Type, Entity, Status, Attempts, Last Error, Created, Updated, Actions. Created and Updated show as
+the employee's language writes a date and a time (`Admin\AdminTime`, the language's
+`date_format_full`; Magento: the admin's locale), and so do the times of Details. The rows are
+newest first by creation, 20 to a page.
 A filter sits under each heading that has one: Source, Type, Entity, Status, Last Error, and a day
 range for Created and for Updated, in the shop's time zone. The page's address carries the filters
 (`source`, `type`, `entity`, `status`, `last_error`, `created_from`, `created_to`, `updated_from`,
@@ -3222,11 +3226,21 @@ stays on one line. A narrower window scrolls the table in its own box, not the p
 - **The failed banner** shows the queue rows that were parked as failed in the last 24 hours, in the
   selected shops, and its button applies the filter `status=failed`, as Magento's does.
 
-**Details** open in a side panel (`Admin\Log\Details`, `Admin\Log\LogView`), as Magento's drawer:
-the row's id, type and status; Source, Entity, Attempts, Created, Updated; the attempts in order,
-as far as the row stores them (`Log\AttemptHistory`); one line that says what happens next; the last
+**Details** open in a side panel (`Admin\Log\Details`, `Admin\Log\LogView`), as Magento's slide-out:
+titled "Delivery details", with "Loading…" while the row loads and "Loading the delivery details
+failed — please try again." when it does not (a row that is gone says so in the server's
+sentence); once loaded, the row's id, type and status stand in the panel's header and its buttons
+in its foot, which stay in place while the body scrolls (`log.js`). The body: Source, Entity,
+Campaign Intelligence store, Attempts, Created, Updated; the attempts in order, as far as the row
+stores them (`Log\AttemptHistory`); one line that says what happens next; the last
 error with its failure class, or the reason of a skip; the payload as sent (`last_request`), or the
-queued payload while nothing was sent; the last answer (`last_response`); and "Copy payload". An
+queued payload while nothing was sent; the last answer (`last_response`); and "Copy payload". The
+line "Campaign Intelligence store" shows on a row to Campaign Intelligence only while the
+installation holds more than one connection (separate stores), as Magento's (CON-237): the engine
+store's name and the shop it serves, or "None: no Campaign Intelligence store is connected for this
+row's shop." (`Admin\Log\EngineStore`). A pending ingest row whose connection the engine refuses
+says "Waiting for your Campaign Intelligence account to be active again; this row is sent then.",
+as Magento's: the flush leaves it as it is until then (section 8.11). An
 import job shows its summary, its progress line and its last error. A contact import also lists
 under "Contacts Smaily refused" each contact that Smaily refused alone in its request ("Customer
 1042: Smaily API returned code 203", "Newsletter subscriber 88: …"; a customer links to its page

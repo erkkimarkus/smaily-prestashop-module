@@ -1324,11 +1324,13 @@
 }
 
 /* The Log: the list, its filters and pager, the Details panel and the confirm dialog. */
+.smaily-ui .smaily-log__intro,
 .smaily-ui .smaily-log__banner,
 .smaily-ui .smaily-log__flash {
   margin-bottom: 16px;
 }
 
+.smaily-ui .smaily-log__intro .alert-text p,
 .smaily-ui .smaily-log__flash .alert-text p {
   margin: 0;
 }
@@ -1499,23 +1501,58 @@
   background: rgba(42, 16, 40, .35);
 }
 
+/* Magento's slide-out: the header and the foot stay in place, the body between them scrolls. */
 .smaily-ui .smaily-drawer__panel {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
+  display: flex;
+  flex-direction: column;
   width: 452px;
   max-width: 100%;
-  overflow-y: auto;
-  padding: 18px 20px;
+  overflow: hidden;
   background: var(--smaily-surface);
   box-shadow: -4px 0 24px rgba(0, 0, 0, .18);
 }
 
+.smaily-ui .smaily-drawer__head {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 16px 62px 16px 20px;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-drawer__title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.smaily-ui .smaily-drawer__title .smaily-log-details__head {
+  margin: 0;
+}
+
+.smaily-ui .smaily-drawer__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+
+.smaily-ui .smaily-drawer__foot {
+  flex: 0 0 auto;
+  padding: 0 20px 14px;
+}
+
+.smaily-ui .smaily-drawer__foot .smaily-log-details__foot {
+  margin-top: 0;
+}
+
 .smaily-ui .smaily-drawer__close {
   position: absolute;
-  top: 14px;
-  right: 16px;
+  top: 16px;
+  right: 20px;
   width: 30px;
   height: 30px;
   padding: 0;

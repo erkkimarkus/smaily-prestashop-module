@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\EntityLabel;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
@@ -47,7 +48,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\RetryPolicy;
  * Words the Log for its templates, in the Magento connector's words where Magento has them
  * (view/adminhtml/templates/log/details.phtml, Ui/Component/*): a row of the list, and the Details
  * of a row. No SQL and no PrestaShop class: every text goes through the callable that translates
- * an EN string. Stored times are UTC and show in the shop's time zone.
+ * an EN string. Stored times are UTC and show in the shop's time zone, as the employee's language
+ * writes a date and a time (Admin\AdminTime).
  *
  * Details show the request and the answer in full to the admin, without secrets
  * (Log\PayloadRedactor), as Magento does. A row whose email went without its discount code says so
@@ -60,12 +62,15 @@ final class LogView
     /** @var callable(string, array<string, string|int>=): string */
     private $translate;
 
+    private AdminTime $time;
+
     /**
      * @param callable(string, array<string, string|int>=): string $translate
      */
-    public function __construct(callable $translate)
+    public function __construct(callable $translate, ?AdminTime $time = null)
     {
         $this->translate = $translate;
+        $this->time = $time ?? new AdminTime();
     }
 
     /**
@@ -88,8 +93,8 @@ final class LogView
             'status' => ['label' => $this->statusLabel($status), 'variant' => LogStatus::pill($status)],
             'attempts' => $row['attempts'] === null ? '—' : (string) (int) $row['attempts'],
             'error' => $this->error($row, $row['kind'] === LogRows::JOB),
-            'created' => self::time((string) $row['created_at']),
-            'updated' => self::time((string) $row['updated_at']),
+            'created' => $this->time->ofUtc((string) $row['created_at']),
+            'updated' => $this->time->ofUtc((string) $row['updated_at']),
             // An erased row is never sent again (ResendGuard), so it gets no retry checkbox.
             'selectable' => $row['kind'] !== LogRows::JOB && $status === LogStatus::FAILED && $row['entity'] !== ResendGuard::ERASED_ENTITY,
             'resend' => $resend,
@@ -102,10 +107,14 @@ final class LogView
      * @param array<string, mixed> $row a row of LogRows::find()
      * @param string|null $refusal the resend guard's reason for a row of either queue, null when
      *                             the guard cleared it; ignored for an import job
+     * @param string|null $store the Campaign Intelligence store that the row goes to
+     *                           (Admin\Log\EngineStore::label()), null where none is named
+     * @param bool $waitsForAccount the row is pending while Campaign Intelligence refuses its
+     *                              connection (Admin\Log\EngineStore::waitsForAccount())
      *
      * @return array<string, mixed>
      */
-    public function details(array $row, ?string $refusal): array
+    public function details(array $row, ?string $refusal, ?string $store = null, bool $waitsForAccount = false): array
     {
         $status = $this->status($row);
         $details = [
@@ -115,8 +124,9 @@ final class LogView
             'status' => ['label' => $this->statusLabel($status), 'variant' => LogStatus::pill($status)],
             'source' => $this->sourceLabel((string) $row['source']),
             'entity' => $row['entity'] === null && $row['kind'] !== LogRows::JOB ? '' : $this->entity($row),
-            'created' => self::time((string) $row['created_at']),
-            'updated' => self::time((string) $row['updated_at']),
+            'store' => $store,
+            'created' => $this->time->ofUtc((string) $row['created_at']),
+            'updated' => $this->time->ofUtc((string) $row['updated_at']),
         ];
         if ($row['kind'] === LogRows::JOB) {
             return $details + [
@@ -147,7 +157,7 @@ final class LogView
                 'result' => $entry['result'],
                 'title' => $entry['attempt'] === null ? $this->resultLabel($entry['result']) : $this->trans('Attempt %number%', ['%number%' => $entry['attempt']]),
                 'badge' => $entry['attempt'] === null ? '' : $this->resultLabel($entry['result']),
-                'time' => $entry['at'] === null ? '' : self::time($entry['at']),
+                'time' => $entry['at'] === null ? '' : $this->time->ofUtc($entry['at']),
                 'detail' => $entry['latest_error'] ? mb_strimwidth($lastError, 0, 140, '…') : '',
                 'partial' => $entry['result'] === AttemptHistory::FAILED && $entry['at'] === null,
             ];
@@ -159,7 +169,7 @@ final class LogView
             'resent' => $record === null ? '' : $this->trans('Re-sent from event #%id% by %employee% on %date%', [
                 '%id%' => $record['of'],
                 '%employee%' => $record['by'],
-                '%date%' => date('Y-m-d H:i:s', $record['at']),
+                '%date%' => $this->time->of((int) $record['at']),
             ]),
             'discount_notice' => !is_array($notice) ? '' : $this->trans(
                 'Without a discount code: cart price rule %rule% gave no code for this shop (it was deleted, is past its end date, starts after the code would end, has no uses left, is limited to one customer, or is not for this shop). The email goes without one.',
@@ -168,7 +178,7 @@ final class LogView
             'history' => $history,
             'history_is_partial' => in_array(true, array_column($history, 'partial'), true),
             'outcome' => [
-                'text' => $sentence !== '' ? $this->trans($sentence) : $this->outcome($status, $attempts, $row['next_retry_at']),
+                'text' => $sentence !== '' ? $this->trans($sentence) : $this->outcome($status, $attempts, $row['next_retry_at'], $waitsForAccount),
                 'terminal' => $sentence !== '' || in_array($status, [LogStatus::SENT, LogStatus::FAILED, LogStatus::SKIPPED], true),
             ],
             'error' => $lastError,
@@ -267,7 +277,7 @@ final class LogView
     /**
      * What happens to a queue row next, by its state.
      */
-    private function outcome(string $status, int $attempts, ?string $nextRetryAt): string
+    private function outcome(string $status, int $attempts, ?string $nextRetryAt, bool $waitsForAccount): string
     {
         $max = RetryPolicy::MAX_ATTEMPTS;
         switch ($status) {
@@ -282,8 +292,12 @@ final class LogView
                     ? $this->trans('Stopped after %attempts% of %max% attempts — retrying could not change the outcome, so this row will NOT retry on its own. Fix the cause shown below, then select it in the log and press Retry.', ['%attempts%' => $attempts, '%max%' => $max])
                     : $this->trans('All %max% automatic attempts are used up — this row will NOT retry on its own. Select it in the log and press Retry to queue it again.', ['%max%' => $max]);
             default:
+                if ($waitsForAccount) {
+                    return $this->trans('Waiting for your Campaign Intelligence account to be active again; this row is sent then.');
+                }
+
                 return $nextRetryAt !== null
-                    ? $this->trans('Next automatic retry: %date% (attempt %attempt% of %max%).', ['%date%' => self::time($nextRetryAt), '%attempt%' => $attempts + 1, '%max%' => $max])
+                    ? $this->trans('Next automatic retry: %date% (attempt %attempt% of %max%).', ['%date%' => $this->time->ofUtc($nextRetryAt), '%attempt%' => $attempts + 1, '%max%' => $max])
                     : $this->trans('Waiting for the next queue flush (runs every minute).');
         }
     }
@@ -364,14 +378,6 @@ final class LogView
             default:
                 return $this->trans('In progress');
         }
-    }
-
-    /**
-     * A stored UTC DATETIME in the shop's time zone.
-     */
-    private static function time(string $utc): string
-    {
-        return date('Y-m-d H:i:s', (int) strtotime($utc . ' UTC'));
     }
 
     /**

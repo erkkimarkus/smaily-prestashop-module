@@ -22,7 +22,10 @@
  */
 
 /*
- * The Log page (views/templates/admin/log/): Details in the side panel, "Send again" of one row and
+ * The Log page (views/templates/admin/log/): Details in the side panel ("Delivery details", as
+ * Magento's slide-out: "Loading…" while the row loads, then the row's header in the panel's header
+ * and its buttons in the panel's foot, which stay in place while the body scrolls; a failed load
+ * says so in Magento's sentence, or in the server's when the row is gone), "Send again" of one row and
  * "Retry" of the ticked rows or of every row the filter selects, each after a question in the
  * page's own dialog, and the "Privacy request" form where the page shows it. Plain JavaScript, no
  * build; the endpoints are those of Admin\Log, called through window.smailyConnect.api; api() and
@@ -45,11 +48,15 @@
     var flash = document.querySelector('[data-smaily-log-flash]');
     var drawer = document.querySelector('[data-smaily-log-drawer]');
     var drawerBody = drawer.querySelector('[data-smaily-log-drawer-body]');
+    var drawerTitle = drawer.querySelector('[data-smaily-log-drawer-title]');
+    var drawerFoot = drawer.querySelector('[data-smaily-log-drawer-foot]');
     var dialog = document.querySelector('[data-smaily-log-dialog]');
     var retry = log.querySelector('[data-smaily-log-retry]');
     var all = log.querySelector('[data-smaily-log-all]');
     var pageBox = log.querySelector('[data-smaily-log-page]');
     var onConfirm = null;
+    // Counts the Details loads, so that a late answer of an earlier one changes nothing.
+    var detailsLoad = 0;
 
     function label(name) {
       return log.getAttribute('data-label-' + name);
@@ -106,22 +113,57 @@
       }
     });
 
+    /*
+     * The panel's header and foot: the loaded row's, or the title alone while a row loads.
+     */
+    function placeChrome(head, foot) {
+      drawerTitle.textContent = '';
+      if (head) {
+        drawerTitle.appendChild(head);
+      } else {
+        drawerTitle.textContent = label('details-title');
+      }
+      drawerFoot.textContent = '';
+      if (foot) {
+        drawerFoot.appendChild(foot);
+      }
+      drawerFoot.hidden = !foot;
+    }
+
+    function bodyLine(text, error) {
+      var line = document.createElement('p');
+      line.className = error ? 'smaily-result is-error' : 'smaily-result';
+      line.textContent = text;
+      drawerBody.textContent = '';
+      drawerBody.appendChild(line);
+    }
+
     function closeDrawer() {
+      detailsLoad += 1;
       drawer.hidden = true;
       drawerBody.textContent = '';
+      placeChrome(null, null);
     }
 
     function openDetails(id) {
-      drawerBody.textContent = '';
+      var load = ++detailsLoad;
+      placeChrome(null, null);
+      bodyLine(label('loading'), false);
       drawer.hidden = false;
       api(log.getAttribute('data-api-details'), {id: id}).then(function (data) {
+        if (load !== detailsLoad) {
+          return;
+        }
         // The panel is the module's own template, rendered and escaped by the server.
         drawerBody.innerHTML = data.html;
+        placeChrome(drawerBody.querySelector('[data-smaily-details-head]'), drawerBody.querySelector('[data-smaily-details-foot]'));
       }).catch(function (error) {
-        var message = document.createElement('p');
-        message.className = 'smaily-result is-error';
-        message.textContent = error.message;
-        drawerBody.appendChild(message);
+        if (load !== detailsLoad) {
+          return;
+        }
+        // A row that is gone says so in the server's words, as Magento's panel does; any other
+        // failure in Magento's sentence.
+        bodyLine(error.code === 'not_found' ? error.message : label('load-failed'), true);
       });
     }
 
@@ -246,8 +288,8 @@
       } else if (target.closest('[data-smaily-log-resend]')) {
         sendAgain(target.closest('[data-smaily-log-resend]').getAttribute('data-smaily-log-resend'));
       } else if (target.closest('[data-smaily-log-copy]')) {
-        var status = drawerBody.querySelector('[data-smaily-log-copy-status]');
-        var payload = drawerBody.querySelector('[data-smaily-payload]');
+        var status = drawer.querySelector('[data-smaily-log-copy-status]');
+        var payload = drawer.querySelector('[data-smaily-payload]');
         var copied = navigator.clipboard ? navigator.clipboard.writeText(payload.textContent) : Promise.reject(new Error('no clipboard'));
         copied.then(function () {
           status.textContent = label('copied');

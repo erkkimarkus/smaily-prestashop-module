@@ -452,11 +452,6 @@
         <target>Kontaktide sünkroonimise cron-URL-il polnud võtit, nii et igaüks sai seda käivitada. Sellel on nüüd uus võti, seega selle vana crontabi rida enam ei tööta. Kasuta ühte cron-rida, mille leiad töölaua kaardilt Taustatööd. See käivitab kõik tööd ja asendab mõlemad vanad crontabi read.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="cd6a96263056acafdc1f2d5b5ec63f23">
-        <source>Every delivery lands here: contact syncs and automation triggers to Smaily. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.</source>
-        <target>Iga saadetis jõuab siia: kontaktide sünkroonimised ja automaatikate käivitused Smailysse. Ebaõnnestunud read proovivad automaatselt uuesti kasvava ooteajaga kuni 5 katset; kõik, mis ikka veel ebaõnnestunud, saab valida ja käsitsi uuesti proovida. Saadetud ridu hoitakse 30 päeva, ebaõnnestunuid 90. Kui midagi paistab Smailys puudu olevat, vaata kõigepealt siia.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="83342a4b49cd7493b5a859f1ab2634da">
         <source>%count% event failed in the last 24 hours</source>
         <target>Viimase 24 tunni jooksul ebaõnnestus %count% sündmus</target>
@@ -3705,6 +3700,36 @@
       <trans-unit id="8a41eb3e83391a848062221fff6e9a8f">
         <source>the full merchant documentation: every feature, setting and troubleshooting steps</source>
         <target>täielik kaupmehe dokumentatsioon: kõik funktsioonid, seadistused ja veaotsingu sammud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="559231f5b28ad34f82a948631e29fe4b">
+        <source>Campaign Intelligence store</source>
+        <target>Campaign Intelligence'i pood</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="78473d9cddba39e21ff210c8b60f632e">
+        <source>None: no Campaign Intelligence store is connected for this row's shop.</source>
+        <target>Puudub: selle rea poe jaoks pole ühtegi Campaign Intelligence'i poodi ühendatud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8ad728b5f4db84d98e98ff478f63bed1">
+        <source>Waiting for your Campaign Intelligence account to be active again; this row is sent then.</source>
+        <target>Ootab, kuni Sinu Campaign Intelligence'i konto on taas aktiivne; rida saadetakse siis.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c5e3509d693d3fd262ef5f40ee544240">
+        <source>Every delivery lands here: contact syncs and automation triggers to Smaily, plus catalog, customer, order and browse data to Campaign Intelligence — the Source column tells them apart. Failed rows retry automatically with backoff for up to 5 attempts; anything still failed can be selected and retried manually. Sent rows are kept for 30 days, failed rows for 90. If something seems missing in Smaily, this is the first place to look.</source>
+        <target>Iga saadetis jõuab siia: kontaktide sünkroonimised ja automaatikate käivitused Smailysse ning kataloogi-, kliendi-, tellimuse- ja sirvimisandmed Campaign Intelligence'i — veerg Allikas eristab neid. Ebaõnnestunud read proovivad automaatselt uuesti kasvava ooteajaga kuni 5 katset; kõik, mis ikka veel ebaõnnestunud, saab valida ja käsitsi uuesti proovida. Saadetud ridu hoitakse 30 päeva, ebaõnnestunuid 90. Kui midagi paistab Smailys puudu olevat, vaata kõigepealt siia.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="369f737ed2170d9ea4903687d81f597e">
+        <source>Delivery details</source>
+        <target>Saatmise üksikasjad</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="df86a5c771399bd8b1f66edb99dd1a4f">
+        <source>Loading the delivery details failed — please try again.</source>
+        <target>Saatmise üksikasjade laadimine ebaõnnestus — proovi uuesti.</target>
         <note>Line: </note>
       </trans-unit>
     </body>

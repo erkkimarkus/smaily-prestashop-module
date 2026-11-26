@@ -29,15 +29,20 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The Details of one row of the Log: body `{"id": "<log id>"}`, answer `{"html": "<the panel>"}`
  * (views/templates/admin/log/details.html.twig). Reads only. "Send again" shows only for a row
- * that the resend guard clears and an employee who may change the Log.
+ * that the resend guard clears and an employee who may change the Log. A row to Campaign
+ * Intelligence names its engine store where the installation holds several, and says when it waits
+ * for the account to be active again (EngineStore).
  */
 final class Details extends AbstractJsonAction
 {
@@ -51,7 +56,14 @@ final class Details extends AbstractJsonAction
         if ($row === null) {
             return $this->error('not_found', $this->trans('This log row no longer exists — it has likely been pruned by retention.', BaseController::DOMAIN), 404);
         }
-        $details = (new LogView(LogController::translate()))->details($row, (new ResendGuard())->refusalOf($row));
+        $translate = LogController::translate();
+        $store = new EngineStore(Services::instance()->get(Connections::class));
+        $details = (new LogView($translate, AdminTime::forEmployee()))->details(
+            $row,
+            (new ResendGuard())->refusalOf($row),
+            $store->label($row, $translate),
+            $store->waitsForAccount($row)
+        );
         $details['resend'] = ($details['resend'] ?? false) && $this->isGranted('update', (string) $request->attributes->get('_legacy_controller'));
 
         return ['html' => $this->renderView(self::TEMPLATE, ['details' => $details])];
