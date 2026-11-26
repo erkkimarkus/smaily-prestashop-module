@@ -37,6 +37,10 @@
  *
  * An account block whose values passed Test connection carries data-smaily-tested until one of
  * its fields is edited; onTested(hook) runs the page's hook after each test and each such edit.
+ * Both pages save the Connection only once every account the save would store passed the test
+ * (connectionTested()), and ask before another Smaily account takes a stored one's place while an
+ * automation has a workflow picked (confirmAccountChange()); lostWorkflows() shows on the page
+ * the automations whose workflow such a save removed (Automation\LostWorkflows).
  * The edit also hides the connection state of the account of no language, and an answer about
  * values edited since shows no state (holds()), in the Initial setup and in Settings alike.
  */
@@ -136,6 +140,58 @@
     return connection.querySelectorAll(mode === 'a' ? '[data-smaily-per-language] [data-smaily-account-block]' : '[data-smaily-account-block=""]');
   }
 
+  /*
+   * Whether the Connection may be saved: an account block passed Test connection and no filled
+   * block of the mode waits for one (owner, 2026-11-25 and 2026-11-26).
+   */
+  function connectionTested(connection) {
+    var passed = 0;
+    var untested = 0;
+    accountBlocks(connection, checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
+      var values = credentials(accountBlock);
+      if (accountBlock.hasAttribute('data-smaily-tested')) {
+        passed += 1;
+      } else if (values.subdomain || values.username || values.password) {
+        untested += 1;
+      }
+    });
+    return passed > 0 && untested === 0;
+  }
+
+  /*
+   * The subdomains that a save would put in a stored account's place: the typed subdomain of each
+   * block against the stored one (the field's default value). In mode a the default fallback's
+   * account also takes the place of the account of no language (ConnectionPanel).
+   */
+  function changedAccounts(connection) {
+    var mode = checked(connection, 'smaily-language-mode') || 'single';
+    var main = connection.querySelector('[data-smaily-account-block=""] [data-smaily-field="subdomain"]');
+    var changed = [];
+
+    function compare(stored, typed) {
+      var before = subdomainOf(stored.defaultValue);
+      var now = subdomainOf(typed.value);
+      if (before !== '' && now !== '' && before !== now && changed.indexOf(now) === -1) {
+        changed.push(now);
+      }
+    }
+
+    if (mode !== 'a') {
+      compare(main, main);
+      return changed;
+    }
+    accountBlocks(connection, mode).forEach(function (accountBlock) {
+      var field = accountBlock.querySelector('[data-smaily-field$=".subdomain"]');
+      compare(field, field);
+    });
+    var fallback = checked(connection, 'smaily-fallback-language');
+    var fallbackField = fallback ? connection.querySelector('[data-smaily-account-block="' + fallback + '"] [data-smaily-field$=".subdomain"]') : null;
+    if (fallbackField) {
+      compare(main, fallbackField);
+    }
+    return changed;
+  }
+
   smailyConnect.panels = function (root, connectedLabel) {
     var show = smailyConnect.show;
     var label = labels(root);
@@ -189,7 +245,28 @@
      */
     function connectionSaved(mode) {
       languageModeConfirmed = false;
+      savedConnection.querySelectorAll('[data-smaily-field$="subdomain"]').forEach(function (input) {
+        input.defaultValue = input.value;
+      });
       return mode !== savedLanguageMode;
+    }
+
+    /*
+     * Before a Connection save: another Smaily account (another subdomain) in a stored one's place
+     * removes the workflows that it does not list (owner, 2026-11-26), so the page asks first while
+     * an automation has a workflow picked. Another API user of the same subdomain asks nothing.
+     * Answers false when the merchant declined.
+     */
+    function confirmAccountChange() {
+      var changed = changedAccounts(savedConnection);
+      var picked = automations && Array.prototype.some.call(automations.querySelectorAll('[data-smaily-workflows]'), function (select) {
+        return /^[0-9]+$/.test(workflowValue(select));
+      });
+      if (!changed.length || !picked) {
+        return true;
+      }
+      var word = labels(savedConnection);
+      return window.confirm(word('account-change', {account: changed.join(', ')}) + '\n\n' + word('continue'));
     }
 
     function showStatus(connected) {
@@ -395,14 +472,49 @@
       card.classList.toggle('is-active', on);
       card.classList.toggle('is-off', !on);
       card.querySelector('[data-smaily-trigger-settings]').hidden = !on;
+      // On without a picked workflow, it sends nothing: "No workflow" in place of "Active".
+      var table = automations.querySelector('[data-smaily-language-trigger="' + trigger + '"]');
+      var selects = Array.prototype.slice.call(card.querySelectorAll('[data-smaily-workflows]'))
+        .concat(table ? Array.prototype.slice.call(table.querySelectorAll('[data-smaily-workflows]')) : []);
+      var picked = selects.some(function (select) {
+        return workflowValue(select) !== '';
+      });
       var pill = card.querySelector('[data-smaily-pill]');
-      pill.classList.toggle('smaily-pill--active', on);
-      pill.querySelector('[data-smaily-pill-text]').textContent = labels(automations)(on ? 'active' : 'off');
+      pill.classList.toggle('smaily-pill--active', on && picked);
+      pill.classList.toggle('smaily-pill--pending', on && !picked);
+      pill.querySelector('[data-smaily-pill-text]').textContent = labels(automations)(on ? (picked ? 'active' : 'no-workflow') : 'off');
       var languages = automations.querySelector('[data-smaily-language-workflows]');
       if (languages) {
         languages.querySelector('[data-smaily-language-trigger="' + trigger + '"]').hidden = !on;
         languages.hidden = !automations.querySelector('[data-smaily-trigger].is-active');
       }
+    }
+
+    /*
+     * After a Connection save that removed workflows, while the page stays (Settings): their
+     * selects hold none, their cards say so, and the banner names them. Answers the names.
+     */
+    function lostWorkflows(entries) {
+      if (!automations) {
+        return '';
+      }
+      var names = entries.map(function (entry) {
+        var field = entry.trigger + (entry.language === '' ? '.workflow' : '.languages.' + entry.language);
+        var select = automations.querySelector('[data-smaily-field="' + field + '"]');
+        if (select) {
+          select.setAttribute('data-saved', '');
+          if (select.options.length) {
+            select.value = '';
+          }
+        }
+        showTrigger(automations.querySelector('[data-smaily-trigger="' + entry.trigger + '"]'));
+        var name = automations.querySelector('[data-smaily-trigger="' + entry.trigger + '"] .smaily-trigger__name').textContent.trim();
+        return entry.language === '' ? name : name + ' (' + entry.language.toUpperCase() + ')';
+      }).join(', ');
+      var banner = automations.querySelector('[data-smaily-lost-workflows]');
+      banner.querySelector('[data-smaily-lost-message]').textContent = labels(banner)('message', {automations: names});
+      banner.hidden = false;
+      return names;
     }
 
     /* What the Automations panel would save. */
@@ -584,6 +696,9 @@
         input.closest('.smaily-trigger__discount').querySelector('[data-smaily-discount-body]').hidden = !input.checked;
       } else if (/\.enabled$/.test(input.getAttribute('data-smaily-field') || '') && input.closest('[data-smaily-trigger]')) {
         showTrigger(input.closest('[data-smaily-trigger]'));
+      } else if (input.hasAttribute('data-smaily-workflows')) {
+        var owner = input.closest('[data-smaily-trigger]') || input.closest('[data-smaily-language-trigger]');
+        showTrigger(automations.querySelector('[data-smaily-trigger="' + (owner.getAttribute('data-smaily-trigger') || owner.getAttribute('data-smaily-language-trigger')) + '"]'));
       }
       if (input.matches('.smaily-choice__input')) {
         root.querySelectorAll('input[name="' + input.name + '"]').forEach(function (other) {
@@ -622,6 +737,9 @@
       accountBlocks: accountBlocks,
       pickLanguageMode: pickLanguageMode,
       connectionSaved: connectionSaved,
+      confirmAccountChange: confirmAccountChange,
+      connectionTested: connectionTested,
+      lostWorkflows: lostWorkflows,
       showStatus: showStatus,
       connectionData: connectionData,
       tested: tested,

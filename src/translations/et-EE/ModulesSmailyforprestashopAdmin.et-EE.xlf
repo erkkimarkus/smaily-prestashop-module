@@ -3562,6 +3562,31 @@
         <target>Campaign Intelligence vastas veaga (HTTP %status%).</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="d7f208b457da78b9bab09eafe739891c">
+        <source>No workflow</source>
+        <target>Töövoog puudub</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8e044bc558de264346756a250fee5c57">
+        <source>Some automations have no workflow</source>
+        <target>Mõnel automaatikal pole töövoogu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d007a671cb421decbf9edcf8a1037981">
+        <source>The Smaily account or the multilingual mode changed, so these automations lost a workflow that is not in the account's list: %automations%. They send nothing until you pick a workflow below and save.</source>
+        <target>Smaily konto või mitmekeelne režiim muutus, seega kaotasid need automaatikad töövoo, mida konto loendis pole: %automations%. Need ei saada midagi enne, kui valid allpool töövoo ja salvestad.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8cbfea29b1bd8fa0ae4f8bdc9f021f70">
+        <source>Another Smaily account: %account%. Automations whose workflow this account does not have lose that workflow and send nothing until you pick a new one.</source>
+        <target>Teine Smaily konto: %account%. Automaatikad, mille töövoogu sellel kontol pole, kaotavad selle töövoo ega saada midagi, kuni valid neile uue.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="05f61da5e431cb02f464fe06365beb00">
+        <source>Saved. Automations without a workflow now: %automations%. Pick their workflows under Settings &gt; Automations.</source>
+        <target>Salvestatud. Nüüd töövoota automaatikad: %automations%. Vali nende töövood menüüs Seaded &gt; Automaatikad.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

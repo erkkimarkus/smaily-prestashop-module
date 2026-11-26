@@ -28,8 +28,8 @@ require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 
 /**
  * The Initial setup's panels in the shop, against the Smaily mock: the Connection panel reduces a
- * pasted URL, keeps a stored password only for its own account, saves a refused account as "Not
- * connected" on Settings, saves nothing that Smaily refuses in the Initial setup's step 1, saves an
+ * pasted URL, keeps a stored password only for its own account, saves nothing that Smaily refuses
+ * (the Initial setup's step 1 and Settings > Connection alike), saves an
  * account per language with a fallback, and never hands a password back; the Contacts panel's save
  * is what starts contact sync on a new install; the setup reaches its steps from what was saved,
  * and Finish marks it done.
@@ -109,19 +109,20 @@ final class SetupPanelsTest extends IntegrationTestCase
         parent::tearDown();
     }
 
-    public function testConnectReducesAPastedUrlAndSavesARefusedAccountAsNotConnected(): void
+    public function testConnectReducesAPastedUrlAndSavesNoAccountThatSmailyRefuses(): void
     {
         $panel = $this->panels()->connection();
         $scope = $this->scope(['en' => 'English']);
 
         $refused = $panel->save($scope, ['subdomain' => 'https://Demo.sendsmaily.net/', 'username' => self::USERNAME, 'password' => 'a-wrong-password']);
-        self::assertSame([], $refused['errors']);
+        self::assertSame([['field' => '', 'message' => 'Test your Smaily connection to continue.']], $refused['errors']);
         self::assertFalse($refused['connected']);
         self::assertSame('Smaily rejected these credentials. Check the subdomain, username and password.', $refused['error']);
-        self::assertSame('demo', $this->account(0, '')['subdomain']);
+        self::assertNull($this->account(0, ''), 'nothing was written');
 
-        $accepted = $panel->save($scope, ['subdomain' => 'demo.sendsmaily.net', 'username' => self::USERNAME, 'password' => self::PASSWORD]);
-        self::assertSame(['errors' => [], 'connected' => true, 'error' => null], $accepted);
+        $accepted = $panel->save($scope, ['subdomain' => 'https://Demo.sendsmaily.net/', 'username' => self::USERNAME, 'password' => self::PASSWORD]);
+        self::assertSame(['errors' => [], 'connected' => true, 'error' => null, 'workflows_removed' => []], $accepted);
+        self::assertSame('demo', $this->account(0, '')['subdomain']);
 
         $values = $panel->values($scope);
         self::assertSame(['demo', self::USERNAME, true, 'single'], [$values['subdomain'], $values['username'], $values['has_password'], $values['language_mode']]);
@@ -177,16 +178,16 @@ final class SetupPanelsTest extends IntegrationTestCase
         $panel = $panels->connection();
         $scope = $this->scope(['en' => 'English']);
 
-        $refused = $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => 'a-wrong-password'], true);
+        $refused = $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => 'a-wrong-password']);
         self::assertSame([['field' => '', 'message' => 'Test your Smaily connection to continue.']], $refused['errors']);
         self::assertSame('Smaily rejected these credentials. Check the subdomain, username and password.', $refused['error']);
         self::assertNull($this->account(0, ''), 'nothing was written');
         self::assertSame(1, $panels->progress()->reachedStep($scope), 'the step is not reached');
 
-        self::assertSame(['errors' => [], 'connected' => true, 'error' => null], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD], true));
+        self::assertSame(['errors' => [], 'connected' => true, 'error' => null, 'workflows_removed' => []], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD]));
         self::assertSame(2, $panels->progress()->reachedStep($scope));
         // A stored password counts: an empty field keeps it for the same account, and Smaily is asked with it.
-        self::assertSame([], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => ''], true)['errors']);
+        self::assertSame([], $panel->save($scope, ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => ''])['errors']);
         self::assertCount(3, $this->mock->requests(), 'each save asks Smaily once');
     }
 
@@ -202,7 +203,7 @@ final class SetupPanelsTest extends IntegrationTestCase
                 'en' => ['subdomain' => 'demo', 'username' => self::USERNAME, 'password' => self::PASSWORD],
                 'et' => ['subdomain' => 'demo-et', 'username' => self::USERNAME, 'password' => 'a-wrong-password'],
             ],
-        ], true);
+        ]);
 
         self::assertSame('Test your Smaily connection to continue.', $refused['errors'][0]['message']);
         self::assertSame([null, null, null], [$this->account(0, 'en'), $this->account(0, 'et'), $this->account(0, '')]);

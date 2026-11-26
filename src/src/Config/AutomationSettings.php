@@ -100,6 +100,14 @@ class AutomationSettings extends Settings
 
     public const DEFAULT_DISCOUNT_DAYS = 7;
 
+    /**
+     * The automations that lost a workflow when a change of the Smaily account or of the language
+     * mode removed it (Automation\LostWorkflows): one global JSON object, by the shop scope whose
+     * mapping row was removed (`0` = the rows all shops share), of {trigger, language} entries. The
+     * Automations panel shows them until a workflow is picked for each.
+     */
+    public const LOST_WORKFLOWS = self::PREFIX . 'LOST_WORKFLOWS';
+
     private const SWITCHES = [
         Trigger::WELCOME => self::WELCOME_ENABLED,
         Trigger::FIRST_ORDER => self::FIRST_ORDER_ENABLED,
@@ -171,6 +179,46 @@ class AutomationSettings extends Settings
         $stored = isset(self::DISCOUNT_KEYS[$trigger]) ? (int) $this->get(self::DISCOUNT_KEYS[$trigger]['days'], $idShop) : 0;
 
         return $stored > 0 ? min(self::MAX_DISCOUNT_DAYS, $stored) : self::DEFAULT_DISCOUNT_DAYS;
+    }
+
+    /**
+     * The automations of a shop scope (0 = the rows all shops share) that lost their workflow.
+     *
+     * @return list<array{trigger: string, language: string}>
+     */
+    public function lostWorkflows(int $idShop): array
+    {
+        $entries = [];
+        foreach ((array) ($this->getJson(self::LOST_WORKFLOWS)[(string) $idShop] ?? []) as $entry) {
+            if (is_array($entry) && in_array($entry['trigger'] ?? null, Trigger::ALL, true) && is_string($entry['language'] ?? null)) {
+                $entries[] = ['trigger' => $entry['trigger'], 'language' => $entry['language']];
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Stores the automations of a shop scope that lost their workflow; none removes the scope's
+     * entry, and the key goes with the last one.
+     *
+     * @param list<array{trigger: string, language: string}> $entries
+     */
+    public function setLostWorkflows(int $idShop, array $entries): void
+    {
+        $all = $this->getJson(self::LOST_WORKFLOWS);
+        unset($all[(string) $idShop]);
+        if ($entries !== []) {
+            $all[(string) $idShop] = array_values($entries);
+        }
+        if ($all === []) {
+            if ($this->get(self::LOST_WORKFLOWS) !== null) {
+                \Configuration::deleteByName(self::LOST_WORKFLOWS);
+            }
+
+            return;
+        }
+        $this->setJson(self::LOST_WORKFLOWS, $all);
     }
 
     public function setDiscount(string $trigger, bool $enabled, int $idRule, int $days, int $idShop): void

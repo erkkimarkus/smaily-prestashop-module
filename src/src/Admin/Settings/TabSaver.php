@@ -66,7 +66,7 @@ final class TabSaver
     /**
      * @param array<string, mixed> $data
      *
-     * @return array{errors: list<array{field: string, message: string}>, connected: ?bool, error: ?string, returned: bool, own_account_started: bool}
+     * @return array{errors: list<array{field: string, message: string}>, connected: ?bool, error: ?string, workflows_removed: list<array{trigger: string, language: string}>, returned: bool, own_account_started: bool}
      */
     public function saveConnection(SettingsScope $context, array $data, bool $own): array
     {
@@ -79,7 +79,7 @@ final class TabSaver
                     $this->overrides->removeOwn(ShopOverrides::AUTOMATIONS, $shop);
                 }
 
-                return ['errors' => [], 'connected' => null, 'error' => null, 'returned' => true, 'own_account_started' => false];
+                return ['errors' => [], 'connected' => null, 'error' => null, 'workflows_removed' => [], 'returned' => true, 'own_account_started' => false];
             }
         }
 

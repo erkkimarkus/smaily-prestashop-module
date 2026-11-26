@@ -31,7 +31,9 @@
  * error message and whose `code` is its error code.
  *
  * window.smailyConnect.setup.onContinue(step, saver) registers the saver of a setup step: Continue
- * runs it and moves on once the promise it returns resolves; a rejected promise keeps the step.
+ * runs it and moves on once the promise it returns resolves; a rejected promise keeps the step,
+ * with the error's message, or with none for an error marked `declined` (the merchant answered a
+ * question with Cancel).
  * window.smailyConnect.setup.gate(step, hint) registers what Continue waits for: hint() answers
  * the words that say why, shown beside a disabled Continue, or '' once Continue may run; the page
  * calls window.smailyConnect.setup.refresh() when that may have changed. Step 1's gate also locks
@@ -295,6 +297,10 @@
         reached = Math.max(reached, step);
         render();
       }).catch(function (error) {
+        if (error && error.declined) {
+          show(result, '', true);
+          return;
+        }
         show(result, error && error.message ? error.message : container.getAttribute('data-label-failed'), false);
       }).then(gate);
     });

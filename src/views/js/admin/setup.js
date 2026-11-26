@@ -31,9 +31,11 @@
  * Continue waits until every account the step would save passed Test connection (owner,
  * 2026-11-25), as WooCommerce and Shopify, and the step list opens no later step until then; a
  * stored account counts once Smaily accepts it after the page opens, so a saved password is not
- * typed again. An edit of a block asks for the test again. Back keeps what
- * was typed: the steps stay on the page. The Automations step is drawn for the saved language
- * mode, so a Connect save that changes the mode opens the page again on step 2. The Intelligence
+ * typed again. An edit of a block asks for the test again. Continue asks first before another
+ * Smaily account takes a stored one's place while an automation has a workflow picked. Back keeps
+ * what was typed: the steps stay on the page. The Automations step is drawn for the saved language
+ * mode and workflows, so a Connect save that changes the mode, or that removed workflows
+ * (Automation\LostWorkflows), opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
  * window.smailyConnect.setup.finish(), which a later saver of step 4 calls after its own save.
  */
@@ -93,17 +95,7 @@
         storedChecked = true;
         checkStored(connection);
       }
-      var passed = 0;
-      var untested = 0;
-      panels.accountBlocks(connection, panels.checked(connection, 'smaily-language-mode') || 'single').forEach(function (accountBlock) {
-        var values = panels.credentials(accountBlock);
-        if (accountBlock.hasAttribute('data-smaily-tested')) {
-          passed += 1;
-        } else if (values.subdomain || values.username || values.password) {
-          untested += 1;
-        }
-      });
-      return passed > 0 && untested === 0 ? '' : label('test-to-continue');
+      return panels.connectionTested(connection) ? '' : label('test-to-continue');
     }
 
     /* Each stored account of the saved mode is asked about once; an accepted one counts as tested. */
@@ -188,9 +180,12 @@
     function saveConnect() {
       var step = stepPanel(1);
       panels.clearErrors(step);
+      if (panels.panel('connection') && !panels.confirmAccountChange()) {
+        return Promise.reject({declined: true});
+      }
       var data = panels.panel('connection') ? panels.connectionData() : {};
       return post('save', {step: 'connect', data: data}).then(function (answer) {
-        if (panels.connectionSaved(data.language_mode)) {
+        if (panels.connectionSaved(data.language_mode) || (answer.workflows_removed || []).length) {
           return reopen(2);
         }
         panels.showStatus(!!answer.connected);

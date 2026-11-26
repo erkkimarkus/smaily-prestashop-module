@@ -38,8 +38,10 @@ use Symfony\Component\HttpFoundation\Request;
  * …, "data": {…}, "own": bool}. Connection, Contacts and Automations go through the Initial
  * setup's panels (Admin\Settings\TabSaver), RSS through Admin\Settings\RssPanel.
  *
- * - `connection`: answers `connected` and, when Smaily refused or could not be asked, `error`; the
- *   save stands either way.
+ * - `connection`: Smaily must accept every account the tab would store: else nothing is saved and
+ *   the answer is "Test your Smaily connection to continue." (owner, 2026-11-26; Linear CON-433),
+ *   as step 1 of the Initial setup. A saved tab answers `connected`, and `workflows_removed` the
+ *   automations that lost their workflow to another account or language mode.
  * - `contacts`: the Contacts settings.
  * - `automations`: the store automations' switches, workflows and cart delay.
  * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking.
@@ -76,6 +78,7 @@ final class SaveTab extends AbstractSettingsAction
                 return [
                     'connected' => $result['connected'],
                     'error' => $result['error'],
+                    'workflows_removed' => $result['workflows_removed'],
                     'returned' => $result['returned'],
                     'own_account_started' => $result['own_account_started'],
                 ];

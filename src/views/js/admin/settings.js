@@ -31,10 +31,16 @@
  *   at fault with its message;
  * - a tab's switch "Use its own … on this shop", unticked on a shop that holds own values, mutes the
  *   tab until the save removes them; the page then reloads to show the shared values;
- * - the connection's state is asked of Smaily once the page has loaded;
+ * - the connection's state is asked of Smaily once the page has loaded, and a stored account that
+ *   Smaily accepts counts as tested;
+ * - Save Connection waits, beside "Test your Smaily connection to continue.", until every account
+ *   the tab would save passed Test connection (owner, 2026-11-26), as the Initial setup's step 1;
+ *   it asks first before another Smaily account takes a stored one's place while an automation
+ *   has a workflow picked, and names the automations whose workflow the save removed;
  * - the workflow lists of the Automations tab are asked of Smaily when the tab first shows, and
  *   again on Refresh workflows; a saved language mode that changed reloads the page, because the
- *   Automations tab is drawn for the saved mode;
+ *   Automations tab is drawn for the saved mode, and opens it on Automations where the save
+ *   removed workflows;
  * - Change of the store layout opens the choice above the tabs; to one store it asks first;
  * - the RSS builder builds the feed URL from the picked values, with Copy.
  *
@@ -92,6 +98,7 @@
       applyOwn(input);
       input.addEventListener('change', function () {
         applyOwn(input);
+        connectionGate();
       });
     });
 
@@ -101,6 +108,7 @@
     panels.onChange(function (input) {
       if (input.name === 'smaily-language-mode') {
         panels.pickLanguageMode(input);
+        connectionGate();
       }
       if (input.name === 'smaily-shape-change') {
         showShapeNote();
@@ -129,6 +137,11 @@
           if (answer.connected === null || !panels.holds(accountBlock, data)) {
             return;
           }
+          if (answer.connected === true) {
+            // An accepted stored account counts as tested: Save Connection needs no new test.
+            panels.tested(accountBlock, data, answer);
+            return;
+          }
           if (data.language === '') {
             panels.showStatus(answer.connected === true);
           } else {
@@ -139,6 +152,29 @@
         });
       });
     }
+
+    /*
+     * Save Connection waits until every account the tab would save passed Test connection; the
+     * reason shows beside it. A shop that returns to the shared account saves without a test.
+     */
+    var saveConnectionButton = root.querySelector('[data-smaily-action="save-tab"][data-tab="connection"]');
+    var connectionHinted = false;
+
+    function connectionGate() {
+      if (!connection || !saveConnectionButton) {
+        return;
+      }
+      var own = ownSwitch('connection');
+      var returning = own && !own.checked && own.getAttribute('data-own-saved') === '1';
+      var hint = returning || panels.connectionTested(connection) ? '' : label('test-to-continue');
+      saveConnectionButton.disabled = hint !== '';
+      if (hint !== '' || connectionHinted) {
+        result(tabPanel('connection').querySelector('[data-smaily-tab-result]'), hint, true);
+      }
+      connectionHinted = hint !== '';
+    }
+
+    panels.onTested(connectionGate);
 
     /* Automations: the workflow lists load when the tab first shows. */
     var workflowsAsked = false;
@@ -200,6 +236,9 @@
       if (tab === 'contacts' && !confirmAudience(data, own)) {
         return;
       }
+      if (tab === 'connection' && !panels.confirmAccountChange()) {
+        return;
+      }
       panels.clearErrors(scope);
       button.disabled = true;
       result(tabResult, label('saving'), true);
@@ -214,8 +253,16 @@
           applyOwn(own);
         }
         if (tab === 'connection') {
+          var lost = answer.workflows_removed || [];
           if (panels.connectionSaved(data.language_mode)) {
-            reload();
+            // The Automations tab is drawn for the saved mode; it opens where workflows were lost.
+            if (lost.length) {
+              var url = new URL(window.location.href);
+              url.searchParams.set('tab', 'automations');
+              window.location.href = url.toString();
+            } else {
+              reload();
+            }
             return;
           }
           if (workflowsAsked) {
@@ -225,10 +272,9 @@
           scope.querySelectorAll('[data-smaily-field$="password"]').forEach(function (input) {
             input.value = '';
           });
-          // The save stands either way, as in Magento; why Smaily refused shows under the account.
-          var main = connection.querySelector('[data-smaily-account-block=""] [data-smaily-test-result]');
-          result(main, answer.connected ? '' : (answer.error || label('not-connected')), !!answer.connected);
-          result(tabResult, label('saved'), true);
+          // Smaily accepted every account the save stored (ConnectionPanel).
+          var names = lost.length ? panels.lostWorkflows(lost) : '';
+          result(tabResult, names !== '' ? label('workflows-lost', {automations: names}) : label('saved'), true);
         } else {
           if (tab === 'contacts') {
             var region = root.querySelector('[data-smaily-own-region="contacts"]');
@@ -245,6 +291,10 @@
         result(tabResult, panels.showErrors(scope, error.fields) ? label('saving-failed') : error.message, false);
       }).then(function () {
         button.disabled = false;
+        if (tab === 'connection') {
+          connectionHinted = false;
+          connectionGate();
+        }
       });
     }
 
@@ -401,6 +451,7 @@
     });
 
     checkStoredAccounts();
+    connectionGate();
     root.querySelector('[role=tab][data-tab="automations"]').addEventListener('click', function () {
       if (!workflowsAsked) {
         loadWorkflows();

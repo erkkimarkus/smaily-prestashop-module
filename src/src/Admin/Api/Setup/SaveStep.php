@@ -48,7 +48,8 @@ use Symfony\Component\HttpFoundation\Request;
  * - `connect`: the Smaily account and the language mode (ConnectionPanel). Smaily must accept every
  *   account the step would store: else nothing is saved, the step is not reached, and the answer
  *   is "Test your Smaily connection to continue." (owner, 2026-11-25; Linear CON-397), as
- *   WooCommerce and Shopify. A saved step answers `connected`.
+ *   WooCommerce and Shopify. A saved step answers `connected`, and `workflows_removed` the
+ *   automations that lost their workflow to another account or language mode.
  * - `contacts`: the Contacts settings (ContactsPanel); contact sync starts with it.
  * - `automations`: the store automations (AutomationsPanel).
  * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking
@@ -92,12 +93,12 @@ final class SaveStep extends AbstractSetupAction
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'connect':
-                $result = $panels->connection()->save($scope, $data, true);
+                $result = $panels->connection()->save($scope, $data);
                 if ($result['errors'] !== []) {
                     return $this->fieldErrors($result['errors']);
                 }
 
-                return ['connected' => $result['connected'], 'error' => $result['error']];
+                return ['connected' => $result['connected'], 'error' => $result['error'], 'workflows_removed' => $result['workflows_removed']];
             case 'contacts':
                 $errors = $panels->contacts()->save($scope, $data);
 

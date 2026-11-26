@@ -38,6 +38,11 @@
  # automation that is on, with a workflow per language and the default fallback. In mode `a` the
  # cards' own workflow is not drawn: it belongs to no language's account.
  #
+ # An automation that is on and has no workflow picked shows "No workflow" in place of "Active".
+ # Above the cards, the banner "Some automations have no workflow" names the automations whose
+ # workflow a change of the Smaily account or of the language mode removed (`automations.lost`,
+ # Automation\LostWorkflows); on Settings, panels.js also shows it after a Connection save.
+ #
  # Takes `automations` (AutomationsPanel::values()), `languages` (ISO code => name) and `context`
  # ('setup' or 'settings': the Initial setup shows the title above the step).
  # Behaviour: views/js/admin/panels.js ([data-smaily-panel=automations]).
@@ -51,13 +56,23 @@
   abandoned_cart: ['Abandoned cart'|trans, 'Fires when a cart is left behind.'|trans],
 } %}
 {% set any_on = automations.triggers|filter(saved => saved.enabled)|length > 0 %}
+{% set lost_names = automations.lost|map(entry => triggers[entry.trigger][0] ~ (entry.language != '' ? ' (' ~ entry.language|upper ~ ')' : ''))|join(', ') %}
 <div class="smaily-panel" data-smaily-panel="automations" data-mode="{{ mode }}"
      data-label-active="{{ 'Active'|trans }}"
+     data-label-no-workflow="{{ 'No workflow'|trans }}"
      data-label-off="{{ 'Off'|trans }}"
      data-label-not-selected="{{ '-- Not Selected --'|trans }}"
      data-label-kept="{{ 'Workflow #%id% (not in your Smaily list — kept)'|trans }}"
      data-label-optin="{{ 'Smaily\'s opt-in trigger (from 2.x)'|trans }}"
      data-label-pick-rule="{{ 'Pick a rule'|trans }}">
+  <div class="smaily-banner" role="status" data-smaily-lost-workflows{% if automations.lost is empty %} hidden{% endif %}
+       data-label-message="{{ 'The Smaily account or the multilingual mode changed, so these automations lost a workflow that is not in the account\'s list: %automations%. They send nothing until you pick a workflow below and save.'|trans }}">
+    <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+    <div class="smaily-banner__body">
+      <div class="smaily-banner__title">{{ 'Some automations have no workflow'|trans }}</div>
+      <div class="smaily-banner__message" data-smaily-lost-message>{{ 'The Smaily account or the multilingual mode changed, so these automations lost a workflow that is not in the account\'s list: %automations%. They send nothing until you pick a workflow below and save.'|trans({'%automations%': lost_names}) }}</div>
+    </div>
+  </div>
   <div class="smaily-card">
     {% if context|default('setup') == 'settings' %}
       <h2>{{ 'Map store events to Smaily automations'|trans }}</h2>
@@ -70,11 +85,12 @@
     <div class="smaily-triggers">
       {% for trigger, card in triggers %}
         {% set saved = automations.triggers[trigger] %}
+        {% set has_workflow = (mode != 'a' and saved.workflow != '') or saved.languages|filter(workflow => workflow != '')|length > 0 %}
         <div class="smaily-trigger{{ saved.enabled ? ' is-active' : ' is-off' }}" data-smaily-trigger="{{ trigger }}">
           <div class="smaily-trigger__head">
             <div class="smaily-trigger__name-row">
               <span class="smaily-trigger__name">{{ card[0] }}</span>
-              <span class="smaily-pill{{ saved.enabled ? ' smaily-pill--active' : '' }}" data-smaily-pill><span class="smaily-pill__dot"></span><span data-smaily-pill-text>{{ saved.enabled ? 'Active'|trans : 'Off'|trans }}</span></span>
+              <span class="smaily-pill{{ saved.enabled ? (has_workflow ? ' smaily-pill--active' : ' smaily-pill--pending') : '' }}" data-smaily-pill><span class="smaily-pill__dot"></span><span data-smaily-pill-text>{{ saved.enabled ? (has_workflow ? 'Active'|trans : 'No workflow'|trans) : 'Off'|trans }}</span></span>
             </div>
             <div class="smaily-trigger__desc">{{ card[1] }}</div>
             <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-field="{{ trigger }}.enabled"{{ saved.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>

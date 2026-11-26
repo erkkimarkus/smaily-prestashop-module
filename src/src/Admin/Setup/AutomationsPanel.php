@@ -64,6 +64,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * (the Router skips it as `no_workflow`) until a workflow is picked. Nothing is written while any
  * field is at fault.
  *
+ * `lost` names the automations whose workflow a change of the Smaily account or of the language
+ * mode removed (Automation\LostWorkflows); the panel shows them until a save picks a workflow for
+ * each.
+ *
  * A shop that saves its own automations (Settings, one store) holds every row its page shows as
  * its own: an unchanged workflow of the shared rows is copied to the shop, and a workflow that the
  * shop clears is stored at the shop as "no workflow" (MappingRepository::setNone()) where a shared
@@ -138,9 +142,10 @@ final class AutomationsPanel
      * workflow is its id as a string, '' for none, or OPTIN. `languages` and `fallback` are filled
      * in the modes `a` and `b` only: each language's workflow, and the language whose row is the
      * automation's default fallback ('' for none). `discount` is the automation's discount code:
-     * its switch, its cart rule (0 for none) and its days.
+     * its switch, its cart rule (0 for none) and its days. `lost` lists the automations (and in
+     * the modes `a` and `b` their language) that lost a workflow and have none picked again.
      *
-     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string, discount: array{enabled: bool, rule: int, days: int}}>}|null
+     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string, discount: array{enabled: bool, rule: int, days: int}}>, lost: list<array{trigger: string, language: string}>}|null
      */
     public function values(SetupScope $scope): ?array
     {
@@ -176,7 +181,15 @@ final class AutomationsPanel
             ];
         }
 
-        return ['mode' => $mode, 'cart_delay' => $this->settings->cartDelayMinutes($target), 'triggers' => $triggers];
+        $lost = array_values(array_filter(
+            $this->settings->lostWorkflows($target),
+            // Only what the page shows: a language's row in the modes `a` and `b`, else the card's own.
+            static fn (array $entry): bool => $entry['language'] === ''
+                ? $mode !== StoreLayout::MODE_ACCOUNT_PER_LANGUAGE && $triggers[$entry['trigger']]['workflow'] === ''
+                : ($triggers[$entry['trigger']]['languages'][$entry['language']] ?? null) === ''
+        ));
+
+        return ['mode' => $mode, 'cart_delay' => $this->settings->cartDelayMinutes($target), 'triggers' => $triggers, 'lost' => $lost];
     }
 
     /**
@@ -339,6 +352,8 @@ final class AutomationsPanel
         if (in_array($mode, self::PER_LANGUAGE_MODES, true)) {
             $this->removeRowsOfOtherLanguages($target, $mode, $languages);
         }
+        // A lost workflow that is picked again leaves the panel's list.
+        $this->settings->setLostWorkflows($target, $this->values($scope)['lost'] ?? []);
 
         return [];
     }

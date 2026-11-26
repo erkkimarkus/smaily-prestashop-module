@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Automation\LostWorkflows;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
@@ -76,7 +77,15 @@ final class SetupPanels
             $this->accounts(),
             $this->layout(),
             new SmailyCheck($this->transport(), $this->translator),
-            $this->translator
+            $this->translator,
+            new LostWorkflows(
+                $this->services->get(MappingRepository::class),
+                $this->services->get(Router::class),
+                $this->services->get(WorkflowList::class),
+                $this->layout(),
+                $this->services->get(AutomationSettings::class),
+                static fn (): array => array_map('intval', \Shop::getShops(false, null, true))
+            )
         );
     }
 

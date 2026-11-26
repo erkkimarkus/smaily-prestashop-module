@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\LostWorkflows;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
@@ -47,15 +48,17 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *   fallback account, whose credentials are also the account of no language (`''`). A language
  *   whose block is left empty has no account: its contacts go to the fallback account.
  * - Every other mode: the account of no language.
- * - Saving asks Smaily whether it accepts the account of no language. On Settings the answer never
- *   stops the save: a refused account is saved and reads "Not connected", as in Magento. Step 1 of
- *   the Initial setup asks first about every account it would store and saves nothing while Smaily
- *   refuses one (owner, 2026-11-25; Linear CON-397), as WooCommerce and Shopify refuse Continue.
+ * - Saving asks Smaily first about every account it would store and saves nothing while Smaily
+ *   refuses one, in the Initial setup's step 1 (owner, 2026-11-25) and on Settings > Connection
+ *   (owner, 2026-11-26; Linear CON-397, CON-433), as WooCommerce and Shopify refuse Continue.
  * - A save that leaves mode `a` removes the accounts of the languages, as Magento removes the
  *   store views' credentials: every language then follows the account of no language, which stays
  *   the fallback account. The page asks before it (views/js/admin/panels.js).
- * - The automations keep their workflows whatever account a save puts in a stored one's place, as
- *   in Magento: nothing here reads or writes a mapping row (ARCHITECTURE 5.1, 14).
+ * - A save that puts another Smaily account (another subdomain) in a stored one's place, or that
+ *   changes the language mode, removes the workflows that the accounts do not list
+ *   (Automation\LostWorkflows; owner, 2026-11-26): another API user of the same subdomain lists the
+ *   same workflows and removes nothing. The page asks before an account change
+ *   (views/js/admin/panels.js).
  *
  * Nothing here returns a password: values() says only whether one is stored.
  */
@@ -71,12 +74,15 @@ final class ConnectionPanel
 
     private TranslatorInterface $translator;
 
-    public function __construct(AccountStore $accounts, StoreLayout $layout, SmailyCheck $check, TranslatorInterface $translator)
+    private LostWorkflows $lost;
+
+    public function __construct(AccountStore $accounts, StoreLayout $layout, SmailyCheck $check, TranslatorInterface $translator, LostWorkflows $lost)
     {
         $this->accounts = $accounts;
         $this->layout = $layout;
         $this->check = $check;
         $this->translator = $translator;
+        $this->lost = $lost;
     }
 
     /**
@@ -137,19 +143,20 @@ final class ConnectionPanel
     /**
      * Checks and saves the posted connection: `subdomain`, `username`, `password`,
      * `language_mode`, and in mode `a` `fallback_language` and `accounts` (ISO code =>
-     * {subdomain, username, password}). Nothing is written while any field is at fault, nor, with
-     * $connectedOnly (the Initial setup's step 1), while Smaily refuses any account the save would
-     * store: the answer then says to test the connection, and `error` says why Smaily refused.
+     * {subdomain, username, password}). Nothing is written while any field is at fault, nor while
+     * Smaily refuses any account the save would store: the answer then says to test the
+     * connection, and `error` says why Smaily refused. `workflows_removed` names the automations of
+     * the scope that lost their workflow (LostWorkflows).
      *
      * @param array<string, mixed> $data
      *
-     * @return array{errors: list<array{field: string, message: string}>, connected: bool, error: ?string}
+     * @return array{errors: list<array{field: string, message: string}>, connected: bool, error: ?string, workflows_removed: list<array{trigger: string, language: string}>}
      */
-    public function save(SetupScope $scope, array $data, bool $connectedOnly = false): array
+    public function save(SetupScope $scope, array $data): array
     {
         $refused = $this->scopeErrors($scope);
         if ($refused !== []) {
-            return ['errors' => $refused, 'connected' => false, 'error' => null];
+            return ['errors' => $refused, 'connected' => false, 'error' => null, 'workflows_removed' => []];
         }
         $target = (int) $scope->targetShop();
         $mode = (string) ($data['language_mode'] ?? StoreLayout::MODE_SINGLE);
@@ -170,15 +177,20 @@ final class ConnectionPanel
             $fallback = '';
         }
         if ($errors !== []) {
-            return ['errors' => $errors, 'connected' => false, 'error' => null];
+            return ['errors' => $errors, 'connected' => false, 'error' => null, 'workflows_removed' => []];
         }
-        if ($connectedOnly) {
-            foreach (array_unique($accounts, SORT_REGULAR) as $credentials) {
-                $check = $this->check->check($credentials[0], $credentials[1], $credentials[2]);
-                if (!$check['connected']) {
-                    return ['errors' => [$this->testFirst()], 'connected' => false, 'error' => $check['error']];
-                }
+        foreach (array_unique($accounts, SORT_REGULAR) as $credentials) {
+            $check = $this->check->check($credentials[0], $credentials[1], $credentials[2]);
+            if (!$check['connected']) {
+                return ['errors' => [$this->testFirst()], 'connected' => false, 'error' => $check['error'], 'workflows_removed' => []];
             }
+        }
+
+        // Another account (subdomain) or another mode: the workflows are checked after the save.
+        $changed = $this->layout->languageMode($target) !== $mode;
+        foreach ($accounts as $language => $credentials) {
+            $stored = $this->accounts->find($target, (string) $language);
+            $changed = $changed || $stored === null || strcasecmp(trim($stored->subdomain()), $credentials[0]) !== 0;
         }
 
         foreach ($accounts as $language => $credentials) {
@@ -202,11 +214,7 @@ final class ConnectionPanel
         }
         $this->layout->setLanguageMode($mode, $target);
 
-        $check = $connectedOnly
-            ? ['connected' => true, 'error' => null]
-            : $this->check->check($accounts[''][0], $accounts[''][1], $accounts[''][2]);
-
-        return ['errors' => [], 'connected' => $check['connected'], 'error' => $check['error']];
+        return ['errors' => [], 'connected' => true, 'error' => null, 'workflows_removed' => $changed ? $this->lost->removeAfterSave($target) : []];
     }
 
     /**
