@@ -1361,7 +1361,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
       <p>Once a night, from 03:30, the store sends Campaign Intelligence the list of its products with whether each is in stock. Campaign Intelligence stops recommending a product that the list leaves out, so a deletion or a stock change that did not arrive is put right within a night.</p>
       <ul>
         <li>A store with more than 50,000 product rows sends no list, and the Log says so each night. The regular product changes still go.</li>
-        <li>Where two shops of the installation are connected to the same Campaign Intelligence store, the list is not sent for them, and the Dashboard says so: a deleted product or a stock change reaches Campaign Intelligence only with the product's next change.</li>
+        <li>Where two shops of the installation are connected to the same Campaign Intelligence store, the list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product's next change.</li>
         <li>When no list has gone out for three nights, the Dashboard says <strong>Needs attention</strong>.</li>
       </ul>
     </div>
@@ -1369,7 +1369,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
       <p>Kord öösel, alates kella 03.30-st, saadab pood Campaign Intelligence'ile oma toodete nimekirja koos teabega, kas iga toode on laos. Campaign Intelligence lõpetab nimekirjast välja jäänud toote soovitamise, nii et kohale jõudmata kustutamine või laoseisu muutus saab öö jooksul parandatud.</p>
       <ul>
         <li>Pood, kus on üle 50 000 tooterea, nimekirja ei saada ja logi ütleb seda igal ööl. Tavalised toodete muudatused lähevad ikka.</li>
-        <li>Kui paigalduse kaks poodi on ühendatud samasse Campaign Intelligence'i poodi, nende kohta nimekirja ei saadeta ja töölaud ütleb seda: kustutatud toode või laoseisu muutus jõuab Campaign Intelligence'i alles toote järgmise muudatusega.</li>
+        <li>Kui paigalduse kaks poodi on ühendatud samasse Campaign Intelligence'i poodi, nende kohta nimekirja ei saadeta: kustutatud toode või laoseisu muutus jõuab Campaign Intelligence'i alles toote järgmise muudatusega.</li>
         <li>Kui nimekirja pole kolm ööd saadetud, ütleb töölaud <strong>Vajab tähelepanu</strong>.</li>
       </ul>
     </div>
@@ -1479,7 +1479,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         </table>
       </div>
       <p><strong>Details</strong> shows the attempts, what happens next, the last error, the data that was sent and the last answer of Smaily or Campaign Intelligence. Passwords and API keys are never stored or shown; contact data is shown in full so you can debug a delivery — treat it as personal data. Sent and skipped rows are kept for 30 days, failed rows for 90 days. Contact imports stay in the list.</p>
-      <p><strong>Details</strong> opens beside the list as <strong>Delivery details</strong>; the row's heading and its buttons stay in place while you scroll. Where the installation has more than one Campaign Intelligence connection, a row to Campaign Intelligence names its <strong>Campaign Intelligence store</strong>. A row that waits while Campaign Intelligence does not accept the account reads <em>Waiting for your Campaign Intelligence account to be active again; this row is sent then.</em> The Log shows times as your back-office language writes a date.</p>
+      <p><strong>Details</strong> opens beside the list as <strong>Delivery details</strong>; the row's heading and its buttons stay in place while you scroll. Where the installation has more than one Campaign Intelligence connection, a row to Campaign Intelligence names its <strong>Campaign Intelligence store</strong>. A row that waits while Campaign Intelligence does not accept the account reads <em>Waiting for your Campaign Intelligence account to be active again; this row is sent then.</em> The Log and the Dashboard show times as your back-office language writes a date.</p>
     </div>
     <div data-lang="et">
       <p>Iga saadetis on üks rida, uusimad eespool: kontaktide sünkroonimised, automaatikate päästikud ja kontaktide impordid Smailysse ning tooted, kliendid, tellimused ja impordid Campaign Intelligence'i — veerg <strong>Allikas</strong> eristab neid. <strong>Viimane viga</strong> näitab viga mooduli enda sõnadega, sinu halduse keeles: HTTP olekut ja Smaily või Campaign Intelligence'i veakoodi, mitte kunagi nende vastuse teksti. Filtreeri loendit veerupäiste all allika, tüübi, kirje, oleku, viimase vea ning rea loomise või uuendamise päevade järgi ja klõpsa siis <strong>Otsi</strong> (<strong>Search</strong>). Mitme poega paigalduses näitab loend päises valitud poode.</p>
@@ -1497,7 +1497,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         </table>
       </div>
       <p><strong>Üksikasjad</strong> näitab katseid, mis edasi saab, viimast viga, saadetud andmeid ning Smaily või Campaign Intelligence'i viimast vastust. Paroole ja API võtmeid ei salvestata ega näidata kunagi; kontakti andmed on näha täielikult, et saaksid saadetist siluda — käsitle neid isikuandmetena. Saadetud ja vahele jäetud read säilivad 30 päeva, ebaõnnestunud read 90 päeva. Kontaktide impordid jäävad loendisse.</p>
-      <p><strong>Üksikasjad</strong> avaneb loendi kõrval paneelina <strong>Saatmise üksikasjad</strong>; rea päis ja selle nupud jäävad kerimisel paigale. Kui paigaldusel on rohkem kui üks Campaign Intelligence'i ühendus, nimetab Campaign Intelligence'i minev rida oma <strong>Campaign Intelligence'i poe</strong>. Rida, mis ootab, sest Campaign Intelligence kontot praegu vastu ei võta, ütleb <em>Ootab, kuni Sinu Campaign Intelligence'i konto on taas aktiivne; rida saadetakse siis.</em> Logi näitab aegu nii, nagu sinu halduse keel kuupäeva kirjutab.</p>
+      <p><strong>Üksikasjad</strong> avaneb loendi kõrval paneelina <strong>Saatmise üksikasjad</strong>; rea päis ja selle nupud jäävad kerimisel paigale. Kui paigaldusel on rohkem kui üks Campaign Intelligence'i ühendus, nimetab Campaign Intelligence'i minev rida oma <strong>Campaign Intelligence'i poe</strong>. Rida, mis ootab, sest Campaign Intelligence kontot praegu vastu ei võta, ütleb <em>Ootab, kuni Sinu Campaign Intelligence'i konto on taas aktiivne; rida saadetakse siis.</em> Logi ja töölaud näitavad aegu nii, nagu sinu halduse keel kuupäeva kirjutab.</p>
     </div>
   </div>
 
@@ -1664,13 +1664,14 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td><strong>All systems normal</strong></td><td>Deliveries flow normally.</td><td>Nothing.</td></tr>
             <tr><td><strong>Setup incomplete</strong></td><td>The initial setup is not finished.</td><td><strong>Resume setup</strong>.</td></tr>
             <tr><td><strong>Not connected</strong></td><td>No Smaily account is saved, or Smaily has not accepted it.</td><td><strong>Open Connection settings</strong> and press <strong>Test connection</strong>.</td></tr>
+            <tr><td><strong>Not connected</strong> — "Smaily is refusing every request because this account's package does not include API access. …"</td><td>Smaily's last answer was that the account's package has no API access. The Smaily card reads <strong>Package does not include API access</strong>.</td><td>Move the account to a package that includes API access, then press <strong>Test connection</strong>. Waiting does not help.</td></tr>
             <tr><td>"Background tasks are not running; add the cron line." · "Tasks run only when visitors come; add the cron line."</td><td>No cron line runs the background tasks.</td><td>See <a href="#bg-cron">Adding the cron line</a>.</td></tr>
             <tr><td><strong>Needs attention</strong> — deliveries failed in the last 24 hours</td><td>Failed rows in the Log.</td><td><strong>Review failures</strong>.</td></tr>
             <tr><td><strong>Needs attention</strong> — Campaign Intelligence is currently unreachable</td><td>Data waits in the queue.</td><td>Nothing; it syncs when Campaign Intelligence recovers.</td></tr>
             <tr><td><strong>Needs attention</strong> — Campaign Intelligence stopped accepting data</td><td>The account is not active, or the key was rejected.</td><td>See <a href="#set-deactivated">A deactivated account</a> and <a href="#err-ci">Campaign Intelligence errors</a>.</td></tr>
             <tr><td><strong>Needs attention</strong> — no nightly product list for N nights</td><td>The list did not go out for three nights.</td><td>See <a href="#imp-nightly">The nightly product list</a>.</td></tr>
             <tr><td>"Smaily Connect: the upgrade left notices for you."</td><td>The upgrade from 2.x changed something, or left something switched off, and says why.</td><td>Read each notice on the Smaily Connect pages and close it; it then goes away for every administrator. See <a href="#upgrading">Upgrading from 2.x</a>.</td></tr>
-            <tr><td>"The upgrade to Smaily Connect 3.0.0 is not finished"</td><td>The upgrade was interrupted. Smaily Connect stays paused and your previous settings stay in place.</td><td>Press <strong>Finish upgrade</strong>. It also finishes on its own with the next run of the cron URL.</td></tr>
+            <tr><td>"The upgrade to Smaily Connect 3.0.0 is not finished"</td><td>The upgrade was interrupted. Smaily Connect stays paused and your previous settings stay in place. The Dashboard shows no verdict line until the upgrade is finished.</td><td>Press <strong>Finish upgrade</strong>. It also finishes on its own with the next run of the cron URL.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1684,13 +1685,14 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td><strong>Kõik toimib normaalselt</strong></td><td>Saadetised liiguvad tavapäraselt.</td><td>Mitte midagi.</td></tr>
             <tr><td><strong>Seadistus on pooleli</strong></td><td>Algseadistus pole lõpetatud.</td><td><strong>Jätka seadistamist</strong>.</td></tr>
             <tr><td><strong>Pole ühendatud</strong></td><td>Smaily kontot pole salvestatud või Smaily pole seda vastu võtnud.</td><td><strong>Ava ühenduse seaded</strong> ja vajuta <strong>Testi ühendust</strong>.</td></tr>
+            <tr><td><strong>Pole ühendatud</strong> — „Smaily keeldub igast päringust, sest selle konto pakett ei sisalda API-ligipääsu. …“</td><td>Smaily viimane vastus oli, et konto paketis pole API-ligipääsu. Smaily kaart ütleb <strong>Pakett ei sisalda API-ligipääsu</strong>.</td><td>Vii konto paketile, mis sisaldab API-ligipääsu, ja vajuta siis <strong>Testi ühendust</strong>. Ootamine ei aita.</td></tr>
             <tr><td>„Taustatööd ei tööta; lisa cron-rida.“ · „Taustatööd käivituvad ainult siis, kui poodi külastatakse; lisa cron-rida.“</td><td>Ükski cron-rida taustatöid ei käivita.</td><td>Vt <a href="#bg-cron">Cron-rea lisamine</a>.</td></tr>
             <tr><td><strong>Vajab tähelepanu</strong> — viimase 24 tunni jooksul ebaõnnestus saadetisi</td><td>Logis on ebaõnnestunud ridu.</td><td><strong>Vaata ebaõnnestumised üle</strong>.</td></tr>
             <tr><td><strong>Vajab tähelepanu</strong> — Campaign Intelligence on hetkel kättesaamatu</td><td>Andmed ootavad järjekorras.</td><td>Mitte midagi; need sünkroonitakse, kui Campaign Intelligence taastub.</td></tr>
             <tr><td><strong>Vajab tähelepanu</strong> — Campaign Intelligence ei võta enam andmeid vastu</td><td>Konto ei ole aktiivne või võti lükati tagasi.</td><td>Vt <a href="#set-deactivated">Deaktiveeritud konto</a> ja <a href="#err-ci">Campaign Intelligence'i vead</a>.</td></tr>
             <tr><td><strong>Vajab tähelepanu</strong> — öist tootenimekirja pole N ööd saadetud</td><td>Nimekiri pole kolm ööd välja läinud.</td><td>Vt <a href="#imp-nightly">Öine tootenimekiri</a>.</td></tr>
             <tr><td>„Smaily Connect: uuendus jättis sulle teateid.“</td><td>Uuendamine versioonilt 2.x muutis midagi või jättis midagi välja lülitatuks ja ütleb, miks.</td><td>Loe iga teadet Smaily Connecti lehtedel ja sulge see; seejärel kaob see kõigi administraatorite eest. Vt <a href="#upgrading">Uuendamine versioonilt 2.x</a>.</td></tr>
-            <tr><td>„Uuendus versioonile Smaily Connect 3.0.0 on lõpetamata“</td><td>Uuendamine katkes. Smaily Connect on peatatud ja sinu senised seaded jäävad paika.</td><td>Vajuta <strong>Vii uuendus lõpule</strong>. Uuendus jõuab lõpule ka ise, kui cron-URL järgmine kord käivitub.</td></tr>
+            <tr><td>„Uuendus versioonile Smaily Connect 3.0.0 on lõpetamata“</td><td>Uuendamine katkes. Smaily Connect on peatatud ja sinu senised seaded jäävad paika. Töölaud ei näita hinnangu rida enne, kui uuendus on lõpule jõudnud.</td><td>Vajuta <strong>Vii uuendus lõpule</strong>. Uuendus jõuab lõpule ka ise, kui cron-URL järgmine kord käivitub.</td></tr>
           </tbody>
         </table>
       </div>

@@ -29,17 +29,22 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupProgress;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogStatus;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 
 /**
  * Reads the facts that DashboardView words, from stored state only: the configuration that the
- * request loaded, the account table, the two queues, the job table and, through EngineFacts, the
- * connection table. It writes nothing and calls no outside service. While the upgrade is not
+ * request loaded (with how Smaily last answered each account, Report\ConnectionHealth), the account
+ * table, the two queues, the job table and, through EngineFacts, the connection table. It writes
+ * nothing and calls no outside service. While the upgrade is not
  * finished it reads no table of the module, which may not exist yet.
  */
 final class DashboardFacts
@@ -63,6 +68,10 @@ final class DashboardFacts
 
     private EngineFacts $engine;
 
+    private AdminSettings $admin;
+
+    private ConnectionHealth $health;
+
     public function __construct(
         DashboardQueries $queries,
         ContactsSettings $contacts,
@@ -70,7 +79,9 @@ final class DashboardFacts
         AccountResolver $resolver,
         AccountStore $accounts,
         TickSettings $ticks,
-        EngineFacts $engine
+        EngineFacts $engine,
+        AdminSettings $admin,
+        ConnectionHealth $health
     ) {
         $this->queries = $queries;
         $this->contacts = $contacts;
@@ -79,6 +90,8 @@ final class DashboardFacts
         $this->accounts = $accounts;
         $this->ticks = $ticks;
         $this->engine = $engine;
+        $this->admin = $admin;
+        $this->health = $health;
     }
 
     /**
@@ -92,6 +105,7 @@ final class DashboardFacts
     {
         $facts = [
             'upgrade' => $upgrade,
+            'setup_complete' => (new SetupProgress($this->admin, $this->accounts, $this->contacts))->isComplete(),
             'all_shops' => $multishop && $idShop === 0,
             'separate_stores' => $this->layout->separateStores(),
             'account' => null,
@@ -115,7 +129,11 @@ final class DashboardFacts
         $account = $this->resolver->for($idShop, '');
 
         return [
-            'account' => $account === null ? null : ['subdomain' => $account->subdomain(), 'connected' => $account->hasCredentials()],
+            'account' => $account === null ? null : [
+                'subdomain' => $account->subdomain(),
+                'connected' => $account->hasCredentials(),
+                'plan_blocked' => $this->health->smaily($account->subdomain())['last_error_code'] === ConnectionHealth::PLAN_BLOCKED,
+            ],
             'any_account' => ($account !== null && $account->hasCredentials()) || $this->anyAccount(),
             // The setup of the Intelligence tab: no one shop's while "All shops" of separate stores shows.
             'engine' => $this->engine->collect($facts['separate_stores'] && $multishop ? ($idShop > 0 ? $idShop : null) : 0, $now),
@@ -140,7 +158,8 @@ final class DashboardFacts
 
     /**
      * The newest rows of the two queues and the newest import jobs together, newest change first.
-     * `source` says where a row goes, as the Log says it (Log\LogRows).
+     * `source` says where a row goes, and `status` what a queue row shows, as the Log says them
+     * (Log\LogRows, Log\LogStatus).
      *
      * @return list<array<string, mixed>>
      */
@@ -153,7 +172,7 @@ final class DashboardFacts
                 'source' => LogRows::sourceOf(LogRows::SMAILY, (string) $row['event_type']),
                 'type' => (string) $row['event_type'],
                 'entity' => EntityLabel::forDisplay($row['entity_id']),
-                'status' => (string) $row['status'],
+                'status' => LogStatus::ofQueueRow((string) $row['status'], (string) $row['event_type'], $row['last_error']),
                 'updated_at' => self::unixTime((string) $row['updated_at']),
             ];
         }
@@ -163,7 +182,7 @@ final class DashboardFacts
                 'source' => LogRows::INTELLIGENCE,
                 'type' => (string) $row['domain'],
                 'entity' => EntityLabel::forDisplay($row['entity_key']),
-                'status' => (string) $row['status'],
+                'status' => LogStatus::ofQueueRow((string) $row['status'], (string) $row['domain'], null),
                 'updated_at' => self::unixTime((string) $row['updated_at']),
             ];
         }

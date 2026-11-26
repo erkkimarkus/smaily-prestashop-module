@@ -350,6 +350,33 @@
   font-weight: 600;
 }
 
+/* Magento's connection card: the status dot in a column of its own beside the label, the
+ * sub-line and the pill; green while the card is on, grey otherwise. */
+.smaily-ui .smaily-connection {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.smaily-ui .smaily-connection__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.smaily-ui .smaily-connection .smaily-dot {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  background: #c9c9c9;
+  border-radius: 50%;
+}
+
+.smaily-ui .smaily-connection.is-on .smaily-dot {
+  background: var(--smaily-success);
+  box-shadow: 0 0 0 4px rgba(112, 181, 128, .13);
+}
+
 .smaily-ui .smaily-tile__label {
   display: block;
   font-size: 12px;
@@ -372,9 +399,29 @@
   list-style: none;
 }
 
+/* Magento's arrows: after "View full log", and each Quick link ends in a column of its own. */
+.smaily-ui .smaily-activity .smaily-card__head a::after {
+  content: " \2192";
+}
+
 .smaily-ui .smaily-quick-links li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-quick-links li > * {
+  grid-column: 1;
+}
+
+.smaily-ui .smaily-quick-links li::after {
+  content: "\2192";
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  color: #c9c9c9;
 }
 
 .smaily-ui .smaily-quick-links li:last-child {

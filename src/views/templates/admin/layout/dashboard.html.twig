@@ -23,7 +23,8 @@
 {#
  # The Dashboard frame, top to bottom as the sibling connectors draw it: the invitation to a store
  # with no Smaily account, the invitation to Campaign Intelligence, the status banner, the
- # connection cards, the metric tiles, Recent activity beside Quick links, and the version line.
+ # connection cards (each with Magento's green or grey dot in a column of its own), the metric
+ # tiles, Recent activity beside Quick links, and the version line.
  #
  # Each block draws its content from one template in dashboard/ that the Dashboard Story adds; a
  # missing template leaves the block empty. A page template that extends this one may also
@@ -36,6 +37,7 @@
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 
 {% set dashboard = '@Modules/smailyforprestashop/views/templates/admin/dashboard/' %}
+{% set cards = smaily_dashboard.connections|default({}) %}
 
 {% block javascripts %}
   {{ parent() }}
@@ -60,23 +62,35 @@
     </div>
 
     <div class="smaily-connections">
-      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-smaily">
-        <div class="smaily-connection__label">{{ 'Smaily'|trans }}</div>
-        {% block smaily_dashboard_connection_smaily %}{% include dashboard ~ 'connection-smaily.html.twig' ignore missing %}{% endblock %}
-      </div>
-      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-intelligence">
-        <div class="smaily-connection__label">
-          {% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 18} %}{{ 'Campaign Intelligence'|trans }}
+      <div class="smaily-card smaily-connection {{ cards.smaily.on|default(false) ? 'is-on' : 'is-off' }}" data-smaily-slot="dashboard/connection-smaily">
+        <span class="smaily-dot" aria-hidden="true"></span>
+        <div class="smaily-connection__body">
+          <div class="smaily-connection__label">{{ 'Smaily'|trans }}</div>
+          {% block smaily_dashboard_connection_smaily %}{% include dashboard ~ 'connection-smaily.html.twig' ignore missing %}{% endblock %}
         </div>
-        {% block smaily_dashboard_connection_intelligence %}{% include dashboard ~ 'connection-intelligence.html.twig' ignore missing %}{% endblock %}
       </div>
-      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-tracking">
-        <div class="smaily-connection__label">{{ 'Browse tracking'|trans }}</div>
-        {% block smaily_dashboard_connection_tracking %}{% include dashboard ~ 'connection-tracking.html.twig' ignore missing %}{% endblock %}
+      <div class="smaily-card smaily-connection {{ cards.intelligence.on|default(false) ? 'is-on' : 'is-off' }}" data-smaily-slot="dashboard/connection-intelligence">
+        <span class="smaily-dot" aria-hidden="true"></span>
+        <div class="smaily-connection__body">
+          <div class="smaily-connection__label">
+            {% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 18} %}{{ 'Campaign Intelligence'|trans }}
+          </div>
+          {% block smaily_dashboard_connection_intelligence %}{% include dashboard ~ 'connection-intelligence.html.twig' ignore missing %}{% endblock %}
+        </div>
       </div>
-      <div class="smaily-card smaily-connection" data-smaily-slot="dashboard/connection-background">
-        <div class="smaily-connection__label">{{ 'Background tasks'|trans }}</div>
-        {% block smaily_dashboard_connection_background %}{% include dashboard ~ 'connection-background.html.twig' ignore missing %}{% endblock %}
+      <div class="smaily-card smaily-connection {{ cards.tracking.on|default(false) ? 'is-on' : 'is-off' }}" data-smaily-slot="dashboard/connection-tracking">
+        <span class="smaily-dot" aria-hidden="true"></span>
+        <div class="smaily-connection__body">
+          <div class="smaily-connection__label">{{ 'Browse tracking'|trans }}</div>
+          {% block smaily_dashboard_connection_tracking %}{% include dashboard ~ 'connection-tracking.html.twig' ignore missing %}{% endblock %}
+        </div>
+      </div>
+      <div class="smaily-card smaily-connection {{ cards.background.on|default(false) ? 'is-on' : 'is-off' }}" data-smaily-slot="dashboard/connection-background">
+        <span class="smaily-dot" aria-hidden="true"></span>
+        <div class="smaily-connection__body">
+          <div class="smaily-connection__label">{{ 'Background tasks'|trans }}</div>
+          {% block smaily_dashboard_connection_background %}{% include dashboard ~ 'connection-background.html.twig' ignore missing %}{% endblock %}
+        </div>
       </div>
     </div>
 

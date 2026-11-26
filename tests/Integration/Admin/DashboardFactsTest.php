@@ -7,8 +7,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\BackgroundTasks;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardFacts;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardQueries;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\EngineFacts;
+use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\AbandonedCartHandler;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\ReportSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
@@ -20,6 +23,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CatalogPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -75,7 +79,7 @@ final class DashboardFactsTest extends IntegrationTestCase
 
         $facts = $this->collect();
 
-        self::assertSame(['count' => 2, 'more' => false], $facts['contact_syncs']);
+        self::assertSame(2, $facts['contact_syncs'], 'every contact sync delivered in 30 days, as Magento counts them');
         self::assertSame(2, $facts['queued_today']);
         self::assertSame(1, $facts['failed_24h']);
     }
@@ -119,6 +123,21 @@ final class DashboardFactsTest extends IntegrationTestCase
         self::assertGreaterThanOrEqual($activity[3]['updated_at'], $activity[2]['updated_at']);
     }
 
+    public function testRecentActivityShowsAQueueRowsStatusAsTheLogShowsIt(): void
+    {
+        $withdrawn = $this->row(AbandonedCartHandler::EVENT_TYPE, 'skipped', 0, 30);
+        self::db()->execute(sprintf(
+            'UPDATE `%ssmaily_connect_event_queue` SET `last_error` = \'%s\' WHERE `id` = %d',
+            _DB_PREFIX_,
+            pSQL(AbandonedCartHandler::SKIPPED_ORDERED),
+            $withdrawn
+        ));
+        $this->row(AbandonedCartHandler::EVENT_TYPE, 'skipped', 0, 20);
+        $this->row('contact.sync', 'processing', 0, 10);
+
+        self::assertSame(['sending', 'skipped', 'withdrawn'], array_column($this->collect()['activity'], 'status'));
+    }
+
     public function testRecentActivityNamesCampaignIntelligenceForWhatGoesToTheEngine(): void
     {
         $connection = $this->connection(0);
@@ -146,7 +165,7 @@ final class DashboardFactsTest extends IntegrationTestCase
     public function testWithoutAConnectionNothingIsSaidOfCampaignIntelligence(): void
     {
         self::assertSame(
-            ['per_shop' => false, 'connected' => false, 'name' => '', 'state' => '', 'unreachable' => false, 'consent' => false, 'catalog_items' => null, 'shared_store' => false, 'unsent_nights' => 0],
+            ['per_shop' => false, 'connected' => false, 'name' => '', 'state' => '', 'unreachable' => false, 'consent' => false, 'catalog_items' => null, 'unsent_nights' => 0],
             $this->collect()['engine']
         );
         self::assertNull($this->collect('pending')['engine'], 'the connection table is not read during the upgrade');
@@ -222,11 +241,9 @@ final class DashboardFactsTest extends IntegrationTestCase
 
         $all = $this->collect(null, 0, true)['engine'];
         self::assertSame([true, false, '', ['count' => 2, 'more' => false]], [$all['per_shop'], $all['connected'], $all['name'], $all['catalog_items']]);
-        self::assertTrue($all['shared_store'], 'the two connections hold one engine store without a prefix');
 
         $one = $this->collect(null, 1, true)['engine'];
         self::assertSame([false, true, 'Demo Store', ['count' => 1, 'more' => false]], [$one['per_shop'], $one['connected'], $one['name'], $one['catalog_items']]);
-        self::assertTrue($one['shared_store']);
 
         self::assertFalse($this->collect(null, 1, false)['engine']['connected'], 'with multishop off the one store reads the connection of all shops');
     }
@@ -275,7 +292,7 @@ final class DashboardFactsTest extends IntegrationTestCase
 
         $this->accounts()->save(new Account(0, '', 'demo', 'api-user', 'not-a-real-password'));
         $facts = $this->collect();
-        self::assertSame(['subdomain' => 'demo', 'connected' => true], $facts['account']);
+        self::assertSame(['subdomain' => 'demo', 'connected' => true, 'plan_blocked' => false], $facts['account']);
         self::assertStringNotContainsString('api-user', (string) json_encode($facts));
         self::assertStringNotContainsString('not-a-real-password', (string) json_encode($facts));
     }
@@ -286,8 +303,37 @@ final class DashboardFactsTest extends IntegrationTestCase
 
         $facts = $this->collect();
 
-        self::assertSame(['subdomain' => 'demo', 'connected' => false], $facts['account']);
+        self::assertSame(['subdomain' => 'demo', 'connected' => false, 'plan_blocked' => false], $facts['account']);
         self::assertFalse($facts['any_account']);
+    }
+
+    public function testAnAccountWhosePackageHasNoApiAccessIsSaidSo(): void
+    {
+        $this->accounts()->save(new Account(0, '', 'demo', 'api-user', 'not-a-real-password'));
+        $health = Services::instance()->get(ConnectionHealth::class);
+        $before = \Configuration::getGlobalValue(ReportSettings::HEALTH);
+        try {
+            $health->recordSmaily('demo', ConnectionHealth::PLAN_BLOCKED, false);
+            self::assertTrue($this->collect()['account']['plan_blocked'], 'Smaily answered code 227');
+
+            $health->recordSmaily('demo', '', false);
+            self::assertFalse($this->collect()['account']['plan_blocked'], 'a later answer that is not a refusal');
+        } finally {
+            $before === false ? \Configuration::deleteByName(ReportSettings::HEALTH) : \Configuration::updateGlobalValue(ReportSettings::HEALTH, $before);
+        }
+    }
+
+    public function testTheSetupIsCompleteOnceFinishedOrUpgraded(): void
+    {
+        $before = \Configuration::getGlobalValue(AdminSettings::SETUP_STATE);
+        try {
+            foreach ([AdminSettings::SETUP_NEW => false, AdminSettings::SETUP_DONE => true, AdminSettings::SETUP_UPGRADED => true] as $state => $complete) {
+                \Configuration::updateGlobalValue(AdminSettings::SETUP_STATE, $state);
+                self::assertSame($complete, $this->collect()['setup_complete'], $state);
+            }
+        } finally {
+            $before === false ? \Configuration::deleteByName(AdminSettings::SETUP_STATE) : \Configuration::updateGlobalValue(AdminSettings::SETUP_STATE, $before);
+        }
     }
 
     public function testContactSyncReadsItsSwitchAndItsConfirmation(): void
@@ -354,8 +400,8 @@ final class DashboardFactsTest extends IntegrationTestCase
         $this->collect();
 
         // Three counts, the newest rows of the two queues, the newest jobs, the selected shop's
-        // account and the stored connections.
-        self::assertSame(8, self::questions() - $before - 1);
+        // account, how Smaily last answered it and the stored connections.
+        self::assertSame(9, self::questions() - $before - 1);
     }
 
     /**
@@ -378,7 +424,9 @@ final class DashboardFactsTest extends IntegrationTestCase
                 new EngineSettings(),
                 new CatalogManifest($connections, new IngestQueue(), $services->get(Client::class), $services->get(CatalogPayloadBuilder::class), fn (): int => $this->now),
                 $queries
-            )
+            ),
+            new AdminSettings(),
+            $services->get(ConnectionHealth::class)
         );
 
         return $facts->collect($upgrade, $idShop, $multishop, true, true, $this->now);

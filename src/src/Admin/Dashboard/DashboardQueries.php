@@ -40,8 +40,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  * each statement bounded by an index or by a row limit, so the page stays fast on a queue of a
  * million rows. The queue classes have no such reads; a later clean-up can move them there.
  *
- * - contactSyncs(), catalogItems(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one
- *   pass.
+ * - contactSyncs(): `status` = sent, through the index (`status`, `next_retry_at`): the sent rows,
+ *   which the queue keeps 30 days (Scheduler\QueueJanitor), counted exactly, as Magento counts them.
+ * - catalogItems(): the newest SYNC_SCAN_ROWS rows by primary key, counted in one pass.
  * - queuedToday(): `status` = pending and `created_at` from midnight UTC, in both queues; the
  *   index on the status or (`created_at`), whichever the optimizer finds narrower.
  * - failedSince(): `status` = failed, in both queues, through the index (`status`,
@@ -51,7 +52,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
  */
 final class DashboardQueries
 {
-    /** contactSyncs() and catalogItems() read at most this many of the newest rows of their queue. */
+    /** catalogItems() reads at most this many of the newest rows of its queue. */
     public const SYNC_SCAN_ROWS = 50000;
 
     private const DAY = 86400;
@@ -66,20 +67,23 @@ final class DashboardQueries
     ];
 
     /**
-     * The contact syncs that reached Smaily in the 30 days before $now. `more` is true when the
-     * newest SYNC_SCAN_ROWS rows were all younger than 30 days: older ones were not read, so the
-     * count is a lower bound.
-     *
-     * @return array{count: int, more: bool}
+     * The contact syncs that reached Smaily in the 30 days before $now, every one of them.
      */
-    public function contactSyncs(int $now): array
+    public function contactSyncs(int $now): int
     {
-        return self::delivered(EventQueue::TABLE, '`event_type`', 't.`event_type` = ' . self::quote(ContactSyncHandler::EVENT_TYPE), $now);
+        return Sql::count(sprintf(
+            'SELECT COUNT(*) FROM %s WHERE `status` = %s AND `event_type` = %s AND `sent_at` >= %s',
+            self::table(EventQueue::TABLE),
+            self::quote(EventQueue::STATUS_SENT),
+            self::quote(ContactSyncHandler::EVENT_TYPE),
+            self::time($now - 30 * self::DAY)
+        ));
     }
 
     /**
      * The catalog rows that reached Campaign Intelligence over the given connections in the 30
-     * days before $now, counted as contactSyncs() counts.
+     * days before $now. `more` is true when the newest SYNC_SCAN_ROWS rows were all younger than 30
+     * days: older ones were not read, so the count is a lower bound.
      *
      * @param list<int> $connections the ids of the connections
      *
@@ -166,14 +170,15 @@ final class DashboardQueries
     }
 
     /**
-     * The newest queue rows, newest first: no payload, no request, no error text.
+     * The newest queue rows, newest first: no payload and no request; the stored error only to
+     * tell a withdrawn reminder (Log\LogStatus), never shown.
      *
-     * @return list<array{event_type: string, entity_id: string|null, status: string, updated_at: string}>
+     * @return list<array{event_type: string, entity_id: string|null, status: string, last_error: string|null, updated_at: string}>
      */
     public function latestRows(int $limit): array
     {
         return self::rows(sprintf(
-            'SELECT `event_type`, `entity_id`, `status`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
+            'SELECT `event_type`, `entity_id`, `status`, `last_error`, `updated_at` FROM %s ORDER BY `id` DESC LIMIT %d',
             self::table(EventQueue::TABLE),
             $limit
         ));

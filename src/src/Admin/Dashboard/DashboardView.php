@@ -29,9 +29,12 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogView;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogStatus;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 
 /**
@@ -40,30 +43,33 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
  * them (connect-magento: view/adminhtml/templates/dashboard/index.phtml, DashboardData), "website"
  * read as "shop".
  *
- * One verdict names the most important problem, in this order: the upgrade is not finished (the
- * shell's banner above offers "Finish upgrade"); contact sync is on but not confirmed (Magento's
- * "Setup incomplete"); no Smaily account with credentials (Magento's "Not connected"); no tick for
- * BackgroundTasks::STOPPED_SECONDS; Campaign Intelligence refuses the connection; failed rows in
- * the last 24 hours; Campaign Intelligence does not answer; no nightly product list for
- * UNSENT_PRODUCT_LIST_NIGHTS nights; two connections of the installation share one engine store,
- * so neither sends that list (ARCHITECTURE 5.3; only PrestaShop has this case); else all is well.
+ * One verdict names the most important problem, in this order: the upgrade is not finished (no
+ * verdict shows: the shell's banner above says so and offers "Finish upgrade"); the Initial setup
+ * is not finished, or contact sync is on but not confirmed (Magento's "Setup incomplete"); no
+ * Smaily account with credentials, or Smaily's last answer was that the account's package has no
+ * API access (Magento's "Not connected"); no tick for BackgroundTasks::STOPPED_SECONDS; Campaign
+ * Intelligence refuses the connection; failed rows in the last 24 hours; Campaign Intelligence does
+ * not answer; no nightly product list for UNSENT_PRODUCT_LIST_NIGHTS nights; else all is well.
  *
  * The facts:
  * - upgrade: null, or `pending` / `failed` while the migration is not finished;
+ * - setup_complete: the Initial setup was finished, or the store was upgraded with its settings
+ *   (Admin\Setup\SetupProgress::isComplete());
  * - all_shops: multishop is on and PrestaShop's shop selector is on "All shops";
  * - separate_stores: the shops are separate stores, so no shop uses the account saved for all shops;
- * - account: the Smaily account of the selected scope, `subdomain` and `connected` (it has
- *   credentials), or null;
+ * - account: the Smaily account of the selected scope, `subdomain`, `connected` (it has
+ *   credentials) and `plan_blocked` (Smaily's last answer to it was code 227, the package has no
+ *   API access; Report\ConnectionHealth), or null;
  * - any_account: some shop or the whole store has an account with credentials;
  * - contacts_enabled, contacts_confirmed: the selected scope's contact sync switch and confirmation;
  * - tick (TickState), now (Unix time);
  * - engine: what EngineFacts::collect() reads of Campaign Intelligence for the selected setup; null
  *   while the upgrade keeps the tables unread;
- * - contact_syncs: `count` and `more` (the count stopped at its bound), queued_today, failed_24h:
- *   null while the upgrade keeps the queue unread;
+ * - contact_syncs, queued_today, failed_24h: null while the upgrade keeps the queue unread;
  * - activity: the latest rows, newest first: `kind` (`queue` or `job`), `source` (Log\LogRows:
- *   Smaily or Campaign Intelligence), `type`, `status`, `updated_at` (Unix time), and `entity`
- *   (already an EntityLabel) or `total` (what a job counts);
+ *   Smaily or Campaign Intelligence), `type`, `status` (a queue row's as the Log shows it,
+ *   Log\LogStatus), `updated_at` (Unix time), and `entity` (already an EntityLabel) or `total`
+ *   (what a job counts);
  * - can_configure: the employee may change the settings (the cron line is theirs to see);
  *   can_open_settings: the employee may open Settings (the invitation is theirs to act on).
  */
@@ -85,8 +91,6 @@ final class DashboardView
 
     public const VERDICT_NO_PRODUCT_LIST = 'no_product_list';
 
-    public const VERDICT_SHARED_ENGINE_STORE = 'shared_engine_store';
-
     public const VERDICT_OK = 'ok';
 
     /** Nights in a row without a nightly product list before the Dashboard says so (as Magento). */
@@ -98,22 +102,19 @@ final class DashboardView
 
     private const LOG_FAILED = ['status' => 'failed'];
 
-    /** The pill of each queue status, as Magento's Log draws it (StatusPill), and of each job status. */
-    private const PILLS = [
-        'queue' => ['pending' => 'pending', 'processing' => 'pending', 'sent' => 'sent', 'failed' => 'failed'],
-        'job' => ['queued' => 'pending', 'running' => 'pending', 'done' => 'sent', 'failed' => 'failed'],
-    ];
-
     /** @var callable(string, array<string, string|int>=): string */
     private $translate;
+
+    private AdminTime $time;
 
     /**
      * @param callable(string, array<string, string|int>=): string $translate the admin's translation
      *                                                                        of an EN string
      */
-    public function __construct(callable $translate)
+    public function __construct(callable $translate, ?AdminTime $time = null)
     {
         $this->translate = $translate;
+        $this->time = $time ?? new AdminTime();
     }
 
     /**
@@ -133,7 +134,8 @@ final class DashboardView
             // To an admin who may open Settings.
             'intelligence_invitation' => AdminSettings::invitesToIntelligence($engine === null || $engine['per_shop'] ? null : (bool) $engine['connected'], (bool) ($facts['account']['connected'] ?? false))
                 && $facts['can_open_settings'],
-            'verdict' => $this->verdict($verdict, $facts),
+            // While the upgrade is not finished the shell's banner says so, and no verdict repeats it.
+            'verdict' => $verdict === self::VERDICT_UPGRADE ? null : $this->verdict($verdict, $facts),
             'failed_banner' => $failed > 0 && !in_array($verdict, [self::VERDICT_UPGRADE, self::VERDICT_INCOMPLETE, self::VERDICT_DISCONNECTED], true)
                 ? [
                     'title' => $failed === 1
@@ -164,10 +166,10 @@ final class DashboardView
         if ($facts['upgrade'] !== null) {
             return self::VERDICT_UPGRADE;
         }
-        if ($facts['contacts_enabled'] && !$facts['contacts_confirmed']) {
+        if (!$facts['setup_complete'] || ($facts['contacts_enabled'] && !$facts['contacts_confirmed'])) {
             return self::VERDICT_INCOMPLETE;
         }
-        if (self::perShop($facts) ? !$facts['any_account'] : !($facts['account']['connected'] ?? false)) {
+        if (self::perShop($facts) ? !$facts['any_account'] : !self::accountConnected($facts)) {
             return self::VERDICT_DISCONNECTED;
         }
         if ($background === BackgroundTasks::STOPPED) {
@@ -186,9 +188,6 @@ final class DashboardView
         if ($engine !== null && $engine['unsent_nights'] >= self::UNSENT_PRODUCT_LIST_NIGHTS) {
             return self::VERDICT_NO_PRODUCT_LIST;
         }
-        if ($engine !== null && $engine['shared_store']) {
-            return self::VERDICT_SHARED_ENGINE_STORE;
-        }
 
         return self::VERDICT_OK;
     }
@@ -202,12 +201,14 @@ final class DashboardView
     {
         $failed = (int) $facts['failed_24h'];
         switch ($state) {
-            case self::VERDICT_UPGRADE:
-                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect stays paused until the upgrade finishes.'), null);
             case self::VERDICT_INCOMPLETE:
                 return self::verdictOf($state, 'warning', $this->trans('Setup incomplete'), $this->trans('Setup is not finished yet — complete the initial setup to start syncing.'), $this->link($this->trans('Resume setup'), 'smailyforprestashop_setup'));
             case self::VERDICT_DISCONNECTED:
-                return self::verdictOf($state, 'danger', $this->trans('Not connected'), $this->trans('The Smaily credentials are missing or Smaily has not accepted them — check them in Settings > Connection and test the connection.'), $this->link($this->trans('Open Connection settings'), self::SETTINGS, ['tab' => 'connection']));
+                $text = ($facts['account']['plan_blocked'] ?? false) && !self::perShop($facts)
+                    ? $this->trans('Smaily is refusing every request because this account\'s package does not include API access. Contact sync and email automations stay stopped until the account is on a package that includes it — waiting will not restore them, and the credentials cannot be checked until then.')
+                    : $this->trans('The Smaily credentials are missing or Smaily has not accepted them — check them in Settings > Connection and test the connection.');
+
+                return self::verdictOf($state, 'danger', $this->trans('Not connected'), $text, $this->link($this->trans('Open Connection settings'), self::SETTINGS, ['tab' => 'connection']));
             case self::VERDICT_STOPPED:
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Background tasks are not running — nothing goes to Smaily until they run again.'), ['label' => $this->trans('Add the cron line'), 'route' => null, 'params' => [], 'anchor' => 'smaily-background', 'danger' => false]);
             case self::VERDICT_DEGRADED:
@@ -217,13 +218,11 @@ final class DashboardView
 
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $text, $this->link($this->trans('Review failures'), self::LOG, self::LOG_FAILED, true));
             case self::VERDICT_ENGINE_REFUSED:
-                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->refusal($facts['engine']['state']), $this->link($this->trans('Open Intelligence settings'), self::SETTINGS, ['tab' => 'intelligence']));
+                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->refusal($facts['engine']['state']), null);
             case self::VERDICT_ENGINE_UNREACHABLE:
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.'), null);
             case self::VERDICT_NO_PRODUCT_LIST:
                 return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Smaily Connect is running, but no nightly product list has gone to Campaign Intelligence for %count% nights.', ['%count%' => $facts['engine']['unsent_nights']]), null);
-            case self::VERDICT_SHARED_ENGINE_STORE:
-                return self::verdictOf($state, 'warning', $this->trans('Needs attention'), $this->trans('Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.'), null);
             default:
                 return self::verdictOf($state, 'success', $this->trans('All systems normal'), $this->trans('Everything is running — deliveries to Smaily are flowing normally.'), $this->link($this->trans('View full log'), self::LOG));
         }
@@ -240,14 +239,17 @@ final class DashboardView
             return self::card(false, $this->trans('Waits for the upgrade to finish'), 'off', $this->trans('Paused'));
         }
         $note = $facts['all_shops'] ? $this->trans('Saved for all shops') : null;
-        if ($facts['account']['connected'] ?? false) {
+        if (self::accountConnected($facts)) {
             return self::card(true, $this->trans('Connected (%subdomain%)', ['%subdomain%' => $facts['account']['subdomain']]), 'active', $this->trans('Connected'), $note);
         }
         if (self::perShop($facts) && $facts['any_account']) {
             return self::card(false, $this->trans('No Smaily account is saved for all shops, so each shop uses its own.'), 'off', $this->trans('Per shop'), $this->trans('Pick a shop in the shop selector to see its connection.'));
         }
 
-        return self::card(false, $this->trans('Credentials missing or invalid'), 'failed', $this->trans('Not connected'), $note);
+        // As Magento: a package without API access is not the credentials' fault.
+        $sub = ($facts['account']['plan_blocked'] ?? false) ? $this->trans('Package does not include API access') : $this->trans('Credentials missing or invalid');
+
+        return self::card(false, $sub, 'failed', $this->trans('Not connected'), $note);
     }
 
     /**
@@ -394,13 +396,12 @@ final class DashboardView
      */
     private function tiles(array $facts): array
     {
-        $syncs = $facts['contact_syncs'];
         $failed = $facts['failed_24h'];
         $catalog = $facts['engine']['catalog_items'] ?? null;
 
         return [
             'contact_syncs' => [
-                'value' => $syncs === null ? '—' : $syncs['count'] . ($syncs['more'] ? '+' : ''),
+                'value' => $facts['contact_syncs'] === null ? '—' : (string) $facts['contact_syncs'],
                 'caption' => $this->trans('delivered, last 30 days'),
             ],
             // As Magento, only with a Campaign Intelligence connection.
@@ -429,44 +430,21 @@ final class DashboardView
      */
     private function activityRow(array $row): array
     {
+        $status = (string) $row['status'];
+
         return [
             'source' => $row['source'] === LogRows::INTELLIGENCE ? $this->trans('Campaign Intelligence') : $this->trans('Smaily'),
             'type' => (string) $row['type'],
             'entity' => $row['kind'] === 'job'
                 ? EntityLabel::ofJob((string) $row['type'], (int) $row['total'], $this->translate)
                 : (string) $row['entity'],
+            // Label and pill as the Log shows the status, Withdrawn included (as Magento).
             'status' => [
-                'variant' => self::PILLS[$row['kind']][$row['status']] ?? 'neutral',
-                'label' => $this->statusLabel((string) $row['status']),
+                'variant' => LogStatus::pill($status),
+                'label' => (new LogView($this->translate))->statusLabel($status),
             ],
-            'updated' => date('Y-m-d H:i:s', (int) $row['updated_at']),
+            'updated' => $this->time->of((int) $row['updated_at']),
         ];
-    }
-
-    private function statusLabel(string $status): string
-    {
-        switch ($status) {
-            case 'pending':
-                return $this->trans('Pending');
-            case 'processing':
-                return $this->trans('Sending');
-            case 'sent':
-                return $this->trans('Sent');
-            case 'failed':
-                return $this->trans('Failed');
-            case 'skipped':
-                return $this->trans('Skipped');
-            case 'queued':
-                return $this->trans('Queued');
-            case 'running':
-                return $this->trans('Running');
-            case 'done':
-                return $this->trans('Done');
-            case 'cancelled':
-                return $this->trans('Cancelled');
-            default:
-                return $status;
-        }
     }
 
     /**
@@ -478,6 +456,17 @@ final class DashboardView
     private static function perShop(array $facts): bool
     {
         return $facts['all_shops'] && $facts['separate_stores'];
+    }
+
+    /**
+     * Whether the selected scope's Smaily account has credentials and Smaily's last answer to it was
+     * not that its package has no API access.
+     *
+     * @param array<string, mixed> $facts
+     */
+    private static function accountConnected(array $facts): bool
+    {
+        return ($facts['account']['connected'] ?? false) && !($facts['account']['plan_blocked'] ?? false);
     }
 
     /**

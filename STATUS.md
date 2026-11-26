@@ -19,6 +19,13 @@ _Last updated: 2026-11-26. Gauge 14/14._
   Connection says Connected as "<subdomain>". Host 2328 tests, 4121 assertions; JS 55; CS 0 of 365; PHP 8.0.30
   lint of 8 files. Fresh shops behind the guard: 2328 tests on 9.2.0 (12555) and 8.2.8 (12550), leftovers
   silent. Headless walk, two shops, EN and ET, Smaily mock: 45 of 45 checks on 9.2.0 and on 8.2.8.
+- 2026-11-26 (CON-445 part 1, Dashboard and Log against Magento, owner-approved): "Setup incomplete" also while the
+  Initial setup is unfinished; no verdict while the upgrade is unfinished; dots on the connection cards; Withdrawn,
+  the employee's date format and → in Recent activity and Quick links; Contact syncs counted exactly; the 227 sub-line;
+  no button on a refusal and no two-shops line (another CON-445 part puts it on Settings > Intelligence); the Log's intro box,
+  "Delivery details" with pinned header and foot, the engine store line and the account-wait line (ARCHITECTURE 10.2,
+  10.8, 10.12). Host 2333 tests, 4135 assertions; JS 55; CS 0 of 366. Fresh shops behind the guard: 2333 tests on
+  9.2.0 (12538) and 8.2.8 (12533). Headless walk on both, EN and ET.
 - 2026-11-26: the engine contract copy is v1.37.1 (CON-413; wording only). A reconnect already sends the stored
   `previous_prefix`, and `site_url` carries the shop's path. The privacy requests keep to the engine's one limit (10 a
   minute per engine store); a 429 waits as asked and spends no attempt (CON-433b, ARCHITECTURE 11.2).

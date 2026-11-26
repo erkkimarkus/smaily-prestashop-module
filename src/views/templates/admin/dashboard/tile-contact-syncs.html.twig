@@ -20,7 +20,7 @@
  * @copyright 2024 Smaily
  * @license   GPL3
  *#}
-{# Contact syncs delivered in the last 30 days; "+" when the count stopped at its bound (DashboardQueries). #}
+{# Contact syncs delivered in the last 30 days, every one of them (DashboardQueries::contactSyncs(), as Magento). #}
 {% if smaily_dashboard is defined %}
   {% set tile = smaily_dashboard.tiles.contact_syncs %}
   <span class="smaily-tile__value">{{ tile.value }}</span>

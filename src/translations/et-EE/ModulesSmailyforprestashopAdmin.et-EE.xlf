@@ -2047,11 +2047,6 @@
         <target>Smaily Connect on peatatud ja sinu senised seaded jäävad paika, kuni uuendus lõpule jõuab. Uuendus jõuab lõpule ka ise, kui cron-URL järgmine kord käivitub.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="d14e41916405797506704dd8c2666d1f">
-        <source>Smaily Connect stays paused until the upgrade finishes.</source>
-        <target>Smaily Connect on peatatud, kuni uuendus lõpule jõuab.</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="d21067d49dcdd0cf6c1516ba7fa04bac">
         <source>Smaily Connect upgrade</source>
         <target>Smaily Connecti uuendus</target>
@@ -3342,11 +3337,6 @@
         <target>Skript on poes aktiivne</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="239dd57eca0d15845e7ff686e9fe1e9f">
-        <source>Open Intelligence settings</source>
-        <target>Ava Intelligence'i seaded</target>
-        <note>Line: </note>
-      </trans-unit>
       <trans-unit id="bcf68baa47bdbd183c6c274da3691deb">
         <source>Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.</source>
         <target>Smaily Connect töötab, kuid Campaign Intelligence on hetkel kättesaamatu — andmed on kohalikus järjekorras ja sünkroonitakse, kui ühendus taastub.</target>
@@ -3700,6 +3690,16 @@
       <trans-unit id="8a41eb3e83391a848062221fff6e9a8f">
         <source>the full merchant documentation: every feature, setting and troubleshooting steps</source>
         <target>täielik kaupmehe dokumentatsioon: kõik funktsioonid, seadistused ja veaotsingu sammud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="89ecf377f376479377ae0580f60b099d">
+        <source>Package does not include API access</source>
+        <target>Pakett ei sisalda API-ligipääsu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="91c359efc6f7f530449b4008b746864f">
+        <source>Smaily is refusing every request because this account's package does not include API access. Contact sync and email automations stay stopped until the account is on a package that includes it — waiting will not restore them, and the credentials cannot be checked until then.</source>
+        <target>Smaily keeldub igast päringust, sest selle konto pakett ei sisalda API-ligipääsu. Kontaktide sünkroonimine ja e-posti automaatikad jäävad seisma, kuni konto on paketil, mis seda sisaldab — ootamine neid ei taasta ja kasutajaandmeid ei saa enne seda kontrollida.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="559231f5b28ad34f82a948631e29fe4b">

@@ -1415,10 +1415,10 @@ shop, for parity with Magento CON-190 (the admin lists them).
   unprefixed connections in one engine store each send a manifest that claims the whole store catalog,
   and each would remove the other's products. **[D]** The module therefore sends no nightly manifest
   for a connection whose `tenant_id` another connection of the installation shares while either holds
-  the prefix `""`; the Dashboard says so. Live §3 rows and §3b removals still flow. The engine team
+  the prefix `""`. Live §3 rows and §3b removals still flow. The engine team
   confirmed this rule on 2026-11-23 (Linear INT-306, section 15); it holds until the engine assigns
   prefixes. As built: `Engine\Ingest\CatalogManifest::suppressed()`
-  (section 8.11); the Dashboard says so, reading the same method (section 10.12). A connection
+  (section 8.11); the Dashboard said so until 2026-11-26 (section 10.12). A connection
   of the other layout (the installation-wide one in separate stores, a shop's own in one store)
   would serve no shop and sends no list either; a change of the layout leaves none (section 8.9).
 
@@ -2834,8 +2834,7 @@ sent again, once, to that connection (`ProfilingConsent::resendOptOuts()`, Magen
 row carries no consent (section 11.2).
 
 **Built by Story 5.3.** The catalog and history imports (section 8.12; the nightly list waits
-while an import's catalog markers wait, as for any catalog row), the Dashboard's sentence about a
-suppressed list (section 10.12), and a change of the shop layout, which carries a connection with
+while an import's catalog markers wait, as for any catalog row), and a change of the shop layout, which carries a connection with
 its rows or ends it (section 8.9).
 
 **Not built.** A product that gets its first combination keeps its old row (`ps-<id>`) at the
@@ -3008,7 +3007,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
-| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
+| Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. Aligned with Magento item by item on 2026-11-26 (owner; Linear CON-445): "Setup incomplete" while the Initial setup is not finished (`SetupProgress::isComplete()`), as well as while contact sync is on and not confirmed; no verdict while the upgrade is not finished, as the shell's banner says it; a connection card has the green or grey dot in a column of its own; Recent activity shows each status as the Log does (Withdrawn included) and its times as the employee's language writes them (`Admin\AdminTime`, the language's `date_format_full`); "View full log" and each Quick link end in →; the Contact syncs tile counts every contact sync sent in 30 days (`DashboardQueries::contactSyncs()`, one COUNT through the index on `status`); an account whose last answer from Smaily was code 227 reads "Not connected" with "Package does not include API access" and Magento's verdict sentence (`Report\ConnectionHealth`). The invitation to a Smaily account has Magento's row weight and grey Dismiss, and hides its preview at 960 px and below instead of stacking. |
 | Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. As Magento's (Linear CON-445): a finished setup opens step 1 marked "Completed" on a summary of the connection (subdomain, API username, Smaily's answer about the stored account), where Continue saves nothing until "Edit credentials" shows the form; Back is a secondary button; the step's intro sits in the credentials card; the Overview's closing card lists Settings, the Log, the product RSS feed with "Open the URL builder" and the User Guide (`Admin\UserGuide::URL`). Settings > Connection's state names the account: Connected as "<subdomain>". Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
@@ -3643,20 +3642,19 @@ active" use the Intelligence tab's sentences. Browse tracking stays "On" while t
 does not answer, as the storefront keeps its scripts then (`Storefront\ActiveConnection::sending()`).
 
 - **The tile "Catalog items"** shows only with a connection, as in Magento: the catalog rows
-  that reached the engine over the connection in the last 30 days, counted as the Contact syncs
-  tile counts (`DashboardQueries::catalogItems()`, the newest 50 000 ingest rows in one pass).
+  that reached the engine over the connection in the last 30 days
+  (`DashboardQueries::catalogItems()`, the newest 50 000 ingest rows in one pass, with "+" when
+  the count stopped there; the Contact syncs tile counts every row, as Magento's).
   With "All shops" of separate stores it counts every connection.
-- **The verdict** ("Needs attention") adds four problems, in Magento's order and words where
+- **The verdict** ("Needs attention") adds three problems, in Magento's order and words where
   Magento has them: Campaign Intelligence refuses the connection (after stopped background
-  tasks, before failed deliveries; with a link to Settings > Intelligence); the engine is
-  unreachable (after failed deliveries); no nightly product list has reached the engine for 3
+  tasks, before failed deliveries; without a button, as Magento's); the engine is
+  unreachable (after failed deliveries); and no nightly product list has reached the engine for 3
   nights or more (`CatalogManifest::nightsUnsent()`: the whole days since the newest list that the
   engine took, else since the connection was made; not counted for a refused connection, a
-  shared engine store or a shop without products); and, only in PrestaShop, two connections of
-  the installation share one engine store, so neither sends that list (section 5.3): "Two shops
-  of this installation share one Campaign Intelligence store, so the nightly product list is not
-  sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the
-  product's next change."
+  shared engine store or a shop without products). The Dashboard no longer says that two
+  connections of the installation share one engine store (section 5.3): Magento has no such
+  verdict (owner, 2026-11-26; Linear CON-445).
 - **The tiles "Queued today" and "Failed"**, and with the second the failed banner and the
   verdict's failed deliveries, count the rows of both queues, as Magento's do
   (`DashboardStats::queuedToday()`, `QueueHealth::failedSince()`) and as the Log's banner does:
@@ -3673,10 +3671,9 @@ sentences in the admin's language (`Log\FailureMessage::JOB_REASONS`).
 
 **Visible differences that PrestaShop forces.** The invitation's place on Settings is under the
 tab strip, where Magento prints it. The Dashboard's Catalog items tile, the Campaign Intelligence
-card and the Browse tracking card follow PrestaShop's shop selector. The sentence about two shops
-in one engine store, the "Per shop" cards and the question about connections before a layout
-change (section 8.9) have no sibling: only PrestaShop keeps several connections in one
-installation. Not built: Magento's second banner with the reason of the last night's missing
+card and the Browse tracking card follow PrestaShop's shop selector. The "Per shop" cards and the
+question about connections before a layout change (section 8.9) have no sibling: only PrestaShop
+keeps several connections in one installation. Not built: Magento's second banner with the reason of the last night's missing
 product list, and its plan upsell.
 
 ---

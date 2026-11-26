@@ -69,7 +69,7 @@ final class EngineFacts
      * @return array<string, mixed> `per_shop` (no one connection shows), `connected`, `name`, `state`
      *                              (Connection::state(), '' without a connection),
      *                              `unreachable`, `consent`, `catalog_items` (null without a
-     *                              connection), `shared_store` and `unsent_nights`
+     *                              connection) and `unsent_nights`
      */
     public function collect(?int $shop, int $now): array
     {
@@ -96,7 +96,6 @@ final class EngineFacts
                 array_map(static fn (Connection $one): int => $one->id(), array_values($shown)),
                 $now
             ),
-            'shared_store' => array_filter($shown, static fn (Connection $one): bool => CatalogManifest::suppressed($one, $all)) !== [],
             'unsent_nights' => $nights === [] ? 0 : max($nights),
         ];
     }

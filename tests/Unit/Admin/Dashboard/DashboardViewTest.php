@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Admin\Dashboard;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\DashboardView;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\TickState;
 
@@ -38,33 +39,35 @@ final class DashboardViewTest extends TestCase
     public function verdicts(): array
     {
         $ok = ['All systems normal', 'Everything is running — deliveries to Smaily are flowing normally.', 'View full log', 'smailyforprestashop_log'];
-        $upgrade = ['Needs attention', 'Smaily Connect stays paused until the upgrade finishes.', null, null];
         $incomplete = ['Setup incomplete', 'Setup is not finished yet — complete the initial setup to start syncing.', 'Resume setup', 'smailyforprestashop_setup'];
         $disconnected = ['Not connected', 'The Smaily credentials are missing or Smaily has not accepted them — check them in Settings > Connection and test the connection.', 'Open Connection settings', 'smailyforprestashop_settings'];
+        $planBlocked = ['Not connected', 'Smaily is refusing every request because this account\'s package does not include API access. Contact sync and email automations stay stopped until the account is on a package that includes it — waiting will not restore them, and the credentials cannot be checked until then.', 'Open Connection settings', 'smailyforprestashop_settings'];
         $stopped = ['Needs attention', 'Background tasks are not running — nothing goes to Smaily until they run again.', 'Add the cron line', null];
         $failedOne = ['Needs attention', 'Smaily Connect is running, but 1 delivery failed in the last 24 hours.', 'Review failures', 'smailyforprestashop_log'];
         $failedMany = ['Needs attention', 'Smaily Connect is running, but 3 deliveries failed in the last 24 hours.', 'Review failures', 'smailyforprestashop_log'];
         $noAccount = ['account' => null, 'any_account' => false];
         $notConfirmed = ['contacts_confirmed' => false];
         $noTick = ['tick' => TickState::fromJson(null)];
-        $notActive = ['Needs attention', 'Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
-        $keyRefused = ['Needs attention', 'Campaign Intelligence rejected the stored API key. The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
-        $updateNeeded = ['Needs attention', 'Campaign Intelligence needs a newer version of Smaily Connect. Update the module, then press Check again.', 'Open Intelligence settings', 'smailyforprestashop_settings'];
+        $notActive = ['Needs attention', 'Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.', null, null];
+        $keyRefused = ['Needs attention', 'Campaign Intelligence rejected the stored API key. The key was revoked or rotated. Disconnect and reconnect with a fresh setup link.', null, null];
+        $updateNeeded = ['Needs attention', 'Campaign Intelligence needs a newer version of Smaily Connect. Update the module, then press Check again.', null, null];
         $unreachable = ['Needs attention', 'Smaily Connect is running, but Campaign Intelligence is currently unreachable — data is queued locally and will sync when it recovers.', null, null];
         $noList = ['Needs attention', 'Smaily Connect is running, but no nightly product list has gone to Campaign Intelligence for 4 nights.', null, null];
-        $sharedStore = ['Needs attention', 'Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.', null, null];
+        $setupNotFinished = ['setup_complete' => false];
+        $planBlockedAccount = ['account' => ['subdomain' => 'demo', 'connected' => true, 'plan_blocked' => true]];
 
         return [
             'a healthy store' => array_merge([[], DashboardView::VERDICT_OK], $ok),
             'shop visits run the tasks' => array_merge([['tick' => TickState::fromJson(null)->withTick('traffic', self::NOW - 60)], DashboardView::VERDICT_OK], $ok),
-            'the upgrade is pending' => array_merge([['upgrade' => 'pending'], DashboardView::VERDICT_UPGRADE], $upgrade),
-            'the upgrade failed' => array_merge([['upgrade' => 'failed'], DashboardView::VERDICT_UPGRADE], $upgrade),
-            'the upgrade outranks everything' => array_merge([['upgrade' => 'pending'] + $noAccount + $notConfirmed + $noTick + ['failed_24h' => 3], DashboardView::VERDICT_UPGRADE], $upgrade),
+            'the Initial setup is not finished' => array_merge([$setupNotFinished, DashboardView::VERDICT_INCOMPLETE], $incomplete),
+            'an unfinished setup outranks the connection and stopped tasks' => array_merge([$setupNotFinished + $noAccount + $noTick, DashboardView::VERDICT_INCOMPLETE], $incomplete),
             'contact sync is on but not confirmed' => array_merge([$notConfirmed, DashboardView::VERDICT_INCOMPLETE], $incomplete),
             'setup outranks the connection' => array_merge([$notConfirmed + $noAccount, DashboardView::VERDICT_INCOMPLETE], $incomplete),
             'contact sync is off' => array_merge([['contacts_enabled' => false, 'contacts_confirmed' => false], DashboardView::VERDICT_OK], $ok),
             'no Smaily account' => array_merge([$noAccount, DashboardView::VERDICT_DISCONNECTED], $disconnected),
             'an account whose password does not decrypt' => array_merge([['account' => ['subdomain' => 'demo', 'connected' => false]], DashboardView::VERDICT_DISCONNECTED], $disconnected),
+            'a package without API access' => array_merge([$planBlockedAccount, DashboardView::VERDICT_DISCONNECTED], $planBlocked),
+            'all shops of separate stores, the account for all shops has a package without API access' => array_merge([['all_shops' => true, 'separate_stores' => true, 'any_account' => false] + $planBlockedAccount, DashboardView::VERDICT_DISCONNECTED], $disconnected),
             'the connection outranks stopped tasks' => array_merge([$noAccount + $noTick, DashboardView::VERDICT_DISCONNECTED], $disconnected),
             'all shops of separate stores, each with its own account' => array_merge([['all_shops' => true, 'separate_stores' => true, 'account' => null], DashboardView::VERDICT_OK], $ok),
             'all shops of separate stores, no account anywhere' => array_merge([['all_shops' => true, 'separate_stores' => true] + $noAccount, DashboardView::VERDICT_DISCONNECTED], $disconnected),
@@ -85,9 +88,18 @@ final class DashboardViewTest extends TestCase
             'no nightly product list for four nights' => array_merge([self::engine(['unsent_nights' => 4]), DashboardView::VERDICT_NO_PRODUCT_LIST], $noList),
             'no nightly product list for two nights' => array_merge([self::engine(['unsent_nights' => 2]), DashboardView::VERDICT_OK], $ok),
             'an engine that does not answer outranks the product list' => array_merge([self::engine(['unreachable' => true, 'unsent_nights' => 4]), DashboardView::VERDICT_ENGINE_UNREACHABLE], $unreachable),
-            'two shops share one engine store' => array_merge([self::engine(['shared_store' => true]), DashboardView::VERDICT_SHARED_ENGINE_STORE], $sharedStore),
-            'all shops of separate stores, two of them in one engine store' => array_merge([['all_shops' => true, 'separate_stores' => true, 'account' => null] + self::engine(['per_shop' => true, 'connected' => false, 'state' => '', 'shared_store' => true]), DashboardView::VERDICT_SHARED_ENGINE_STORE], $sharedStore),
         ];
+    }
+
+    /**
+     * The global banner of the shell says that the upgrade is not finished, so no verdict repeats
+     * it: whatever else the facts say.
+     */
+    public function testNoVerdictShowsWhileTheUpgradeIsNotFinished(): void
+    {
+        self::assertNull(self::view(['upgrade' => 'pending'])['verdict']);
+        self::assertNull(self::view(['upgrade' => 'failed'])['verdict']);
+        self::assertNull(self::view(['upgrade' => 'pending', 'account' => null, 'any_account' => false, 'contacts_confirmed' => false, 'setup_complete' => false, 'failed_24h' => 3])['verdict']);
     }
 
     /**
@@ -109,7 +121,7 @@ final class DashboardViewTest extends TestCase
     public function testEachLinkOpensWhatFixesTheProblem(): void
     {
         self::assertSame(['tab' => 'connection'], self::view(['account' => null, 'any_account' => false])['verdict']['action']['params']);
-        self::assertSame(['tab' => 'intelligence'], self::view(self::engine(['state' => 'key_refused']))['verdict']['action']['params']);
+        self::assertNull(self::view(self::engine(['state' => 'key_refused']))['verdict']['action'], 'as Magento, a refusal has no button');
         self::assertSame(['status' => 'failed'], self::view(['failed_24h' => 2])['verdict']['action']['params']);
         self::assertSame('smaily-background', self::view(['tick' => TickState::fromJson(null)])['verdict']['action']['anchor']);
         self::assertTrue(self::view(['failed_24h' => 2])['verdict']['action']['danger']);
@@ -123,7 +135,7 @@ final class DashboardViewTest extends TestCase
         self::assertSame('warning', self::view(['contacts_confirmed' => false])['verdict']['tone']);
         self::assertSame('danger', self::view(['account' => null, 'any_account' => false])['verdict']['tone']);
         self::assertSame('warning', self::view(self::engine(['state' => 'not_active']))['verdict']['tone']);
-        self::assertSame('warning', self::view(self::engine(['shared_store' => true]))['verdict']['tone']);
+        self::assertSame('warning', self::view(['setup_complete' => false])['verdict']['tone']);
     }
 
     public function testFailuresShowABannerUnlessSetupOrTheConnectionOutranksThem(): void
@@ -135,6 +147,7 @@ final class DashboardViewTest extends TestCase
         self::assertNotNull(self::view(['failed_24h' => 3, 'tick' => TickState::fromJson(null)])['failed_banner'], 'stopped tasks do not hide the failures');
         self::assertNull(self::view(['failed_24h' => 3, 'account' => null, 'any_account' => false])['failed_banner']);
         self::assertNull(self::view(['failed_24h' => 3, 'contacts_confirmed' => false])['failed_banner']);
+        self::assertNull(self::view(['failed_24h' => 3, 'setup_complete' => false])['failed_banner']);
         self::assertNull(self::view(['failed_24h' => 3, 'upgrade' => 'pending'])['failed_banner']);
     }
 
@@ -171,6 +184,7 @@ final class DashboardViewTest extends TestCase
             'connected' => [[], true, 'Connected (demo)', null, 'active', 'Connected'],
             'no account' => [['account' => null, 'any_account' => false], false, 'Credentials missing or invalid', null, 'failed', 'Not connected'],
             'no password' => [['account' => ['subdomain' => 'demo', 'connected' => false]], false, 'Credentials missing or invalid', null, 'failed', 'Not connected'],
+            'a package without API access (Smaily code 227)' => [['account' => ['subdomain' => 'demo', 'connected' => true, 'plan_blocked' => true]], false, 'Package does not include API access', null, 'failed', 'Not connected'],
             'all shops, the account saved for all shops' => [['all_shops' => true], true, 'Connected (demo)', 'Saved for all shops', 'active', 'Connected'],
             'all shops of separate stores, each with its own account' => [['all_shops' => true, 'separate_stores' => true, 'account' => null], false, 'No Smaily account is saved for all shops, so each shop uses its own.', 'Pick a shop in the shop selector to see its connection.', 'off', 'Per shop'],
             'all shops of separate stores, no account' => [['all_shops' => true, 'separate_stores' => true, 'account' => null, 'any_account' => false], false, 'Credentials missing or invalid', 'Saved for all shops', 'failed', 'Not connected'],
@@ -297,7 +311,7 @@ final class DashboardViewTest extends TestCase
 
     public function testTheTilesCountWhatMagentoCounts(): void
     {
-        $tiles = self::view(['contact_syncs' => ['count' => 12, 'more' => false], 'queued_today' => 2])['tiles'];
+        $tiles = self::view(['contact_syncs' => 12, 'queued_today' => 2])['tiles'];
 
         self::assertSame(['value' => '12', 'caption' => 'delivered, last 30 days'], $tiles['contact_syncs']);
         self::assertNull($tiles['catalog_items'], 'hidden without a Campaign Intelligence connection, as Magento does');
@@ -309,9 +323,9 @@ final class DashboardViewTest extends TestCase
         self::assertSame(['value' => '0', 'caption' => 'last 24 hours', 'attention' => false, 'badge' => null, 'link' => null], $tiles['failed']);
     }
 
-    public function testACountThatStoppedAtItsBoundSaysSo(): void
+    public function testContactSyncsCountExactlyAndCatalogItemsSayWhenTheyStoppedAtTheirBound(): void
     {
-        self::assertSame('50000+', self::view(['contact_syncs' => ['count' => 50000, 'more' => true]])['tiles']['contact_syncs']['value']);
+        self::assertSame('73512', self::view(['contact_syncs' => 73512])['tiles']['contact_syncs']['value'], 'as Magento, no bound');
         self::assertSame('50000+', self::view(self::engine(['catalog_items' => ['count' => 50000, 'more' => true]]))['tiles']['catalog_items']['value']);
     }
 
@@ -336,7 +350,7 @@ final class DashboardViewTest extends TestCase
     public function testRecentActivityListsQueueRowsAndImportJobs(): void
     {
         $activity = self::view(['activity' => [
-            ['kind' => 'queue', 'source' => 'smaily', 'type' => 'contact.sync', 'entity' => '0a1b2c3d4e5f…', 'status' => 'processing', 'updated_at' => self::NOW - 10],
+            ['kind' => 'queue', 'source' => 'smaily', 'type' => 'contact.sync', 'entity' => '0a1b2c3d4e5f…', 'status' => 'sending', 'updated_at' => self::NOW - 10],
             ['kind' => 'job', 'source' => 'smaily', 'type' => 'contacts_import', 'total' => 1, 'status' => 'running', 'updated_at' => self::NOW - 20],
             ['kind' => 'job', 'source' => 'smaily', 'type' => 'contacts_refresh', 'total' => 250, 'status' => 'done', 'updated_at' => self::NOW - 30],
             ['kind' => 'queue', 'source' => 'smaily', 'type' => 'automation.welcome', 'entity' => '—', 'status' => 'skipped', 'updated_at' => self::NOW - 40],
@@ -368,10 +382,11 @@ final class DashboardViewTest extends TestCase
     {
         return [
             'queue pending' => ['queue', 'pending', 'pending Pending'],
-            'queue processing' => ['queue', 'processing', 'pending Sending'],
+            'queue sending' => ['queue', 'sending', 'pending Sending'],
             'queue sent' => ['queue', 'sent', 'sent Sent'],
             'queue failed' => ['queue', 'failed', 'failed Failed'],
             'queue skipped' => ['queue', 'skipped', 'neutral Skipped'],
+            'queue withdrawn, as the Log shows it' => ['queue', 'withdrawn', 'neutral Withdrawn'],
             'job queued' => ['job', 'queued', 'pending Queued'],
             'job running' => ['job', 'running', 'pending Running'],
             'job done' => ['job', 'done', 'sent Done'],
@@ -388,6 +403,15 @@ final class DashboardViewTest extends TestCase
         $row = self::view(['activity' => [['kind' => $kind, 'source' => 'smaily', 'type' => 't', 'entity' => '—', 'total' => 0, 'status' => $status, 'updated_at' => self::NOW]]])['activity']['rows'][0];
 
         self::assertSame($expected, $row['status']['variant'] . ' ' . $row['status']['label']);
+    }
+
+    public function testRecentActivityShowsItsTimesInTheEmployeesFormat(): void
+    {
+        $translate = static fn (string $id, array $parameters = []): string => strtr($id, $parameters);
+        $row = ['kind' => 'queue', 'source' => 'smaily', 'type' => 't', 'entity' => '—', 'status' => 'sent', 'updated_at' => self::NOW];
+
+        self::assertSame('20.11.2025 12:00:00', (new DashboardView($translate, new AdminTime('d.m.Y H:i:s')))->build(self::facts(['activity' => [$row]]))['activity']['rows'][0]['updated']);
+        self::assertSame('11/20/2025 12:00:00', (new DashboardView($translate, new AdminTime('m/d/Y H:i:s')))->build(self::facts(['activity' => [$row]]))['activity']['rows'][0]['updated']);
     }
 
     /**
@@ -407,7 +431,6 @@ final class DashboardViewTest extends TestCase
             'unreachable' => false,
             'consent' => false,
             'catalog_items' => ['count' => 0, 'more' => false],
-            'shared_store' => false,
             'unsent_nights' => 0,
         ]];
     }
@@ -422,8 +445,20 @@ final class DashboardViewTest extends TestCase
     {
         $translate = static fn (string $id, array $parameters = []): string => strtr($id, $parameters);
 
-        return (new DashboardView($translate))->build($facts + [
+        return (new DashboardView($translate))->build(self::facts($facts));
+    }
+
+    /**
+     * @param array<string, mixed> $facts the facts that differ from a healthy store without a
+     *                                    Campaign Intelligence connection
+     *
+     * @return array<string, mixed>
+     */
+    private static function facts(array $facts): array
+    {
+        return $facts + [
             'upgrade' => null,
+            'setup_complete' => true,
             'all_shops' => false,
             'separate_stores' => false,
             'account' => ['subdomain' => 'demo', 'connected' => true],
@@ -433,12 +468,12 @@ final class DashboardViewTest extends TestCase
             'tick' => TickState::fromJson(null)->withTick('tick', self::NOW - 30),
             'now' => self::NOW,
             'engine' => self::engine(['connected' => false, 'name' => '', 'state' => '', 'catalog_items' => null])['engine'],
-            'contact_syncs' => ['count' => 0, 'more' => false],
+            'contact_syncs' => 0,
             'queued_today' => 0,
             'failed_24h' => 0,
             'activity' => [],
             'can_configure' => true,
             'can_open_settings' => true,
-        ]);
+        ];
     }
 }

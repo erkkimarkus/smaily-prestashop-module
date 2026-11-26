@@ -29,13 +29,16 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
+use PrestaShop\Module\SmailyForPrestaShop\Config\AdminSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
@@ -72,11 +75,13 @@ final class DashboardController extends BaseController
                 $services->get(EngineSettings::class),
                 $services->get(CatalogManifest::class),
                 $queries
-            )
+            ),
+            new AdminSettings(),
+            $services->get(ConnectionHealth::class)
         );
         $settingsTab = self::PAGES['settings']['tab'];
         $translator = self::translator();
-        $view = (new DashboardView(fn (string $id, array $parameters = []): string => $translator->trans($id, $parameters, self::DOMAIN)))->build($facts->collect(
+        $view = (new DashboardView(fn (string $id, array $parameters = []): string => $translator->trans($id, $parameters, self::DOMAIN), AdminTime::forEmployee()))->build($facts->collect(
             self::pendingUpgrade()['status'] ?? null,
             AbstractJsonAction::shopId(),
             \Shop::isFeatureActive(),
