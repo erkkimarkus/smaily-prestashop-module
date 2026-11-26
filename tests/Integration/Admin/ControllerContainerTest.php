@@ -428,6 +428,26 @@ final class ControllerContainerTest extends IntegrationTestCase
         }
     }
 
+    /**
+     * "Send again" of a contact change after which a newer change of the contact reached Smaily
+     * refuses with its sentence and queues nothing (owner, 2026-11-26).
+     */
+    public function testSendAgainRefusesAContactChangeThatANewerDeliveredChangeOvertook(): void
+    {
+        $failed = ['status' => 'failed', 'attempts' => 5, 'last_error' => 'Smaily API request failed with HTTP 500'];
+        $subscribe = $this->queueRow(['payload' => '{"email":"shopper1@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
+        $this->queueRow(['payload' => '{"email":"shopper1@example.test","source":"customer","subscribed":false,"consent_changed":true}']);
+        $before = $this->stored();
+
+        self::assertError(
+            409,
+            'refused',
+            'A newer change of this contact was already sent to Smaily; sending this older one again would undo it.',
+            $this->execute(new SendAgain(), $this->locator(), ['id' => 'smaily-' . $subscribe], ['_legacy_controller' => 'AdminSmailyConnectLog', '_route' => 'smailyforprestashop_api_log'])
+        );
+        self::assertSame($before, $this->stored(), 'nothing was queued');
+    }
+
     public function testALogEndpointRefusesAMissingRightAndAStalePageToken(): void
     {
         $id = 'smaily-' . $this->queueRow(['status' => 'failed', 'attempts' => 5, 'last_error' => 'x']);

@@ -207,8 +207,15 @@ ask (Linear discipline below).
   (ARCHITECTURE 4.3).
 - **A contact's queue rows.** A contact's queue row takes its entity from
   `Queue\ContactEntity::of()`; the resend guard (`Log\ResendGuard`) matches
-  rows by shop and entity. A contact change is sent as stored, in any order,
-  as the sibling connectors do (owner, 2026-11-21; ARCHITECTURE 2.2, 6.4).
+  rows by shop and entity. A newer change wins, in all four connectors
+  (owner, 2026-11-26; Linear CON-433; ARCHITECTURE 2.2, 6.4): a late or
+  retried contact sync is skipped (`newer_change_sent`), and "Send again"
+  refuses it, once a newer change of the same shop and entity reached
+  Smaily. `Contacts\NewerChange` is the one check. Newer is the recording
+  order (the id; a "Send again" copy keeps its original's place through
+  `_resend.origin`), never the delivery order; a consent change yields only
+  to a newer consent change, so an unsubscribe never loses to an older
+  subscription or a newer profile save.
 - **One connector never changes a behaviour rule alone** (owner,
   2026-11-21). Where the siblings behave one way, PrestaShop behaves the
   same way; an improvement only one connector would have goes into the

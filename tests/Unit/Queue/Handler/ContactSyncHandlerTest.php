@@ -49,6 +49,12 @@ final class ContactSyncHandlerTest extends TestCase
     /** @var callable(list<array<string, mixed>>): Response */
     private $answer;
 
+    /** @var list<int> the ids that the newer-change check answers */
+    private array $overtaken = [];
+
+    /** @var list<list<int>> the row ids of each question to the newer-change check */
+    private array $askedForOvertaken = [];
+
     protected function setUp(): void
     {
         $this->answer = static fn (array $contacts): Response => new Response(200, '{"code": 101, "message": "OK"}');
@@ -133,8 +139,7 @@ final class ContactSyncHandlerTest extends TestCase
 
     /**
      * A row goes with the consent it stores, whatever attempt it is and whatever other row of its
-     * contact the batch holds, as the Magento and WooCommerce connectors send theirs (owner,
-     * 2026-11-21): the handler compares no row with another.
+     * contact the batch holds.
      */
     public function testSendsEachRowWithTheConsentItStores(): void
     {
@@ -150,6 +155,45 @@ final class ContactSyncHandlerTest extends TestCase
             [['shopper1@example.test', 0], ['shopper2@example.test', 0], ['shopper2@example.test', 1]],
             array_map(static fn (array $contact): array => [$contact['email'], $contact['is_unsubscribed']], $this->requests[0]['contacts'])
         );
+    }
+
+    /**
+     * A row that the newer-change check names (Contacts\NewerChange) is closed without a request,
+     * whatever attempt it is; the rows around it go as before, and the check is asked once for the
+     * batch (owner, 2026-11-26).
+     */
+    public function testSkipsARowThatANewerDeliveredChangeOvertook(): void
+    {
+        $this->overtaken = [2];
+
+        $outcomes = $this->handler()->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['consent_changed' => true])),
+            ['attempts' => '3'] + $this->row(2, 1, $this->payload('shopper2@example.test', ['consent_changed' => true])),
+            $this->row(3, 1, $this->payload('shopper3@example.test', ['subscribed' => false, 'consent_changed' => true])),
+        ]);
+
+        self::assertSame([[1, 2, 3]], $this->askedForOvertaken);
+        self::assertInstanceOf(Skipped::class, $outcomes[2]);
+        self::assertSame(ContactSyncHandler::SKIPPED_NEWER_CHANGE, $outcomes[2]->reason());
+        self::assertSame([1 => true, 3 => true], [1 => $outcomes[1], 3 => $outcomes[3]]);
+        self::assertCount(1, $this->requests);
+        self::assertSame(
+            [['shopper1@example.test', 0], ['shopper3@example.test', 1]],
+            array_map(static fn (array $contact): array => [$contact['email'], $contact['is_unsubscribed']], $this->requests[0]['contacts']),
+            'nothing of the overtaken row reaches Smaily'
+        );
+    }
+
+    public function testAnOvertakenRowOfAShopWhoseContactSyncIsOffKeepsThatReason(): void
+    {
+        $this->overtaken = [1];
+
+        $outcomes = $this->handler([1 => [ContactsSettings::ENABLED => '0']])->handle([
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['consent_changed' => true])),
+        ]);
+
+        self::assertSame(ContactSyncHandler::SKIPPED_SYNC_OFF, $outcomes[1]->reason());
+        self::assertSame([], $this->requests);
     }
 
     public function testSkipsTheRowsOfAShopWhoseContactSyncIsOff(): void
@@ -360,7 +404,12 @@ final class ContactSyncHandlerTest extends TestCase
             $scopes,
             new FakeContactsSettings([0 => self::SETTINGS] + $settings),
             new SubscriberPayloadBuilder(static fn (int $idShop): string => 'shop' . $idShop . '.example.test'),
-            $this->transport()
+            $this->transport(),
+            function (array $rows): array {
+                $this->askedForOvertaken[] = array_keys($rows);
+
+                return $this->overtaken;
+            }
         );
     }
 

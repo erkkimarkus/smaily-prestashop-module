@@ -134,8 +134,8 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behaviour rule, read what the siblings do.
 
 1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
-2. For the cross-connector analysis CON-397: late or retried contact changes, workflows after an account or mode
-   change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its
+2. For the cross-connector analysis CON-397 (late or retried contact changes: decided 2026-11-26, a newer change
+   wins, built under CON-433): workflows after an account or mode change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its
    contact row at once (today it takes the retry ladder, as Magento keeps it); whether Settings > Connection should
    refuse an account that Smaily rejects, as WooCommerce does (today it saves it). WooCommerce also locks its
    Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only

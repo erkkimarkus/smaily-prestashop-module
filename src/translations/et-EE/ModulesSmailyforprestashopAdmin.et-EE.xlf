@@ -822,6 +822,11 @@
         <target>Seda liiki hilisem kiri on sellele kontaktile juba kohale jõudnud; uuesti saatmine toimetaks selle kohale teist korda.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="b10f56b920c4856f7e4366a95592f983">
+        <source>A newer change of this contact was already sent to Smaily; sending this older one again would undo it.</source>
+        <target>Selle kontakti uuem muudatus on juba Smailysse saadetud; selle vanema uuesti saatmine tühistaks selle.</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="7577e5609b3effa9adc73db196f067f0">
         <source>This contact's data was erased; the event cannot be re-sent.</source>
         <target>Selle kontakti andmed on kustutatud; sündmust ei saa uuesti saata.</target>
@@ -1965,6 +1970,11 @@
       <trans-unit id="893a523472662702bef88962634903ee">
         <source>Skipped: the Contacts settings of this shop do not sync this contact. Nothing was sent.</source>
         <target>Vahele jäetud: selle poe kontaktide seaded seda kontakti ei sünkrooni. Midagi ei saadetud.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="dfe01910545586faf9bed1b7f757f839">
+        <source>Skipped: a newer change of this contact already reached Smaily, and this older one would undo it. Nothing was sent.</source>
+        <target>Vahele jäetud: selle kontakti uuem muudatus on juba Smailysse jõudnud ja see vanem tühistaks selle. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="92d8c3481a9aa2645fc7f18feb9afc54">

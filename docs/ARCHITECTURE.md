@@ -359,7 +359,7 @@ facts file 6.11):
 | Case | 9.2.0 before the gateway | 9.2.0 and 8.2.8 with it | The next run |
 |---|---|---|---|
 | A console upgrade from a genuine 2.2.0 whose reads of the legacy settings fail | The upgrade ended `done`: 15 of the 17 legacy keys deleted (the two cron tokens stay), no account, no workflow row. | The migration stops at `notices` with `SqlException`, every legacy key stays, the console still reports success. | A request to the 2.x cron URL completes it: account, 2 workflow rows, 3 reminded carts. |
-| A flush whose stale-subscription read fails (a check that left the module on 2026-11-21, section 15) | The subscription was sent after the contact's delivered unsubscribe: Smaily got `is_unsubscribed` 0, 1, 0. | The row waits for its retry with `SqlException`; Smaily got 0 (the first, failed attempt) and 1. | The row is closed as `stale_subscription`. |
+| A flush whose stale-subscription read fails (a check that left the module on 2026-11-21; the newer-change check of 2026-11-26 took its place, section 6.4) | The subscription was sent after the contact's delivered unsubscribe: Smaily got `is_unsubscribed` 0, 1, 0. | The row waits for its retry with `SqlException`; Smaily got 0 (the first, failed attempt) and 1. | The row is closed as `stale_subscription`. |
 | A sweep whose read of the recent reminders fails (section 7) | A second cart of the address was queued and reminded minutes after the first. | The job `abandoned_cart` fails with `SqlException`; nothing is queued. | The second cart is closed as `recently_reminded`. |
 
 8.2.8 gave the safe outcome before the gateway too, because the failed statement throws there
@@ -524,7 +524,8 @@ Magento's unified Log does (`magento:Controller/Adminhtml/Log/*`).
   and `EventQueue::recordExchange()` writes it under the row's claim. The ingest queue writes the
   same columns by the same rules (`IngestQueue::recordExchange()`, section 8.11).
 - A row that the Log's "Send again" queued carries the record `_resend` in its payload (section
-  10.8).
+  10.8). Its `origin` is the id of the row that first held the event, so the copy keeps that row's
+  place among a contact's changes (section 6.4).
 - `entity_id` of a contact's row (a contact sync or an automation) comes from
   `Queue\ContactEntity::of()`, Magento's rule: an address of at most 64 characters is the entity
   as the row's writer holds it (a contact sync stores it trimmed and in lower case); a longer
@@ -1598,6 +1599,7 @@ the contact:
 |---|---|
 | `contact_sync_off` | The shop's contact sync is not active. |
 | `not_in_audience` | The contact is outside the shop's audience (`syncs()` is false). |
+| `newer_change_sent` | A newer change of the same contact already reached Smaily (below). |
 | `no_account` | No account serves the row's shop and language. |
 | `no_credentials` | The account's password does not decrypt or is empty. |
 
@@ -1606,28 +1608,37 @@ data (code 203), the handler sends each contact of the group again in a request 
 the refused contact fails (Magento PRO-3753). Any other failure of the wire is the outcome of every row
 of the group, and `Queue\Failure::of()` classifies it (section 4.3).
 
-**A row goes as stored, in any order** (owner, 2026-11-21, as the siblings). A row carries the
-consent that the store saw when the row was queued, and rows do not always go in the order they
-were queued: a row that failed waits on the retry ladder while a later row of the same contact is
-delivered. The handler compares no row with another. Example: the contact subscribes and the row
-fails; the contact unsubscribes and that row is delivered at once; the first row's retry then
-sends `is_unsubscribed = 0`, and the contact ends subscribed in Smaily. The opposite order ends
-unsubscribed. In "Subscribers only" the reconcile (section 6.5) then takes Smaily's state back to
-the store.
+**A newer change wins** (owner, 2026-11-26; Linear CON-397, CON-433: one rule for the four
+connectors). A row carries what the store saw when the row was queued, and rows do not always go
+in the order they were queued: a row that failed waits on the retry ladder while a newer row of
+the same contact is delivered. A late or retried row is skipped once a newer change of the same
+contact reached Smaily (`Contacts\NewerChange`, the reason `newer_change_sent`). The handler asks
+this at every attempt, before the account; the Log's "Send again" and "Retry" ask the same check
+(section 10.8), so the automatic retry and the manual actions follow one rule.
 
-- **Siblings.** Magento and WooCommerce store `is_unsubscribed` in the row when it is queued and
-  send the row as stored, in either order (`magento:Model/Queue/Handler/ContactSyncHandler.php`,
-  `handle()`: the handler posts each row's stored contact and reads no other row).
-- Two changes of one contact that wait together are claimed in id order and go in one request in
-  that order.
-- **What left.** Until this decision the handler closed a row that would
-  re-subscribe a contact after a later delivered consent change of the same shop and contact
-  (`Contacts\StaleSubscription`, the skip reason `stale_subscription`), and the Log's resend guard
-  asked the same check. Only this module had that rule. Whether the connectors should protect a
-  newer choice from an older row is part of the cross-connector analysis (Linear CON-397); they
-  change together or not at all.
-- The Log's "Send again" and "Retry" let a failed contact sync go again (`Log\ResendGuard`,
-  section 10.8).
+- **Newer** means recorded later for the same shop and entity (`Queue\ContactEntity`, so a
+  customer, a guest-checkout customer and a newsletter-block subscriber with one address are one
+  contact). A row's place is its id; a copy that "Send again" queued takes the place of the row
+  it repeats (`_resend.origin`, section 2.2). When Smaily got the rows does not count: an older
+  change that reached Smaily later stands in no newer change's way.
+- **Delivered** means `sent`. A newer row that waits, failed or was skipped overtakes nothing.
+- **A consent change yields only to a consent change.** A row that changes the consent (an
+  unsubscribe or a subscription) is overtaken only by a newer delivered row that changes the
+  consent too; a newer row without a consent change (a profile save, an order) sends no
+  subscription status, and skipping the older row would lose the contact's choice. A row without
+  a consent change is overtaken by any newer delivered row. So an unsubscribe is never skipped in
+  favour of an older subscription, nor of a newer profile save.
+- Example: the contact subscribes and the row fails; the contact unsubscribes and that row is
+  delivered; the first row's retry is then skipped, and the contact stays unsubscribed in Smaily.
+  The opposite order ends subscribed, the contact's newer choice.
+- The check is one read of the queue's (`entity_id`, `event_type`, `status`) index for a batch,
+  without a lock. Two changes of one contact that wait together are claimed in id order and go in
+  one request in that order.
+- **Known limit.** The janitor deletes a sent row after 30 days and keeps a failed one for 90
+  (section 11.3): a failed row sent again after its newer change was deleted is not refused.
+- **History.** From 2026-11-21 to 2026-11-26 a row went as stored, in any order, as the siblings
+  sent theirs then; before that the handler skipped only a subscription after a later delivered
+  consent change (`stale_subscription`).
 
 ### 6.5 Reconcile, daily refresh and first import (as built in Story 2.4)
 
@@ -1701,6 +1712,11 @@ daily refresh are rows of `smaily_connect_job`:
   on. A temporary failure (a 5xx, a 429, the network) ends the run as `failed` before the page.
 - No import row carries `is_unsubscribed`: an import passes no consent change, so it never
   re-subscribes anyone.
+- **A newer change wins here too** (section 6.4). An import page reads the store as it is when
+  the page goes, so it never sends a state older than one the queue delivered, and it sends no
+  subscription status. The reconcile applies Smaily's action log oldest first and moves its cursor
+  past what it applied, so a later action is never undone by an earlier one. Neither writes a
+  queue row, so neither is compared with the queue's rows.
 - The job `contacts_refresh` queues a refresh of every shop once a day. It runs whether or not a first
   import ran. It queues nothing while an import or a refresh is still `queued` or `running`, while no
   shop has an active contact sync, or while the audience is empty.
@@ -3176,8 +3192,8 @@ the queue stores an exchange and again when Details show a payload (section 2.2)
 
 - **Send again** (one row, `Log\Resend`) queues a new `pending` row with the same event type, shop,
   entity, language and payload. The failed row stays untouched as history. The new row's payload
-  records the decision under the reserved key `_resend`: `{"of": <failed row's id>, "by": <the
-  employee>, "at": <UTC time>}`. Every handler reads only the keys of its own payload, so the record
+  records the decision under the reserved key `_resend`: `{"of": <failed row's id>, "origin": <the
+  id of the row that first held the event>, "by": <the employee>, "at": <UTC time>}`. Every handler reads only the keys of its own payload, so the record
   never reaches Smaily. The tracker row of an abandoned cart follows the new row, because only the
   queue row that the tracker names sends the reminder.
 - **Retry** (the ticked rows, or every row that the filter selects; `Log\Retry`,
@@ -3187,13 +3203,15 @@ the queue stores an exchange and again when Details show a payload (section 2.2)
   retry that names it all the same leaves it alone, as the guard below refuses it.
 
 `Log\ResendGuard` decides both, and the list shows "Send again" only on a row that it clears.
-Its refusals are Magento's (`magento:Model/Log/ResendGuard.php`), and no other (owner,
-2026-11-21): a row that did not fail; a withdrawn reminder; a row whose entity is `[erased]`
-(section 11.2); and an automation row that a later delivered row of the same event type, shop and
-contact superseded. Each answers Magento's sentence. A contact sync repeats a state, not a
-message: a failed contact sync may always go again, with the consent it stores, whatever later
-row of that contact was delivered (section 6.4). An automation row without an entity is not
-compared with later rows; a contact's row always has one (section 2.2).
+Its refusals are Magento's (`magento:Model/Log/ResendGuard.php`; owner, 2026-11-21): a row that did
+not fail; a withdrawn reminder; a row whose entity is `[erased]` (section 11.2); and an automation
+row that a later delivered row of the same event type, shop and contact superseded. Each answers
+Magento's sentence. One more is the rule of the four connectors (owner, 2026-11-26; Linear
+CON-433): a contact sync that a newer delivered change of the contact overtook
+(`newer_change_sent`, `Contacts\NewerChange`, section 6.4), with the sentence "A newer change of
+this contact was already sent to Smaily; sending this older one again would undo it." Any other
+failed contact sync may go again. A row without an entity is not compared with later rows; a
+contact's row always has one (section 2.2).
 
 As in Magento, each "Send again" that the guard lets through queues a row. A second "Send again"
 of a failed row whose first copy is not delivered yet queues a second copy: for a welcome or a
@@ -3204,8 +3222,9 @@ it pending and changes nothing.
 
 **What left on 2026-11-21.** Two refusals that only this module had: a contact sync that would
 re-subscribe a contact after a later delivered consent change (`stale_subscription`, with a
-sentence of its own), and a row whose event already waited in the queue again as a later
-`pending` or `processing` row (`queued`, without a sentence: "Send again" then queued nothing).
+sentence of its own; the wider `newer_change_sent` took its place on 2026-11-26), and a row whose
+event already waited in the queue again as a later `pending` or `processing` row (`queued`,
+without a sentence: "Send again" then queued nothing).
 
 **Rights.** The page needs the right to read the Log's menu tab. Details need the same right; "Send
 again" and "Retry" need the right to change it. Each endpoint also needs the page's token and the
@@ -4811,7 +4830,13 @@ Decisions of 2026-11-21:
   (`Contacts\StaleSubscription`, the reason `stale_subscription`) is removed. The Log's resend guard
   keeps Magento's refusals only (not failed, withdrawn, erased, superseded): a failed contact sync
   may go again, and a row whose event waits in the queue again is not refused (sections 6.4 and
-  10.8).
+  10.8). **Replaced on 2026-11-26** for contact changes (next decision).
+- A newer change of a contact wins, in all four connectors (owner, 2026-11-26; Linear CON-397,
+  CON-433). A late or retried contact sync is skipped once a newer change of the same shop and
+  contact reached Smaily (`newer_change_sent`), and the Log's "Send again" and "Retry" refuse it
+  with a sentence of their own. A consent change yields only to a newer consent change, so an
+  unsubscribe is never skipped in favour of an older subscription. A row whose event waits in the
+  queue again is still not refused (sections 6.4 and 10.8).
 - A newsletter-block subscriber without an account is synced and welcomed whatever "include
   guests" says, as in Magento (owner, 2026-11-21): in subscribers only and in all customers, by
   the live sync, the welcome email, the first import and the daily refresh; never in checkout

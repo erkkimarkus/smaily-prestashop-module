@@ -59,11 +59,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * again one contact per request, and only the refused contact fails (Magento PRO-3753). Any other
  * failure of the wire is the outcome of every row of the group. A row that cannot go ends skipped
  * with a reason code: its shop's contact sync is off, the contact is outside the shop's audience,
- * or its account is missing or has no credentials. A reason never names the contact.
- *
- * A row carries the consent that the store saw when the row was queued, and it is sent as stored
- * whenever its turn comes, also when a later row of the same contact went first, as the Magento
- * and WooCommerce connectors send theirs (owner, 2026-11-21).
+ * a newer change of the same contact already reached Smaily (Contacts\NewerChange, asked at every
+ * attempt, so a late or retried row never undoes a newer delivered change; owner, 2026-11-26), or
+ * its account is missing or has no credentials. A reason never names the contact.
  *
  * exchanges() gives each sent row its own contact of the request body, never the contacts posted
  * with it, and the answer to that request.
@@ -75,6 +73,8 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
     public const SKIPPED_SYNC_OFF = 'contact_sync_off';
 
     public const SKIPPED_NOT_IN_AUDIENCE = 'not_in_audience';
+
+    public const SKIPPED_NEWER_CHANGE = 'newer_change_sent';
 
     public const SKIPPED_NO_ACCOUNT = 'no_account';
 
@@ -90,20 +90,32 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
 
     private Transport $transport;
 
+    /** @var callable(array<int, array<string, mixed>>): list<int> */
+    private $overtaken;
+
     /** @var array<int, array{request: array<int|string, mixed>, response: array{http_status: int, body: mixed}|null}> */
     private array $exchanges = [];
 
-    public function __construct(ScopeResolver $scopes, ContactsSettings $settings, SubscriberPayloadBuilder $builder, Transport $transport)
+    /**
+     * @param callable(array<int, array<string, mixed>>): list<int> $overtaken the ids of the rows
+     *                                                                         that a newer delivered
+     *                                                                         change overtook, among
+     *                                                                         queue rows by id
+     *                                                                         (NewerChange::among())
+     */
+    public function __construct(ScopeResolver $scopes, ContactsSettings $settings, SubscriberPayloadBuilder $builder, Transport $transport, callable $overtaken)
     {
         $this->scopes = $scopes;
         $this->settings = $settings;
         $this->builder = $builder;
         $this->transport = $transport;
+        $this->overtaken = $overtaken;
     }
 
     public function handle(array $events): array
     {
         $this->exchanges = [];
+        $overtaken = array_flip(($this->overtaken)(array_column($events, null, 'id')));
         $outcomes = [];
         /** @var array<string, array{client: Client, contacts: array<int, array<string, string|int>>}> $groups */
         $groups = [];
@@ -124,6 +136,10 @@ final class ContactSyncHandler implements HandlerInterface, ExchangeSource
             $audience = new ContactAudience($this->settings->mode($idShop));
             if (!$audience->syncs($payload['source'], $payload['subscribed'], $payload['consent_changed'], $payload['checkout'], $payload['guest'])) {
                 $outcomes[$id] = new Skipped(self::SKIPPED_NOT_IN_AUDIENCE);
+                continue;
+            }
+            if (isset($overtaken[$id])) {
+                $outcomes[$id] = new Skipped(self::SKIPPED_NEWER_CHANGE);
                 continue;
             }
             $scope = $scopes[$idShop . ':' . $payload['id_lang']] ??= $this->scopes->resolve($idShop, $payload['id_lang']);

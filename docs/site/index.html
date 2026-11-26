@@ -1584,6 +1584,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td>"Skipped: this cart was left more than 24 hours ago, …"</td><td>Nothing — a cart that old is never reminded.</td></tr>
             <tr><td>"Skipped: this shopper has not agreed to marketing emails in the store, and is not a subscribed contact in Smaily."</td><td>Nothing — the consent mode does not allow this email (see <a href="#set-automations">Automations</a>).</td></tr>
             <tr><td>"Skipped: this shopper unsubscribed in Smaily."</td><td>Nothing — no automation email goes to a contact who unsubscribed in Smaily.</td></tr>
+            <tr><td>"Skipped: a newer change of this contact already reached Smaily, and this older one would undo it."</td><td>Nothing — a contact change that is sent late, or retried after it failed, never undoes a newer one, for example a subscription after the contact's newer unsubscribe. An unsubscribe is never skipped for an older subscription.</td></tr>
             <tr><td>"Skipped: the shopper opted out of personalized recommendations, so their browsing is not linked to their address."</td><td>Nothing — this respects the opt-out.</td></tr>
             <tr><td><strong>Withdrawn</strong>: "This reminder was withdrawn because the shopper completed the purchase; it cannot be re-sent."</td><td>Nothing — the shopper bought before the reminder went out.</td></tr>
           </tbody>
@@ -1603,6 +1604,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td>„Vahele jäetud: see ostukorv jäeti maha rohkem kui 24 tundi tagasi, …“</td><td>Mitte midagi — nii vanale ostukorvile meeldetuletust ei saadeta.</td></tr>
             <tr><td>„Vahele jäetud: see ostja pole poes turunduskirjadega nõustunud ega ole Smailys tellija.“</td><td>Mitte midagi — nõusolekurežiim ei luba seda e-kirja (vt <a href="#set-automations">Automaatikad</a>).</td></tr>
             <tr><td>„Vahele jäetud: see ostja on Smailys loobunud.“</td><td>Mitte midagi — Smailys loobunud kontaktile ei saadeta ühtegi automaatika e-kirja.</td></tr>
+            <tr><td>„Vahele jäetud: selle kontakti uuem muudatus on juba Smailysse jõudnud ja see vanem tühistaks selle.“</td><td>Mitte midagi — hilinenud või pärast ebaõnnestumist uuesti proovitud kontakti muudatus ei tühista kunagi uuemat, näiteks tellimus pärast kontakti uuemat loobumist. Loobumist ei jäeta kunagi vahele vanema tellimuse pärast.</td></tr>
             <tr><td>„Vahele jäetud: ostja loobus personaalsetest soovitustest, seega tema sirvimist tema aadressiga ei seota.“</td><td>Mitte midagi — see austab loobumist.</td></tr>
             <tr><td><strong>Tagasi võetud</strong>: „See meeldetuletus võeti tagasi, sest ostja viis ostu lõpule; seda ei saa uuesti saata.“</td><td>Mitte midagi — ostja ostis enne, kui meeldetuletus välja läks.</td></tr>
           </tbody>
@@ -1619,7 +1621,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li><strong>No retry.</strong> A delivery that was refused outright — wrong credentials, a deleted workflow, data Smaily or Campaign Intelligence calls invalid — is marked <strong>Failed</strong> at once, so you see it now.</li>
         <li><strong>The banner.</strong> When rows failed in the last 24 hours, a banner above the list counts them, and <strong>Show failed (24h)</strong> lists them.</li>
         <li><strong>Retry</strong> — tick failed rows and click <strong>Retry</strong>; <strong>Select all</strong> retries every failed row that the filter lists. A row is left alone when sending it again would not be safe, for example when a later email of the same kind already reached the contact, and the answer says how many rows were skipped.</li>
-        <li><strong>Send again</strong> — on one failed row, queues a new attempt as a new row; the failed row stays as your record.</li>
+        <li><strong>Send again</strong> — on one failed row, queues a new attempt as a new row; the failed row stays as your record. A contact change after which a newer change of the same contact already reached Smaily is not sent again: the Log says "A newer change of this contact was already sent to Smaily; sending this older one again would undo it."</li>
       </ul>
       <p>Fix the cause first (see the tables above), then retry.</p>
     </div>
@@ -1629,7 +1631,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li><strong>Kordust ei ole.</strong> Otse tagasi lükatud saadetis — valed kasutajaandmed, kustutatud töövoog, andmed, mida Smaily või Campaign Intelligence peab vigaseks — märgitakse kohe olekuga <strong>Ebaõnnestunud</strong>, et näeksid seda kohe.</li>
         <li><strong>Bänner.</strong> Kui viimase 24 tunni jooksul ebaõnnestus ridu, loendab bänner loendi kohal need ja <strong>Näita ebaõnnestunuid (24 h)</strong> loetleb need.</li>
         <li><strong>Proovi uuesti</strong> — märgi ebaõnnestunud read ja klõpsa <strong>Proovi uuesti</strong>; <strong>Vali kõik</strong> (<strong>Select all</strong>) proovib uuesti iga ebaõnnestunud rida, mida filter loetleb. Rida jäetakse puutumata, kui selle uuesti saatmine poleks ohutu, näiteks kui sama liiki hilisem e-kiri on kontaktini juba jõudnud, ja vastus ütleb, mitu rida vahele jäeti.</li>
-        <li><strong>Saada uuesti</strong> — ühel ebaõnnestunud real paneb uue katse järjekorda uue reana; ebaõnnestunud rida jääb sinu kirjeks.</li>
+        <li><strong>Saada uuesti</strong> — ühel ebaõnnestunud real paneb uue katse järjekorda uue reana; ebaõnnestunud rida jääb sinu kirjeks. Kontakti muudatust, mille järel on sama kontakti uuem muudatus juba Smailysse jõudnud, uuesti ei saadeta: logi ütleb „Selle kontakti uuem muudatus on juba Smailysse saadetud; selle vanema uuesti saatmine tühistaks selle.“</li>
       </ul>
       <p>Paranda kõigepealt põhjus (vt ülaltoodud tabeleid) ja proovi siis uuesti.</p>
     </div>

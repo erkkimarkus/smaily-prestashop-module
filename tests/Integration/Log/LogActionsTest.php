@@ -204,18 +204,20 @@ final class LogActionsTest extends AbandonedCartTestCase
     public function guardReads(): array
     {
         return [
-            'the rows the guard reads' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error` FROM/'],
+            'the rows the guard reads' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id`, `status`, `last_error`, `payload` FROM/'],
             'the later rows of the contacts' => ['/^SELECT `id`, `id_shop`, `event_type`, `entity_id` FROM/'],
+            'the newer changes of the contacts' => ['/^SELECT `id`, `id_shop`, `entity_id`, `payload` FROM/'],
         ];
     }
 
     /**
      * "Retry" returns only the rows that the guard lets through. A read of the guard that fails
      * (facts file 6.11) refuses nothing by itself: read as "no row stands in the way", every failed
-     * row went back to the queue, the superseded and erased ones too. The retry stops, no row
-     * changes, and "Send again" of one such row is not answered as allowed. With its reads the
-     * guard refuses those two and lets the contact sync through, also one that subscribes after a
-     * later delivered unsubscribe (owner, 2026-11-21).
+     * row went back to the queue, the superseded, erased and overtaken ones too. The retry stops,
+     * no row changes, and "Send again" of one such row is not answered as allowed. With its reads
+     * the guard refuses those three: the overtaken one is a subscription after which a newer
+     * unsubscribe was delivered (owner, 2026-11-26). It lets through an unsubscribe recorded after
+     * a delivered subscription.
      *
      * @dataProvider guardReads
      */
@@ -225,8 +227,10 @@ final class LogActionsTest extends AbandonedCartTestCase
         $superseded = $this->welcome('shopper3@example.test', $failed);
         $this->welcome('shopper3@example.test', ['status' => 'sent']);
         $erased = $this->sync('shopper4@example.test', ['entity_id' => ResendGuard::ERASED_ENTITY] + $failed);
-        $sync = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
+        $overtaken = $this->sync('shopper5@example.test', ['payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":true,"consent_changed":true}'] + $failed);
         $this->sync('shopper5@example.test', ['status' => 'sent', 'payload' => '{"email":"shopper5@example.test","source":"customer","subscribed":false,"consent_changed":true}']);
+        $this->sync('shopper6@example.test', ['status' => 'sent', 'payload' => '{"email":"shopper6@example.test","source":"customer","subscribed":true,"consent_changed":true}']);
+        $sync = $this->sync('shopper6@example.test', ['payload' => '{"email":"shopper6@example.test","source":"customer","subscribed":false,"consent_changed":true}'] + $failed);
         $rows = new LogRows([$this->idShop], static fn (string $term): array => FailureMessage::patternsShowing($term, static fn (string $text): string => $text));
         $retry = new Retry($rows, new ResendGuard(), $this->queue());
 
@@ -236,11 +240,11 @@ final class LogActionsTest extends AbandonedCartTestCase
             });
             self::fail('The retry went on without its guard.');
         } catch (SqlException $error) {
-            self::assertSame(['failed', 'failed', 'failed'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($sync)['status']]);
+            self::assertSame(['failed', 'failed', 'failed', 'failed'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($overtaken)['status'], self::stored($sync)['status']]);
         }
 
-        self::assertSame([1, 2], $retry->retry(new LogFilter(), null), 'with its reads the guard refuses the two and lets the contact sync through');
-        self::assertSame(['failed', 'failed', 'pending'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($sync)['status']]);
+        self::assertSame([1, 3], $retry->retry(new LogFilter(), null), 'with its reads the guard refuses the three and lets the unsubscribe through');
+        self::assertSame(['failed', 'failed', 'failed', 'pending'], [self::stored($superseded)['status'], self::stored($erased)['status'], self::stored($overtaken)['status'], self::stored($sync)['status']]);
     }
 
     /**

@@ -7,9 +7,12 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Log\FailureMessage;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogStatus;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Handler\ContactSyncHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
@@ -24,9 +27,9 @@ require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 /**
  * A contact sync row carries the consent of the moment it was queued, and a row that failed is sent
  * again later. End to end in the shop, with the capture's rows, the runtime's flusher and the Smaily
- * mock: a row goes as stored whenever its turn comes, also after a later row of the same contact
- * was delivered, in either direction, as the Magento and WooCommerce connectors send theirs (owner,
- * 2026-11-21). Rows that wait together go in their order.
+ * mock: a late or retried row is skipped once a newer change of the same contact reached Smaily, in
+ * either direction, and an older change that reached Smaily later never stands in a newer one's
+ * way (owner, 2026-11-26). Rows that wait together go in their order.
  */
 final class ContactSyncOrderTest extends IntegrationTestCase
 {
@@ -100,11 +103,11 @@ final class ContactSyncOrderTest extends IntegrationTestCase
 
     /**
      * The contact subscribes and the row fails; the contact unsubscribes and that row is delivered;
-     * then the first row's retry comes due.
+     * then the first row's retry comes due, and is skipped.
      *
      * @dataProvider addresses
      */
-    public function testTheRetryOfASubscriptionGoesAsStoredAfterALaterUnsubscribeWasDelivered(string $address): void
+    public function testTheRetryOfASubscriptionIsSkippedAfterANewerUnsubscribeWasDelivered(string $address): void
     {
         $this->mock->failContactWrites(true);
         $subscribe = $this->capture($address, true);
@@ -121,19 +124,26 @@ final class ContactSyncOrderTest extends IntegrationTestCase
         $this->makeDue($subscribe);
         self::assertSame(1, $this->flush(), 'the retry runs');
 
-        self::assertSame(EventQueue::STATUS_SENT, $this->row($subscribe)['status']);
+        $row = $this->row($subscribe);
+        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_NEWER_CHANGE, 1], [$row['status'], $row['last_error'], (int) $row['attempts']]);
         self::assertSame(
-            [[$address, 0], [$address, 1], [$address, 0]],
+            [[$address, 0], [$address, 1]],
             $this->statusesSent(),
-            'the failed first attempt, the unsubscribe, then the older row as stored'
+            'the failed first attempt, then the unsubscribe: nothing marks the contact subscribed after it'
         );
-        self::assertSame(EventQueue::STATUS_SENT, $this->row($unsubscribe)['status']);
+        self::assertSame(LogStatus::SKIPPED, LogStatus::ofQueueRow($row['status'], $row['event_type'], $row['last_error']), 'not a failure');
+        self::assertSame(
+            'Skipped: a newer change of this contact already reached Smaily, and this older one would undo it. Nothing was sent.',
+            FailureMessage::forDisplay($row['last_error'], static fn (string $text): string => $text),
+            'what the Log shows'
+        );
     }
 
     /**
-     * The opposite order: an unsubscribe that failed goes after a later delivered subscription.
+     * The opposite direction: an unsubscribe that failed is skipped after a newer subscription of
+     * the contact was delivered. The newer choice stands.
      */
-    public function testALateUnsubscribeStillGoesAfterALaterSubscriptionWasDelivered(): void
+    public function testTheRetryOfAnUnsubscribeIsSkippedAfterANewerSubscriptionWasDelivered(): void
     {
         $this->mock->failContactWrites(true);
         $unsubscribe = $this->capture('shopper1@example.test', false);
@@ -145,16 +155,44 @@ final class ContactSyncOrderTest extends IntegrationTestCase
         $this->makeDue($unsubscribe);
         $this->flush();
 
-        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($unsubscribe)['status'], $this->row($subscribe)['status']]);
-        self::assertSame([['shopper1@example.test', 1], ['shopper1@example.test', 0], ['shopper1@example.test', 1]], $this->statusesSent());
+        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_NEWER_CHANGE], [$this->row($unsubscribe)['status'], $this->row($unsubscribe)['last_error']]);
+        self::assertSame(EventQueue::STATUS_SENT, $this->row($subscribe)['status']);
+        self::assertSame([['shopper1@example.test', 1], ['shopper1@example.test', 0]], $this->statusesSent());
     }
 
     /**
-     * A guest-checkout customer's ticked box is a subscription like any other: its retry goes as
-     * stored after a later delivered consent change of the address, here an unsubscribe through
-     * the newsletter block.
+     * An unsubscribe is never skipped in favour of an older subscription: both fail, the older
+     * subscription's retry is delivered first, and the newer unsubscribe still goes after it.
      */
-    public function testTheRetryOfAGuestsSubscriptionGoesAfterALaterConsentChangeOfTheAddress(): void
+    public function testAnUnsubscribeGoesAfterAnOlderSubscriptionThatReachedSmailyLater(): void
+    {
+        $this->mock->failContactWrites(true);
+        $subscribe = $this->capture('shopper1@example.test', true);
+        $this->flush();
+        $unsubscribe = $this->capture('shopper1@example.test', false);
+        $this->flush();
+
+        $this->mock->failContactWrites(false);
+        $this->makeDue($subscribe);
+        $this->flush();
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_PENDING], [$this->row($subscribe)['status'], $this->row($unsubscribe)['status']]);
+        $this->makeDue($unsubscribe);
+        $this->flush();
+
+        self::assertSame([EventQueue::STATUS_SENT, null], [$this->row($unsubscribe)['status'], $this->row($unsubscribe)['last_error']]);
+        self::assertSame(
+            [['shopper1@example.test', 0], ['shopper1@example.test', 1], ['shopper1@example.test', 0], ['shopper1@example.test', 1]],
+            $this->statusesSent(),
+            'the contact ends unsubscribed, the newer choice'
+        );
+    }
+
+    /**
+     * A guest-checkout customer's ticked box is a subscription like any other: its retry is skipped
+     * after a newer delivered consent change of the address, here an unsubscribe through the
+     * newsletter block. The address is the contact, whatever the source of a row.
+     */
+    public function testTheRetryOfAGuestsSubscriptionIsSkippedAfterANewerConsentChangeOfTheAddress(): void
     {
         $this->mock->failContactWrites(true);
         $guest = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true]);
@@ -166,8 +204,36 @@ final class ContactSyncOrderTest extends IntegrationTestCase
         $this->makeDue($guest);
         $this->flush();
 
-        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($guest)['status'], $this->row($block)['status']]);
-        self::assertSame([['guest1@example.test', 0], ['guest1@example.test', 1], ['guest1@example.test', 0]], $this->statusesSent());
+        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_NEWER_CHANGE], [$this->row($guest)['status'], $this->row($guest)['last_error']]);
+        self::assertSame(EventQueue::STATUS_SENT, $this->row($block)['status']);
+        self::assertSame([['guest1@example.test', 0], ['guest1@example.test', 1]], $this->statusesSent());
+    }
+
+    /**
+     * A newer row that changed no consent (a profile save, an order) sends no subscription status:
+     * the guest's subscription is still delivered by its retry. An older profile save is skipped
+     * after it.
+     */
+    public function testANewerRowWithoutAConsentChangeOvertakesOnlyAnOlderRowWithoutOne(): void
+    {
+        $this->mock->failContactWrites(true);
+        $guest = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true]);
+        $profile = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true, 'consent_changed' => false]);
+        $this->flush();
+
+        $this->mock->failContactWrites(false);
+        $order = $this->capture('guest1@example.test', true, ['guest' => true, 'checkout' => true, 'consent_changed' => false]);
+        $this->flush();
+        $this->makeDue($guest);
+        $this->makeDue($profile);
+        $this->flush();
+
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], [$this->row($guest)['status'], $this->row($order)['status']]);
+        self::assertSame([EventQueue::STATUS_SKIPPED, ContactSyncHandler::SKIPPED_NEWER_CHANGE], [$this->row($profile)['status'], $this->row($profile)['last_error']]);
+        self::assertSame(
+            [['guest1@example.test', 0], ['guest1@example.test', null], ['guest1@example.test', null], ['guest1@example.test', 0]],
+            $this->statusesSent()
+        );
     }
 
     /**

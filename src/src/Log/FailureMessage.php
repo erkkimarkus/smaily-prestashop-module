@@ -77,6 +77,7 @@ final class FailureMessage
         Router::SKIPPED_NO_WORKFLOW => 'Skipped: no Smaily workflow is mapped to this automation trigger. Nothing was sent.',
         ContactSyncHandler::SKIPPED_SYNC_OFF => 'Skipped: contact synchronization is off for this shop. Nothing was sent.',
         ContactSyncHandler::SKIPPED_NOT_IN_AUDIENCE => 'Skipped: the Contacts settings of this shop do not sync this contact. Nothing was sent.',
+        ContactSyncHandler::SKIPPED_NEWER_CHANGE => 'Skipped: a newer change of this contact already reached Smaily, and this older one would undo it. Nothing was sent.',
         ContactSyncHandler::SKIPPED_NO_ACCOUNT => 'Skipped: no Smaily account is saved for this shop and language. Nothing was sent.',
         ContactSyncHandler::SKIPPED_NO_CREDENTIALS => 'Skipped: the Smaily account for this shop and language has no subdomain, username or password. Nothing was sent.',
         Router::SKIPPED_AUTOMATION_OFF => 'Skipped: this automation is switched off for this shop. Nothing was sent.',
