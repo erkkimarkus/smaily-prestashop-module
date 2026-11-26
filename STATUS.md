@@ -52,10 +52,14 @@ both (the console-install defect in the queue). **Two shops** walked on 8.2.8 an
 (`docs/internal/walks/2026-11-26-two-shops.md`): Module Manager's install, one shared connection, a connection per
 shop, the layout change both ways, capabilities 8 to 11 per shop: 91 of 91 and 91 of 92 (the one a walk fault).
 
-**Run of 2026-11-26 (CON-433a, a newer contact change wins).** Host 2300 tests, 4054 assertions; JS 55; CS 0 of 359;
-PHP 8.0 lint. Fresh shops behind the guard: 2300 tests on 9.2.0 (12326) and 8.2.8 (12321), leftovers silent. Browser
-walk on both, Smaily mock: held subscription skipped after the newer unsubscribe; "Send again" refused with its
-sentence; an older subscription delivered late leaves the newer unsubscribe to go after it.
+**Run of 2026-11-26 (CON-433c: workflows after an account or mode change, Settings refuses a rejected account, refused
+import contacts in the Log, the consent-mode warning).** Host 2305 tests, 4054 assertions, 1169 skipped; JS 55; CS 0 of
+361; PHP 8.0.30 lint of the 18 changed PHP files. Fresh shops behind the guard: 2305 tests on 8.2.8 (12350) and 9.2.0
+(12355), leftovers silent (one earlier 9.2.0 run under heavy machine load failed `RssFeedTest` once on an HTML error
+page; RSS alone and the full rerun passed). Browser walk on both, EN and ET, Smaily mock, two shops: 35 of 35 checks on
+8.2.8 and 9.2.0 (the Initial setup, the refused test and endpoint, the account-change question with Cancel and OK, the
+names after the save, both banners and the pills, the import card and the Log's refused list, the warning on Settings
+and step 2).
 
 **Run of 2026-11-26 (CON-433b, privacy requests paced).** Host 2317 tests, 4121 assertions; JS 55; CS 0 of 362; PHP
 8.0 lint of 23 files. Fresh shops behind the guard: 2317 tests on 9.2.0 (12474) and 8.2.8 (12469), leftovers silent.
@@ -121,15 +125,18 @@ A box is ticked only when the real flow was exercised, every service a mock. Rec
 Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behaviour rule, read what the siblings do.
 
 1. Marketplace's six content rules and PrestaShop's online validator wait until the listing is planned (CON-379).
-2. For the cross-connector analysis CON-397 (late or retried contact changes: decided 2026-11-26, a newer change
-   wins, built under CON-433): workflows after an account or mode change, two shops on one account; whether a stored Smaily subdomain that is not one plain label should park its
-   contact row at once (today it takes the retry ladder, as Magento keeps it); whether Settings > Connection should
-   refuse an account that Smaily rejects, as WooCommerce does (today it saves it). WooCommerce also locks its
+2. For the cross-connector analysis CON-397 (decided 2026-11-26 and built under CON-433: a newer contact change
+   wins; workflows that another account or mode lacks are removed; Settings > Connection refuses a rejected account;
+   a refused import names its contacts; shops of one account with different consent modes are warned): whether a
+   stored Smaily subdomain that is not one plain label should park its
+   contact row at once (today it takes the retry ladder, as Magento keeps it). WooCommerce also locks its
    Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only
    that an account is stored, as Shopify does: a stored account Smaily refuses can still save steps 2–4 around the
    page. A Done contact import keeps its refusal reason in the Log (owner, 2026-11-25); Magento and WooCommerce keep
    no error on a completed import.
 3. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
+4. A wording for Tanel Rand's native review: "nõusolekurežiim" for "consent mode" (CON-433's warning "Selle Smaily
+   konto poed kasutavad erinevaid nõusolekurežiime"); the admin catalogues had no word for it (the guide page uses it).
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also
 shows whether the real service takes an installation report); make the web root https://smaily.com/connect-presta/
