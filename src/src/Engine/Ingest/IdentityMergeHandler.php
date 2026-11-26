@@ -38,11 +38,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestExceptio
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Payload\CustomerPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Deferred;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
-use PrestaShop\Module\SmailyForPrestaShop\Queue\Pending;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
 
@@ -66,8 +66,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
  * A row is closed without a request when its shop has no connection, when the customer is gone,
  * when the shopper opted out of personalization (Privacy\ProfilingConsent, as the Magento
  * connector's handler), or when it has nothing to send (no visitor token, and the confirmation
- * taken back). It waits, as it is, while the engine refuses the connection. A reason is a code,
- * never the engine's text.
+ * taken back). While the engine refuses the connection the row waits a minute at a time, with no
+ * attempt spent (Queue\Deferred): the drain of the queue does not claim it again in the same run.
+ * A reason is a code, never the engine's text.
  */
 final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
 {
@@ -90,6 +91,9 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
     public const FAILED_NOT_FOUND = 'engine_customer_not_found';
 
     public const FAILED_MALFORMED_PAYLOAD = 'malformed_payload';
+
+    /** How long a row waits while the engine refuses its connection, as the 429 default. */
+    private const REFUSED_WAIT_SECONDS = 60;
 
     /** Payload key: the merge was answered `404 customer_not_found` before. */
     private const NOT_FOUND = 'customer_not_found';
@@ -147,7 +151,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
     /**
      * @param array<string, mixed> $event
      *
-     * @return mixed true, a Skipped, a Pending or a Failure
+     * @return mixed true, a Skipped, a Deferred or a Failure
      */
     private function deliver(array $event)
     {
@@ -160,7 +164,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
             return new Skipped(self::SKIPPED_NO_CONNECTION);
         }
         if (!$connection->isTaken()) {
-            return new Pending();
+            return self::refused();
         }
         $customer = $this->scope->customer((int) $payload['id_customer']);
         if ($customer === null) {
@@ -302,7 +306,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
      * the connection itself, takes the retry ladder when the request may pass later, and is
      * parked otherwise.
      *
-     * @return Pending|Failure
+     * @return Deferred|Failure
      */
     private function failed(Connection $connection, EngineException $failure)
     {
@@ -310,10 +314,19 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
             return Failure::temporary($failure->errorCode());
         }
         if ($this->health->refuses($connection, $failure)) {
-            return new Pending();
+            return self::refused();
         }
 
         return Failure::permanent($failure->permanentReason());
+    }
+
+    /**
+     * The row of a connection that the engine refuses waits, with no attempt spent and its reason
+     * kept.
+     */
+    private static function refused(): Deferred
+    {
+        return new Deferred(time() + self::REFUSED_WAIT_SECONDS);
     }
 
     /**

@@ -17,8 +17,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\ExchangeSource;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\QueueProvider;
+use PrestaShop\Module\SmailyForPrestaShop\Runtime\Provider\SchedulerProvider;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
+use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Job;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\ActiveConnection;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Attribution;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Cookies;
@@ -481,6 +486,63 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame([EventQueue::STATUS_PENDING, '0', null], [$row['status'], $row['attempts'], $row['last_error']]);
         self::assertNotSame('', $this->connections()->find(0)->refusedAt());
         self::assertCount($requests, $this->engine->requests(), 'once the refusal is known, nothing more is sent');
+    }
+
+    public function testAMergeThatARefusedConnectionHoldsWaitsAMinuteAndTheDrainDoesNotClaimItAgain(): void
+    {
+        $this->connect();
+        $this->confirmTracking();
+        $this->storefront();
+        $this->token = self::STORE_TOKEN;
+        $customer = $this->customer('shopper21@example.test', true);
+        $this->fire('actionAuthentication', ['customer' => $customer]);
+        $this->engine->revokeKeys();
+        $calls = 0;
+        $handler = $this->services->get(QueueProvider::handlerId(IdentityCapture::EVENT_TYPE));
+        $this->services->set(QueueProvider::handlerId(IdentityCapture::EVENT_TYPE), function () use ($handler, &$calls): HandlerInterface {
+            return new class($handler, $calls) implements HandlerInterface, ExchangeSource {
+                /** @var HandlerInterface&ExchangeSource */
+                private $inner;
+
+                private int $calls;
+
+                /**
+                 * @param HandlerInterface&ExchangeSource $inner
+                 */
+                public function __construct($inner, int &$calls)
+                {
+                    $this->inner = $inner;
+                    $this->calls = &$calls;
+                }
+
+                public function handle(array $events): array
+                {
+                    ++$this->calls;
+
+                    return $this->inner->handle($events);
+                }
+
+                public function exchanges(): array
+                {
+                    return $this->inner->exchanges();
+                }
+            };
+        });
+        $jobs = array_map(static fn (callable $job): Job => $job([]), $this->services->listeners(SchedulerProvider::JOBS));
+        $flush = array_values(array_filter($jobs, static fn (Job $job): bool => $job->name() === 'queue_flush'))[0];
+        // A deadline that passes at its 10th look, so that a drain that claims the row again stops.
+        $looks = 0;
+
+        $before = time();
+        $flush->run(new Deadline(10.0, static function () use (&$looks): float {
+            return (float) ++$looks;
+        }));
+
+        self::assertSame(1, $calls, 'the drain hands the row to the handler once');
+        $row = self::mergeRows()[0];
+        self::assertSame([EventQueue::STATUS_PENDING, '0', null], [$row['status'], $row['attempts'], $row['last_error']]);
+        self::assertGreaterThanOrEqual(gmdate('Y-m-d H:i:s', $before + 60), $row['next_retry_at']);
+        self::assertLessThanOrEqual(gmdate('Y-m-d H:i:s', time() + 60), $row['next_retry_at']);
     }
 
     public function testAPrivacyRequestFindsTheShoppersEngineRowsAndTheErasureClearsThem(): void

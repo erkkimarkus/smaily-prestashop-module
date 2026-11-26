@@ -2755,7 +2755,11 @@ and tries the merge once more (§7 "Retry after 404"), and never again before th
 the store created (`vs_…`) travels only with marketing consent, which is group (c)'s: the
 merchant's confirmation. A shopper who opted out of personalization (section 11.2) gets neither:
 the row is skipped (`engine_opted_out`), as on the Magento connector. A sign-in in a shop without
-the confirmation and without an engine token queues nothing.
+the confirmation and without an engine token queues nothing. While the engine refuses the
+connection (`Connection::isTaken()`, or a 401, 403 or 409 that `HealthCheck::refuses()` confirms),
+the handler answers a `Deferred` of 60 seconds (`REFUSED_WAIT_SECONDS`, the 429 default): the row
+waits with no attempt spent and its reason kept, and the drain of `queue_flush` does not claim it
+again in the same run.
 
 **The visitor-token seam.** `Engine\Capture\VisitorToken` is the one seam to the storefront:
 `token(int $idShop, bool $marketingConsent): ?string`. The storefront answers it
