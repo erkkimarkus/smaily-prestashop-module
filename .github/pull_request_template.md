@@ -16,7 +16,6 @@ A list of changes regarding the next version release:
 - [ ] Updated CONTRIBUTING.md
 - [ ] Updated plugin version number
 - [ ] Added migrations
-- [ ] Updated screenshots in assets folder
 - [ ] Updated translations
 
 **After PR merge**

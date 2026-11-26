@@ -88,8 +88,7 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
 - The engine mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS:
-  only the egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced
-  now, and the PR template still lists them.
+  only the egress guard fences a shop from the real Smaily API.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's

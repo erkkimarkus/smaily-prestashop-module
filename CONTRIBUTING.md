@@ -41,7 +41,6 @@ You can access PrestaShop store from `http://localhost:8080` and administration 
 The repository is split into multiple parts:
 
 - `.github` - GitHub issue and pull request templates, and release workflow;
-- `assets` - images for the user guide;
 - `src` - module files;
 
 Source files must follow standard PrestaShop module structure. Learn more about it from the [Modules Folder structure](https://devdocs.prestashop-project.org/8/modules/creation/module-file-structure/) chapter in the official documentation.
