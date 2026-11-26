@@ -3566,9 +3566,10 @@ page.
 nothing is listed that it does not name, none is known by its key, and an automation that the
 engine adds appears at the next load. A row shows the engine's name and description, in the
 employee's language where the engine gives it (`name_<language>`), else in English; the pill Off,
-Test mode or Active, from the email's §12 `setup[]` item (`live` is Active, `test` and `stopped`
-are Test mode, every other state Off), or from the stored row's `enabled` and `test_mode` where
-the engine gives no item; and Enabled. While Enabled is ticked it also shows the email's Test mode
+Test mode, Stopped or Active, from the email's §12 `setup[]` item (`live` is Active, a stop that
+waits for Smaily's review, `stopped` or the blocker `stopped_needs_review`, is Stopped as in
+WooCommerce (owner, 2026-11-26), `test` is Test mode, every other state Off), or from the stored
+row's `enabled` and `test_mode` where the engine gives no item; and Enabled. While Enabled is ticked it also shows the email's Test mode
 block (below), Smaily Workflow, Cooldown (days), Daily Cap (empty = no cap) and Test Emails. A row without a stored configuration is off and in test mode, with a cooldown of 7 days and
 no cap (Magento's defaults), so a newly enabled automation is in test mode. A row that is off
 keeps its values in the form.
@@ -3623,7 +3624,8 @@ each change calls the engine at once, one attempt, and the save never sends it.
   `confirmed: true`). Turning it on again asks nothing and calls §20 `{live: false}`.
 - While it is on, the block says "The email goes to test addresses only." and offers "Send test
   email" with an address field that starts as the employee's own address and the note "This
-  address is added to the Smaily list as a test contact." (`Admin\Api\Settings\EngineTestSend`:
+  address is added to the Smaily list as a test contact. The test shows the design your Smaily
+  workflow holds." (§19, Magento's wording; `Admin\Api\Settings\EngineTestSend`:
   §19 `{email, language}`, the shop's default language). The module checks that the address is one
   email address and keeps it nowhere.
 - Every answer carries the email's state as a new read of §12 gives it after a call that the
@@ -5014,7 +5016,7 @@ has one owner:
 | 54 | The installation report against the real service | Every check used the mock receiver; `subscription.smaily.com` was never called. Whether the service accepts a PrestaShop report, and lists the installation, is a human acceptance step with a real Smaily account. | Owner |
 | 55 | Which keys a save of the engine's automations sends | Every row with every key of contract §13 but `test_mode`, which the card's Test mode switch sets through §20 since CON-459 (owner, 2026-11-26, as WooCommerce and Magento; section 10.10). `automation_map` and `test_emails` are still sent: since v1.15.0 the contract advises a connector to leave them out unless the merchant set them here, as a sent `automation_map` replaces a workflow that a Smaily operator or the engine's setup page stored and a sent `test_emails` replaces the setup page's list. The card mitigates the first (a workflow it could not offer is sent back as stored), but a page that was opened before a change on the engine's side sends the older values. Not decided alone (owner, 2026-11-23): one answer for all connectors. | Cross-connector analysis (Linear CON-397) |
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
-| 57 | The engine's setup states are not shown | Done (owner, 2026-11-26; Linear CON-459): the card reads `setup[]` of §12 for the pill, today's limit of a live email, a stop that waits for Smaily's review and the notice "starts when your sender domain is verified", and offers the test send (§19) and the test mode switch (§20), as WooCommerce and Magento (section 10.10). A stopped email's pill reads Test mode, as in Magento; WooCommerce's reads Stopped. "Edit design" stays out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
+| 57 | The engine's setup states are not shown | Done (owner, 2026-11-26; Linear CON-459): the card reads `setup[]` of §12 for the pill, today's limit of a live email, a stop that waits for Smaily's review and the notice "starts when your sender domain is verified", and offers the test send (§19) and the test mode switch (§20), as WooCommerce and Magento (section 10.10). A stopped email's pill reads Stopped, as WooCommerce's (owner, 2026-11-26, for all connectors). "Edit design" stays out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
 | 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule

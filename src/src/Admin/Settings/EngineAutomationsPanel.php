@@ -289,7 +289,8 @@ final class EngineAutomationsPanel
         return [
             'test_mode' => (bool) $state['test_mode'],
             'mode' => $mode,
-            'pill' => $mode === 'active' ? $this->trans('Active') : ($mode === 'test' ? $this->trans('Test mode') : $this->trans('Off')),
+            'pill' => $mode === 'active' ? $this->trans('Active')
+                : ($mode === 'test' ? $this->trans('Test mode') : ($mode === 'stopped' ? $this->trans('Stopped') : $this->trans('Off'))),
             'status' => $status,
             'notice' => $state['notice'] === AutomationList::NOTICE_SENDER ? $this->trans('Starts when your sender domain is verified in Smaily.') : '',
         ];

@@ -89,7 +89,7 @@ final class AutomationList
                 'name' => self::localized($trigger, 'name', $language, $key),
                 'description' => self::localized($trigger, 'description', $language, ''),
                 'enabled' => $enabled,
-                // The pill: Off, Test mode or Active. Without a setup item, fail closed: only a
+                // The pill: Off, Test mode, Stopped or Active. Without a setup item, fail closed: only a
                 // stored `false` shows an automation out of test mode.
                 'mode' => $setup !== null ? $setup['mode'] : (!$enabled ? 'off' : (($stored['test_mode'] ?? true) !== false ? 'test' : 'active')),
                 'setup' => $setup === null ? null : array_diff_key($setup, ['mode' => true]),
@@ -109,7 +109,8 @@ final class AutomationList
 
     /**
      * Each catalogue email's state from a §12 answer, by key (an engine before contract v1.15.0
-     * gives none): the pill's `mode` (`off`, `test` or `active`), whether test mode is on (every
+     * gives none): the pill's `mode` (`off`, `test`, `stopped` while a stop waits for Smaily's
+     * review, as WooCommerce, or `active`), whether test mode is on (every
      * state but `live`), today's `daily_limit` of a live email, whether a stop waits for Smaily's
      * review, and the `notice` where it is one the contract names ('' otherwise).
      *
@@ -126,12 +127,13 @@ final class AutomationList
             }
             $state = $item['setup_state'] ?? null;
             $live = $state === 'live';
+            $stopped = $state === 'stopped'
+                || (is_array($item['go_live_blockers'] ?? null) && in_array(self::STOPPED_NEEDS_REVIEW, $item['go_live_blockers'], true));
             $states[$item['trigger_key']] = [
-                'mode' => $live ? 'active' : (in_array($state, ['test', 'stopped'], true) ? 'test' : 'off'),
+                'mode' => $live ? 'active' : ($stopped ? 'stopped' : ($state === 'test' ? 'test' : 'off')),
                 'test_mode' => !$live,
                 'daily_limit' => $live && is_int($item['daily_limit'] ?? null) ? $item['daily_limit'] : null,
-                'stopped' => $state === 'stopped'
-                    || (is_array($item['go_live_blockers'] ?? null) && in_array(self::STOPPED_NEEDS_REVIEW, $item['go_live_blockers'], true)),
+                'stopped' => $stopped,
                 'notice' => ($item['notice'] ?? null) === self::NOTICE_SENDER ? self::NOTICE_SENDER : '',
             ];
         }

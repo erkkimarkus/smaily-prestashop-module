@@ -2159,7 +2159,7 @@
       </trans-unit>
       <trans-unit id="c23e2b09ebe6bf4cb5e2a9abe85c0be2">
         <source>Stopped</source>
-        <target>Peatunud</target>
+        <target>Peatatud</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="eb0fa3b1dc92a8eac393d5503294ded5">
@@ -3935,6 +3935,11 @@
       <trans-unit id="873d0a20d2cf9378c8235f3a7375ce99">
         <source>This address is added to the Smaily list as a test contact.</source>
         <target>See aadress lisatakse Smaily listi testkontaktina.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5d1bb245b6eeaff839099e4d83be5c78">
+        <source>The test shows the design your Smaily workflow holds.</source>
+        <target>Testkiri näitab kujundust, mis on sinu Smaily töövoos.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="f4b93e2912b7857c7321cf0d514e340d">

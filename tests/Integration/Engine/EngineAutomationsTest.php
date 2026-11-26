@@ -341,7 +341,7 @@ final class EngineAutomationsTest extends EngineTestCase
         $off = $this->panel()->switchTestMode(0, 'replenish_due', false, '7');
         $on = $this->panel()->switchTestMode(0, 'replenish_due', true, '7');
 
-        self::assertSame(['test_mode' => true, 'mode' => 'test', 'pill' => 'Test mode', 'status' => 'Smaily reviews this stop before the email can send again.', 'notice' => ''], $card['rows'][0]['setup']);
+        self::assertSame(['test_mode' => true, 'mode' => 'stopped', 'pill' => 'Stopped', 'status' => 'Smaily reviews this stop before the email can send again.', 'notice' => ''], $card['rows'][0]['setup']);
         self::assertSame(['Test mode stays on until this is fixed:', ['Smaily reviews this stop before the email can send again.']], [$off['message'], $off['reasons']]);
         self::assertTrue($on['done']);
         self::assertSame('Smaily reviews this stop before the email can send again.', $on['state']['status'], 'only Smaily\'s review ends the stop');

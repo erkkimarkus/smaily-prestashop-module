@@ -2024,6 +2024,10 @@
   border-left: 3px solid var(--smaily-warning);
 }
 
+.smaily-ui .smaily-trigger.is-stopped {
+  border-left: 3px solid var(--smaily-danger);
+}
+
 .smaily-ui .smaily-engine-switches {
   display: flex;
   flex-wrap: wrap;

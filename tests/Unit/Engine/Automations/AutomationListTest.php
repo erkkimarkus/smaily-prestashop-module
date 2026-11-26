@@ -116,8 +116,8 @@ final class AutomationListTest extends TestCase
         yield 'set up' => [['setup_state' => 'set_up'], 'off', true, false];
         yield 'test' => [['setup_state' => 'test'], 'test', true, false];
         yield 'live' => [['setup_state' => 'live'], 'active', false, false];
-        yield 'stopped' => [['setup_state' => 'stopped', 'go_live_blockers' => ['stopped_needs_review']], 'test', true, true];
-        yield 'a stop that waits in test' => [['setup_state' => 'test', 'go_live_blockers' => ['stopped_needs_review']], 'test', true, true];
+        yield 'stopped' => [['setup_state' => 'stopped', 'go_live_blockers' => ['stopped_needs_review']], 'stopped', true, true];
+        yield 'a stop that waits in test' => [['setup_state' => 'test', 'go_live_blockers' => ['stopped_needs_review']], 'stopped', true, true];
         yield 'unknown state' => [['setup_state' => 'paused'], 'off', true, false];
     }
 

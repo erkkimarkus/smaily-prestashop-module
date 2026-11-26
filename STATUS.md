@@ -59,6 +59,12 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   shops behind the guard: 2385 tests on 9.2.0 (12803 assertions) and 8.2.8 (12798), leftovers silent. Walked in
   headless Chromium, EN and ET, on 9.2.0 and 8.2.8: one language, two languages in a, b, c and `single`, and a
   2.2.0 fixture upgraded and moved to b (routes the same before and after the Automations save).
+- CON-459 follow-up (owner, 26 Nov, all connectors): a stopped Campaign Intelligence email (a stop that waits for
+  Smaily's review) has the pill "Stopped" ("Peatatud", WooCommerce's), the review sentence stays; the note under
+  "Send test email" adds Magento's "The test shows the design your Smaily workflow holds." The shared unit
+  "Stopped" now reads "Peatatud" on the import cards too. Host 2412 tests (4236 assertions, 1234 skipped),
+  `node --test` 55, CS 0 of 370, PHP 8.0 lint; fresh shops behind the guard: 2412 tests on 9.2.0 (12925
+  assertions) and on 8.2.8 (12920); a headless walk of 21 checks per version, EN and ET, all pass.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.

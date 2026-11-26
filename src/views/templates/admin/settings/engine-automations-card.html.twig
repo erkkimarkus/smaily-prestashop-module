@@ -28,7 +28,7 @@
  # - the account is not active: nothing is read or saved;
  # - the list could not be loaded: nothing is listed, so nothing can be saved;
  # - else one row per automation that Campaign Intelligence offers the store now: its name, the
- #   pill Off, Test mode or Active, its description and Enabled; while it is on, also its Test mode
+ #   pill Off, Test mode, Stopped (a stop that Smaily reviews, as WooCommerce) or Active, its description and Enabled; while it is on, also its Test mode
  #   switch, the Smaily workflow it starts, Cooldown, Daily Cap and Test Emails. A row that is off
  #   keeps its values in the form, and the save posts every field of every row.
  #
@@ -97,7 +97,7 @@
           <div class="smaily-trigger__head">
             <div class="smaily-trigger__name-row">
               <span class="smaily-trigger__name">{{ row.name }}</span>
-              <span class="smaily-pill{{ mode == 'active' ? ' smaily-pill--active' : (mode == 'test' ? ' smaily-pill--pending' : '') }}" data-smaily-engine-pill><span class="smaily-pill__dot"></span><span data-smaily-engine-pill-text>{{ mode == 'active' ? 'Active'|trans : (mode == 'test' ? 'Test mode'|trans : 'Off'|trans) }}</span></span>
+              <span class="smaily-pill{{ mode == 'active' ? ' smaily-pill--active' : (mode == 'test' ? ' smaily-pill--pending' : (mode == 'stopped' ? ' smaily-pill--failed' : '')) }}" data-smaily-engine-pill><span class="smaily-pill__dot"></span><span data-smaily-engine-pill-text>{{ mode == 'active' ? 'Active'|trans : (mode == 'test' ? 'Test mode'|trans : (mode == 'stopped' ? 'Stopped'|trans : 'Off'|trans)) }}</span></span>
             </div>
             <div class="smaily-trigger__desc">{{ row.description }}</div>
             <div class="smaily-engine-switches">
@@ -120,7 +120,7 @@
                       <button type="button" class="btn btn-outline-secondary" data-smaily-action="send-test-email">{{ 'Send test email'|trans }}</button>
                     </div>
                   </div>
-                  <p class="smaily-note">{{ 'This address is added to the Smaily list as a test contact.'|trans }}</p>
+                  <p class="smaily-note">{{ 'This address is added to the Smaily list as a test contact.'|trans }} {{ 'The test shows the design your Smaily workflow holds.'|trans }}</p>
                 </div>
                 <div class="smaily-test-mode__result" data-smaily-test-mode-result role="status" hidden></div>
               </div>

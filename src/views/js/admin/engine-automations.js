@@ -190,10 +190,11 @@
       status.hidden = state.status === '';
       notice.textContent = state.notice;
       notice.hidden = state.notice === '';
-      trigger.classList.remove('is-off', 'is-test', 'is-active');
+      trigger.classList.remove('is-off', 'is-test', 'is-stopped', 'is-active');
       trigger.classList.add('is-' + state.mode);
       pill.classList.toggle('smaily-pill--active', state.mode === 'active');
       pill.classList.toggle('smaily-pill--pending', state.mode === 'test');
+      pill.classList.toggle('smaily-pill--failed', state.mode === 'stopped');
       pill.querySelector('[data-smaily-engine-pill-text]').textContent = state.pill;
     }
 
