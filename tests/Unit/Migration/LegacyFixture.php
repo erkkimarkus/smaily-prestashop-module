@@ -15,8 +15,9 @@ final class LegacyFixture
 {
     /**
      * @param array<int, int> $shopGroups id_shop => id_shop_group
+     * @param array<string, string|null> $values a value of a configuration row of the file, by key, in place of the file's
      */
-    public static function state(string $file, string $previousVersion, array $shopGroups = [1 => 1]): LegacyState
+    public static function state(string $file, string $previousVersion, array $shopGroups = [1 => 1], array $values = []): LegacyState
     {
         $sql = (string) file_get_contents(__DIR__ . '/../../fixtures/legacy/' . $file);
 
@@ -32,7 +33,7 @@ final class LegacyFixture
                 'id_shop_group' => $idShopGroup === 'NULL' ? null : $idShopGroup,
                 'id_shop' => $idShop === 'NULL' ? null : $idShop,
                 'name' => $name,
-                'value' => $value === 'NULL' ? null : substr($value, 1, -1),
+                'value' => array_key_exists($name, $values) ? $values[$name] : ($value === 'NULL' ? null : substr($value, 1, -1)),
             ];
         }
 

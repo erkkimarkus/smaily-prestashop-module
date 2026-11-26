@@ -3802,6 +3802,16 @@
         <target>Tellimuse tüüp</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="8abba37e4d1487cfa204d9f59eaa5aa7">
+        <source>The welcome email of %shop% sends nothing until contact synchronization is on: the welcome email now follows contact synchronization. Contact synchronization stays off; switch it on under Settings &gt; Contacts when you want the welcome email.</source>
+        <target>Tervituskiri ei saada midagi (pood: %shop%), kuni kontaktide sünkroonimine on sisse lülitatud: tervituskiri järgib nüüd kontaktide sünkroonimist. Kontaktide sünkroonimine jääb välja lülitatuks; kui soovid tervituskirja, lülita see sisse: Seaded &gt; Kontaktid.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="57a7693607f2cf7499b0296cbda44a50">
+        <source>Open Contacts settings</source>
+        <target>Ava kontaktide seaded</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

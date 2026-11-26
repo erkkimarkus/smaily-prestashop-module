@@ -16,9 +16,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Lock;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\Account;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
+use Tests\Integration\Fixtures\FailingQueries;
 use Tests\Integration\Fixtures\SmailyMockServer;
 use Tests\Integration\IntegrationTestCase;
 
+require_once __DIR__ . '/../Fixtures/FailingQueries.php';
 require_once __DIR__ . '/../Fixtures/SmailyMockServer.php';
 require_once __DIR__ . '/ContactRows.php';
 
@@ -154,10 +156,10 @@ final class EnqueueFlushTest extends IntegrationTestCase
     {
         // mode, include guests, box ticked, status, is_unsubscribed sent
         yield 'subscribers only, include guests off, ticked' => [ContactSyncMode::SUBSCRIBERS, false, true, EventQueue::STATUS_SENT, 0];
-        yield 'all customers, include guests off, ticked' => [ContactSyncMode::ALL_CUSTOMERS, false, true, EventQueue::STATUS_SENT, null];
+        yield 'all customers, include guests off, ticked' => [ContactSyncMode::ALL_CUSTOMERS, false, true, EventQueue::STATUS_SENT, 0];
         yield 'checkout opt-in only, include guests off, ticked' => [ContactSyncMode::CHECKOUT_OPTIN, false, true, EventQueue::STATUS_SENT, 0];
         yield 'subscribers only, include guests on, ticked' => [ContactSyncMode::SUBSCRIBERS, true, true, EventQueue::STATUS_SENT, 0];
-        yield 'all customers, include guests on, ticked' => [ContactSyncMode::ALL_CUSTOMERS, true, true, EventQueue::STATUS_SENT, null];
+        yield 'all customers, include guests on, ticked' => [ContactSyncMode::ALL_CUSTOMERS, true, true, EventQueue::STATUS_SENT, 0];
         yield 'subscribers only, include guests off, not ticked' => [ContactSyncMode::SUBSCRIBERS, false, false, EventQueue::STATUS_SKIPPED, null];
         yield 'subscribers only, include guests on, not ticked' => [ContactSyncMode::SUBSCRIBERS, true, false, EventQueue::STATUS_SKIPPED, null];
         yield 'all customers, include guests off, not ticked' => [ContactSyncMode::ALL_CUSTOMERS, false, false, EventQueue::STATUS_SKIPPED, null];
@@ -259,8 +261,8 @@ final class EnqueueFlushTest extends IntegrationTestCase
     {
         yield 'subscribers only, include guests off' => [ContactSyncMode::SUBSCRIBERS, false, EventQueue::STATUS_SENT, 0];
         yield 'subscribers only, include guests on' => [ContactSyncMode::SUBSCRIBERS, true, EventQueue::STATUS_SENT, 0];
-        yield 'all customers, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, EventQueue::STATUS_SENT, null];
-        yield 'all customers, include guests on' => [ContactSyncMode::ALL_CUSTOMERS, true, EventQueue::STATUS_SENT, null];
+        yield 'all customers, include guests off' => [ContactSyncMode::ALL_CUSTOMERS, false, EventQueue::STATUS_SENT, 0];
+        yield 'all customers, include guests on' => [ContactSyncMode::ALL_CUSTOMERS, true, EventQueue::STATUS_SENT, 0];
         yield 'checkout opt-in only, include guests off' => [ContactSyncMode::CHECKOUT_OPTIN, false, EventQueue::STATUS_SKIPPED, null];
         yield 'checkout opt-in only, include guests on' => [ContactSyncMode::CHECKOUT_OPTIN, true, EventQueue::STATUS_SKIPPED, null];
     }
@@ -292,6 +294,78 @@ final class EnqueueFlushTest extends IntegrationTestCase
         self::assertCount($status === EventQueue::STATUS_SENT ? 1 : 0, $requests);
         if ($status === EventQueue::STATUS_SENT) {
             self::assertSame(['block1@example.test', $isUnsubscribed], [$requests[0]['body'][0]['email'], $requests[0]['body'][0]['is_unsubscribed'] ?? null]);
+        }
+    }
+
+    /**
+     * In all customers a shopper who unsubscribes and then subscribes again on the account page is
+     * sent `is_unsubscribed = 1`, then `0`, so Smaily holds the contact subscribed again (owner,
+     * 2026-11-26, as Magento sends a subscribe change).
+     */
+    public function testInAllCustomersAResubscribeAfterAnUnsubscribeSendsTheSubscribedStatus(): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::MODE, ContactSyncMode::ALL_CUSTOMERS);
+        $customer = new \Customer($this->addCustomer($this->shop, 'shopper1@example.test', true, $this->idLang));
+        foreach ([false, true] as $subscribed) {
+            $shutdown = [];
+            $services = $this->services(true, $shutdown);
+            $dispatcher = new Dispatcher(static fn (): bool => true, static fn (): Services => $services, static function (): void {
+            });
+            $dispatcher->run('actionObjectCustomerUpdateBefore', ['object' => $customer]);
+            $customer->newsletter = $subscribed;
+            self::db()->update('customer', ['newsletter' => (int) $subscribed], '`id_customer` = ' . (int) $customer->id);
+            $dispatcher->run('actionObjectCustomerUpdateAfter', ['object' => $customer]);
+            ($shutdown[0])();
+        }
+
+        self::assertSame([EventQueue::STATUS_SENT, EventQueue::STATUS_SENT], $this->statuses());
+        self::assertSame(
+            [1, 0],
+            array_map(static fn (array $request) => $request['body'][0]['is_unsubscribed'] ?? null, $this->mock->requests())
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public function failedReadCases(): iterable
+    {
+        yield 'subscribers only' => [ContactSyncMode::SUBSCRIBERS, EventQueue::STATUS_SKIPPED];
+        yield 'all customers' => [ContactSyncMode::ALL_CUSTOMERS, EventQueue::STATUS_SENT];
+        yield 'checkout opt-in only' => [ContactSyncMode::CHECKOUT_OPTIN, EventQueue::STATUS_SKIPPED];
+    }
+
+    /**
+     * A save that ends not subscribed while the read of the consent before it failed, end to end:
+     * no mode sends a subscription status the shop did not record (2026-11-26; Linear CON-452).
+     * All customers sends the contact as a profile change, without `is_unsubscribed`; the other two
+     * modes send nothing.
+     *
+     * @dataProvider failedReadCases
+     */
+    public function testAFailedConsentReadSendsNoUnsubscribe(string $mode, string $status): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::MODE, $mode);
+        $shutdown = [];
+        $services = $this->services(true, $shutdown);
+        $dispatcher = new Dispatcher(static fn (): bool => true, static fn (): Services => $services, static function (): void {
+        });
+        $customer = new \Customer($this->addCustomer($this->shop, 'shopper1@example.test', true, $this->idLang));
+
+        $failed = FailingQueries::during('/SELECT `newsletter` FROM `[^`]+customer`/', static function () use ($dispatcher, $customer): void {
+            $dispatcher->run('actionObjectCustomerUpdateBefore', ['object' => $customer]);
+        });
+        $customer->newsletter = false;
+        self::db()->update('customer', ['newsletter' => 0], '`id_customer` = ' . (int) $customer->id);
+        $dispatcher->run('actionObjectCustomerUpdateAfter', ['object' => $customer]);
+        ($shutdown[0])();
+
+        self::assertSame(1, $failed);
+        self::assertSame([$status], $this->statuses());
+        $requests = $this->mock->requests();
+        self::assertCount($status === EventQueue::STATUS_SENT ? 1 : 0, $requests);
+        if ($status === EventQueue::STATUS_SENT) {
+            self::assertArrayNotHasKey('is_unsubscribed', $requests[0]['body'][0]);
         }
     }
 

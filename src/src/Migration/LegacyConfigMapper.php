@@ -600,6 +600,15 @@ final class LegacyConfigMapper
             }
         }
 
+        // The welcome follows the contact sync (owner, 2026-11-26): where the welcome stays on and
+        // the contact sync stays off, it sends nothing, and the merchant is told so. The contact
+        // sync is not switched on.
+        foreach ($shops as $idShop) {
+            if ($this->welcome($idShop)['enabled'] && !$this->contactSync($idShop)['enabled']) {
+                $notices[] = ['code' => MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC, 'params' => ['id_shop' => $idShop]];
+            }
+        }
+
         if ($this->cartDelayCapped) {
             $notices[] = ['code' => MigrationPlan::NOTICE_CART_DELAY_CAPPED, 'params' => []];
         }

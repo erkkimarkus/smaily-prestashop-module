@@ -645,7 +645,7 @@ shares customers. Hooks (the welcome opt-in) ran in each shop's own context.
 | Contact sync | All of these: the default shop's switch was on (2.x `SMAILY_ENABLE_CUSTOMER_SYNC` truthy; 1.x `SMAILY_ENABLE_CRON` = `'1'`); the default shop had an account; the scope's account equals the default shop's. | `switch_not_read` (2.x code with only the 1.6.x switch on); `not_default_shop` (the default shop's switch off, this shop's on); `no_account`; `other_account`. |
 | Contact sync settings | Where contact sync stays on, `_CONTACTS_FIELDS` comes from the default shop's field list; elsewhere from the scope's own. `_CONTACTS_CONFIRMED` equals `_CONTACTS_ENABLED`. | — |
 | Consent mode | Always `subscribers` with guests on, checkout checkbox off. | 2.x synced `customer.newsletter=1` plus active `emailsubscription` rows; this is the narrowest mode that covers it. |
-| Welcome | `SMAILY_OPTIN_ENABLED` on in the scope's own context, an account at the scope, and a workflow id that is empty or a positive integer. | `no_account`; `no_workflow` (a workflow value that is not a positive integer). |
+| Welcome | `SMAILY_OPTIN_ENABLED` on in the scope's own context, an account at the scope, and a workflow id that is empty or a positive integer. Where it stays on while contact sync stays off, it sends nothing until contact sync is on (the welcome follows contact sync; owner, 2026-11-26), and the notice `welcome_waits_for_contact_sync` says so; contact sync is not switched on. | `no_account`; `no_workflow` (a workflow value that is not a positive integer). |
 | First order | Off. | Did not exist. |
 | Abandoned cart | All of these, read at the default shop: `SMAILY_ENABLE_ABANDONED_CART` on; an account; `SMAILY_CART_AUTORESPONDER` a positive integer; for 2.x code, `SMAILY_CART_SYNCRONIZE_ADDITIONAL` is a JSON map. Also: the cart cron reached the scope's carts (the default shop, or a shop in the default shop's group when that group shares customers), and the scope's account equals the default shop's. | `not_default_shop`; `no_account`; `no_workflow`; `field_list_not_json` (2.x stopped with a `TypeError` on such a list, section 0); `carts_not_reached`; `other_account`. |
 | Abandoned cart settings | Where the feature stays on, `_CART_DELAY_MINUTES` comes from the default shop; elsewhere from the scope's own. The legacy minutes stay as stored from 10 to 1435: 15, 60 or 600 keep their value. A value from 1 to 9 becomes 10; an empty one becomes 15, which 2.x installed and showed. A delay above 1435 minutes becomes 1435, with the notice `cart_delay_capped`: 2.x reminded such a cart, and 3.0.0 reminds no cart older than 24 hours, so the longer delay would remind nobody (owner, 2026-11-21; section 15). The 2.x field selection is not migrated (section 7). | — |
@@ -692,6 +692,7 @@ parameters:
 |---|---|---|
 | `settings_migrated` | Any account existed. | — |
 | `contact_sync_left_off`, `welcome_left_off`, `abandoned_cart_left_off` | A feature stays off at a scope for a reason above. A reason that lies at the default shop is told once, for the default shop. | `id_shop`, `reason` |
+| `welcome_waits_for_contact_sync` | The welcome stays on at a shop where contact sync stays off (owner, 2026-11-26): the welcome sends nothing until contact sync is on. The admin shows it with the link "Open Contacts settings" to Settings > Contacts. | `id_shop` |
 | `cart_delay_capped` | A legacy cart delay above 1435 minutes was written as 1435 at any scope. Told once. | — |
 | `field_list_unreadable` | The legacy list of contact fields (`SMAILY_SYNCRONIZE_ADDITIONAL`) is neither JSON nor PHP-serialized. The cart's list raises no notice: its selection is not migrated (section 2.4). | `key` |
 | `cron_token_replaced` | One per token row that the migration replaced. | `key`, `id_shop_group`, `id_shop` |
@@ -760,7 +761,8 @@ as codes with parameters (section 3.3); the admin owns the wording. As built in 
 
 - `Admin\NoticeMessages` holds the sentence of each code. Every module admin page shows the notices
   in its shell (`Admin\BaseController`, `views/templates/admin/layout/page.html.twig`), each with a
-  button that dismisses it for every admin (`Admin\Api\DismissNotice`).
+  button that dismisses it for every admin (`Admin\Api\DismissNotice`). The notice
+  `welcome_waits_for_contact_sync` adds a link to Settings > Contacts (`?tab=contacts`).
 - While the upgrade is not finished, the module pages show a banner with the button "Finish
   upgrade" (`Admin\Api\FinishUpgrade`, section 3.7) in place of the notices: the notices tell what
   the finished upgrade did.
@@ -1469,7 +1471,7 @@ below); upgraded stores have it on.
 | Newsletter-block subscribers | Whatever "include guests" says: a subscribe, and an unsubscribe with `is_unsubscribed = 1`. | Whatever "include guests" says: a subscribe, and an unsubscribe with `is_unsubscribed = 1` (decision of 2026-11-26). | Only an unsubscribe, with `is_unsubscribed = 1` (decision of 2026-11-26). |
 | First import and daily refresh | Registered customers with `newsletter = 1`; active `emailsubscription` rows; guest-checkout customers with `newsletter = 1` when "include guests" is on. | Every registered customer; active `emailsubscription` rows; guest-checkout customers when "include guests" is on. | None. |
 | Reconcile from Smaily | Both directions, with the first-run rule below: an unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); a re-subscribe sets `newsletter = 1`. | None. | None. |
-| `is_unsubscribed` on upsert | Sent only when consent changed in the store. | `1` with an opt-out in the store only (decision of 2026-11-26). | `0` with the tick; `1` with an opt-out (decision of 2026-11-26). |
+| `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Sent only when consent changed in the store: `1` with an opt-out, `0` with a subscribe (decision of 2026-11-26). | `0` with the tick; `1` with an opt-out (decision of 2026-11-26). |
 | Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row, the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
 
 A customer who is soft-deleted (`customer.deleted = 1`) is never imported.
@@ -1516,20 +1518,25 @@ whatever "include guests" says, while the shop's contact sync is on and confirme
 
 1. **A checkout in which the newsletter box was ticked**, a guest-checkout customer's included: the
    order step's `contact.sync` row (`checkout`, `subscribed` and `consent_changed` all true) goes
-   with `is_unsubscribed = 0` in subscribers only and checkout opt-in only, and without a status in
-   all customers. The order's own row of that guest carries no consent change, so it still follows
+   with `is_unsubscribed = 0` in every mode. The order's own row of that guest carries no consent change, so it still follows
    "include guests". "Include guests" keeps its meaning for every other event of a guest-checkout
    customer and for the first import and the daily refresh, so a box ticked before the decision is
    not sent again by this change.
 2. **An unsubscribe in the store**, of any source (the newsletter block, the account page's box,
    the back office), a guest-checkout customer's included: it goes with `is_unsubscribed = 1` in
    every mode, as Magento sends an unsubscribe in every mode
-   (`magento:Observer/SubscriberSaveAfter.php`). A subscribe in all customers still goes without a
-   status. While contact sync is off nothing is sent, as in Magento, whose subscriber observer
+   (`magento:Observer/SubscriberSaveAfter.php`). While contact sync is off nothing is sent, as in Magento, whose subscriber observer
    returns before anything while the website's contact sync is not active.
 
-`Contacts\ContactAudience::syncs()` answers both before the mode's own rules; `unsubscribedStatus()`
-gives an opt-out `1` in every mode.
+3. **A subscribe in all customers carries `is_unsubscribed = 0`** where the store saw the consent
+   change (a registration or a checkout with the box ticked, the account page's box, a block
+   subscribe, the back office), so a shopper who subscribes again after an unsubscribe is
+   subscribed in Smaily again, as Magento sends a subscribe change in every mode. A status still
+   goes only with a consent change: an import, an automation and the reconcile never re-subscribe
+   anyone, and a profile change in all customers goes without one.
+
+`Contacts\ContactAudience::syncs()` answers the first two before the mode's own rules;
+`unsubscribedStatus()` gives a consent change its status in every mode.
 
 **[D]** (owner, Erkki, 2026-11-21) A newsletter-block subscriber without an account is synced and
 welcomed whatever "include guests" says, as in Magento. "Include guests" keeps its meaning for
@@ -1539,7 +1546,7 @@ subscriber without an account, with "include guests" on or off:
 | Mode | Live sync | Welcome email (section 7) | First import and daily refresh |
 |---|---|---|---|
 | Subscribers only | The subscribe with `is_unsubscribed = 0`, the unsubscribe with `is_unsubscribed = 1`. | Yes, on a storefront subscribe. | The active rows. |
-| All customers | The subscribe, without a status; the unsubscribe with `is_unsubscribed = 1` (since 2026-11-26; before, it was not sent). | Yes, on a storefront subscribe. | The active rows. |
+| All customers | The subscribe with `is_unsubscribed = 0`, the unsubscribe with `is_unsubscribed = 1` (since 2026-11-26; before, the subscribe went without a status and the unsubscribe was not sent). | Yes, on a storefront subscribe. | The active rows. |
 | Checkout opt-in only | Only the unsubscribe, with `is_unsubscribed = 1` (since 2026-11-26; before, nothing). | No. | Nothing. |
 
 Before this decision the first two rows held only with "include guests" on; a fresh install has
@@ -1555,10 +1562,9 @@ Its import sends every subscribed or unsubscribed newsletter subscriber of the w
 without an account (`magento:Model/Backfill/ContactAudience.php`, `subscribers()`).
 
 Where Magento's modes do not map, PrestaShop keeps its rule of before the decision (section 14
-has no open row for these; they belong to the cross-connector analysis, Linear CON-397): Magento
-sends a status with a subscribe in its legitimate-interest mode; PrestaShop's all customers sends
-none. (Magento's unsubscribe in every mode is PrestaShop's rule too since 2026-11-26, above.)
-Magento's checkout-only mode also syncs the confirmation of a pending
+has no open row for these; they belong to the cross-connector analysis, Linear CON-397). Magento's
+unsubscribe in every mode and its status with a subscribe in its legitimate-interest mode are
+PrestaShop's rules too since 2026-11-26 (above). Magento's checkout-only mode also syncs the confirmation of a pending
 double opt-in, because it cannot tell it from the checkout box; PrestaShop can (the row's source
 is `newsletter_block`) and does not.
 
@@ -1601,15 +1607,17 @@ so with the verification email on it starts from the verification link. The reco
   an order. `NewsletterBlockCapture` records the block's subscribes and unsubscribes as above. An
   event belongs to the record's shop and language, never to the request's context; a soft-deleted
   customer is not a contact.
-- **A save whose "consent before" read failed** (owner, 2026-11-21). The read of the stored
-  `newsletter` value in `actionObjectCustomerUpdateBefore` goes through the gateway and throws
-  when it fails (section 1.6), so the save cannot be compared. A save that ends with
-  `newsletter = 0` is then recorded as an unsubscribe (`subscribed` false, `consent_changed`
-  true), whether or not the customer was subscribed before: every mode sends it with
-  `is_unsubscribed = 1`, as any unsubscribe (decision of 2026-11-26, section 6.2; before it, all
-  customers sent the contact without a status, and checkout opt-in only sent nothing). A save that ends with `newsletter = 1` is recorded without a consent
-  change: no subscription, and no welcome email, ever follows from a failed read. The next save
-  of the customer reads again.
+- **A save whose "consent before" read failed** (2026-11-26; Linear CON-452). The read of the
+  stored `newsletter` value in `actionObjectCustomerUpdateBefore` goes through the gateway and
+  throws when it fails (section 1.6), so the save cannot be compared. The save is then recorded
+  without a consent change, whatever it ends with: a failed read never sends a subscription status
+  that the store did not record, neither a subscription nor an unsubscribe, and no welcome email
+  follows from it. Subscribers only and checkout opt-in only send nothing of such a save that ends
+  with `newsletter = 0`; all customers sends the contact without a status. The next save of the
+  customer reads again. Before 2026-11-26 a save that ended with `newsletter = 0` was recorded as
+  an unsubscribe (owner, 2026-11-21); once an unsubscribe carried `is_unsubscribed = 1` in every
+  mode, that would unsubscribe in Smaily a contact who never unsubscribed, for example a soft
+  opt-in contact of all customers.
 - `ContactEvents` holds the events of one request and writes them as `contact.sync` rows when the
   request ends: one row per shop and address, which keeps a consent change or a checkout that any
   of its events saw. A shop whose contact sync is not active gets no row. A listener of the events
@@ -5044,7 +5052,8 @@ Decisions of 2026-11-21:
   opt-in only. "Include guests" gates guest-checkout customers only (section 6.2).
 - An unsubscribe is sent even when the read of the consent before the save failed (owner,
   2026-11-21): a customer save that ends not subscribed then queues the unsubscribe; a save that
-  ends subscribed never queues a subscription on such a failure (section 6.3).
+  ends subscribed never queues a subscription on such a failure (section 6.3). Superseded on
+  2026-11-26 (Linear CON-452, below): a failed read records no consent change at all.
 - The welcome email may repeat on subscribe → unsubscribe → subscribe, as in Magento and
   WooCommerce (owner, 2026-11-21). No once-per-contact record is built; Story 4.2's acceptance
   says so now (section 13).
@@ -5278,4 +5287,13 @@ rule for the four connectors):
 - The welcome email follows the contact sync: it goes only while the shop's contact sync is on
   and confirmed, to a contact whom the consent mode syncs (section 7). An upgraded store whose
   2.x opt-in was on while its customer sync stayed off keeps the welcome switched on, and it sends
-  nothing until contact sync is switched on.
+  nothing until contact sync is switched on; the upgrade does not switch contact sync on, and the
+  notice `welcome_waits_for_contact_sync` tells the merchant so, with a link to Settings > Contacts
+  (owner, 2026-11-26; section 3.3).
+- In all customers a subscribe that the store saw carries `is_unsubscribed = 0`, so a shopper who
+  subscribes again after an unsubscribe is subscribed in Smaily again, as Magento sends a subscribe
+  change (owner, 2026-11-26; section 6.2). An import, an automation and the reconcile still never
+  re-subscribe anyone.
+- A failed read of the consent before a customer save records no consent change: it never sends a
+  status that the store did not record (2026-11-26; section 6.3). This replaces the rule of
+  2026-11-21 that such a save ending not subscribed queues an unsubscribe.

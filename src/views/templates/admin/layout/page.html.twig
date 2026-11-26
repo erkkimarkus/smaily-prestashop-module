@@ -102,7 +102,8 @@
           <span aria-hidden="true"><i class="material-icons">close</i></span>
         </button>
         <div class="alert-text">
-          <p><strong>{{ 'Smaily Connect upgrade'|trans }}:</strong> {{ notice.text }}</p>
+          <p><strong>{{ 'Smaily Connect upgrade'|trans }}:</strong> {{ notice.text }}
+            {%- if notice.code == 'welcome_waits_for_contact_sync' %} <a href="{{ path('smailyforprestashop_settings', {tab: 'contacts'}) }}">{{ 'Open Contacts settings'|trans }}</a>{% endif %}</p>
         </div>
       </div>
     {% endfor %}

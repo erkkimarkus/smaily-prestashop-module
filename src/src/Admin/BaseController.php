@@ -223,7 +223,7 @@ abstract class BaseController extends FrameworkBundleAdminController
     }
 
     /**
-     * @return list<array{id: string, text: string}>
+     * @return list<array{id: string, code: string, text: string}>
      */
     private function notices(): array
     {
@@ -234,6 +234,7 @@ abstract class BaseController extends FrameworkBundleAdminController
 
         return array_map(static fn (array $notice): array => [
             'id' => $notice['id'],
+            'code' => $notice['code'],
             'text' => $messages->text($notice),
         ], Services::instance()->get(MigrationNotices::class)->all());
     }

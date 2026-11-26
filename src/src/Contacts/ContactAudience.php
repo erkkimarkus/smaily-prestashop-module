@@ -102,13 +102,15 @@ final class ContactAudience
 
     /**
      * The `is_unsubscribed` a synced contact row carries: true (1) or false (0) only where the store
-     * saw the consent change; in all customers only an unsubscribe carries it (owner, 2026-11-26).
-     * Null leaves the field out, so Smaily keeps the contact's status (and creates a new contact as
-     * subscribed). An import or an automation passes no change, so it never re-subscribes anyone.
+     * saw the consent change, in every mode (owner, 2026-11-26: in all customers too, so a shopper
+     * who subscribes again after an unsubscribe is subscribed in Smaily again, as Magento sends a
+     * subscribe change). Null leaves the field out, so Smaily keeps the contact's status (and
+     * creates a new contact as subscribed). An import, an automation and the reconcile pass no
+     * change, so they never re-subscribe anyone.
      */
     public function unsubscribedStatus(bool $subscribed, bool $consentChanged): ?bool
     {
-        if (!$consentChanged || ($subscribed && $this->mode->mode() === ContactSyncMode::ALL_CUSTOMERS)) {
+        if (!$consentChanged) {
             return null;
         }
 

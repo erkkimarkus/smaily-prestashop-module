@@ -162,14 +162,15 @@ final class ContactCaptureTest extends IntegrationTestCase
     }
 
     /**
-     * The other outcome of that failed read (owner, 2026-11-21): a save that ends not subscribed
-     * queues the unsubscribe, whether the customer was subscribed before or not, so an unsubscribe
-     * made in that save is never lost. The same holds for a save that switches the consent on:
-     * with the read failed it queues no subscription.
+     * The other outcome of that failed read (2026-11-26; Linear CON-452): a save that ends not
+     * subscribed carries no consent change either, whether the customer was subscribed before or
+     * not. An unsubscribe goes with `is_unsubscribed = 1` in every consent mode, so read as one it
+     * would unsubscribe in Smaily a contact who never unsubscribed. The same holds for a save that
+     * switches the consent on: with the read failed it queues no subscription.
      *
      * @dataProvider consentBefore
      */
-    public function testASaveThatEndsUnsubscribedWhoseConsentBeforeCouldNotBeReadQueuesTheUnsubscribe(bool $before): void
+    public function testASaveThatEndsUnsubscribedWhoseConsentBeforeCouldNotBeReadIsNoConsentChange(bool $before): void
     {
         $customer = $this->customer($this->shop, 'capture1@example.test', $before);
         $customer->newsletter = false;
@@ -180,7 +181,7 @@ final class ContactCaptureTest extends IntegrationTestCase
         $this->events()->commit();
 
         self::assertSame(1, $failed);
-        self::assertSame([[false, true]], $this->flags('subscribed', 'consent_changed'));
+        self::assertSame([[false, false]], $this->flags('subscribed', 'consent_changed'));
     }
 
     /**

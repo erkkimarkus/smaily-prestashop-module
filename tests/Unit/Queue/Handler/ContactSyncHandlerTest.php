@@ -281,8 +281,8 @@ final class ContactSyncHandlerTest extends TestCase
     }
 
     /**
-     * Acceptance 2: `is_unsubscribed` only where the store saw the consent change; in all customers
-     * only an unsubscribe carries it (owner, 2026-11-26).
+     * Acceptance 2: `is_unsubscribed` only where the store saw the consent change, in every mode
+     * (owner, 2026-11-26: all customers too).
      */
     public function testSendsASubscriptionStatusOnlyOnAConsentChange(): void
     {
@@ -301,7 +301,7 @@ final class ContactSyncHandlerTest extends TestCase
             }
         }
         self::assertSame(
-            ['optin@example.test' => 0, 'optout@example.test' => 1, 'profile@example.test' => null, 'allcustomers@example.test' => 1, 'allcustomers-optin@example.test' => null],
+            ['optin@example.test' => 0, 'optout@example.test' => 1, 'profile@example.test' => null, 'allcustomers@example.test' => 1, 'allcustomers-optin@example.test' => 0],
             $statuses
         );
     }

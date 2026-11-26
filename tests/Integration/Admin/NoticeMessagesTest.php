@@ -25,6 +25,7 @@ final class NoticeMessagesTest extends IntegrationTestCase
             MigrationPlan::NOTICE_FIELD_LIST_UNREADABLE => ['key' => 'SMAILY_SYNCRONIZE_ADDITIONAL'],
             MigrationPlan::NOTICE_CRON_TOKEN_REPLACED => ['key' => 'SMAILY_CART_CRON_TOKEN', 'id_shop_group' => 0, 'id_shop' => 0],
             MigrationPlan::NOTICE_CRON_SHOP_ASSUMED => ['id_shop' => 1],
+            MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC => ['id_shop' => 1],
             MigrationPlan::NOTICE_NEWSLETTER_BLOCK_REMOVED => [],
             MigrationPlan::NOTICE_EMAILSUBSCRIPTION_EMAILS_CHANGED => [],
             MigrationNotices::OVERRIDE_LEFT_IN_PLACE => ['path' => 'override/modules/ps_emailsubscription/ps_emailsubscription.php'],

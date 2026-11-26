@@ -43,9 +43,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
  * context's. A soft-deleted customer is not a contact.
  *
  * When the read of the value before the save fails (Database\Sql throws; facts file 6.11), the
- * save may have changed the consent or not. A save that ends not subscribed is then recorded as
- * an unsubscribe, so an unsubscribe is never lost; a save that ends subscribed is recorded
- * without a consent change, so no subscription is ever sent on a failed read (owner, 2026-11-21).
+ * save may have changed the consent or not. The save is then recorded without a consent change,
+ * whatever it ends with, so a failed read never sends a subscription status that the shop did not
+ * record: neither a subscription nor an unsubscribe (2026-11-26; Linear CON-452). An unsubscribe
+ * sends `is_unsubscribed = 1` in every consent mode, so an unsubscribe read so would unsubscribe in
+ * Smaily a contact who never unsubscribed, for example a soft opt-in contact of all customers.
  */
 final class CustomerCapture
 {
@@ -85,7 +87,7 @@ final class CustomerCapture
         if (!$customer instanceof \Customer || (int) $customer->id <= 0) {
             return;
         }
-        // Stays null when the read throws: afterUpdate() then knows that the read failed.
+        // Stays null when the read throws: afterUpdate() then records no consent change.
         $this->before[(int) $customer->id] = null;
         $this->before[(int) $customer->id] = (bool) (int) Sql::value(
             'SELECT `newsletter` FROM `' . _DB_PREFIX_ . 'customer` WHERE `id_customer` = ' . (int) $customer->id
@@ -105,8 +107,8 @@ final class CustomerCapture
         }
         $subscribed = (bool) (int) $customer->newsletter;
         $id = (int) $customer->id;
-        $readFailed = array_key_exists($id, $this->before) && $this->before[$id] === null;
-        $changed = $readFailed ? !$subscribed : isset($this->before[$id]) && $this->before[$id] !== $subscribed;
+        // A read that failed left null: no consent change.
+        $changed = isset($this->before[$id]) && $this->before[$id] !== $subscribed;
         unset($this->before[$id]);
         $this->record($customer, (int) $customer->id_shop, (int) $customer->id_lang, $subscribed, $changed, false);
     }

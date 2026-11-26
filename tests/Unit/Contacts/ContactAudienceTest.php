@@ -239,7 +239,7 @@ final class ContactAudienceTest extends TestCase
             'subscribers: opt-in' => [self::SUBSCRIBERS, true, true, false],
             'subscribers: opt-out' => [self::SUBSCRIBERS, false, true, true],
             'subscribers: no change' => [self::SUBSCRIBERS, true, false, null],
-            'all customers: opt-in' => [self::ALL, true, true, null],
+            'all customers: opt-in' => [self::ALL, true, true, false],
             'all customers: opt-out' => [self::ALL, false, true, true],
             'all customers: no change' => [self::ALL, false, false, null],
             'checkout opt-in: the tick' => [self::CHECKOUT, true, true, false],

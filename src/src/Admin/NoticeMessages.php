@@ -67,6 +67,8 @@ final class NoticeMessages
                 return $this->trans('Contact synchronization stays off for %shop%: %reason% Switch it on under Settings > Contacts when you want it.', $this->leftOff($params));
             case MigrationPlan::NOTICE_WELCOME_LEFT_OFF:
                 return $this->trans('The welcome automation stays off for %shop%: %reason% Switch it on under Settings > Automations when you want it.', $this->leftOff($params));
+            case MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC:
+                return $this->trans('The welcome email of %shop% sends nothing until contact synchronization is on: the welcome email now follows contact synchronization. Contact synchronization stays off; switch it on under Settings > Contacts when you want the welcome email.', ['%shop%' => $this->shop($params)]);
             case MigrationPlan::NOTICE_ABANDONED_CART_LEFT_OFF:
                 return $this->trans('The abandoned cart automation stays off for %shop%: %reason% Switch it on under Settings > Automations when you want it.', $this->leftOff($params));
             case MigrationPlan::NOTICE_CART_DELAY_CAPPED:

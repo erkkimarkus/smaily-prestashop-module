@@ -124,6 +124,45 @@ final class Upgrade300Test extends IntegrationTestCase
         self::assertFalse(strpos($stored, self::PASSWORD) !== false, 'the account row holds it encrypted');
     }
 
+    /**
+     * @return array<string, array{string, array<string, string>}>
+     */
+    public function welcomeWithoutContactSync(): array
+    {
+        return [
+            '1.6.x settings under 2.2.0 code' => ['1.6.2-configured.sql', []],
+            '2.2.0 with the customer sync off' => ['2.2.0-configured.sql', ['SMAILY_ENABLE_CUSTOMER_SYNC' => '0']],
+        ];
+    }
+
+    /**
+     * The welcome follows the contact sync (owner, 2026-11-26): a store upgraded with the opt-in on
+     * and the contact sync off keeps both as they were, and its notice says that the welcome sends
+     * nothing until the contact sync is on.
+     *
+     * @dataProvider welcomeWithoutContactSync
+     *
+     * @param array<string, string> $values
+     */
+    public function testAWelcomeWithoutContactSyncLeavesANotice(string $fixture, array $values): void
+    {
+        LegacyStore::loadFixture($fixture);
+        foreach ($values as $name => $value) {
+            self::db()->execute('UPDATE `' . _DB_PREFIX_ . 'configuration` SET `value` = \'' . pSQL($value) . '\' WHERE `name` = \'' . pSQL($name) . '\'');
+        }
+        LegacyStore::reloadConfiguration();
+        $this->recordModuleVersion('2.2.0');
+
+        self::assertTrue($this->upgrade()->runPending());
+
+        self::assertSame('1', LegacyStore::row('SMAILY_CONNECT_WELCOME_ENABLED'));
+        self::assertSame('0', LegacyStore::row('SMAILY_CONNECT_CONTACTS_ENABLED'));
+        self::assertContains(
+            ['code' => MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC, 'params' => ['id_shop' => (int) \Configuration::get('PS_SHOP_DEFAULT')]],
+            $this->notices()
+        );
+    }
+
     public function testEmptyCronTokensAreReplacedAndTheOthersKept(): void
     {
         LegacyStore::loadFixture('1.6.2-configured.sql');

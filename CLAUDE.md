@@ -273,7 +273,9 @@ ask (Linear discipline below).
   imports, follow "include guests" (in "All customers"; in "Subscribers
   only" with consent), so a tick of before the change is never sent again. An
   unsubscribe in the store, of any source, is sent with `is_unsubscribed = 1`
-  in every mode (owner, 2026-11-26, as Magento). A newsletter-block
+  in every mode, and a subscribe the store saw with `0`, "All customers"
+  too (owner, 2026-11-26, as Magento); a failed read of the consent before
+  a save is no consent change and sends no status. A newsletter-block
   subscriber without an account goes by the consent mode alone, whatever
   "include guests" says, as Magento (owner, 2026-11-21). The welcome email
   follows the contact sync: nothing is welcomed while the shop's contact sync

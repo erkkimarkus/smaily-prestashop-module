@@ -133,6 +133,7 @@ final class ControllerContainerTest extends IntegrationTestCase
         self::assertSame('page-token', $this->rendered['smaily']['token']);
         self::assertSame(AbstractJsonAction::pageScope(), $this->rendered['smaily']['scope']);
         self::assertCount(1, $this->rendered['smaily']['notices']);
+        self::assertSame(MigrationPlan::NOTICE_SETTINGS_MIGRATED, $this->rendered['smaily']['notices'][0]['code'], 'the shell links a notice by its code');
         self::assertStringStartsWith('Your settings from the previous version', $this->rendered['smaily']['notices'][0]['text']);
     }
 

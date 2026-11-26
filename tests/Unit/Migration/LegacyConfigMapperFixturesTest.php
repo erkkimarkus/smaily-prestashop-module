@@ -197,6 +197,8 @@ final class LegacyConfigMapperFixturesTest extends TestCase
                 'code' => MigrationPlan::NOTICE_ABANDONED_CART_LEFT_OFF,
                 'params' => ['id_shop' => 1, 'reason' => MigrationPlan::REASON_FIELD_LIST_NOT_JSON],
             ],
+            // The welcome follows the contact sync (owner, 2026-11-26): it waits for it, and says so.
+            ['code' => MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC, 'params' => ['id_shop' => 1]],
         ], $plan['notices']);
         // The settings a merchant chose stay, so switching a feature on later keeps them.
         self::assertSame(
@@ -204,5 +206,29 @@ final class LegacyConfigMapperFixturesTest extends TestCase
             $plan['settings'][0]['SMAILY_CONNECT_CONTACTS_FIELDS']
         );
         self::assertSame([LegacyFixture::mapping(0, 'welcome', 101), LegacyFixture::mapping(0, 'abandoned_cart', 102)], $plan['mappings']);
+    }
+
+    /**
+     * The welcome follows the contact sync (owner, 2026-11-26): a 2.x store whose opt-in was on and
+     * whose customer sync was off keeps the welcome on and the contact sync off, and a notice says
+     * that the welcome sends nothing until the contact sync is on. The contact sync is not switched
+     * on; with it on, as in the fixture, no such notice appears.
+     */
+    public function testA220StoreWithTheOptInOnAndTheCustomerSyncOffIsToldThatTheWelcomeWaits(): void
+    {
+        $plan = (new LegacyConfigMapper())->map(
+            LegacyFixture::state('2.2.0-configured.sql', '2.2.0', [1 => 1], ['SMAILY_ENABLE_CUSTOMER_SYNC' => '0'])
+        )->toArray();
+
+        self::assertSame('1', $plan['settings'][0]['SMAILY_CONNECT_WELCOME_ENABLED']);
+        self::assertSame('0', $plan['settings'][0]['SMAILY_CONNECT_CONTACTS_ENABLED']);
+        self::assertSame('0', $plan['settings'][0]['SMAILY_CONNECT_CONTACTS_CONFIRMED']);
+        self::assertContains(
+            ['code' => MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC, 'params' => ['id_shop' => 1]],
+            $plan['notices']
+        );
+
+        $synced = (new LegacyConfigMapper())->map(LegacyFixture::state('2.2.0-configured.sql', '2.2.0'))->toArray();
+        self::assertNotContains(MigrationPlan::NOTICE_WELCOME_WAITS_FOR_CONTACT_SYNC, array_column($synced['notices'], 'code'));
     }
 }
