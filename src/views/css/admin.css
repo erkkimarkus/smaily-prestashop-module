@@ -2245,6 +2245,7 @@
 
 .smaily-ui .smaily-connection-status__account {
   color: var(--smaily-text);
+}
 
 /* CON-445 part 3: the Contacts, Automations and Intelligence steps and tabs as Magento draws them. */
 
