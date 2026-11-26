@@ -3612,6 +3612,16 @@
         <target>…ja veel %count%.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="56eb6fa6e9a615a1e0d5c45057886147">
+        <source>Shops on this Smaily account use different consent modes</source>
+        <target>Selle Smaily konto poed kasutavad erinevaid nõusolekurežiime</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="bf9c74ede8ff1cb48dda013cebbaa740">
+        <source>Consent modes on this Smaily account: %shops%. Smaily keeps one subscription status per email address, so a contact that one shop sends can be marked subscribed in another shop too. Give these shops the same consent mode, or each shop its own Smaily account.</source>
+        <target>Nõusolekurežiimid sellel Smaily kontol: %shops%. Smaily hoiab iga e-posti aadressi kohta üht tellimise olekut, seega võidakse kontakt, mille üks pood saadab, ka teises poes tellijaks märkida. Anna neile poodidele sama nõusolekurežiim või igale poele oma Smaily konto.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

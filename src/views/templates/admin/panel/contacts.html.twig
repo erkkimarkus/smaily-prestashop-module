@@ -26,6 +26,9 @@
  # rule PrestaShop has; no "Let Smaily send the opt-in confirmation emails" switch, because
  # PrestaShop's newsletter module keeps its own emails.
  #
+ # Above the card, a warning where shops on this Smaily account use different consent modes
+ # (`contacts.shared_account_modes`, Admin\Setup\SharedAccountModes), named by the cards' labels.
+ #
  # Takes `contacts` (ContactsPanel::values()), `context` ('setup' or 'settings'), `all_shops` (the
  # shop names when one save starts sync on every shop of a multishop store, else empty) and
  # `import` (ContactImport::progress() of the scope, or null).
@@ -45,6 +48,15 @@
   website: 'Website'|trans,
 } %}
 <div class="smaily-panel" data-smaily-panel="contacts" data-active="{{ contacts.active ? 1 : 0 }}">
+  {% if contacts.shared_account_modes|default([]) is not empty %}
+    <div class="smaily-banner" role="status" data-smaily-shared-account-modes>
+      <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__title">{{ 'Shops on this Smaily account use different consent modes'|trans }}</div>
+        <div class="smaily-banner__message">{{ 'Consent modes on this Smaily account: %shops%. Smaily keeps one subscription status per email address, so a contact that one shop sends can be marked subscribed in another shop too. Give these shops the same consent mode, or each shop its own Smaily account.'|trans({'%shops%': contacts.shared_account_modes|map(entry => entry.shop ~ ' — ' ~ modes[entry.mode][0])|join('; ')}) }}</div>
+      </div>
+    </div>
+  {% endif %}
   <div class="smaily-card">
     {% if show_switch %}
       <div class="smaily-inline-toggle">

@@ -99,7 +99,13 @@ final class SetupPanels
         return new ContactsPanel(
             $this->contactsSettings(),
             $this->translator,
-            static fn (): bool => (bool) \Module::isEnabled('ps_emailsubscription')
+            static fn (): bool => (bool) \Module::isEnabled('ps_emailsubscription'),
+            new SharedAccountModes(
+                $this->accounts(),
+                $this->layout(),
+                $this->contactsSettings(),
+                static fn (): array => \Shop::isFeatureActive() ? array_map('strval', array_column(\Shop::getShops(true), 'name', 'id_shop')) : []
+            )
         );
     }
 

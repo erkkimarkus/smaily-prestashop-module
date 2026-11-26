@@ -160,6 +160,33 @@ final class SettingsShopsTest extends IntegrationTestCase
         self::assertSame(0, (int) self::db()->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'configuration` WHERE `id_shop` = ' . $this->shopB . ' AND `value` IS NULL', false), 'nothing was written as NULL');
     }
 
+    /**
+     * Linear CON-433: Smaily keeps one subscription status per address, so shops that sync to one
+     * Smaily account with different consent modes are warned, each of them, from the saved
+     * settings; a shop on another Smaily account is no part of the group.
+     */
+    public function testTheContactsPanelWarnsTheShopsOfOneAccountWithDifferentConsentModes(): void
+    {
+        $this->oneStoreConfigured();
+        $panel = $this->setupPanels()->contacts();
+        self::assertSame([], $panel->values($this->context($this->shopB)->scope(true))['shared_account_modes'], 'one consent mode warns nobody');
+
+        (new ContactsSettings())->setMode(new \PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode('all_customers', false), $this->shopC);
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+        $modes = [$this->shopA => 'subscribers', $this->shopB => 'subscribers', $this->shopC => 'all_customers'];
+        $expected = [];
+        foreach (array_column(\Shop::getShops(true), 'name', 'id_shop') as $idShop => $name) {
+            $expected[] = ['shop' => (string) $name, 'mode' => $modes[$idShop]];
+        }
+        self::assertSame($expected, $panel->values($this->context($this->shopB)->scope(true))['shared_account_modes']);
+        self::assertSame($expected, $panel->values($this->context($this->shopC)->scope(true))['shared_account_modes']);
+        self::assertSame($expected, $panel->values($this->context($this->shopB)->scope(false))['shared_account_modes'], 'the values all shops share');
+
+        $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
+        self::assertSame([], $panel->values($this->context($this->shopB)->scope(true))['shared_account_modes'], 'the shop on another account left the group');
+    }
+
     public function testAShopKeepsTheSharedPasswordWhenItTakesTheSameAccountAsItsOwn(): void
     {
         $this->oneStoreConfigured();

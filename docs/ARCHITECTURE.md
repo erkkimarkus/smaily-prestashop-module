@@ -5130,3 +5130,8 @@ the four connectors):
   before it writes and saves nothing while Smaily refuses one.
 - A finished contact import counts the contacts that Smaily refused and points to the Log, whose
   Details list them by id and reason (section 10.8).
+- Where shops of a multishop store sync contacts to one Smaily account (one subdomain) with
+  different consent modes, Settings > Contacts and step 2 of the Initial setup warn each of those
+  shops, from the saved settings, under "Shops on this Smaily account use different consent
+  modes" (`Admin\Setup\SharedAccountModes`; a shop whose contact sync is not active is left out).
+  The behaviour itself stays as established (section 14, row 29).

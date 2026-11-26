@@ -46,6 +46,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * Defaults where nothing is stored: subscribers only, every field, guests off (the narrowest
  * audience), and the checkout checkbox on (ARCHITECTURE 6.1).
+ *
+ * `shared_account_modes` lists the shops on the scope's Smaily account with their consent modes
+ * where those modes differ (SharedAccountModes), which the panel warns about.
  */
 final class ContactsPanel
 {
@@ -56,19 +59,22 @@ final class ContactsPanel
     /** @var callable(): bool */
     private $newsletterModuleActive;
 
+    private SharedAccountModes $sharedAccountModes;
+
     /**
      * @param callable(): bool $newsletterModuleActive whether ps_emailsubscription is active, which
      *                                                 then shows the checkout checkbox itself
      */
-    public function __construct(ContactsSettings $settings, TranslatorInterface $translator, callable $newsletterModuleActive)
+    public function __construct(ContactsSettings $settings, TranslatorInterface $translator, callable $newsletterModuleActive, SharedAccountModes $sharedAccountModes)
     {
         $this->settings = $settings;
         $this->translator = $translator;
         $this->newsletterModuleActive = $newsletterModuleActive;
+        $this->sharedAccountModes = $sharedAccountModes;
     }
 
     /**
-     * @return array{stored: bool, active: bool, mode: string, guests: bool, fields: list<string>, checkout_checkbox: bool, newsletter_module: bool}|null null when the scope saves nothing
+     * @return array{stored: bool, active: bool, mode: string, guests: bool, fields: list<string>, checkout_checkbox: bool, newsletter_module: bool, shared_account_modes: list<array{shop: string, mode: string}>}|null null when the scope saves nothing
      */
     public function values(SetupScope $scope): ?array
     {
@@ -87,6 +93,7 @@ final class ContactsPanel
             'fields' => $stored ? $this->settings->fields($shop) : SubscriberPayloadBuilder::FIELDS,
             'checkout_checkbox' => $this->settings->checkoutCheckbox($shop) ?? true,
             'newsletter_module' => (bool) ($this->newsletterModuleActive)(),
+            'shared_account_modes' => $this->sharedAccountModes->of($shop),
         ];
     }
 
