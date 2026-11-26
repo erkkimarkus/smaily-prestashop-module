@@ -30,6 +30,9 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
@@ -65,6 +68,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\OrderAttribution;
  * | account and of the queue rows|                           | one stays with its order             |
  * | The personalization record   | the choice, time, source  | stays: it holds the keyed hash only, |
  * |                              |                           | and keeps an opt-out in force        |
+ * | A contact import's refused   | the import, source,       | the entries of the customer accounts |
+ * | contacts (`refused_contacts`)| reason, time              | and of the address's newsletter-block|
+ * |                              |                           | rows go; the import's counts stay    |
  *
  * The erasure never touches PrestaShop's own rows (the customer, the orders, the carts), the 2.x
  * table `smaily_cart`, a cart rule that is not one of the module's unused codes, or a Smaily
@@ -103,7 +109,8 @@ class LocalData
      *     attribution: list<array{order: int, recommendation: string, context: string, visitor_token: string, created_at: string}>,
      *     cart_attribution: list<array{cart: int, recommendation: string, context: string, visitor_token: string, updated_at: string}>,
      *     codes: list<array{code: string, created_at: string, expires_at: string, used: bool}>,
-     *     preference: array{opted_out: bool, changed_at: string, source: string}|null
+     *     preference: array{opted_out: bool, changed_at: string, source: string}|null,
+     *     import_refusals: list<array{import: int, source: string, reason: string, updated_at: string}>
      * } queue times in UTC, the others in the shop's time; a Campaign Intelligence queue row is in
      *   `queue` with the type `engine.<domain>`
      */
@@ -111,7 +118,7 @@ class LocalData
     {
         $address = self::address($email);
         if ($address === '') {
-            return ['queue' => [], 'carts' => [], 'attribution' => [], 'cart_attribution' => [], 'codes' => [], 'preference' => null];
+            return ['queue' => [], 'carts' => [], 'attribution' => [], 'cart_attribution' => [], 'codes' => [], 'preference' => null, 'import_refusals' => []];
         }
         $customers = $this->customers($address, $idCustomer);
 
@@ -155,6 +162,12 @@ class LocalData
                 'used' => $code['used'],
             ], $this->codes($address, $customers)),
             'preference' => $this->record->find($email),
+            'import_refusals' => array_merge([], ...array_map(static fn (array $job): array => array_map(static fn (array $entry): array => [
+                'import' => $job['id'],
+                'source' => $entry[0],
+                'reason' => $entry[2],
+                'updated_at' => $job['updated_at'],
+            ], $job['shopper']), $this->refusals($address, $customers))),
         ];
     }
 
@@ -163,17 +176,17 @@ class LocalData
      *
      * @param int $idCustomer the customer account of the request, 0 when it names an address only
      *
-     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int} the
-     *                                                                                                                          queue counts are of both queues;
-     *                                                                                                                          `attribution` counts the orders that
-     *                                                                                                                          lost their visitor token and the
-     *                                                                                                                          carts that lost their row
+     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int, import_refusals: int} the
+     *                                                                                                                                                queue counts are of both queues;
+     *                                                                                                                                                `attribution` counts the orders that
+     *                                                                                                                                                lost their visitor token and the
+     *                                                                                                                                                carts that lost their row
      */
     public function erase(string $email, int $idCustomer = 0): array
     {
         $address = self::address($email);
         if ($address === '') {
-            return ['queue_removed' => 0, 'queue_cleared' => 0, 'carts' => 0, 'attribution' => 0, 'codes_removed' => 0, 'codes_kept' => 0];
+            return ['queue_removed' => 0, 'queue_cleared' => 0, 'carts' => 0, 'attribution' => 0, 'codes_removed' => 0, 'codes_kept' => 0, 'import_refusals' => 0];
         }
         $customers = $this->customers($address, $idCustomer);
 
@@ -193,6 +206,13 @@ class LocalData
             Sql::write(sprintf('DELETE FROM `%s%s` WHERE `id_cart` IN (%s)', _DB_PREFIX_, CartAttribution::TABLE, implode(', ', $kept)));
         }
         $carts = $this->tracker->erase($address, $customers);
+        $refusals = 0;
+        foreach ($this->refusals($address, $customers) as $job) {
+            $counts = (array) json_decode($job['counts'], true);
+            $counts['refused_contacts'] = array_values(array_filter($job['all'], static fn (array $entry): bool => !in_array($entry, $job['shopper'], true)));
+            Sql::write(sprintf('UPDATE `%s%s` SET `counts` = %s WHERE `id` = %d', _DB_PREFIX_, JobStore::TABLE, Sql::quote((string) json_encode($counts)), $job['id']));
+            $refusals += count($job['shopper']);
+        }
 
         $orders = array_map(static fn (array $row): int => (int) $row['id_order'], array_filter(
             $this->attribution($customers),
@@ -214,7 +234,44 @@ class LocalData
             'attribution' => count($orders) + count($kept),
             'codes_removed' => $codes['removed'],
             'codes_kept' => $codes['kept'],
+            'import_refusals' => $refusals,
         ];
+    }
+
+    /**
+     * The contact imports that keep refused contacts of the shopper (ContactImport::refusedContacts()):
+     * the entries of the customer accounts and of the address's newsletter-block rows.
+     *
+     * @param list<int> $customers
+     *
+     * @return list<array{id: int, counts: string, updated_at: string, all: list<array{0: string, 1: int, 2: string}>, shopper: list<array{0: string, 1: int, 2: string}>}>
+     */
+    private function refusals(string $address, array $customers): array
+    {
+        $ids = [ContactAudience::SOURCE_CUSTOMER => $customers, ContactAudience::SOURCE_NEWSLETTER_BLOCK => []];
+        if (Sql::rows('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'emailsubscription\'') !== []) {
+            foreach (Sql::rows(sprintf('SELECT `id`, `email` FROM `%semailsubscription` WHERE `email` = \'%s\'', _DB_PREFIX_, pSQL($address))) as $row) {
+                if (self::address((string) $row['email']) === $address) {
+                    $ids[ContactAudience::SOURCE_NEWSLETTER_BLOCK][] = (int) $row['id'];
+                }
+            }
+        }
+        $jobs = [];
+        $rows = Sql::rows(sprintf(
+            'SELECT `id`, `counts`, `updated_at` FROM `%s%s` WHERE `type` IN (%s) AND `counts` LIKE \'%%refused_contacts%%\' ORDER BY `id`',
+            _DB_PREFIX_,
+            JobStore::TABLE,
+            implode(', ', array_map([Sql::class, 'quote'], ContactImport::TYPES))
+        ));
+        foreach ($rows as $row) {
+            $all = ContactImport::refusedContacts($row['counts']);
+            $shopper = array_values(array_filter($all, static fn (array $entry): bool => in_array($entry[1], $ids[$entry[0]], true)));
+            if ($shopper !== []) {
+                $jobs[] = ['id' => (int) $row['id'], 'counts' => (string) $row['counts'], 'updated_at' => (string) $row['updated_at'], 'all' => $all, 'shopper' => $shopper];
+            }
+        }
+
+        return $jobs;
     }
 
     /**

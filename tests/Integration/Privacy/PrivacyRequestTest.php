@@ -6,6 +6,8 @@ namespace Tests\Integration\Privacy;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
 use PrestaShop\Module\SmailyForPrestaShop\Config\GdprPaceSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
@@ -48,7 +50,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
         $export = $this->services->get(PrivacyRequest::class)->export(' Shopper1@Example.test ', 0);
 
         $store = $export['store'];
-        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference'], array_keys($store));
+        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference', 'import_refusals'], array_keys($store));
         self::assertSame(['type', 'status', 'created_at'], array_keys($store['queue'][0]), 'what was queued and when, never the message');
         $types = array_column($store['queue'], 'type');
         self::assertContains('contact.sync', $types);
@@ -197,7 +199,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
 
         // A second erasure finds nothing of the shopper and queues the deletion anew.
         $again = $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
-        self::assertSame(['queue_removed' => 0, 'queue_cleared' => 0, 'carts' => 0, 'attribution' => 0, 'codes_removed' => 0, 'codes_kept' => 1, 'engine_queued' => 2], $again);
+        self::assertSame(['queue_removed' => 0, 'queue_cleared' => 0, 'carts' => 0, 'attribution' => 0, 'codes_removed' => 0, 'codes_kept' => 1, 'import_refusals' => 0, 'engine_queued' => 2], $again);
     }
 
     public function testWhatAShoppersCartsKeptIsExportedAndRemovedByAnErasure(): void
@@ -225,7 +227,7 @@ final class PrivacyRequestTest extends PrivacyTestCase
 
         $store = $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store'];
 
-        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference'], array_keys($store));
+        self::assertSame(['queue', 'carts', 'attribution', 'cart_attribution', 'codes', 'preference', 'import_refusals'], array_keys($store));
         $row = ['recommendation' => '11111111-2222-4333-8444-555555555555', 'context' => 'storefront', 'visitor_token' => 'vt_invented_token', 'updated_at' => '2026-11-22 10:00:00'];
         self::assertSame(
             [['cart' => $history['active_cart']] + $row, ['cart' => $typed] + $row],
@@ -238,6 +240,50 @@ final class PrivacyRequestTest extends PrivacyTestCase
         self::assertSame(3, $erased['attribution'], 'the order\'s token and the two carts\' rows');
         self::assertSame([$history['others_cart']], array_map('intval', array_column(self::table(self::CART_ATTRIBUTION_TABLE, '`id_cart`'), 'id_cart')));
         self::assertSame([], $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store']['cart_attribution']);
+    }
+
+    /**
+     * Linear CON-433: a contact import keeps the contacts that Smaily refused by id. The shopper's
+     * entries (the customer accounts and the address's newsletter-block rows) are exported and
+     * erased; another shopper's entry and the import's counts stay.
+     */
+    public function testAContactImportsRefusedEntriesOfTheShopperAreExportedAndErased(): void
+    {
+        $customer = $this->fixture->customer(self::SHOPPER, false, true);
+        $other = $this->fixture->customer(self::OTHER, false, true);
+        $newsletter = 0;
+        if (self::db()->executeS('SHOW TABLES LIKE \'' . _DB_PREFIX_ . 'emailsubscription\'')) {
+            self::db()->insert('emailsubscription', ['id_shop' => $this->idShop, 'id_shop_group' => 1, 'email' => 'Shopper1@Example.test', 'newsletter_date_add' => date('Y-m-d H:i:s'), 'ip_registration_newsletter' => '127.0.0.1', 'http_referer' => '', 'active' => 1, 'id_lang' => (int) \Configuration::get('PS_LANG_DEFAULT')]);
+            $newsletter = (int) self::db()->Insert_ID();
+        }
+        $reason = 'permanent_envelope_203: Smaily API returned code 203';
+        $entries = [['customer', $customer, $reason], ['customer', $other, $reason]];
+        if ($newsletter > 0) {
+            $entries[] = ['newsletter_block', $newsletter, $reason];
+        }
+        $counts = ['total' => 9, 'sent' => 6, 'failed' => 3, 'skipped' => 0, 'refused' => 3, 'refused_contacts' => $entries];
+        $job = (new JobStore())->create(ContactImport::TYPE_IMPORT, 0, JobStore::STATUS_DONE, ['total' => 9]);
+        self::db()->update(JobStore::TABLE, ['counts' => pSQL((string) json_encode($counts))], '`id` = ' . $job);
+        try {
+            $store = $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store'];
+            self::assertSame(
+                array_merge([['import' => $job, 'source' => 'customer', 'reason' => $reason]], $newsletter > 0 ? [['import' => $job, 'source' => 'newsletter_block', 'reason' => $reason]] : []),
+                array_map(static fn (array $row): array => array_diff_key($row, ['updated_at' => 1]), $store['import_refusals'])
+            );
+
+            $erased = $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
+
+            self::assertSame($newsletter > 0 ? 2 : 1, $erased['import_refusals']);
+            $after = json_decode((string) self::db()->getValue('SELECT `counts` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id` = ' . $job, false), true);
+            self::assertSame([['customer', $other, $reason]], $after['refused_contacts'], 'another shopper\'s entry stays');
+            self::assertSame([3, 3], [$after['failed'], $after['refused']], 'the import\'s counts stay');
+            self::assertSame([], $this->services->get(PrivacyRequest::class)->export(self::SHOPPER, 0)['store']['import_refusals']);
+        } finally {
+            self::db()->delete(JobStore::TABLE, '`id` = ' . $job);
+            if ($newsletter > 0) {
+                self::db()->delete('emailsubscription', '`id` = ' . $newsletter);
+            }
+        }
     }
 
     public function testTheEnginesDeletionGoesOncePerConnectionAndAgainAfterAFailure(): void

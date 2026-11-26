@@ -98,6 +98,14 @@ final class ExportRows
                 $translate('Used') => $translate($row['used'] ? 'Yes' : 'No'),
             ];
         }
+        foreach ($export['store']['import_refusals'] ?? [] as $row) {
+            $rows[] = [
+                $data => $translate('Contacts Smaily refused'),
+                $translate('Source') => $row['source'],
+                $translate('Reason') => $row['reason'],
+                $date => $row['updated_at'],
+            ];
+        }
         $preference = $export['store']['preference'];
         if ($preference !== null) {
             $rows[] = [

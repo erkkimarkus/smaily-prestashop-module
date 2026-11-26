@@ -119,7 +119,7 @@ class PrivacyRequest
      * @param int $idShop the shop the request was made in: the Log shows the row of the
      *                    installation-wide connection there
      *
-     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int, engine_queued: int}
+     * @return array{queue_removed: int, queue_cleared: int, carts: int, attribution: int, codes_removed: int, codes_kept: int, import_refusals: int, engine_queued: int}
      */
     public function erase(string $email, int $idCustomer, int $idShop): array
     {

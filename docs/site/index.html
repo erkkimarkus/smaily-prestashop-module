@@ -1965,6 +1965,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>The address is taken off the customer's cart reminders, and a cart about to be reminded gets no reminder.</li>
         <li>The email click and the visitor token kept with the customer's carts are deleted. An order keeps the email click that led to it, without the visitor token.</li>
         <li>The discount codes the module issued to the customer that no order used are removed. A used code stays with its order.</li>
+        <li>The customer is taken off the list <strong>Contacts Smaily refused</strong> of a contact import; the import's counts stay.</li>
         <li>Campaign Intelligence is asked to delete the customer; the request waits in the Log as <code>engine.customer_delete</code> and is retried until Campaign Intelligence answers. While Campaign Intelligence asks the store to slow down, the request shows as Pending and loses none of its attempts.</li>
         <li>The customer's choice about personalization is kept, without the address, so that an opt-out still holds if the same address orders again.</li>
       </ul>
@@ -1986,6 +1987,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Aadress eemaldatakse kliendi ostukorvide meeldetuletustest ja ostukorv, mis oli meeldetuletust saamas, seda ei saa.</li>
         <li>Kliendi ostukorvide juures hoitav e-kirja klõps ja külastajatunnus kustutatakse. Tellimus jätab alles e-kirja klõpsu, mis selleni viis, ilma külastajatunnuseta.</li>
         <li>Mooduli poolt kliendile antud sooduskoodid, mida ükski tellimus ei kasutanud, eemaldatakse. Kasutatud kood jääb oma tellimuse juurde.</li>
+        <li>Klient eemaldatakse kontaktide impordi loendist <strong>Smaily tagasi lükatud kontaktid</strong>; impordi arvud jäävad.</li>
         <li>Campaign Intelligence'il palutakse klient kustutada; päring ootab logis kui <code>engine.customer_delete</code> ja seda proovitakse uuesti, kuni Campaign Intelligence vastab. Kui Campaign Intelligence palub poel aeglustada, on päring olekus Ootel ega kaota ühtegi katset.</li>
         <li>Kliendi personaliseerimise valik jääb alles, ilma aadressita, et loobumine kehtiks ka siis, kui sama aadress uuesti tellib.</li>
       </ul>
