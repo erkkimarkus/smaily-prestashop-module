@@ -6,7 +6,11 @@
 // installation report, to the front of the subscription mock (127.0.0.1:8445); every other
 // destination is refused with 403, so no request of the shop leaves the container. Plain HTTP is
 // refused too. Each decision is appended to /tmp/smaily-egress.log (host and verdict only).
+// With SMAILY_EGRESS_LIVE=1 the proxy is an allow-list instead: a tunnel to one of those three
+// hosts goes to the real host, and every other destination is still refused.
 declare(strict_types=1);
+
+$live = getenv('SMAILY_EGRESS_LIVE') === '1';
 
 $server = stream_socket_server('tcp://127.0.0.1:3128', $errno, $errstr);
 if ($server === false) {
@@ -46,6 +50,9 @@ while (true) {
                 } elseif (strtolower($m[1]) === 'subscription.smaily.com') {
                     $front = ['tcp://127.0.0.1:8445', 'subscription mock'];
                 }
+            }
+            if ($front !== null && $live) {
+                $front = ['tcp://' . strtolower($m[1]) . ':443', 'real host'];
             }
             if ($front !== null) {
                 $upstream = @stream_socket_client($front[0], $e, $s, 5);

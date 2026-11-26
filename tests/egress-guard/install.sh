@@ -18,11 +18,23 @@
 # Run it from the repository root, with the stack's Compose variables set, BEFORE the first admin
 # request. MOCK_USER and MOCK_PASSWORD are the only credentials the mock accepts: invented values.
 # DC names the Compose command when it is not `docker compose`.
+#
+# SMAILY_EGRESS_LIVE=1 installs the allow-list instead, for a shop that is meant to reach the real
+# Smaily services (the owner's live test shop): no mocks, no CA, and the proxy tunnels the same
+# three hosts to the real ones and refuses every other host. Never in a shop that runs the tests.
 set -e
-: "${MOCK_USER:?set MOCK_USER to an invented API user}"
-: "${MOCK_PASSWORD:?set MOCK_PASSWORD to an invented API password}"
 here=$(dirname "$0")
 dc="${DC:-docker compose}"
+if [ "${SMAILY_EGRESS_LIVE:-}" = 1 ]; then
+  $dc cp "$here/proxy.php" prestashop:/tmp/smaily-egress-proxy.php
+  $dc exec -T -u root prestashop sh -c 'grep -q "smaily-egress" /usr/local/etc/php-fpm.conf || printf "\n[www]\n; smaily-egress\nenv[https_proxy] = http://127.0.0.1:3128\nenv[http_proxy] = http://127.0.0.1:3128\nenv[no_proxy] = localhost,127.0.0.1\n" >> /usr/local/etc/php-fpm.conf'
+  $dc exec -T -u www-data prestashop sh -c 'kill -USR2 $(pgrep -f "[p]hp-fpm: master"); pkill -f "[s]maily-egress-proxy" || true'
+  $dc exec -d -u www-data -e SMAILY_EGRESS_LIVE=1 prestashop php /tmp/smaily-egress-proxy.php
+  sleep 2
+  exec "$here/check.sh"
+fi
+: "${MOCK_USER:?set MOCK_USER to an invented API user}"
+: "${MOCK_PASSWORD:?set MOCK_PASSWORD to an invented API password}"
 $dc cp "$here/proxy.php" prestashop:/tmp/smaily-egress-proxy.php
 $dc exec -T -u root prestashop sh -c "mkdir -p /tmp/smaily-mock"
 $dc cp "$here/nginx.conf" prestashop:/tmp/smaily-mock/nginx.conf

@@ -5,7 +5,24 @@
 # subscription mock, and any other host must be refused. Prints "guard active" and exits 0, else
 # says what is missing and exits 1.
 # Run it from the repository root with the stack's Compose variables set; DC as in install.sh.
+# With SMAILY_EGRESS_LIVE=1 it checks the allow-list (install.sh) instead: a page request runs with
+# the proxy setting, the engine host is tunnelled (one GET of its front page, without a key) and
+# any other host is refused; it prints "allow-list active".
 dc="${DC:-docker compose}"
+if [ "${SMAILY_EGRESS_LIVE:-}" = 1 ]; then
+  exec $dc exec -T -u www-data prestashop sh -c '
+probe=/var/www/html/smaily-egress-probe.php
+printf "<?php echo getenv(\"https_proxy\");" > $probe
+seen=$(curl -s --noproxy "*" http://127.0.0.1/smaily-egress-probe.php)
+rm -f $probe
+[ "$seen" = "http://127.0.0.1:3128" ] || { echo "allow-list NOT active: a page request runs without https_proxy" >&2; exit 1; }
+engine=$(curl -s -o /dev/null -w "%{http_connect}" --proxy http://127.0.0.1:3128 https://intelligence.smaily.com/)
+[ "$engine" = "200" ] || { echo "allow-list NOT active: the engine host was not tunnelled (proxy answered $engine)" >&2; exit 1; }
+other=$(curl -s -o /dev/null -w "%{http_connect}" --proxy http://127.0.0.1:3128 https://example.com/)
+[ "$other" = "403" ] || { echo "allow-list NOT active: another host was not refused (proxy answered $other)" >&2; exit 1; }
+echo "allow-list active"
+'
+fi
 $dc exec -T -u www-data prestashop sh -c '
 probe=/var/www/html/smaily-egress-probe.php
 printf "<?php echo getenv(\"https_proxy\");" > $probe
