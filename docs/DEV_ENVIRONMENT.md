@@ -597,6 +597,9 @@ Results on 2026-11-20:
 - On 2026-11-26, at `91acd79` with the script's `SHOPS` switch (below): 10 of 10 checks on
   flashlight 8.2.8 and 9.2.0 with the packaged zip, and 2284 tests in the shop on each (12214
   assertions on 8.2.8, 12219 on 9.2.0).
+- On 2026-11-26, on the merged `v3` with that day's changes and the stylesheet fix `0011857`: 10 of 10
+  checks on flashlight 8.2.8 and 9.2.0 with the packaged zip, and 2346 tests in the shop on each (12620
+  assertions on 8.2.8, 12625 on 9.2.0); with `SHOPS=2` 12 of 12 on both.
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
