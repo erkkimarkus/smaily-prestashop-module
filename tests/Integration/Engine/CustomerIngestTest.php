@@ -439,7 +439,7 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame(EventQueue::STATUS_SENT, self::mergeRows()[0]['status']);
     }
 
-    public function testAMergeOfACustomerTheStoreDoesNotSendIsParkedWithoutTheEnginesText(): void
+    public function testAMergeOfACustomerTheStoreDoesNotSendEndsQuietlyWithoutTheEnginesText(): void
     {
         $this->connect();
         $this->storefront();
@@ -450,17 +450,13 @@ final class CustomerIngestTest extends IngestTestCase
         $this->services->get(QueueProvider::FLUSHER)->flush();
 
         self::assertSame([], $this->engine->requestsTo(self::CUSTOMERS), 'a customer outside the three groups is not sent');
+        self::assertCount(1, $this->engine->requestsTo(self::MERGE), 'the 404 is not tried again');
+        // Owner, 2026-11-26 (WooCommerce's rule): nothing is wrong, so the row is no failure.
         $row = self::mergeRows()[0];
-        self::assertSame([EventQueue::STATUS_FAILED, IdentityMergeHandler::FAILED_NOT_SENT], [$row['status'], $row['last_error']]);
+        self::assertSame([EventQueue::STATUS_SKIPPED, IdentityMergeHandler::SKIPPED_NOT_SENT], [$row['status'], $row['last_error']]);
         self::assertSame(['http_status' => 404, 'body' => ['error' => 'customer_not_found']], json_decode((string) $row['last_response'], true));
         // The engine's 404 names the address it was asked about: nothing of that text is kept.
         self::assertStringNotContainsString('No customer found', (string) $row['last_response'] . $row['last_error']);
-
-        // The Log's retry meets the same answer once and parks the row again: it never repeats the 404.
-        $this->services->get(QueueProvider::EVENT_QUEUE)->retry([(int) $row['id']]);
-        $this->services->get(QueueProvider::FLUSHER)->flush();
-        self::assertCount(2, $this->engine->requestsTo(self::MERGE));
-        self::assertSame(EventQueue::STATUS_FAILED, self::mergeRows()[0]['status']);
     }
 
     public function testNothingIsQueuedWithoutAConnectionOrOutsideTheShoppersOwnRequest(): void

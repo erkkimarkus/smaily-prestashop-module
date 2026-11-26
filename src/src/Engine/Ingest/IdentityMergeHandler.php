@@ -60,7 +60,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
  *  - a merge that the engine answers with `404 customer_not_found`: the customer is sent when
  *    the store sends that customer anyway (groups (a) and (b), CustomerScope::includes()), and
  *    once §4 took the customer the merge is tried once more (§7 "Retry after 404"). It is never
- *    tried again before that: the row remembers the 404.
+ *    tried again before that: the row remembers the 404. Where the store does not send that
+ *    customer, the merge ends quietly as skipped (owner, 2026-11-26; the WooCommerce connector
+ *    stops there too): nothing is wrong, and the next sign-in queues the merge again.
  * Each customer sent this way is one row of the Log (ingest queue, domain `customers`).
  *
  * A row is closed without a request when its shop has no connection, when the customer is gone,
@@ -82,7 +84,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
     public const SKIPPED_OPTED_OUT = 'engine_opted_out';
 
     /** The engine does not have the customer, and the store does not send that customer. */
-    public const FAILED_NOT_SENT = 'engine_customer_not_sent';
+    public const SKIPPED_NOT_SENT = 'engine_customer_not_sent';
 
     /** The engine refused the customer's row. */
     public const FAILED_CUSTOMER_REFUSED = 'engine_customer_refused';
@@ -217,7 +219,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
                     $sent = true;
                 }
                 if (!$sent) {
-                    return Failure::permanent(self::FAILED_NOT_SENT);
+                    return new Skipped(self::SKIPPED_NOT_SENT);
                 }
                 if ($refused) {
                     return Failure::permanent(self::FAILED_CUSTOMER_REFUSED);

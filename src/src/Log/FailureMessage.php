@@ -99,7 +99,7 @@ final class FailureMessage
         CatalogManifest::FAILED_TOO_MANY => 'Not sent: the store has more than 50,000 product rows, the most the nightly product list can hold.',
         IdentityMergeHandler::SKIPPED_OPTED_OUT => 'Skipped: the shopper opted out of personalized recommendations, so their browsing is not linked to their address. Nothing was sent.',
         IdentityMergeHandler::SKIPPED_NOTHING_TO_SEND => 'Skipped: the shopper withdrew the marketing consent, and the visit has no visitor token. Nothing was sent.',
-        IdentityMergeHandler::FAILED_NOT_SENT => 'Campaign Intelligence does not have this customer yet, so the login was not linked to them. The store sends a customer who is in your contact sync, has an order or logs in with marketing consent; Retry links the login after that.',
+        IdentityMergeHandler::SKIPPED_NOT_SENT => 'Skipped: Campaign Intelligence does not have this customer, and the store does not send them, as they are not in your contact sync, have no order and did not log in with marketing consent. The login was not linked to them, and nothing needs to be done.',
         IdentityMergeHandler::FAILED_CUSTOMER_REFUSED => 'Campaign Intelligence refused the customer, so the login was not linked to them. Retry sends the customer and the login again.',
         IdentityMergeHandler::FAILED_NOT_FOUND => 'Campaign Intelligence did not find this customer even after the store sent them, so the login was not linked to them. Retry sends the customer and the login again.',
     ];

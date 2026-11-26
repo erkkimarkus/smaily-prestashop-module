@@ -2797,9 +2797,9 @@
         <target>Vahele jäetud: ostja võttis turundusnõusoleku tagasi ja külastusel puudub külastajatunnus. Midagi ei saadetud.</target>
         <note>Line: </note>
       </trans-unit>
-      <trans-unit id="56f538be5f06eaef9d2baab3482c8982">
-        <source>Campaign Intelligence does not have this customer yet, so the login was not linked to them. The store sends a customer who is in your contact sync, has an order or logs in with marketing consent; Retry links the login after that.</source>
-        <target>Campaign Intelligence'il seda klienti veel ei ole, seega sisselogimist temaga ei seotud. Pood saadab kliendi, kes on kontaktide sünkroonimises, kellel on tellimus või kes logib sisse turundusnõusolekuga; pärast seda seob „Proovi uuesti“ sisselogimise.</target>
+      <trans-unit id="c1f44f2fe3b293eb5116b42f0c91055f">
+        <source>Skipped: Campaign Intelligence does not have this customer, and the store does not send them, as they are not in your contact sync, have no order and did not log in with marketing consent. The login was not linked to them, and nothing needs to be done.</source>
+        <target>Vahele jäetud: Campaign Intelligence'il seda klienti ei ole ja pood teda ei saada, sest ta ei ole kontaktide sünkroonimises, tal pole tellimust ja ta ei loginud sisse turundusnõusolekuga. Sisselogimist temaga ei seotud ja midagi pole vaja teha.</target>
         <note>Line: </note>
       </trans-unit>
       <trans-unit id="b255a24215f1f6934e495a9a42fbcf6f">

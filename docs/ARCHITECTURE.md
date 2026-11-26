@@ -2857,7 +2857,11 @@ failed for good (`engine_customer_not_sent`) and turned the Dashboard to "Needs 
 customer by id; its entity is the contact's (`Queue\ContactEntity::of()`), so the privacy erasure
 finds it. The handler sends the customer of group (c) first, in the same run, and then the merge
 when the row has a visitor token; a `404 customer_not_found` sends a customer of group (a) or (b)
-and tries the merge once more (§7 "Retry after 404"), and never again before that. A token that
+and tries the merge once more (§7 "Retry after 404"), and never again before that. A `404` for a
+customer whom the store does not send (no group) ends the merge quietly: the row is skipped
+(`engine_customer_not_sent`, a sentence that says nothing needs to be done), with no failed row
+and no "Needs attention", as the WooCommerce connector writes a debug line and stops (owner,
+2026-11-26; section 15); the next sign-in queues a merge again. A token that
 the store created (`vs_…`) travels only with marketing consent, which is group (c)'s: the
 merchant's confirmation. A shopper who opted out of personalization (section 11.2) gets neither:
 the row is skipped (`engine_opted_out`), as on the Magento connector. A sign-in in a shop without
@@ -5343,3 +5347,10 @@ rule for the four connectors):
 - A failed read of the consent before a customer save records no consent change: it never sends a
   status that the store did not record (2026-11-26; section 6.3). This replaces the rule of
   2026-11-21 that such a save ending not subscribed queues an unsubscribe.
+
+Decision of 2026-11-26 (Linear CON-397; one rule for the four connectors): an identity merge that
+the engine answers `404 customer_not_found` for a customer whom the store never sends to the
+engine (outside the customer scope, for example without the marketing consent of a sign-in) ends
+quietly, as WooCommerce's: no failed Log row and no Dashboard "Needs attention". The row is
+skipped (`engine_customer_not_sent`). A customer whom the store does send is still sent and the
+merge tried once more (contract §7 "Retry after 404"; section 8.11).

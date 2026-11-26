@@ -35,6 +35,10 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   link's query (`/en/?…`, `index.php?id_product=…` with friendly URLs on) touches no link the engine builds: the
   catalog sends `Link::getProductLink()`, which keeps the query with friendly URLs on and off (8.2.8, 9.2.0). The
   engine answers no recommendations yet.
+- Owner, 26 Nov (CON-397, all connectors): an identity merge that the engine answers `404 customer_not_found` for
+  a customer the store never sends (no group of the customer scope) ends quietly as skipped
+  (`engine_customer_not_sent`): no failed row, no "Needs attention", as WooCommerce; a customer the store does
+  send is still sent and the merge tried once more (ARCHITECTURE 8.11, section 15).
 - CON-454 part b: each import card's finish time in the employee's date format (`Admin\AdminTime`); the Initial
   setup's "Shops with their own values" lists every contact field the Contacts step offers
   (`ContactsPanel::FIELD_LABELS`, which the step reads too).
