@@ -145,6 +145,11 @@ ask (Linear discipline below).
   cron hits a front-controller URL with its token. Anything periodic in v3
   (queue drain, imports, abandoned-cart detection, installation report)
   needs the same trigger, and the existing URLs must keep working (rule 2).
+  The web server cuts a request at a limit PHP cannot read (nginx 30 s in
+  the flashlight images) while one Smaily call may wait 30 s: a door answers
+  `OK: the tick is running.` once the tick holds the lock and runs the jobs
+  after its response; only without a finish function does it answer
+  `OK: ran …` at the end (ARCHITECTURE 4.3).
 - **No standard cookie-consent API.** Owner's rule (2026-11-20): browse
   tracking and recommendations are off until the merchant confirms in
   Settings that the store's cookie banner covers them (the merchant carries

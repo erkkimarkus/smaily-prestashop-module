@@ -198,6 +198,47 @@ final class TickTest extends IntegrationTestCase
         self::assertSame(TickReport::RAN, $this->tick([$this->job('minute', 60)])->run('tick', 50)->status());
     }
 
+    public function testTellsItsStartOnceItHoldsTheLockAndBeforeTheFirstJob(): void
+    {
+        $started = [];
+        $this->schemaIsCurrent = false;
+        $migration = new Job('migration', 60, 10, function (): void {
+            $this->ran[] = 'migration';
+        }, true);
+
+        $this->tick([$migration])->run('tick', 50, 0, function (bool $current) use (&$started): void {
+            $started[] = [$current, $this->ran, $this->lockIsFree(), (new TickSettings())->storedState()->lastSource()];
+        });
+
+        self::assertSame([[false, [], false, 'tick']], $started);
+        self::assertSame(['migration'], $this->ran);
+    }
+
+    public function testABusyOrFreshTickDoesNotTellAStart(): void
+    {
+        $told = false;
+        $tell = static function () use (&$told): void {
+            $told = true;
+        };
+        (new TickSettings())->saveState(TickState::fromJson(null)->withTick('tick', self::START - 59));
+
+        self::assertSame(TickReport::FRESH, $this->tick([$this->job('minute', 60)])->run('traffic', 10, 60, $tell)->status());
+        self::assertFalse($told);
+
+        $holder = proc_open([PHP_BINARY, __DIR__ . '/lock-holder.php'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($holder);
+        try {
+            self::assertSame("locked\n", fgets($pipes[1]));
+            self::assertSame(TickReport::BUSY, $this->tick([$this->job('minute', 60)])->run('tick', 50, 0, $tell)->status());
+        } finally {
+            fclose($pipes[0]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($holder);
+        }
+        self::assertFalse($told);
+    }
+
     public function testReleasesTheLockAfterTheTick(): void
     {
         $this->tick([$this->job('minute', 60)])->run('tick', 50);

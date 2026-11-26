@@ -67,7 +67,10 @@ final class PendingMigrationTest extends IntegrationTestCase
         self::recordModuleVersion('2.2.0');
         $token = (new TickSettings())->token($tokenKey, 1);
 
-        [$status] = Services::fromProviders(Services::PROVIDERS)->get(Door::class)->open($door, $token, 1, 30);
+        $status = null;
+        Services::fromProviders(Services::PROVIDERS)->get(Door::class)->open($door, $token, 1, 30, static function (int $answered) use (&$status): void {
+            $status = $answered;
+        });
 
         self::assertSame(200, $status);
         self::assertTrue(Schema::isCurrent());

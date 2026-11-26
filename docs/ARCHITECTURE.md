@@ -1038,13 +1038,40 @@ report of Story 6.1 is `installation_report`.
    answers `text/plain` with one of these lines:
    - HTTP 403 `Access denied!` (the 2.x answer) for an empty or wrong token, or a door with no
      stored token or an empty one; the door reads the stored token and never creates one;
-   - `OK: ran <job>, <job>.` or `OK: no job was due.`;
+   - `OK: the tick is running.` where the response goes early (below);
+   - `OK: ran <job>, <job>.` or `OK: no job was due.` where it cannot;
    - `Busy: another tick is running.`;
-   - `Waiting: the upgrade of the module has not finished.` while the schema is still not current
-     when the tick ends.
+   - `Waiting: the upgrade of the module has not finished.` while the schema is not current: when
+     the tick takes the lock where the response goes early, when the tick ends where it cannot.
 
-   The tick reads the schema state again after its jobs ran. A tick whose `migration` job completes
-   the upgrade therefore answers `OK: ran migration.`; the other jobs wait for the next tick.
+   **The answer goes before the jobs** where the server has a finish function
+   (`TrafficTick::finishFunction()`, the one way to send a response early, facts file 6.8). Once
+   the tick holds the lock and has recorded its start (`Tick::run()`'s `$started`), the door
+   answers, sends the response, ignores a client that goes away and releases the PHP session; the
+   jobs then run with the same budget. An error of the tick after the answer goes to the log.
+   **Reason:** the web server cuts a request at its own limit, which PHP cannot read (the
+   flashlight images' nginx: `fastcgi_read_timeout 30s`, with `max_execution_time = 30`, so a
+   25 s budget), while one Smaily call may wait 30 s (the siblings' timeout). Observed on 9.2.0
+   behind the egress guard with the Smaily mock answering after 35 s (2026-11-26): the tick URL
+   answered nginx's `504 Gateway Time-out` after 30.0 s, so `curl -fsS` of the cron line failed on
+   every run; the rows stayed `processing` and the lock held until the call gave up, and PHP-FPM
+   then closed them (`pending`, one attempt more, on the retry ladder) and released the lock. With
+   the answer first, the URL answered `OK: the tick is running.` in 0.03–0.06 s, the same rows and
+   the lock ended the same way about 30 s later, and a second request during that tick answered
+   `Busy` in 0.34 s. After `fastcgi_finish_request()` nginx no longer waits, and PHP-FPM's
+   `request_terminate_timeout` does not apply (`request_terminate_timeout_track_finished = no` by
+   default). No caller waits on the siblings' jobs either, which keep the same 30 s Smaily timeout:
+   Magento's cron runs them from the command line, and WooCommerce's run in Action Scheduler,
+   which WordPress starts in a request that the caller does not wait for (Action Scheduler's
+   design, not read in the sibling's code). A host that
+   still ends the process mid-call (a finished request tracked by FPM, a killed worker) leaves a
+   claim that returns to `pending` after 10 min (item 5) and a lock that MariaDB releases with the
+   connection. Where no finish function exists (Apache with mod_php), the door answers when the
+   tick has ended, as before, and the web server's limit still applies.
+
+   The tick reads the schema state again after its jobs ran. A tick that answers at its end and
+   whose `migration` job completes the upgrade therefore answers `OK: ran migration.`; the other
+   jobs wait for the next tick.
    `TickSettings::newToken()` (32 hex characters) is the one generator of the door tokens.
    `TickSettings::token()` creates a missing token; only the upgrade's `tick_token` step and the
    cron line of the Dashboard's Background tasks card (`Admin\Dashboard\CronLine`) call it, for

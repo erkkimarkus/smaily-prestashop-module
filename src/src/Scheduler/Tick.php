@@ -86,8 +86,11 @@ final class Tick
      * @param int $budget seconds the whole tick may take
      * @param int $staleAfter when above 0, the tick does nothing unless the last tick is at least
      *                        this many seconds old
+     * @param (callable(bool): void)|null $started called once the tick holds the lock and has
+     *                                             recorded its start, before the first job, with
+     *                                             whether the schema is current
      */
-    public function run(string $source, int $budget, int $staleAfter = 0): TickReport
+    public function run(string $source, int $budget, int $staleAfter = 0, ?callable $started = null): TickReport
     {
         $start = ($this->clock)();
         $end = $start + $budget;
@@ -106,6 +109,9 @@ final class Tick
             $this->settings->saveState($state);
 
             $current = ($this->schemaIsCurrent)();
+            if ($started !== null) {
+                $started($current);
+            }
             $ran = [];
             foreach ($this->jobs as $job) {
                 if (!$current && !$job->runsBeforeUpgrade()) {

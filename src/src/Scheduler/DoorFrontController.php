@@ -45,16 +45,17 @@ abstract class DoorFrontController extends \ModuleFrontController
     public function initContent()
     {
         $token = \Tools::getValue('token');
-        [$status, $answer] = Services::instance()->get(Door::class)->open(
+        Services::instance()->get(Door::class)->open(
             $this->door(),
             is_string($token) ? $token : '',
             (int) $this->context->shop->id,
-            (int) ini_get('max_execution_time')
+            (int) ini_get('max_execution_time'),
+            static function (int $status, string $answer): void {
+                http_response_code($status);
+                header('Content-Type: text/plain; charset=utf-8');
+                echo $answer . "\n";
+            }
         );
-
-        http_response_code($status);
-        header('Content-Type: text/plain; charset=utf-8');
-        echo $answer . "\n";
 
         exit;
     }

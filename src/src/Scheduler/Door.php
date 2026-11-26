@@ -37,6 +37,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
  * refused with the answer of 2.x, "Access denied!". A door only compares: a request never creates a
  * token, and a refused request writes nothing. Every answer is a short plain-text status that names
  * no person and no secret.
+ *
+ * Where the server can send a response before the request ends (TrafficTick::finishFunction()),
+ * the door answers as soon as the tick holds the lock, and the jobs run after the answer: a web
+ * server's own limit (30 s on nginx) never cuts the cron's request while a job waits on Smaily or
+ * Campaign Intelligence. Elsewhere it answers when the tick has ended.
  */
 final class Door
 {
@@ -57,46 +62,86 @@ final class Door
      */
     private const MAX_BUDGET = 50;
 
+    private const ANSWER_WAITING = 'Waiting: the upgrade of the module has not finished.';
+
     private TickSettings $settings;
 
     /** @var callable(): Tick */
     private $tick;
 
+    /** @var (callable(): mixed)|null */
+    private $finishRequest;
+
     /**
      * @param callable(): Tick $tick
+     * @param (callable(): mixed)|null $finishRequest sends the response before the request ends;
+     *                                                null where the server has no such function
      */
-    public function __construct(TickSettings $settings, callable $tick)
+    public function __construct(TickSettings $settings, callable $tick, ?callable $finishRequest = null)
     {
         $this->settings = $settings;
         $this->tick = $tick;
+        $this->finishRequest = $finishRequest;
     }
 
     /**
-     * Runs the tick through $door when $token is the door's token.
+     * Runs the tick through $door when $token is the door's token, and answers once through
+     * $respond.
      *
      * @param int $idShop the shop the request is for; a legacy token is read at its scope
      * @param int $maxExecutionTime the request's max_execution_time, 0 for no limit
-     *
-     * @return array{0: int, 1: string} the HTTP status and the plain-text answer
+     * @param callable(int, string): void $respond sends the HTTP status and the plain-text answer
      */
-    public function open(string $door, string $token, int $idShop, int $maxExecutionTime): array
+    public function open(string $door, string $token, int $idShop, int $maxExecutionTime, callable $respond): void
     {
         if (!isset(self::TOKEN_KEYS[$door])) {
             throw new \InvalidArgumentException(sprintf('No door is named "%s".', $door));
         }
         $stored = $this->settings->storedToken(self::TOKEN_KEYS[$door], $idShop);
         if ($stored === '' || $token === '' || !hash_equals($stored, $token)) {
-            return [403, 'Access denied!'];
+            $respond(403, 'Access denied!');
+
+            return;
         }
 
-        $report = ($this->tick)()->run($door, self::budget($maxExecutionTime));
+        $answered = false;
+        $started = null;
+        if ($this->finishRequest !== null) {
+            $started = function (bool $schemaIsCurrent) use ($respond, &$answered): void {
+                $respond(200, $schemaIsCurrent ? 'OK: the tick is running.' : self::ANSWER_WAITING);
+                $answered = true;
+                ignore_user_abort(true);
+                ($this->finishRequest)();
+                // PHP keeps the session locked until the request ends.
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    session_write_close();
+                }
+            };
+        }
+
+        try {
+            $report = ($this->tick)()->run($door, self::budget($maxExecutionTime), 0, $started);
+        } catch (\Throwable $error) {
+            if (!$answered) {
+                throw $error;
+            }
+            // The answer has gone: only the log can tell.
+            Tick::logFailure('tick', $error);
+
+            return;
+        }
+        if ($answered) {
+            return;
+        }
         switch ($report->status()) {
             case TickReport::BUSY:
-                return [200, 'Busy: another tick is running.'];
+                $respond(200, 'Busy: another tick is running.');
+                break;
             case TickReport::INERT:
-                return [200, 'Waiting: the upgrade of the module has not finished.'];
+                $respond(200, self::ANSWER_WAITING);
+                break;
             default:
-                return [200, $report->jobs() === [] ? 'OK: no job was due.' : 'OK: ran ' . implode(', ', $report->jobs()) . '.'];
+                $respond(200, $report->jobs() === [] ? 'OK: no job was due.' : 'OK: ran ' . implode(', ', $report->jobs()) . '.');
         }
     }
 

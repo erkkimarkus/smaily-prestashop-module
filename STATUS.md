@@ -80,10 +80,9 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
-- The tick URL answers 504 from nginx (30 seconds) while a 30-second Smaily timeout runs inside it. The engine
-  mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS: only the
-  egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced now, and
-  the PR template still lists them.
+- The engine mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS:
+  only the egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced
+  now, and the PR template still lists them.
 - `Config\Settings::setJson()` writes without `Configuration`'s `$html` flag, so `strip_tags()` would cut a `<…>`
   out of a value; no value of its two callers (the notices, the update check) can hold `<`, `>` or `&`, so nothing
   is lost today. The flag runs HTMLPurifier, which stores `&`, `<` and `>` as entities and mangles a tag too

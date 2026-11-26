@@ -74,7 +74,8 @@ final class SchedulerProvider implements ProviderInterface
         ));
         $services->set(Door::class, fn (Services $services): Door => new Door(
             $services->get(TickSettings::class),
-            static fn (): Tick => $services->get(Tick::class)
+            static fn (): Tick => $services->get(Tick::class),
+            TrafficTick::finishFunction()
         ));
         $services->set(TrafficTick::class, fn (Services $services): TrafficTick => new TrafficTick(
             $services->get(TickSettings::class),
