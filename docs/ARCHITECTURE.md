@@ -402,15 +402,18 @@ reads nothing until `Configuration::get()` or `loadConfiguration()` loads the co
 
 **[D]** Consequences:
 
-- **The settings store (`Config\Settings`).** `Settings::get()` loads the configuration
-  again when the request holds none, so a read after a `deleteByName()` in the same request still
-  finds the stored value. `Settings::set()` writes a global row with `updateGlobalValue()` and a shop
-  row with the shop group id and the shop id. `Settings::removeShopValue($key, $idShop)` deletes the
-  shop's row with `Configuration::deleteFromGivenContext($key, $idShopGroup, $idShop)`, whatever the
+- **The settings store (`Config\Settings`).** `Settings::get()` loads the configuration again when
+  the request holds none, so a read after a `deleteByName()` in the same request still finds the
+  stored value. `Settings::set()` writes a global row with `updateGlobalValue()` and a shop row with
+  the shop group id and the shop id. `Settings::removeShopValue($key, $idShop)` deletes the shop's
+  row with `Configuration::deleteFromGivenContext($key, $idShopGroup, $idShop)`, whatever the
   admin's shop context; the shop then reads the global value. It never writes `NULL`, and it never
   uses `deleteFromContext()`. The writer never writes `NULL` and then a value to one key in one
   request. `getJson()` and `setJson()` read and write a JSON value (an unreadable value reads as
-  `[]`). `reload()` is the one way to load the configuration again (`resetStaticCache()`, then
+  `[]`). `setJson()` encodes with `JSON_HEX_TAG | JSON_HEX_AMP` and without `Configuration`'s
+  `$html` flag: PrestaShop strips tags from a value written without the flag, and the flag rewrites
+  `<`, `>` and `&` through HTMLPurifier, so a stored JSON value holds them as `\u` escapes.
+  `reload()` is the one way to load the configuration again (`resetStaticCache()`, then
   `loadConfiguration()`). `storedValue($key, $idShop)` reads the row stored now at exactly that
   scope with one SQL query, past the configuration that the request loaded, so it also sees a value
   that another request wrote after this one started.

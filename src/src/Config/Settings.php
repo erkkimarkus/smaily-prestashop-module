@@ -85,11 +85,15 @@ abstract class Settings
     /**
      * Stores $value as JSON under $key, as set() stores it (null: the global scope).
      *
+     * PrestaShop strips tags from a value written without its $html flag, and the flag rewrites
+     * `<`, `>` and `&` through HTMLPurifier. The JSON therefore holds them as \u escapes, which
+     * json_decode() reads back unchanged.
+     *
      * @param array<mixed> $value
      */
     protected function setJson(string $key, array $value, ?int $idShop = null): bool
     {
-        return $this->set($key, (string) json_encode($value), $idShop ?? 0);
+        return $this->set($key, (string) json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP), $idShop ?? 0);
     }
 
     /**

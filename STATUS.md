@@ -90,10 +90,6 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
 - The engine mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS:
   only the egress guard fences a shop from the real Smaily API. `assets/*.png` (2.x screenshots) are unreferenced
   now, and the PR template still lists them.
-- `Config\Settings::setJson()` writes without `Configuration`'s `$html` flag, so `strip_tags()` would cut a `<…>`
-  out of a value; no value of its two callers (the notices, the update check) can hold `<`, `>` or `&`, so nothing
-  is lost today. The flag runs HTMLPurifier, which stores `&`, `<` and `>` as entities and mangles a tag too
-  (2026-11-25, 9.2.0): decide between leaving it, `JSON_HEX_TAG` in `setJson()`, or the flag.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's
