@@ -6,6 +6,7 @@ namespace Tests\Integration\Privacy;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
+use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
 
 require_once __DIR__ . '/PrivacyTestCase.php';
 
@@ -236,5 +237,76 @@ final class ProfilingConsentTest extends PrivacyTestCase
         $queued = array_values(array_filter(self::table('smaily_connect_event_queue'), static fn (array $row): bool => $row['event_type'] === ProfilingConsent::EVENT_TYPE));
         self::assertCount(1, $queued);
         self::assertTrue(json_decode((string) $queued[0]['payload'], true)['opt_out']);
+    }
+
+    public function testABulkOfOptOutsKeepsToTheEnginesLimitAndSpendsNoAttempt(): void
+    {
+        $this->connect();
+        $consent = $this->services->get(ProfilingConsent::class);
+        for ($i = 1; $i <= 25; ++$i) {
+            $consent->setAllowed('bulk' . $i . '@example.test', false, $this->idShop);
+        }
+
+        $sent = [];
+        foreach ([25, 15, 5] as $minute => $due) {
+            self::assertSame($due, $this->flush(), 'minute ' . $minute . ': every due row is claimed');
+            self::assertSame(0, $this->flush(), 'a deferred row is not due again in the same minute');
+            $rows = self::table('smaily_connect_event_queue', '`id`');
+            $sent[] = count(array_filter($rows, static fn (array $row): bool => $row['status'] === 'sent'));
+            self::assertSame([0], array_values(array_unique(array_map('intval', array_column($rows, 'attempts')))), 'no row spent an attempt');
+            foreach ($rows as $row) {
+                if ($row['status'] === 'pending') {
+                    self::assertNull($row['last_error'], 'a row held back has no failure');
+                    self::assertNotNull($row['next_retry_at'], 'and waits for the next minute');
+                }
+            }
+            // A minute on, and one second more: the requests of one flush may span a second.
+            $this->passSeconds(61);
+            self::makeDue();
+        }
+
+        self::assertSame([10, 20, 25], $sent, 'ten requests a minute, all delivered in the end');
+        self::assertCount(25, array_filter($this->engine->requests(), static fn (array $request): bool => substr((string) $request['path'], -8) === '/opt-out'));
+    }
+
+    public function testA429HoldsTheRowAndTheRestOfTheStoresRowsForTheWaitItAskedFor(): void
+    {
+        $connection = $this->connect();
+        $consent = $this->services->get(ProfilingConsent::class);
+        $this->engine->fail('customer_opt_out', 429, 'rate_limit_exceeded', self::REMOTE_TEXT, 42);
+        foreach (['shopper1@example.test', 'shopper2@example.test', 'shopper3@example.test'] as $address) {
+            $consent->setAllowed($address, false, $this->idShop);
+        }
+
+        $before = time();
+        self::assertSame(3, $this->flush());
+        $after = time();
+
+        $rows = self::table('smaily_connect_event_queue', '`id`');
+        self::assertSame(
+            [['pending', 0, 'Campaign Intelligence answered HTTP 429 (rate_limit_exceeded).'], ['pending', 0, null], ['pending', 0, null]],
+            array_map(static fn (array $row): array => [$row['status'], (int) $row['attempts'], $row['last_error']], $rows),
+            'the row that met the 429 and the two after it wait, and none spends an attempt'
+        );
+        self::assertCount(1, array_unique(array_column($rows, 'next_retry_at')), 'all until the same moment');
+        $until = strtotime($rows[0]['next_retry_at'] . ' UTC');
+        self::assertGreaterThanOrEqual($before + 42, $until);
+        self::assertLessThanOrEqual($after + 42, $until);
+        self::assertCount(1, $this->engineRequests('POST', self::ADDRESS_A, '/opt-out'));
+        self::assertCount(0, $this->engineRequests('POST', 'shopper2@example.test', '/opt-out'), 'the rest are not asked');
+        self::assertNull(
+            $this->services->get(ConnectionHealth::class)->engine($connection->tenantId())['last_error_code'],
+            'a 429 says nothing of the engine store\'s health'
+        );
+        self::assertSame(0, $this->flush(), 'nothing is due before the wait ends');
+
+        $this->engine->set('fail', []);
+        $this->passSeconds(42);
+        self::makeDue();
+        self::assertSame(3, $this->flush());
+        self::assertSame(
+            [['sent', 0, null], ['sent', 0, null], ['sent', 0, null]],
+            array_map(static fn (array $row): array => [$row['status'], (int) $row['attempts'], $row['last_error']], self::table('smaily_connect_event_queue', '`id`'))
+        );
     }
 }

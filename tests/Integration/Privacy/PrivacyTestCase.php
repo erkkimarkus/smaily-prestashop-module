@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Privacy;
 
+use PrestaShop\Module\SmailyForPrestaShop\Config\GdprPaceSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\GdprPace;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -26,7 +28,8 @@ require_once __DIR__ . '/../Fixtures/EngineMockServer.php';
  *
  * The connection table, the privacy record, the two attribution tables and the event queue start and
  * end empty: no connection may outlive its test, as a later test that runs the whole tick would
- * ask the real engine about it. Every shopper is invented.
+ * ask the real engine about it. So do the counted privacy requests (Privacy\GdprPace), whose clock
+ * a test moves on with passSeconds(). Every shopper is invented.
  */
 abstract class PrivacyTestCase extends DiscountTestCase
 {
@@ -41,6 +44,9 @@ abstract class PrivacyTestCase extends DiscountTestCase
     protected EngineMockServer $engine;
 
     private int $tokens = 0;
+
+    /** Seconds the privacy requests' clock is ahead of the real one. */
+    private int $clockOffset = 0;
 
     protected function setUp(): void
     {
@@ -64,6 +70,7 @@ abstract class PrivacyTestCase extends DiscountTestCase
     protected function services(): Services
     {
         $services = parent::services();
+        $services->set(GdprPace::class, fn (): GdprPace => new GdprPace(new GdprPaceSettings(), fn (): int => time() + $this->clockOffset));
         $smaily = $this->mock->transport();
         $engine = $this->engine->transport();
         $services->set(Transport::class, static fn (): Transport => new class($engine, $smaily) implements Transport {
@@ -173,6 +180,14 @@ abstract class PrivacyTestCase extends DiscountTestCase
     }
 
     /**
+     * Moves the clock of the privacy requests' pace on.
+     */
+    protected function passSeconds(int $seconds): void
+    {
+        $this->clockOffset += $seconds;
+    }
+
+    /**
      * Makes every waiting row due now.
      */
     protected static function makeDue(): void
@@ -185,5 +200,6 @@ abstract class PrivacyTestCase extends DiscountTestCase
         foreach (self::TABLES as $table) {
             self::db()->delete($table);
         }
+        \Configuration::deleteByName(GdprPaceSettings::CALLS);
     }
 }

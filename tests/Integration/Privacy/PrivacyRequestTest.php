@@ -5,11 +5,13 @@ namespace Tests\Integration\Privacy;
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Trigger;
+use PrestaShop\Module\SmailyForPrestaShop\Config\GdprPaceSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\CodeIssuer;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\TemplateRules;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Log\ResendGuard;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\CustomerDeleteHandler;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\GdprPace;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\PrivacyRequest;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingRecord;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
@@ -301,6 +303,39 @@ final class PrivacyRequestTest extends PrivacyTestCase
         $skipped = self::table(EventQueue::TABLE, '`id`')[1];
         self::assertSame(['skipped', 'no_connection', ['connection' => $connection->id()]], [$skipped['status'], $skipped['last_error'], json_decode((string) $skipped['payload'], true)]);
         self::assertCount(1, $this->engineRequests('DELETE', self::SHOPPER), 'the refused attempt alone: a row without a connection calls nobody');
+    }
+
+    public function testADeletionThatMeetsA429KeepsItsAddressAndItsAttemptsAndAnExportStillGoes(): void
+    {
+        $connection = $this->connect();
+        $this->engine->fail('customer_delete', 429, 'rate_limit_exceeded', self::REMOTE_TEXT);
+
+        $this->services->get(PrivacyRequest::class)->erase(self::SHOPPER, 0, $this->idShop);
+        $before = time();
+        self::assertSame(1, $this->flush());
+
+        $row = self::table(EventQueue::TABLE)[0];
+        self::assertSame(
+            ['pending', 0, 'Campaign Intelligence answered HTTP 429 (rate_limit_exceeded).'],
+            [$row['status'], (int) $row['attempts'], $row['last_error']],
+            'the erasure is never dropped and spends no attempt'
+        );
+        self::assertArrayHasKey('address_secret', json_decode((string) $row['payload'], true), 'it keeps the address it needs');
+        self::assertGreaterThanOrEqual($before + GdprPace::DEFAULT_PAUSE_SECONDS, strtotime($row['next_retry_at'] . ' UTC'), 'a 429 without a wait holds a minute');
+
+        // The export goes at once, also while the store's requests are held, and is counted.
+        $export = $this->services->get(PrivacyRequest::class)->export(self::SHOPPER);
+        self::assertSame(['ok'], array_column($export['campaign_intelligence'], 'status'));
+        $stored = json_decode((string) \Configuration::getGlobalValue(GdprPaceSettings::CALLS), true);
+        self::assertCount(2, $stored[$connection->tenantId()]['calls'], 'the deletion and the export');
+
+        $this->engine->set('fail', []);
+        $this->passSeconds(GdprPace::DEFAULT_PAUSE_SECONDS);
+        self::makeDue();
+        self::assertSame(1, $this->flush());
+        $row = self::table(EventQueue::TABLE)[0];
+        self::assertSame(['sent', 0, ['connection' => $connection->id()]], [$row['status'], (int) $row['attempts'], json_decode((string) $row['payload'], true)]);
+        self::assertStringNotContainsString('Remote text', (string) json_encode(self::table(EventQueue::TABLE)));
     }
 
     public function testPrestaShopsGdprModuleGetsTheExportAndTheErasureThroughItsHooks(): void

@@ -198,6 +198,33 @@ final class ClientTest extends TestCase
         yield 'an error whose code is no string' => [404, '{"error": {"email": "shopper@example.test"}}', EngineRequestException::class, 'http_404'];
     }
 
+    /**
+     * @return iterable<string, array{Response, int|null}>
+     */
+    public static function throttles(): iterable
+    {
+        yield 'the body\'s wait' => [new Response(429, '{"error": "rate_limit_exceeded", "retry_after_seconds": 42}', ['retry-after' => ['7']]), 42];
+        yield 'a part of a second is a whole one' => [new Response(429, '{"error": "rate_limit_exceeded", "retry_after_seconds": 0.2}'), 1];
+        yield 'the header\'s wait when the body names none' => [new Response(429, '{"error": "rate_limit_exceeded"}', ['retry-after' => ['7']]), 7];
+        yield 'the header when the body\'s wait is no number' => [new Response(429, '{"retry_after_seconds": "soon"}', ['retry-after' => ['7']]), 7];
+        yield 'a date in the header is no wait' => [new Response(429, '{"error": "rate_limit_exceeded"}', ['retry-after' => ['Wed, 26 Nov 2026 10:00:00 GMT']]), null];
+        yield 'no wait at all' => [new Response(429, '<html>Too Many Requests</html>'), null];
+    }
+
+    /**
+     * @dataProvider throttles
+     */
+    public function testA429CarriesTheWaitItAskedFor(Response $answer, ?int $wait): void
+    {
+        try {
+            (new Client(new EngineRecordingTransport($answer), '3.0.0'))->customerOptOut(self::connection(), 'shopper@example.test', true);
+            self::fail('HTTP 429 is a failure.');
+        } catch (EngineTransportException $failure) {
+            self::assertSame(429, $failure->httpStatus());
+            self::assertSame($wait, $failure->retryAfter());
+        }
+    }
+
     public function testAnAnswerThatIsNotJsonMayPassLater(): void
     {
         $client = new Client(new EngineRecordingTransport(new Response(200, '<html>shopper@example.test</html>')), '3.0.0');
@@ -240,7 +267,7 @@ final class ClientTest extends TestCase
             'a privacy call is an answer, not a sync' => ['opt-out', new Response(200, '{"ok": true}'), [['tenant', '', false]]],
             'a refusal carries the engine\'s code' => ['ingest', new Response(401, '{"error": "api_key_revoked", "message": "' . self::REMOTE_TEXT . '"}'), [['tenant', 'api_key_revoked', false]]],
             'a refusal without a code carries the status' => ['ping', new Response(403, '<html>Forbidden</html>'), [['tenant', 'http_403', false]]],
-            'a throttled request' => ['ingest', new Response(429, '{"error": "rate_limit_exceeded"}'), [['tenant', 'rate_limit_exceeded', false]]],
+            'a throttled request asks for a pace, and says nothing of the health' => ['ingest', new Response(429, '{"error": "rate_limit_exceeded"}'), []],
             'an answer that is not JSON' => ['ping', new Response(200, '<html>OK</html>'), [['tenant', 'malformed_answer', false]]],
             'no answer' => ['ingest', new NetworkException('Idle timeout reached.'), [['tenant', 'network_error', false]]],
         ];

@@ -30,6 +30,7 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Automation\AbandonedCart\CartTracker;
+use PrestaShop\Module\SmailyForPrestaShop\Config\GdprPaceSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Capture\ContactEvents;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\IssuedCodes;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Client;
@@ -38,6 +39,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\IngestQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\AccountLink;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\CustomerDeleteHandler;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\GdprHooks;
+use PrestaShop\Module\SmailyForPrestaShop\Privacy\GdprPace;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\LocalData;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\PrivacyRequest;
 use PrestaShop\Module\SmailyForPrestaShop\Privacy\ProfilingConsent;
@@ -58,7 +60,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
  *   lifts that (Privacy\ProfilingConsent). The capture's hooks that can record a consent change
  *   attach the listener to the request's ContactEvents, once.
  * - The handlers of the two queue rows that go to Campaign Intelligence: a shopper's choice
- *   (`engine.profiling_consent`) and the deletion of a shopper (`engine.customer_delete`).
+ *   (`engine.profiling_consent`) and the deletion of a shopper (`engine.customer_delete`), paced
+ *   with the export to the engine's limit of privacy requests (Privacy\GdprPace).
  */
 final class PrivacyProvider implements ProviderInterface
 {
@@ -76,6 +79,7 @@ final class PrivacyProvider implements ProviderInterface
     public function register(Services $services): void
     {
         $services->set(ProfilingRecord::class, fn (): ProfilingRecord => new ProfilingRecord());
+        $services->set(GdprPace::class, fn (): GdprPace => new GdprPace(new GdprPaceSettings()));
         $services->set(ProfilingConsent::class, fn (Services $services): ProfilingConsent => new ProfilingConsent(
             $services->get(ProfilingRecord::class),
             $services->get(Connections::class),
@@ -93,7 +97,8 @@ final class PrivacyProvider implements ProviderInterface
             $services->get(Connections::class),
             $services->get(Client::class),
             $services->get(QueueProvider::EVENT_QUEUE),
-            $services->get(Crypto::class)
+            $services->get(Crypto::class),
+            $services->get(GdprPace::class)
         ));
         $services->set(GdprHooks::class, fn (Services $services): GdprHooks => new GdprHooks(
             $services->get(PrivacyRequest::class),
@@ -105,13 +110,15 @@ final class PrivacyProvider implements ProviderInterface
         $services->set(QueueProvider::handlerId(ProfilingConsent::EVENT_TYPE), fn (Services $services): ProfilingConsentHandler => new ProfilingConsentHandler(
             $services->get(Client::class),
             $services->get(Connections::class),
-            $services->get(ProfilingRecord::class)
+            $services->get(ProfilingRecord::class),
+            $services->get(GdprPace::class)
         ));
         $services->set(QueueProvider::handlerId(CustomerDeleteHandler::EVENT_TYPE), fn (Services $services): CustomerDeleteHandler => new CustomerDeleteHandler(
             $services->get(Client::class),
             $services->get(Connections::class),
             $services->get(Crypto::class),
-            $services->get(QueueProvider::EVENT_QUEUE)
+            $services->get(QueueProvider::EVENT_QUEUE),
+            $services->get(GdprPace::class)
         ));
 
         $services->listen('actionExportGDPRData', static fn (array $params): string => $services->get(GdprHooks::class)->export($params));

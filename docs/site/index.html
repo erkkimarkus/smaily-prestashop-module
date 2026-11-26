@@ -1926,7 +1926,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
       <ul>
         <li>A customer who unticks the box is left out of personalized recommendations; the newsletters then show generic content. The customer can tick it again at any time, and the last choice counts.</li>
         <li>A customer who unsubscribes from the newsletter is also left out, and is included again after subscribing again, unless they had unticked the box themselves.</li>
-        <li>The choice is kept by the store and sent to Campaign Intelligence as a queued delivery, so an outage only delays it. An opted-out shopper's browsing is not linked to them.</li>
+        <li>The choice is kept by the store and sent to Campaign Intelligence as a queued delivery, so an outage only delays it. Campaign Intelligence takes 10 privacy requests a minute per store, so many choices at once (for example a large unsubscribe) go out over a few minutes. An opted-out shopper's browsing is not linked to them.</li>
       </ul>
     </div>
     <div data-lang="et">
@@ -1934,7 +1934,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
       <ul>
         <li>Klient, kes märke eemaldab, jäetakse personaalsetest soovitustest välja; uudiskirjad näitavad siis üldist sisu. Klient võib märke igal ajal tagasi panna ja kehtib viimane valik.</li>
         <li>Uudiskirjast loobunud klient jäetakse samuti välja ja ta kaasatakse uuesti pärast uuesti liitumist, kui ta polnud märget ise eemaldanud.</li>
-        <li>Valikut hoiab pood ja see saadetakse Campaign Intelligence'ile järjekorras saadetisena, nii et katkestus ainult viivitab seda. Loobunud ostja sirvimist temaga ei seota.</li>
+        <li>Valikut hoiab pood ja see saadetakse Campaign Intelligence'ile järjekorras saadetisena, nii et katkestus ainult viivitab seda. Campaign Intelligence võtab poe kohta vastu 10 isikuandmete päringut minutis, nii et paljud korraga tehtud valikud (näiteks suur uudiskirjast loobumine) lähevad teele mõne minuti jooksul. Loobunud ostja sirvimist temaga ei seota.</li>
       </ul>
     </div>
   </div>
@@ -1957,7 +1957,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>The address is taken off the customer's cart reminders, and a cart about to be reminded gets no reminder.</li>
         <li>The email click and the visitor token kept with the customer's carts are deleted. An order keeps the email click that led to it, without the visitor token.</li>
         <li>The discount codes the module issued to the customer that no order used are removed. A used code stays with its order.</li>
-        <li>Campaign Intelligence is asked to delete the customer; the request waits in the Log as <code>engine.customer_delete</code> and is retried until Campaign Intelligence answers.</li>
+        <li>Campaign Intelligence is asked to delete the customer; the request waits in the Log as <code>engine.customer_delete</code> and is retried until Campaign Intelligence answers. While Campaign Intelligence asks the store to slow down, the request shows as Pending and loses none of its attempts.</li>
         <li>The customer's choice about personalization is kept, without the address, so that an opt-out still holds if the same address orders again.</li>
       </ul>
       <p>The form handles the module's data only. The customer account, the orders and the Smaily contact stay: delete or anonymize the account in PrestaShop, and the contact in Smaily.</p>
@@ -1978,7 +1978,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
         <li>Aadress eemaldatakse kliendi ostukorvide meeldetuletustest ja ostukorv, mis oli meeldetuletust saamas, seda ei saa.</li>
         <li>Kliendi ostukorvide juures hoitav e-kirja klõps ja külastajatunnus kustutatakse. Tellimus jätab alles e-kirja klõpsu, mis selleni viis, ilma külastajatunnuseta.</li>
         <li>Mooduli poolt kliendile antud sooduskoodid, mida ükski tellimus ei kasutanud, eemaldatakse. Kasutatud kood jääb oma tellimuse juurde.</li>
-        <li>Campaign Intelligence'il palutakse klient kustutada; päring ootab logis kui <code>engine.customer_delete</code> ja seda proovitakse uuesti, kuni Campaign Intelligence vastab.</li>
+        <li>Campaign Intelligence'il palutakse klient kustutada; päring ootab logis kui <code>engine.customer_delete</code> ja seda proovitakse uuesti, kuni Campaign Intelligence vastab. Kui Campaign Intelligence palub poel aeglustada, on päring olekus Ootel ega kaota ühtegi katset.</li>
         <li>Kliendi personaliseerimise valik jääb alles, ilma aadressita, et loobumine kehtiks ka siis, kui sama aadress uuesti tellib.</li>
       </ul>
       <p>Vorm käsitleb ainult mooduli andmeid. Kliendikonto, tellimused ja Smaily kontakt jäävad: kustuta või anonüümi konto PrestaShopis ja kontakt Smailys.</p>

@@ -30,8 +30,28 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * A failure that may pass later: no answer, an HTTP 429 or 5xx, or an answer that is not JSON.
+ * A failure that may pass later: no answer, an HTTP 429 or 5xx, or an answer that is not JSON. A
+ * 429 carries the wait it asked for.
  */
 class EngineTransportException extends EngineException
 {
+    private ?int $retryAfter;
+
+    /**
+     * @param int|null $retryAfter the seconds a 429 asked the caller to wait, if it said
+     */
+    public function __construct(string $errorCode, int $httpStatus = 0, ?int $retryAfter = null)
+    {
+        parent::__construct($errorCode, $httpStatus);
+        $this->retryAfter = $retryAfter;
+    }
+
+    /**
+     * The wait in seconds that a 429 asked for (`retry_after_seconds`, else the `Retry-After`
+     * header), or null when it named none.
+     */
+    public function retryAfter(): ?int
+    {
+        return $this->retryAfter;
+    }
 }

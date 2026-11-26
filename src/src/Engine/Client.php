@@ -48,12 +48,13 @@ use PrestaShop\Module\SmailyForPrestaShop\Report\ConnectionHealth;
  * - Every failure is typed where it is thrown: an HTTP 3xx or 4xx other than 429 is an
  *   EngineRequestException; no answer, a 429, a 5xx and an answer that is not JSON are an
  *   EngineTransportException. Each carries the HTTP status and an error code, never the engine's
- *   message.
+ *   message; a 429 also carries the wait it asked for.
  * - Each call is one attempt with its own time limit. The client does not retry and writes no log
  *   line: the caller decides both.
- * - Every answer to a connection's call is told to the installation report's health of its engine
- *   store (Report\ConnectionHealth): '' or the error code, and whether an ingest request was
- *   accepted. The setup exchange names no engine store and tells nothing.
+ * - Every answer to a connection's call but a 429 is told to the installation report's health of
+ *   its engine store (Report\ConnectionHealth): '' or the error code, and whether an ingest
+ *   request was accepted. A 429 asks the caller to slow down and says nothing of the store's
+ *   health. The setup exchange names no engine store and tells nothing.
  */
 class Client
 {
@@ -225,12 +226,34 @@ class Client
         $code = is_string($error) && preg_match(EngineRequestException::CODE_PATTERN, $error) === 1
             ? $error
             : 'http_' . $status;
+        if ($status === 429) {
+            // A pacing signal, not a fault of the engine store: its health is not told.
+            throw new EngineTransportException($code, $status, self::retryAfter($answer, $response->header('Retry-After')));
+        }
         $this->tell($connection, $code);
-        if ($status === 429 || $status >= 500) {
+        if ($status >= 500) {
             throw new EngineTransportException($code, $status);
         }
 
         throw new EngineRequestException($code, $status, self::refusedFields($answer));
+    }
+
+    /**
+     * The wait in whole seconds that a 429 asks for: the body's `retry_after_seconds` (the engine
+     * sends it; "Rate limiting"), else the `Retry-After` header in seconds; null when neither
+     * names a positive number.
+     *
+     * @param mixed $answer the 429's body
+     */
+    private static function retryAfter($answer, ?string $header): ?int
+    {
+        foreach ([is_array($answer) ? ($answer['retry_after_seconds'] ?? null) : null, $header] as $value) {
+            if (is_numeric($value) && (int) ceil((float) $value) > 0) {
+                return (int) ceil((float) $value);
+            }
+        }
+
+        return null;
     }
 
     /**

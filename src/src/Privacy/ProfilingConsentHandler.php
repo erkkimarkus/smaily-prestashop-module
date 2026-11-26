@@ -34,6 +34,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Deferred;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
@@ -48,8 +49,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Skipped;
  *
  * - The engine does not know the shopper (HTTP 404): nothing is there to exclude, and the row is
  *   sent.
- * - Any other refusal (a 3xx or 4xx) fails the row for good; no answer, a 429 and a 5xx take the
- *   retry ladder (EngineFailure).
+ * - The engine store has taken its privacy requests of the minute, or answers 429: the row waits,
+ *   with no attempt spent (GdprPace).
+ * - Any other refusal (a 3xx or 4xx) fails the row for good; no answer and a 5xx take the retry
+ *   ladder (EngineFailure).
  * - The row's connection is gone: skipped.
  *
  * The payload is {"connection": <id>, "email": <address>, "opt_out": bool, "opted_out_at": <UTC>}.
@@ -66,11 +69,14 @@ final class ProfilingConsentHandler implements HandlerInterface
 
     private ProfilingRecord $record;
 
-    public function __construct(Client $client, Connections $connections, ProfilingRecord $record)
+    private GdprPace $pace;
+
+    public function __construct(Client $client, Connections $connections, ProfilingRecord $record, GdprPace $pace)
     {
         $this->client = $client;
         $this->connections = $connections;
         $this->record = $record;
+        $this->pace = $pace;
     }
 
     public function handle(array $events): array
@@ -92,7 +98,7 @@ final class ProfilingConsentHandler implements HandlerInterface
      * @param mixed $payload
      * @param array<int, Connection> $connections
      *
-     * @return true|Skipped|Failure
+     * @return true|Skipped|Deferred|Failure
      */
     private function send($payload, array $connections)
     {
@@ -108,13 +114,18 @@ final class ProfilingConsentHandler implements HandlerInterface
         }
 
         try {
-            $this->client->customerOptOut($connection, $payload['email'], $payload['opt_out'], (string) ($payload['opted_out_at'] ?? ''));
+            $deferred = $this->pace->send($connection, fn (): array => $this->client->customerOptOut(
+                $connection,
+                $payload['email'],
+                $payload['opt_out'],
+                (string) ($payload['opted_out_at'] ?? '')
+            ));
         } catch (EngineRequestException $refusal) {
             return $refusal->httpStatus() === 404 ? true : EngineFailure::of($refusal);
         } catch (EngineTransportException $failure) {
             return EngineFailure::of($failure);
         }
 
-        return true;
+        return $deferred ?? true;
     }
 }

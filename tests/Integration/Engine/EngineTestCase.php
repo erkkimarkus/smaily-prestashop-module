@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Engine;
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
+use PrestaShop\Module\SmailyForPrestaShop\Config\GdprPaceSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Capture\IngestMarkers;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
@@ -30,7 +31,7 @@ abstract class EngineTestCase extends IntegrationTestCase
 
     private const ACCOUNT_TABLE = 'smaily_connect_account';
 
-    private const KEYS = [StoreLayout::SEPARATE_STORES, EngineSettings::PREVIOUS_PREFIXES];
+    private const KEYS = [StoreLayout::SEPARATE_STORES, EngineSettings::PREVIOUS_PREFIXES, GdprPaceSettings::CALLS];
 
     protected EngineMockServer $engine;
 

@@ -13,31 +13,11 @@ _Last updated: 2026-11-26. Gauge 14/14._
 ## Next session opens with
 
 - 2026-11-26: the engine contract copy is v1.37.1 (CON-413; wording only). A reconnect already sends the stored
-  `previous_prefix`, and `site_url` carries the shop's path. The one GDPR limit (10 a minute per engine store) is
-  not paced: bulk opt-outs take 429s and can park (ARCHITECTURE 14, row 60; open question 2).
+  `previous_prefix`, and `site_url` carries the shop's path. The privacy requests keep to the engine's one limit (10 a
+  minute per engine store); a 429 waits as asked and spends no attempt (CON-433b, ARCHITECTURE 11.2).
 **All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0.** That is not a
 release: no live service was called, no pilot store has upgraded, and CI has never run ("NOT verified" below).
 Everything is on `v3`; no worker branch or worktree is left.
-
-**What 2026-11-25 added** (each change tested on its own branch, then the merged tip together, "Last runs"):
-
-- Engine contract 1.37.0: orders go to Campaign Intelligence in the shop's default currency (another currency is
-  divided by the order's own rate); a catalog row's parent id and a removal's product id carry `ps-`.
-- The Initial setup's first answer "Separate stores" runs the layout change, as Settings and Magento's wizard do.
-  The Log's failures and Test connection's reasons show in the employee's language; Estonian: CON-416's four
-  wordings, "Küpsiste bänner", "Veebisait". Dev and test shops resolve the engine and GitHub to 127.0.0.1.
-- The merchant guide page `docs/site/index.html` (CON-424), linked from the admin. **Not published:** it waits for
-  the owner's web root https://smaily.com/connect-presta/, the FTP account (`~/smaily_ftp_presta`) and his go-ahead.
-- Evening: the Campaign Intelligence palette (CON-377 done); a browse event without a chosen combination takes the
-  cart's key; the step list opens no later step until step 1's connection is in order (`7bc84b6`).
-- Since the evening handoff `ec32cde`: Settings > Connection shows no stored account's state for values edited since
-  (`5de9f5e`); the contact import and the Campaign Intelligence setup exchange start only with a stored Smaily
-  account (`be96b2e`); a Done import keeps its refusal reason in the Log (owner, `b6a7f60`); the setup's "Separate
-  stores" card names the connection that moves, as Settings does (`8107eb4`). Tests: one admin-request harness
-  (`IntegrationTestCase::adminRequest()`); the engine mock keeps no API key, only its SHA-256; a suite run that
-  leaves module rows, `SMAILY_*` keys, cron tokens or a changed tick state behind exits 1
-  (`tests/Integration/ShopLeftovers.php`); three engine tests run alone, and a second run in a 9.2.0 shop passes
-  (`b88497e`).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
 guard, mocks only. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
@@ -77,6 +57,12 @@ PHP 8.0 lint. Fresh shops behind the guard: 2300 tests on 9.2.0 (12326) and 8.2.
 walk on both, Smaily mock: held subscription skipped after the newer unsubscribe; "Send again" refused with its
 sentence; an older subscription delivered late leaves the newer unsubscribe to go after it.
 
+**Run of 2026-11-26 (CON-433b, privacy requests paced).** Host 2317 tests, 4121 assertions; JS 55; CS 0 of 362; PHP
+8.0 lint of 23 files. Fresh shops behind the guard: 2317 tests on 9.2.0 (12474) and 8.2.8 (12469), leftovers silent.
+Walk on both, Smaily and engine mocks, tick URL: 25 opt-outs from the reconcile went 10, 10, 5 a minute apart (at
+most 10 in any 60 s), attempts 0; a 429 with `retry_after_seconds` 90 held all three rows 90 s after one request,
+attempts 0, engine health unchanged, then delivered.
+
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
 MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; two shops in two shop
@@ -104,10 +90,6 @@ page on its web root; one unexplained PHP 8.0.30 segfault report (not reproduced
   page's availability fallback.
 - The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.1 names none for a general 5xx.
   `sendsmaily.net` has wildcard DNS: only the egress guard fences a shop from the real Smaily API.
-- Campaign Intelligence 429s (contract 1.37.1 check, waits for open question 2's GDPR pacing; not built):
-  `Engine\Client` ignores a 429's `retry_after_seconds`, which the contract says to honour; the ladder's first step
-  of 60 s covers the GDPR window, not the general case. Each 429 counts against the installation report's engine
-  health, so a bulk of opt-outs makes a store look unhealthy.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's
@@ -146,9 +128,7 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
    Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only
    that an account is stored, as Shopify does: a stored account Smaily refuses can still save steps 2–4 around the
    page. A Done contact import keeps its refusal reason in the Log (owner, 2026-11-25); Magento and WooCommerce keep
-   no error on a completed import. Whether the GDPR calls are paced to the engine's one limit of 10 a minute per
-   store (contract 1.37.1), so that a bulk of opt-outs is not parked after five 429s; Magento does not pace them
-   either (ARCHITECTURE 14, row 60).
+   no error on a completed import.
 3. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also

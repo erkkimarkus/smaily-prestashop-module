@@ -44,9 +44,10 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
  * (GdprHooks); the Log's "Privacy request" form calls them in every store.
  *
  * - **Export.** The module's own rows, and what each connection's engine store holds (contract
- *   §8): one attempt per connection, no retry. An engine that does not answer leaves
- *   NOT_AVAILABLE for that connection; nothing of its answer is kept or shown. An engine that
- *   does not know the shopper leaves NO_DATA.
+ *   §8): one attempt per connection, at once and no retry; each counts against the engine
+ *   store's pace of privacy requests (GdprPace). An engine that does not answer, or answers 429,
+ *   leaves NOT_AVAILABLE for that connection; nothing of its answer is kept or shown. An engine
+ *   that does not know the shopper leaves NO_DATA.
  * - **Erasure.** The store's rows first, then one `engine.customer_delete` row per connection
  *   (contract §9, CustomerDeleteHandler): the engine's deletion is queued, never called in the
  *   request, so it survives an engine that is down. Smaily contacts are not deleted: Smaily owns
@@ -72,13 +73,16 @@ class PrivacyRequest
 
     private Crypto $crypto;
 
-    public function __construct(LocalData $local, Connections $connections, Client $client, EventQueue $queue, Crypto $crypto)
+    private GdprPace $pace;
+
+    public function __construct(LocalData $local, Connections $connections, Client $client, EventQueue $queue, Crypto $crypto, GdprPace $pace)
     {
         $this->local = $local;
         $this->connections = $connections;
         $this->client = $client;
         $this->queue = $queue;
         $this->crypto = $crypto;
+        $this->pace = $pace;
     }
 
     /**
@@ -95,6 +99,8 @@ class PrivacyRequest
         foreach (trim($email) === '' ? [] : $this->connections->all() as $connection) {
             $answer = ['connection' => $connection->id(), 'status' => self::OK, 'data' => null];
             try {
+                // It goes at once, and counts against the engine store's pace of privacy requests.
+                $this->pace->spend($connection);
                 $answer['data'] = $this->client->customerExport($connection, $email);
             } catch (EngineException $error) {
                 $answer['status'] = $error instanceof EngineRequestException && $error->httpStatus() === 404 ? self::NO_DATA : self::NOT_AVAILABLE;

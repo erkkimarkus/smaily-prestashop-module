@@ -35,6 +35,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Connections;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineRequestException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\ContactEntity;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Deferred;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\HandlerInterface;
@@ -54,7 +55,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Crypto;
  * queues the call anew.
  *
  * - The engine does not know the shopper, or has deleted the shopper already (HTTP 404): done.
- * - Any other refusal parks the row at once; no answer, a 429 and a 5xx take the retry ladder
+ * - The engine store has taken its privacy requests of the minute, or answers 429: the row waits,
+ *   with no attempt spent and its address kept (GdprPace).
+ * - Any other refusal parks the row at once; no answer and a 5xx take the retry ladder
  *   (EngineFailure).
  * - The row's connection is gone: skipped. Its engine store is no longer the store's.
  *
@@ -76,12 +79,15 @@ final class CustomerDeleteHandler implements HandlerInterface
 
     private EventQueue $queue;
 
-    public function __construct(Client $client, Connections $connections, Crypto $crypto, EventQueue $queue)
+    private GdprPace $pace;
+
+    public function __construct(Client $client, Connections $connections, Crypto $crypto, EventQueue $queue, GdprPace $pace)
     {
         $this->client = $client;
         $this->connections = $connections;
         $this->crypto = $crypto;
         $this->queue = $queue;
+        $this->pace = $pace;
     }
 
     /**
@@ -105,7 +111,7 @@ final class CustomerDeleteHandler implements HandlerInterface
         foreach ($events as $event) {
             $payload = json_decode((string) $event['payload'], true);
             $outcome = $this->delete($payload, $connections);
-            if (!$outcome instanceof Failure || RetryPolicy::parks((int) $event['attempts'] + 1, $outcome)) {
+            if ($outcome instanceof Failure ? RetryPolicy::parks((int) $event['attempts'] + 1, $outcome) : !$outcome instanceof Deferred) {
                 // The row is closed: it no longer needs the address.
                 $this->queue->updatePayload($event, ['connection' => is_array($payload) ? (int) ($payload['connection'] ?? 0) : 0]);
             }
@@ -119,7 +125,7 @@ final class CustomerDeleteHandler implements HandlerInterface
      * @param mixed $payload
      * @param array<int, Connection> $connections
      *
-     * @return true|Skipped|Failure
+     * @return true|Skipped|Deferred|Failure
      */
     private function delete($payload, array $connections)
     {
@@ -133,13 +139,13 @@ final class CustomerDeleteHandler implements HandlerInterface
         }
 
         try {
-            $this->client->customerDelete($connection, $email);
+            $deferred = $this->pace->send($connection, fn (): array => $this->client->customerDelete($connection, $email));
         } catch (EngineRequestException $refusal) {
             return $refusal->httpStatus() === 404 ? true : EngineFailure::of($refusal);
         } catch (EngineTransportException $failure) {
             return EngineFailure::of($failure);
         }
 
-        return true;
+        return $deferred ?? true;
     }
 }

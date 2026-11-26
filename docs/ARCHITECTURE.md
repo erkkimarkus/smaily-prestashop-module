@@ -2403,8 +2403,9 @@ nothing (section 11.4).
 
 **Failures.** `Engine\Exception\EngineRequestException` is a refusal that the same request meets
 again (a 3xx or 4xx other than 429, or a request or an answer the module itself does not accept);
-`EngineTransportException` may pass later (no answer, a 429, a 5xx, an answer that is not JSON).
-Each carries the HTTP status and an error code: the engine's `error` when it is a plain code
+`EngineTransportException` may pass later (no answer, a 429, a 5xx, an answer that is not JSON);
+a 429 also carries the wait it asked for (`retryAfter()`: the body's `retry_after_seconds`, else
+the `Retry-After` header in seconds). Each carries the HTTP status and an error code: the engine's `error` when it is a plain code
 (`[a-z0-9_]{1,64}`), else `http_<status>`. The engine's `message` is never read, stored or logged:
 it can name a shopper (`woo:docs/LESSONS.md` §2.32). The client retries nothing and writes no log
 line: the health check comes again in 15 minutes, the exchange is the merchant's click, and the
@@ -3648,7 +3649,8 @@ opt-out and no admin notice, as in the siblings; it adds no screen and no transl
   code) and `permanent_envelope_203`; a POST answered with code 101 is a sync.
   `Engine\Client::request()` tells the health it was built with: the engine's error code,
   `http_<status>`, `network_error`, `malformed_answer` or `key_unreadable`; an accepted POST to an
-  `/ingest/` path is a sync, and the setup exchange names no engine store. Codes only (a code that
+  `/ingest/` path is a sync, and the setup exchange names no engine store. A 429 is not told: it
+  paces the caller and says nothing of the engine store's health (CON-433). Codes only (a code that
   is no plain code is stored as `unknown_error`); a success that changes only the time is written
   at most every 5 minutes; 50 entries a group; recording never throws.
 - **Snapshots** (`Report\InstallationReport`, `SMAILY_CONNECT_REPORT_STATE`, the tick's job
@@ -3750,7 +3752,9 @@ is of what was held, not a block of what comes next; the merchant who wants the 
 deletes or anonymizes the account in PrestaShop, and psgdpr's own deletion does that.
 
 **Campaign Intelligence.** The export calls §8 once per stored connection
-(`Engine\Connections::all()`); HTTP 404 reads as "No data". The erasure never calls the engine in
+(`Engine\Connections::all()`), at once and whatever the pace below says; each call counts against
+it. HTTP 404 reads as "No data"; a 429, like any answer that may pass later, reads as "Not
+available". The erasure never calls the engine in
 the request: it queues one `engine.customer_delete` row per connection
 (`Privacy\CustomerDeleteHandler`), which takes the queue's retry ladder (section 4.3), so the
 deletion survives an engine that is down. That row needs the address, which the erasure left
@@ -3759,9 +3763,36 @@ whose value the Log never shows (`Log\PayloadRedactor`), with the entity `[erase
 as soon as the row is closed: sent, skipped, or parked as failed. A parked row cannot be sent
 again; a new erasure of the address queues the call anew. HTTP 404 (the engine does not know the
 shopper, or has deleted the shopper) is done. Any other refusal (a 3xx or 4xx) parks the row at
-once; no answer, a 429 and a 5xx retry. A stored reason is the module's own sentence with the
+once; no answer and a 5xx retry; a 429 waits (the pace below) and keeps the address. A stored reason is the module's own sentence with the
 HTTP status and the engine's error code (`Privacy\EngineFailure`), never the engine's message.
 A row whose connection is gone is skipped (`no_connection`).
+
+**The pace of the privacy requests** (`Privacy\GdprPace`, CON-433; owner's decision of
+2026-11-26 under CON-397, point 3). The engine takes 10 privacy requests per 60 seconds per engine
+store, one limit for the export, the deletion and the opt-out (contract 1.37.1, "Rate limiting").
+Every such request is counted when it goes, whatever comes back, under the connection's tenant id
+(a connection without one counts alone), in `SMAILY_CONNECT_GDPR_CALLS` (global JSON
+`{"<tenant id>": {"calls": [<Unix time>, …], "until": <Unix time>}}`, `Config\GdprPaceSettings`,
+read past the loaded configuration; only the last 60 seconds and an unended pause are kept).
+The two handlers (`CustomerDeleteHandler`, `ProfilingConsentHandler`) send a row through
+`GdprPace::send()`:
+
+- while the store has made 10 requests in the last 60 seconds, the row is `Deferred` to the
+  moment the oldest of them leaves the window, with no call, no attempt spent and its reason
+  unchanged;
+- a 429 pauses the store for the wait it asked for (`retry_after_seconds`, else `Retry-After`,
+  else 60 s; at most the ladder's ceiling of 6 h): the row is `Deferred` to then with the reason
+  "Campaign Intelligence answered HTTP 429 (…)", and every later row of the store in that flush,
+  and in any flush before the pause ends, is deferred to the same moment without a call;
+- any other answer is the row's outcome as before.
+
+A deferred row is due again only at its time (section 4.3), so the tick's drain loop does not spin
+on it, and it keeps every attempt: a privacy row ends as failed only by the existing rules, a
+permanent refusal at once and any other failure at its fifth attempt. The queue's sent rows were not used as the
+count: the export is not on the queue, and a failed attempt counts at the engine too. The
+queue's flushes run under the tick's lock; an export beside one can lose one count in a race,
+and the 429 that may follow is taken as above. A 25-shopper unsubscribe goes out as 10, 10 and 5
+over three minutes.
 
 **PrestaShop's GDPR module** (`psgdpr` 1.4.3, shipped installed and enabled in the 8.2.8 and
 9.2.0 images). It hands the hooks the customer as an array (`id`, `email`) or an address alone
@@ -4103,7 +4134,7 @@ currency per store (§5, section 8.3); 1.37.0 adds customers without an email ad
 `external_id` and `loyalty_id`, §5 `customer_external_id`, §8b–§10b), switched off at the engine
 and not built in 3.0.0; 1.37.1 is wording only: a reconnect without `previous_prefix` is matched
 by the shop's origin and path (§1), and every GDPR request shares one limit of 10 requests per 60
-seconds per store (section 14, row 60).
+seconds per store, which the module keeps to (section 11.2, "The pace of the privacy requests").
 
 **[D]** The main class (`src/smailyforprestashop.php`). After Story 1.1, only these Stories edit it,
 each for its named wiring only, and each in a commit of its own:
@@ -4740,7 +4771,6 @@ has one owner:
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
 | 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
 | 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team |
-| 60 | Bulk GDPR calls above the engine's one limit | Contract v1.37.1: the export (§8), the erasure (§9) and the opt-out (§10) share one limit, 10 requests per 60 seconds per engine store; §10 said 100 per second before. The module paces nothing: a flush hands a handler up to 200 rows, and the tick's `queue_flush` job flushes again while rows are claimed. One shopper's choice or erasure makes one row per connection. Bulk rows come from a marketing unsubscribe of many shoppers at once (the reconcile of Smaily's unsubscriber list, `ProfilingConsent::onContactEvent()`) and from the opt-outs sent again after an ingest flush (`ProfilingConsent::resendOptOuts()`). Above 10 a minute the engine answers 429; the row takes the retry ladder (`Privacy\EngineFailure`), and after its fifth 429 (about 81 minutes) it is parked as failed and waits for "Send again" in the Log. Each 429 also reaches the report's health of the engine store. The export makes one call per connection with no retry, so more than 10 connections to one engine store would show "Not available" for the rest. Magento's `ProfilingConsentHandler` behaves the same way. | Owner; cross-connector analysis (Linear CON-397) |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or
@@ -4839,6 +4869,10 @@ Decisions of 2026-11-21:
   with a sentence of their own. A consent change yields only to a newer consent change, so an
   unsubscribe is never skipped in favour of an older subscription. A row whose event waits in the
   queue again is still not refused (sections 6.4 and 10.8).
+- The privacy requests to Campaign Intelligence keep to the engine's limit of 10 per minute per
+  engine store, in all four connectors (owner, 2026-11-26; Linear CON-397 point 3, CON-433). A
+  429 delays the row for the wait the engine asks for without spending an attempt, and a failed
+  erasure or opt-out is never dropped before the existing permanent-failure rule (section 11.2).
 - A newsletter-block subscriber without an account is synced and welcomed whatever "include
   guests" says, as in Magento (owner, 2026-11-21): in subscribers only and in all customers, by
   the live sync, the welcome email, the first import and the daily refresh; never in checkout

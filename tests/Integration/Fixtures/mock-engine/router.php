@@ -8,8 +8,8 @@
  * State lives in the JSON file that ENGINE_MOCK_STATE names. EngineMockServer writes and reads it;
  * in a dev shop the egress guard seeds it (docs/DEV_ENVIRONMENT.md 4a). It holds what the engine
  * would hold (the connections by the SHA-256 of their API key, the used setup tokens, the prefixes
- * the store assigned), every request received (its key, too, as a SHA-256), and the switches a test
- * sets:
+ * the store assigned), every request received (its key, too, as a SHA-256, and its Unix time `at`),
+ * and the switches a test sets:
  *
  *   smaily_subdomain    string|null  the Smaily account the exchange names (§1; default null)
  *   tenant_id           string       the engine store the next exchange joins (default: a new one)
@@ -22,9 +22,10 @@
  *   require_capability  bool         the exchange refuses a connector without the capability
  *                                    (§1 "Response 409"; off at the engine until announced)
  *   tenant_inactive     bool         every authenticated call but §16 answers 403 (§2)
- *   fail                {exchange|ping|uninstall: {status, error?, message?}}  the route answers
- *                                    this HTTP status ("Error handling"); 401 and 409 take the
- *                                    contract's own bodies
+ *   fail                {exchange|ping|uninstall: {status, error?, message?, retry_after_seconds?}}
+ *                                    the route answers this HTTP status ("Error handling"); 401
+ *                                    and 409 take the contract's own bodies, and a 429 carries
+ *                                    `retry_after_seconds` where given ("Rate limiting")
  *   delay               {exchange|ping|uninstall: seconds}  the route waits before it answers
  *
  * The storefront routes (§6, §15) take `browse` and `recommendations` as route names in `fail` and
@@ -125,6 +126,7 @@ if ($route === null && preg_match('~^/api/v1/customer/([^/]+)(/export|/opt-out)?
 
 $state = $read();
 $state['requests'][] = [
+    'at' => time(),
     'method' => $method,
     'path' => $path,
     'query' => $_GET,
@@ -194,10 +196,11 @@ if (is_array($failure)) {
         return $answer(409, $updateRequired);
     }
 
-    // "Error response format".
+    // "Error response format", and a 429's wait ("Rate limiting").
     return $answer($status, [
         'error' => $failure['error'] ?? 'internal_error',
         'message' => $failure['message'] ?? 'The mock engine was told to fail.',
+    ] + ($status === 429 && isset($failure['retry_after_seconds']) ? ['retry_after_seconds' => $failure['retry_after_seconds']] : []) + [
         'timestamp' => $now,
     ]);
 }

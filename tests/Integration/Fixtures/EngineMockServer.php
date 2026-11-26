@@ -143,12 +143,16 @@ final class EngineMockServer
 
     /**
      * Makes a route (`exchange`, `ping`, `uninstall`) answer an HTTP error. A 401 and a 409 take
-     * the contract's own bodies unless $error names another code.
+     * the contract's own bodies unless $error names another code; a 429 carries $retryAfter as
+     * its `retry_after_seconds` where given.
      */
-    public function fail(string $route, int $status, ?string $error = null, ?string $message = null): void
+    public function fail(string $route, int $status, ?string $error = null, ?string $message = null, ?int $retryAfter = null): void
     {
         $failures = $this->state()['fail'] ?? [];
-        $failures[$route] = array_filter(['status' => $status, 'error' => $error, 'message' => $message], static fn ($value): bool => $value !== null);
+        $failures[$route] = array_filter(
+            ['status' => $status, 'error' => $error, 'message' => $message, 'retry_after_seconds' => $retryAfter],
+            static fn ($value): bool => $value !== null
+        );
         $this->set('fail', $failures);
     }
 

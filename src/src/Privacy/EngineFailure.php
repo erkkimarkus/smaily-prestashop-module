@@ -36,7 +36,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 /**
  * The outcome of a queue row whose Campaign Intelligence call failed. A refusal that the same
  * request meets again (an HTTP 3xx or 4xx other than 429, or a request that the module itself
- * does not send) parks the row at once; no answer, a 429 and a 5xx take the retry ladder.
+ * does not send) parks the row at once; no answer and a 5xx take the retry ladder. A 429 is no
+ * failure: the row waits for the engine store's pace (GdprPace).
  *
  * The stored reason is the module's own sentence with the HTTP status and the error code (the
  * engine's plain code, or the module's own): never the engine's message, which can name a shopper.
