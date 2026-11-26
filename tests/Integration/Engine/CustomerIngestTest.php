@@ -209,8 +209,25 @@ final class CustomerIngestTest extends IngestTestCase
     {
         yield 'no contact sync, a subscriber' => [null, true, false];
         yield 'subscribers only, not subscribed' => [ContactSyncMode::SUBSCRIBERS, false, false];
-        yield 'subscribers only, a subscribed guest without "include guests"' => [ContactSyncMode::SUBSCRIBERS, true, true];
+        yield 'subscribers only, a guest without consent' => [ContactSyncMode::SUBSCRIBERS, false, true];
+        yield 'all customers, a guest without consent and without "include guests"' => [ContactSyncMode::ALL_CUSTOMERS, false, true];
         yield 'checkout opt-in only, a subscriber' => [ContactSyncMode::CHECKOUT_OPTIN, true, false];
+    }
+
+    /**
+     * Group (a) is the contact sync's audience: a subscribed guest-checkout customer is in it
+     * whatever "include guests" says (owner, 2026-11-26; Linear CON-397).
+     */
+    public function testASubscribedGuestOfTheContactSyncIsQueued(): void
+    {
+        $this->connect();
+        $this->contactSync(ContactSyncMode::SUBSCRIBERS);
+        $customer = $this->customer('guest-subscriber@example.test', true, ['is_guest' => 1]);
+
+        $this->fire('actionObjectCustomerUpdateAfter', ['object' => $customer]);
+
+        self::assertSame(1, $this->commit());
+        self::assertSame([[IngestQueue::DOMAIN_CUSTOMERS, (string) $customer->id, EventQueue::STATUS_PENDING]], self::summary());
     }
 
     public function testABuyerIsSentWhateverTheConsent(): void

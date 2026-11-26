@@ -1476,14 +1476,16 @@ subscriber" is an `emailsubscription` row, a subscriber without an account. "Inc
 (`SMAILY_CONNECT_CONTACTS_GUESTS`) covers the guest-checkout customers only (owner, 2026-11-21,
 below); upgraded stores have it on. The page words the switch as WooCommerce, "Also sync guest
 buyers who did not tick the newsletter box", and shows it in All customers only (owner, 2026-11-26;
-Linear CON-460); in the other modes it is hidden and keeps its stored value and its meaning.
+Linear CON-460); in the other modes it is hidden and keeps its stored value. Since the decision of
+2026-11-26 (Linear CON-397, below) it means what its words say: in all customers it adds the
+guest-checkout customers without `newsletter = 1`, and it has no other effect.
 
 | | Subscribers only (default; upgrades) | All customers | Checkout opt-in only |
 |---|---|---|---|
 | Live sync of a registered customer | At opt-in; at opt-out with `is_unsubscribed = 1`. | Every store event (register, profile change, order), whatever the consent; an opt-out with `is_unsubscribed = 1` (decision of 2026-11-26). | Only a checkout in which the box was ticked, and an opt-out with `is_unsubscribed = 1` (decision of 2026-11-26). |
-| Live sync of a guest-checkout customer | A checkout in which the box was ticked, and an opt-out, whatever "include guests" says (decision of 2026-11-26); its other events as a registered customer's, only when "include guests" is on (decision of 2026-11-20, WooCommerce's rule). | A checkout in which the box was ticked, and an opt-out, whatever "include guests" says (decision of 2026-11-26); its other events as a registered customer's, only when "include guests" is on (decision of 2026-11-20). | As a registered customer: a ticked box and an opt-out are sent whatever "include guests" says. |
+| Live sync of a guest-checkout customer | As a registered customer, whatever "include guests" says (decisions of 2026-11-26, CON-452 and CON-397). | A checkout in which the box was ticked, and an opt-out, whatever "include guests" says; its other events with `newsletter = 1` whatever it says, without only when it is on (decisions of 2026-11-26 and 2026-11-20). | As a registered customer: a ticked box and an opt-out are sent whatever "include guests" says. |
 | Newsletter-block subscribers | Whatever "include guests" says: a subscribe, and an unsubscribe with `is_unsubscribed = 1`. | Whatever "include guests" says: a subscribe, and an unsubscribe with `is_unsubscribed = 1` (decision of 2026-11-26). | Only an unsubscribe, with `is_unsubscribed = 1` (decision of 2026-11-26). |
-| First import and daily refresh | Registered customers with `newsletter = 1`; active `emailsubscription` rows; guest-checkout customers with `newsletter = 1` when "include guests" is on. | Every registered customer; active `emailsubscription` rows; guest-checkout customers when "include guests" is on. | None. |
+| First import and daily refresh | Registered and guest-checkout customers with `newsletter = 1`, whatever "include guests" says (decision of 2026-11-26, CON-397); active `emailsubscription` rows. | Every registered customer; active `emailsubscription` rows; guest-checkout customers with `newsletter = 1`, and when "include guests" is on also those without. | None. |
 | Reconcile from Smaily | Both directions, with the first-run rule below: an unsubscribe sets `newsletter = 0` and `emailsubscription.active = 0` (as 2.x); a re-subscribe sets `newsletter = 1`. | None. | None. |
 | `is_unsubscribed` on upsert | Sent only when consent changed in the store. | Sent only when consent changed in the store: `1` with an opt-out, `0` with a subscribe (decision of 2026-11-26). | `0` with the tick; `1` with an opt-out (decision of 2026-11-26). |
 | Abandoned-cart reminder goes out when | The contact has consent: `newsletter = 1`, an active `emailsubscription` row, the checkout box ticked, or Smaily holds the contact as subscribed; and the Smaily status check before the send finds the contact not unsubscribed (decision 3, the siblings' rule; upgrades too). | Smaily does not hold the contact as unsubscribed. | The box was ticked, or Smaily holds the contact as subscribed. |
@@ -1524,7 +1526,8 @@ when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a t
 "include guests" says (this already matched WooCommerce). A registered customer is never gated by
 "include guests". The capture sets the payload's `guest` field for a guest-checkout customer
 (`Contacts\Capture\CustomerCapture`, section 6.4), so the live sync and the imports apply the same
-gates. The decision of 2026-11-26 below takes the ticked box out of this gate.
+gates. The decisions of 2026-11-26 below take the ticked box out of this gate: CON-452 at the
+checkout, CON-397 for every other event and for the imports.
 
 **[D]** (owner, Erkki, 2026-11-26; Linear CON-452, the cross-connector analysis CON-397 point 10;
 one rule for the four connectors, WooCommerce CON-439) Two events reach Smaily in every mode,
@@ -1532,10 +1535,9 @@ whatever "include guests" says, while the shop's contact sync is on and confirme
 
 1. **A checkout in which the newsletter box was ticked**, a guest-checkout customer's included: the
    order step's `contact.sync` row (`checkout`, `subscribed` and `consent_changed` all true) goes
-   with `is_unsubscribed = 0` in every mode. The order's own row of that guest carries no consent change, so it still follows
-   "include guests". "Include guests" keeps its meaning for every other event of a guest-checkout
-   customer and for the first import and the daily refresh, so a box ticked before the decision is
-   not sent again by this change.
+   with `is_unsubscribed = 0` in every mode. The order's own row of that guest carries no consent
+   change; it followed "include guests" until the decision of CON-397 below, as did the first
+   import and the daily refresh.
 2. **An unsubscribe in the store**, of any source (the newsletter block, the account page's box,
    the back office), a guest-checkout customer's included: it goes with `is_unsubscribed = 1` in
    every mode, as Magento sends an unsubscribe in every mode
@@ -1551,6 +1553,19 @@ whatever "include guests" says, while the shop's contact sync is on and confirme
 
 `Contacts\ContactAudience::syncs()` answers the first two before the mode's own rules;
 `unsubscribedStatus()` gives a consent change its status in every mode.
+
+**[D]** (owner, Erkki, 2026-11-26; Linear CON-397, after CON-452; the same rule as a new checkout
+with the box ticked) A guest-checkout customer with `newsletter = 1` is a customer with the
+consent: in subscribers only and in all customers the first import, the daily refresh and the
+guest's events that change no consent (the order's own row, a back-office save) send that guest
+as they send a registered customer, whatever "include guests" says, earlier ones included. "Include
+guests" then matters in all customers only, for the guest-checkout customers without
+`newsletter = 1`, as WooCommerce's switch reads. Nothing is sent with a subscription status: the
+import and the refresh never re-subscribe anyone. An upgraded store has "include guests" on, so
+its audience does not change; a store that had it off sends its subscribed guests at its next
+daily refresh or import, by the owner's choice, without a notice (the module announces no change
+of audience on its pages). `ContactAudience::sendsCustomer()` holds the rule for `syncs()` and
+`importsCustomer()`, so Campaign Intelligence's customer group (a) (section 8.11) follows it too.
 
 **[D]** (owner, Erkki, 2026-11-21) A newsletter-block subscriber without an account is synced and
 welcomed whatever "include guests" says, as in Magento. "Include guests" keeps its meaning for
@@ -5060,8 +5075,8 @@ Later decisions of 2026-11-20:
 |---|---|---|---|---|
 | Does the reconcile write a re-subscribe in Smaily back to the store? | **DECIDED:** yes. In subscribers-only mode the reconcile is two-way: a re-subscribe in Smaily sets `customer.newsletter = 1` in the store. It does not set an inactive newsletter-block row active again. | Owner (Erkki) | 6.2 | 2.4 |
 | What the first reconcile of a Smaily account applies | **DECIDED:** "an upgrade never marks anyone subscribed again". The first run takes its unsubscribes from Smaily's current unsubscriber list (`contact.php`, `list=2`, as 2.x did), applies nothing from the action log, reads the log only to set the cursor at its end (the log's end first, then the list), and marks nobody subscribed. From the next run on, the reconcile is two-way. Reason: 2.x never sent newsletter-block unsubscribes to Smaily. The list-based form is the orchestrator's technical refinement of the owner's rule; it also never unsubscribes a contact whom Smaily holds as subscribed now. | Owner (Erkki); orchestrator | 6.2, 6.5 | 2.4 |
-| Guest-checkout customers in all customers | **DECIDED:** sent only when "include guests" is on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
-| Guest-checkout customers in subscribers only | **DECIDED:** a guest-checkout customer who ticked the box is sent only when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a ticked box whatever that setting says (already WooCommerce's rule). Upgraded stores have "include guests" on. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
+| Guest-checkout customers in all customers | **DECIDED:** sent only when "include guests" is on. Since 2026-11-26 (CON-397, below) only those without `newsletter = 1`. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
+| Guest-checkout customers in subscribers only | **DECIDED:** a guest-checkout customer who ticked the box is sent only when "include guests" is on (WooCommerce's rule). Checkout opt-in only sends a ticked box whatever that setting says (already WooCommerce's rule). Upgraded stores have "include guests" on. Replaced on 2026-11-26 (CON-397, below): sent whatever "include guests" says. | Owner (Erkki) | 6.2 | 2.2, 2.4 |
 | How the merchant learns of a new version | **DECIDED:** "GitHub now": the module asks the official GitHub repository for the latest release once a day and shows a notice in the admin. A notice that Smaily writes and delivers with the installation-report answer can be added later (the report contract carries it since v1.2.0, Linear SUB-30). | Owner (Erkki) | 10.7, 11.5 | CON-380 |
 | PrestaShop Marketplace rules | **DECIDED:** the code follows the PrestaShop Marketplace technical rules from the start (Linear CON-379). The listing itself is a separate business step (`docs/MARKETPLACE.md`). | Owner (Erkki) | 14 (row 21) | CON-379 |
 | A shop whose own Smaily account differs from the default shop's | **DECIDED** under the rule "never widen the audience": contact sync and abandoned cart stay off at that shop after the upgrade, with a notice (`other_account`). The owner may overturn it. | Orchestrator | 3.3 | 1.3 |
@@ -5355,8 +5370,9 @@ rule for the four connectors):
 
 - A shopper who ticks the newsletter box at checkout reaches Smaily in every consent mode, a
   guest-checkout customer too, whatever "include guests" says; the tick is sent from the order
-  placed after the change on, and the first import and the daily refresh still follow "include
-  guests" (section 6.2). WooCommerce did the same in its CON-439.
+  placed after the change on, and the first import and the daily refresh still followed "include
+  guests" until the decision of CON-397 below (section 6.2). WooCommerce did the same in its
+  CON-439.
 - An unsubscribe in the store (the newsletter block, the account page's box, the back office)
   reaches Smaily with `is_unsubscribed = 1` in every consent mode, while the shop's contact sync
   is on and confirmed; nothing is sent while it is off, as in Magento (section 6.2).
@@ -5398,3 +5414,11 @@ WooCommerce and Shopify, where Magento was the odd one out.
 - The Dashboard's Quick links get a fourth entry, "User Guide" (`Admin\UserGuide::URL`, in a new
   tab), with the Overview's line "the full merchant documentation: every feature, setting and
   troubleshooting steps"; the same for every connector.
+
+Decision of 2026-11-26 (Linear CON-397, after CON-452): a guest-checkout customer who ticked the
+newsletter box (`newsletter = 1`) is sent in subscribers only and in all customers whatever
+"include guests" says: by the first import and the daily refresh, earlier guests included, and by
+the guest's events that change no consent, the same rule as a checkout with the box ticked.
+"Include guests" then matters in all customers only, for the guests without a tick. A store that
+had it off sends its earlier subscribed guests at its next import or daily refresh, without a
+notice (owner's choice); an upgraded store has it on and sends what it sent (section 6.2).

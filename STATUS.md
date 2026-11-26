@@ -65,6 +65,9 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   "Stopped" now reads "Peatatud" on the import cards too. Host 2412 tests (4236 assertions, 1234 skipped),
   `node --test` 55, CS 0 of 370, PHP 8.0 lint; fresh shops behind the guard: 2412 tests on 9.2.0 (12925
   assertions) and on 8.2.8 (12920); a headless walk of 21 checks per version, EN and ET, all pass.
+- Owner, 26 Nov (CON-397; after CON-460): a guest buyer with the newsletter box ticked is sent in Subscribers only and
+  All customers whatever "include guests" says, by the first import and the daily refresh too (earlier guests included,
+  no status); the switch only adds unticked guests in All customers, and Campaign Intelligence's customers follow.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.

@@ -161,9 +161,10 @@ final class ContactImportTest extends IntegrationTestCase
     {
         return [
             'subscribers only, with guests' => [ContactSyncMode::SUBSCRIBERS, true, ['subscriber@example.test', 'subscribed-guest@example.test', 'block@example.test']],
-            'subscribers only, without guests' => [ContactSyncMode::SUBSCRIBERS, false, ['subscriber@example.test', 'block@example.test']],
+            // A subscribed guest goes whatever "include guests" says (owner, 2026-11-26; Linear CON-397).
+            'subscribers only, without guests' => [ContactSyncMode::SUBSCRIBERS, false, ['subscriber@example.test', 'subscribed-guest@example.test', 'block@example.test']],
             'all customers, with guests' => [ContactSyncMode::ALL_CUSTOMERS, true, ['subscriber@example.test', 'customer@example.test', 'guest-checkout@example.test', 'subscribed-guest@example.test', 'block@example.test']],
-            'all customers, without guests' => [ContactSyncMode::ALL_CUSTOMERS, false, ['subscriber@example.test', 'customer@example.test', 'block@example.test']],
+            'all customers, without guests' => [ContactSyncMode::ALL_CUSTOMERS, false, ['subscriber@example.test', 'customer@example.test', 'subscribed-guest@example.test', 'block@example.test']],
             'checkout opt-in only' =>[ContactSyncMode::CHECKOUT_OPTIN, true, []],
             'checkout opt-in only, without guests' => [ContactSyncMode::CHECKOUT_OPTIN, false, []],
         ];
@@ -231,7 +232,7 @@ final class ContactImportTest extends IntegrationTestCase
         self::assertSame(['subscribers' => 1, 'all_customers' => 2, 'checkout_optin' => 0], $import->estimate($this->shopA));
         self::assertSame(['subscribers' => 2, 'all_customers' => 3, 'checkout_optin' => 0], $import->estimate($this->shopB));
         $this->writeShopValue(ContactsSettings::GUESTS, '0', $this->shopB);
-        self::assertSame(['subscribers' => 1, 'all_customers' => 1, 'checkout_optin' => 0], $import->estimate($this->shopB), 'without guests');
+        self::assertSame(['subscribers' => 2, 'all_customers' => 2, 'checkout_optin' => 0], $import->estimate($this->shopB), 'without guests');
     }
 
     /**

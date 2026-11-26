@@ -126,10 +126,10 @@ final class ContactAudienceTest extends TestCase
     /**
      * A guest-checkout customer (`is_guest = 1`) beside a registered one. A guest who ticks the box
      * at checkout goes live in every mode, whatever "include guests" says (owner, 2026-11-26, as
-     * WooCommerce CON-439); one who did not goes in all customers only when "include guests" is on
-     * (owner, 2026-11-20). The first import and the daily refresh still send a guest only when
-     * "include guests" is on, so a tick given before the change is not sent again. The live event is
-     * a checkout that ticked the box or not.
+     * WooCommerce CON-439), and the first import and the daily refresh send a guest who ticked it in
+     * subscribers only and in all customers whatever it says, earlier ones included (owner,
+     * 2026-11-26; Linear CON-397). A guest who did not tick goes in all customers only when "include
+     * guests" is on (owner, 2026-11-20). The live event is a checkout that ticked the box or not.
      *
      * @return array<string, array{string, bool, bool, bool, bool, bool}>
      */
@@ -142,11 +142,11 @@ final class ContactAudienceTest extends TestCase
             'all customers, guests on: guest' => [self::ALL, true, true, false, true, true],
             'all customers, guests on: guest who ticked the box' => [self::ALL, true, true, true, true, true],
             'all customers, guests off: guest' => [self::ALL, false, true, false, false, false],
-            'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, true, false],
+            'all customers, guests off: guest who ticked the box' => [self::ALL, false, true, true, true, true],
             'subscribers, guests on: registered who ticked the box' => [self::SUBSCRIBERS, true, false, true, true, true],
             'subscribers, guests off: registered who ticked the box' => [self::SUBSCRIBERS, false, false, true, true, true],
             'subscribers, guests on: guest who ticked the box' => [self::SUBSCRIBERS, true, true, true, true, true],
-            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, true, false],
+            'subscribers, guests off: guest who ticked the box' => [self::SUBSCRIBERS, false, true, true, true, true],
             'subscribers, guests off: guest' => [self::SUBSCRIBERS, false, true, false, false, false],
             'subscribers, guests on: guest' => [self::SUBSCRIBERS, true, true, false, false, false],
             'checkout opt-in, guests off: guest who ticked the box' => [self::CHECKOUT, false, true, true, true, false],
@@ -166,18 +166,26 @@ final class ContactAudienceTest extends TestCase
     }
 
     /**
-     * The order of a guest who ticked the box at the order step: the order's own row carries no
-     * consent change, so it goes as any other event of the guest, by "include guests"; the order
-     * step's row (above) has already sent the tick.
+     * The order of a guest who ticked the box: the order's own row carries no consent change, and a
+     * subscribed guest goes as a registered customer's event, whatever "include guests" says (owner,
+     * 2026-11-26; Linear CON-397), as the daily refresh sends that guest. An unsubscribed guest's
+     * order goes in all customers only when "include guests" is on, and never in subscribers only.
      */
-    public function testTheOrderRowOfAGuestWhoTickedFollowsIncludeGuests(): void
+    public function testTheOrderRowOfAGuestFollowsTheConsent(): void
     {
-        foreach ([self::SUBSCRIBERS, self::ALL] as $mode) {
-            foreach ([true, false] as $guests) {
+        foreach ([true, false] as $guests) {
+            foreach ([self::SUBSCRIBERS, self::ALL] as $mode) {
                 $audience = new ContactAudience(new ContactSyncMode($mode, $guests));
 
-                self::assertSame($guests, $audience->syncs(ContactAudience::SOURCE_CUSTOMER, true, false, true, true), $mode);
+                self::assertTrue($audience->syncs(ContactAudience::SOURCE_CUSTOMER, true, false, true, true), $mode);
+                self::assertTrue($audience->importsCustomer(true, true), $mode);
             }
+            $all = new ContactAudience(new ContactSyncMode(self::ALL, $guests));
+            self::assertSame($guests, $all->syncs(ContactAudience::SOURCE_CUSTOMER, false, false, true, true));
+            self::assertSame($guests, $all->importsCustomer(false, true));
+            $subscribers = new ContactAudience(new ContactSyncMode(self::SUBSCRIBERS, $guests));
+            self::assertFalse($subscribers->syncs(ContactAudience::SOURCE_CUSTOMER, false, false, true, true));
+            self::assertFalse($subscribers->importsCustomer(false, true));
         }
     }
 

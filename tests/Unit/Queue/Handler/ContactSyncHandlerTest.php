@@ -223,18 +223,23 @@ final class ContactSyncHandlerTest extends TestCase
         self::assertSame([], $this->requests);
     }
 
-    public function testInAllCustomersSkipsAGuestCheckoutCustomerUnlessGuestsAreIncluded(): void
+    /**
+     * "Include guests" adds the guest-checkout customers without the consent; a subscribed guest is
+     * sent whatever it says (owner, 2026-11-26; Linear CON-397).
+     */
+    public function testInAllCustomersSkipsAGuestWithoutConsentUnlessGuestsAreIncluded(): void
     {
         $outcomes = $this->handler([
             1 => [ContactsSettings::MODE => ContactSyncMode::ALL_CUSTOMERS, ContactsSettings::GUESTS => '0'],
             2 => [ContactsSettings::MODE => ContactSyncMode::ALL_CUSTOMERS, ContactsSettings::GUESTS => '1'],
         ])->handle([
-            $this->row(1, 1, $this->payload('shopper1@example.test', ['guest' => true])),
+            $this->row(1, 1, $this->payload('shopper1@example.test', ['guest' => true, 'subscribed' => false])),
             $this->row(2, 1, $this->payload('shopper2@example.test')),
-            $this->row(3, 2, $this->payload('shopper3@example.test', ['guest' => true])),
+            $this->row(3, 2, $this->payload('shopper3@example.test', ['guest' => true, 'subscribed' => false])),
+            $this->row(4, 1, $this->payload('shopper4@example.test', ['guest' => true])),
         ]);
 
-        self::assertEquals([1 => new Skipped('not_in_audience'), 2 => true, 3 => true], $outcomes);
+        self::assertEquals([1 => new Skipped('not_in_audience'), 2 => true, 3 => true, 4 => true], $outcomes);
     }
 
     public function testSkipsARowWhoseShopHasNoAccountOrNoCredentials(): void

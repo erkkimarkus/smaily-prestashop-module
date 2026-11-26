@@ -269,9 +269,10 @@ ask (Linear discipline below).
   unsubscribes (Smaily's unsubscriber list) and marks nobody subscribed: an
   upgrade never marks anyone subscribed again. A checkout with the newsletter
   box ticked is sent in every mode, a guest-checkout customer's too, whatever
-  "include guests" says (owner, 2026-11-26); a guest's other events, and the
-  imports, follow "include guests" (in "All customers"; in "Subscribers
-  only" with consent), so a tick of before the change is never sent again. An
+  "include guests" says (owner, 2026-11-26). A guest-checkout customer with
+  `newsletter = 1` is sent as a registered customer, by the imports and the
+  daily refresh too, earlier ones included (CON-397): "include guests" only
+  adds, in "All customers", the guests without a tick. An
   unsubscribe in the store, of any source, is sent with `is_unsubscribed = 1`
   in every mode, and a subscribe the store saw with `0`, "All customers"
   too (owner, 2026-11-26, as Magento); a failed read of the consent before
