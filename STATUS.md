@@ -31,6 +31,9 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   Smaily test account, engine and report receiver. Every capability the owner's settings switch on works; one
   defect: a guest who orders after an email click leaves a failed identity merge (`engine_customer_not_sent`) and
   the Dashboard says "Needs attention" (Queue below). The engine answers no recommendations yet.
+- CON-454 part b: each import card's finish time in the employee's date format (`Admin\AdminTime`); the Initial
+  setup's "Shops with their own values" lists every contact field the Contacts step offers
+  (`ContactsPanel::FIELD_LABELS`, which the step reads too).
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; the guest-merge defect; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.
@@ -65,6 +68,12 @@ Headless browser walk of every admin screen (Dashboard, Initial setup steps 1–
 Automations, Intelligence and RSS, the Log and its Details), EN and ET, Smaily and engine mocks, on 9.2.0 and 8.2.8,
 one store and a store of two shops: 104 of 104 screens without a PHP error, a 5xx, a JS error of the module or an
 untranslated module string, each with its cards. PrestaShop's own words stay English without a language pack.
+CON-454 part b, on `b68643c` with its commit: host 2353 tests, 4156 assertions, 1193 skipped; `node --test
+tests/js/` 55 pass; PHP CS Fixer 0 of 368 files; PHP 8.0.30 lint of the 9 changed PHP files; fresh shops behind the
+guard, debug mode on: 2353 tests on 9.2.0 (12642 assertions) and on 8.2.8 (12637), leftovers silent. Headless walk
+on a store of two shops, EN and ET, on both: the contact and the three Campaign Intelligence import cards show the
+finish time as `m/d/Y H:i:s` and `d.m.Y H:i:s`; the second shop's own values list First name, Last name, Gender,
+Customer ID, Customer group and Subscription type; no PHP error, 5xx or module JS error.
 
 **NOT verified — keep these visible:** against the live services (walked on 9.2.0 only, never on 8.2.8): a change
 made in Smaily reaching the store, the First order and Abandoned cart triggers and discount codes (off in the live

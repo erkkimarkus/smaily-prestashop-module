@@ -1386,8 +1386,9 @@ selected shop and wrote the shared scope: Continue on the Contacts step then sav
 **[D]** As Magento's wizard (CON-179, CON-190; Linear CON-445), the Connect, Contacts and
 Automations steps of one store with several shops end with the card "Shops with their own values"
 (`Admin\Setup\ShopsWithOwnValues`): each shop that holds own values of the step's section
-(`ShopOverrides::hasOwn()`), with those values in the admin's words, and "Keep its own values" or
-"Use this step's values". The step's save names the second in `use_shared`, and after the save
+(`ShopOverrides::hasOwn()`), with those values in the admin's words (the Contacts fields by the
+labels the Contacts step offers them with, `ContactsPanel::FIELD_LABELS`; CON-454), and "Keep its
+own values" or "Use this step's values". The step's save names the second in `use_shared`, and after the save
 `ShopOverrides::returnToShared()` removes those shops' own values of the section, as Settings'
 unticked switch does: a shop on another Smaily account loses its own automations with its own
 account, and a shop that keeps its own automations (mode `a`, or another account) keeps them
@@ -1817,7 +1818,8 @@ daily refresh are rows of `smaily_connect_job`:
 
 **The import card** (`panel/contact-import.html.twig`, `panels.js`; CON-445, as Magento's
 Backfill card) draws a run as the Campaign Intelligence import cards do (section 10.11): the pill,
-"X of Y" and the percentage, the outcome with its mark and finish time, and for a `failed` run
+"X of Y" and the percentage, the outcome with its mark and finish time (as the employee's
+language writes it, `Admin\AdminTime`; CON-454), and for a `failed` run
 "Details for your developer: <details>": the stored `last_error` in the admin's language as the
 Log shows it (`Admin\Setup\ImportDetails`, `Log\FailureMessage::forDisplay()`; CON-454), as the
 Campaign Intelligence import cards show theirs. A stalled run shows "Stalled"
@@ -3650,7 +3652,8 @@ setup field that the nightly product list is not sent for them (`values()['share
 **The import cards** are drawn as Magento's Backfill card, the first contact import's too
 (`smailyConnect.drawImport()` in `panels.js`, CON-445): the pill; "X of Y" and the percentage
 under the bar; the outcome line with its mark (✓ done, ! failures or stalled, × stopped, —
-cancelled) and the finish time in the shop's time zone (`finished`); a stopped import adds
+cancelled) and the finish time in the shop's time zone as the employee's language writes it
+(`finished`, `Admin\AdminTime`; CON-454); a stopped import adds
 "Details for your developer: <details>", where it stopped (the error's type, place and code,
 `Failure::location()`, Magento's ErrorLocation) in the admin's language
 (`Admin\Setup\ImportDetails`, CON-454), never the engine's text. An import that waits

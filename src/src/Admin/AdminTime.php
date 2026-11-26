@@ -30,9 +30,10 @@ if (!defined('_PS_VERSION_')) {
 }
 
 /**
- * A time on the Dashboard and in the Log, as the employee's language writes a date and a time
- * (PrestaShop's `date_format_full` of the language, which Tools::displayDate() uses too), in the
- * shop's time zone: the siblings show the admin's locale (Magento IntlDateFormatter::MEDIUM).
+ * A time on the Dashboard, in the Log and on the import cards, as the employee's language writes
+ * a date and a time (PrestaShop's `date_format_full` of the language, which Tools::displayDate()
+ * uses too), in the shop's time zone: the siblings show the admin's locale (Magento
+ * IntlDateFormatter::MEDIUM).
  */
 final class AdminTime
 {

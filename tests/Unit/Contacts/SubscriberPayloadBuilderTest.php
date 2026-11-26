@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Contacts;
 
 use PHPUnit\Framework\TestCase;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ContactsPanel;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 
 /**
@@ -60,17 +61,28 @@ final class SubscriberPayloadBuilderTest extends TestCase
     }
 
     /**
-     * The Contacts panel and the Overview label every field; Twig refuses a field without a label.
+     * The Contacts panel offers every field with its label of ContactsPanel::FIELD_LABELS, which
+     * the card "Shops with their own values" reads too; the Overview labels each one alike, so the
+     * labels have their Estonian units (TranslationCatalogueTest). Twig refuses a field without a
+     * label.
      */
     public function testEveryTemplateThatLabelsTheFieldsLabelsEachOne(): void
     {
-        foreach (['panel/contacts.html.twig', 'setup/overview.html.twig'] as $template) {
-            $text = (string) file_get_contents(__DIR__ . '/../../../src/views/templates/admin/' . $template);
-            preg_match('/\{% set field_labels = \{(.*?)\} %\}/s', $text, $map);
-            self::assertNotEmpty($map, $template);
-            foreach (SubscriberPayloadBuilder::FIELDS as $field) {
-                self::assertMatchesRegularExpression('/\b' . $field . ':/', $map[1], $template . ' labels ' . $field);
-            }
+        $fields = SubscriberPayloadBuilder::FIELDS;
+        $offered = array_keys(ContactsPanel::FIELD_LABELS);
+        sort($fields);
+        sort($offered);
+        self::assertSame($fields, $offered);
+
+        $templates = __DIR__ . '/../../../src/views/templates/admin/';
+        self::assertStringContainsString(
+            "{% set field_labels = constant('" . str_replace('\\', '\\\\', ContactsPanel::class) . "::FIELD_LABELS')|map(label => label|trans) %}",
+            (string) file_get_contents($templates . 'panel/contacts.html.twig')
+        );
+        preg_match('/\{% set field_labels = \{(.*?)\} %\}/s', (string) file_get_contents($templates . 'setup/overview.html.twig'), $map);
+        self::assertNotEmpty($map);
+        foreach (ContactsPanel::FIELD_LABELS as $field => $label) {
+            self::assertStringContainsString($field . ": '" . $label . "'|trans", $map[1], 'the Overview labels ' . $field);
         }
     }
 

@@ -236,7 +236,8 @@ final class ContactImportTest extends IntegrationTestCase
 
     /**
      * CON-445: an import that nothing has moved for an hour is stalled; Run again cancels it and
-     * starts a fresh one. A finished import tells when it finished, in the shop's time.
+     * starts a fresh one. A finished import tells when it finished, in the shop's time as the
+     * employee's language writes it (CON-454).
      */
     public function testAnImportThatNothingMovesForAnHourIsStalledAndRunAgainStartsAFreshOne(): void
     {
@@ -254,9 +255,16 @@ final class ContactImportTest extends IntegrationTestCase
         self::assertSame(['id' => $second, 'status' => JobStore::STATUS_QUEUED, 'stalled' => false, 'finished' => ''], array_intersect_key($import->progress($this->shopA), array_flip(['id', 'status', 'stalled', 'finished'])));
 
         $this->tickUntilFinished($import);
-        $progress = $import->progress($this->shopA);
+        $language = \Context::getContext()->language;
+        $format = $language->date_format_full;
+        $language->date_format_full = 'd.m.Y H:i:s';
+        try {
+            $progress = $import->progress($this->shopA);
+        } finally {
+            $language->date_format_full = $format;
+        }
         self::assertSame(JobStore::STATUS_DONE, $progress['status']);
-        self::assertSame(date('Y-m-d H:i', (int) strtotime($progress['finished_at'] . ' UTC')), $progress['finished']);
+        self::assertSame(date('d.m.Y H:i:s', (int) strtotime($progress['finished_at'] . ' UTC')), $progress['finished']);
     }
 
     /**

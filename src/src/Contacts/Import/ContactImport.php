@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
@@ -189,7 +190,8 @@ final class ContactImport
      * STALLED_SECONDS; `total` is the audience when the run started; `skipped` counts the contacts
      * of the audience whose account is missing or has no credentials; `refused` those of `failed`
      * that Smaily refused one by one; the times are UTC, but `finished`, the end in the shop's time
-     * zone for the import card ('' while the run goes on).
+     * zone as the employee's language writes it (Admin\AdminTime), for the import card ('' while
+     * the run goes on).
      *
      * @return array{id: int, type: string, id_shop: int, status: string, stalled: bool, total: int, sent: int, failed: int, skipped: int, refused: int, started_at: ?string, updated_at: string, finished_at: ?string, finished: string, last_error: ?string}|null
      */
@@ -215,7 +217,7 @@ final class ContactImport
             'started_at' => $job['started_at'] === null ? null : (string) $job['started_at'],
             'updated_at' => (string) $job['updated_at'],
             'finished_at' => $job['finished_at'] === null ? null : (string) $job['finished_at'],
-            'finished' => $job['finished_at'] === null ? '' : date('Y-m-d H:i', (int) strtotime($job['finished_at'] . ' UTC')),
+            'finished' => $job['finished_at'] === null ? '' : AdminTime::forEmployee()->ofUtc((string) $job['finished_at']),
             'last_error' => $job['last_error'] === null ? null : (string) $job['last_error'],
         ];
     }

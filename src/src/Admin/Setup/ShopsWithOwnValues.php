@@ -158,7 +158,6 @@ final class ShopsWithOwnValues
                 'all_customers' => 'All customers (legitimate interest)',
                 'checkout_optin' => 'Checkout opt-in only',
             ];
-            $fields = ['first_name' => 'First name', 'last_name' => 'Last name', 'birthday' => 'Date of birth', 'website' => 'Website'];
             foreach ($own as $key => $value) {
                 switch ($key) {
                     case ContactsSettings::ENABLED:
@@ -173,8 +172,8 @@ final class ShopsWithOwnValues
                     case ContactsSettings::FIELDS:
                         $names = [];
                         foreach (explode(',', $value) as $field) {
-                            if (isset($fields[$field])) {
-                                $names[] = $this->trans($fields[$field]);
+                            if (isset(ContactsPanel::FIELD_LABELS[$field])) {
+                                $names[] = $this->trans(ContactsPanel::FIELD_LABELS[$field]);
                             }
                         }
                         $lines[] = [$this->trans('Extra fields to sync with each contact'), $names === [] ? '—' : implode(', ', $names)];

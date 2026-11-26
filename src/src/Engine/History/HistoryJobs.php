@@ -29,6 +29,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\AdminTime;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Connection;
@@ -275,7 +276,8 @@ final class HistoryJobs
      * Where the three imports of a connection stand, for the import cards: per entity null (no
      * import yet) or `status` (a job status, or STALLED), `total`, `sent`, `failed`, `phase`
      * (of a running orders import), `start_months`, `horizon_months`, `reason`, `finished_at`
-     * (UTC), `finished` (the end in the shop's time zone, '' while the import goes on) and
+     * (UTC), `finished` (the end in the shop's time zone as the employee's language writes it,
+     * Admin\AdminTime; '' while the import goes on) and
      * `blocked_by`. Counts and codes only. Only the import that the tick works on can stall; one
      * that waits behind a stalled import shows as stalled too, with that import's entity in
      * `blocked_by` (Magento's PRO-3923), else `blocked_by` is ''.
@@ -313,7 +315,7 @@ final class HistoryJobs
                 'horizon_months' => $state['horizon_months'] ?? null,
                 'reason' => $job['last_error'],
                 'finished_at' => $job['finished_at'],
-                'finished' => $job['finished_at'] === null ? '' : date('Y-m-d H:i', (int) strtotime($job['finished_at'] . ' UTC')),
+                'finished' => $job['finished_at'] === null ? '' : AdminTime::forEmployee()->ofUtc((string) $job['finished_at']),
                 'blocked_by' => $blockedBy,
             ];
         }

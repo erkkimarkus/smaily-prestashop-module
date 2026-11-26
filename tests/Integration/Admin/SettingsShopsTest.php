@@ -547,7 +547,7 @@ final class SettingsShopsTest extends IntegrationTestCase
     public function testTheInitialSetupListsTheShopsWithTheirOwnValuesAndReturnsThePickedOnes(): void
     {
         $this->oneStoreConfigured();
-        $this->saver()->saveContacts($this->context($this->shopB), ['mode' => 'all_customers', 'fields' => ['first_name'], 'guests' => false, 'enabled' => true], true);
+        $this->saver()->saveContacts($this->context($this->shopB), ['mode' => 'all_customers', 'fields' => ['first_name', 'user_gender', 'customer_id', 'customer_group', 'subscription_type'], 'guests' => false, 'enabled' => true], true);
         $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
         $this->mappings->upsert($this->shopC, 'welcome', '', 'default', 43);
         \Configuration::resetStaticCache();
@@ -565,7 +565,7 @@ final class SettingsShopsTest extends IntegrationTestCase
         $contacts = $list->of($scope, ShopOverrides::CONTACTS);
         self::assertSame(['Shop B'], $names($contacts));
         self::assertContains(['', 'All customers (legitimate interest)'], $contacts[0]['values']);
-        self::assertContains(['Extra fields to sync with each contact', 'First name'], $contacts[0]['values']);
+        self::assertContains(['Extra fields to sync with each contact', 'First name, Gender, Customer ID, Customer group, Subscription type'], $contacts[0]['values'], 'every field the Contacts step offers (CON-454)');
         self::assertSame([['Welcome · Smaily Workflow', '#43']], $list->of($scope, ShopOverrides::AUTOMATIONS)[0]['values']);
         self::assertTrue($list->of($scope, ShopOverrides::AUTOMATIONS)[0]['required'], 'shop C on another account keeps its own automations');
         self::assertSame([], $list->ownAccounts($scope), 'an account is saved for all shops');

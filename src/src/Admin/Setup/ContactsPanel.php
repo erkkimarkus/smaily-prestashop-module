@@ -53,6 +53,22 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 final class ContactsPanel
 {
+    /**
+     * The extra fields that the panel offers (SubscriberPayloadBuilder::FIELDS), by Smaily name, in
+     * the panel's order, with the English label that the panel and the card "Shops with their own
+     * values" (ShopsWithOwnValues) translate.
+     */
+    public const FIELD_LABELS = [
+        'first_name' => 'First name',
+        'last_name' => 'Last name',
+        'user_gender' => 'Gender',
+        'birthday' => 'Date of birth',
+        'customer_id' => 'Customer ID',
+        'customer_group' => 'Customer group',
+        'subscription_type' => 'Subscription type',
+        'website' => 'Website',
+    ];
+
     private ContactsSettings $settings;
 
     private TranslatorInterface $translator;

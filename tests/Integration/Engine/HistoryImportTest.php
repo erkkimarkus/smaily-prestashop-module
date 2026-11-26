@@ -264,7 +264,8 @@ final class HistoryImportTest extends IngestTestCase
 
     /**
      * CON-445: the imports that wait behind a stalled one are stalled too, and name it (Magento's
-     * PRO-3923); a finished import tells when it finished, in the shop's time.
+     * PRO-3923); a finished import tells when it finished, in the shop's time as the employee's
+     * language writes it (CON-454).
      */
     public function testTheImportsBehindAStalledOneNameIt(): void
     {
@@ -281,8 +282,15 @@ final class HistoryImportTest extends IngestTestCase
         self::assertSame(['', '', ''], array_column($progress, 'finished'));
 
         $this->jobs()->cancel($connection, HistoryJobs::CATALOG);
-        $catalog = $this->jobs()->progress($connection)[HistoryJobs::CATALOG];
-        self::assertSame(date('Y-m-d H:i', (int) strtotime($catalog['finished_at'] . ' UTC')), $catalog['finished']);
+        $language = \Context::getContext()->language;
+        $format = $language->date_format_full;
+        $language->date_format_full = 'd.m.Y H:i:s';
+        try {
+            $catalog = $this->jobs()->progress($connection)[HistoryJobs::CATALOG];
+        } finally {
+            $language->date_format_full = $format;
+        }
+        self::assertSame(date('d.m.Y H:i:s', (int) strtotime($catalog['finished_at'] . ' UTC')), $catalog['finished']);
     }
 
     public function testAnImportOfAConnectionThatIsGoneIsCancelledWithoutACall(): void
