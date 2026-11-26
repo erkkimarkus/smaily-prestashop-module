@@ -566,6 +566,20 @@ abandoned-cart reminder was switched off, and the upgrade never finished).
   9.2.0 has the same `Tab` class and showed the Estonian tab bar at once. 8.0.0's `Tab` has no
   `resetTabCache()`. With `Admin\Menu::name()` calling `resetTabCache()`, the first page of 8.2.8
   showed the Estonian tab bar.
+- **The product feed's language** (observed 2026-11-26, friendly URLs on, English the default and
+  Estonian the second language). The language decides the product names, their links and the
+  feed's `atom:link`. Each form below answered 200 without a redirect.
+
+  | Address | 8.2.8 | 9.2.0 |
+  |---|---|---|
+  | `/module/…/SmailyRssFeed` | default language | default language |
+  | the same, `Accept-Language: et` | Estonian | default language |
+  | `/en/module/…`, `/et/module/…` | English, Estonian | English, Estonian |
+  | `index.php?fc=module&…` | default language | default language |
+  | the same with `id_lang=2` | Estonian | default language |
+
+  9.2.0 writes the default language's links without a prefix. Every form took `limit`, `sort_by`,
+  `sort_order` and `category_id`.
 - **The home page.** With two active languages, `/` answered 302 to `/en/` on 8.2.8 and 200 on 9.2.0.
 - **PrestaShop's own strings.** The module's Log takes ten strings from the core's domains
   (`Admin.Actions`, `Admin.Global`). Without a language pack they show in English in an Estonian back

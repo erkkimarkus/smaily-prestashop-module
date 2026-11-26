@@ -52,6 +52,30 @@ final class RssPanelTest extends IntegrationTestCase
         self::assertStringNotContainsString('limit=', $values['base_url'], 'the base URL carries no parameter');
     }
 
+    public function testTheFeedsAddressDoesNotDependOnTheEmployeesLanguage(): void
+    {
+        $context = \Context::getContext();
+        $language = $context->language;
+        $url = $this->panel()->values()['base_url'];
+        try {
+            $other = clone $language;
+            $other->id = (int) $language->id + 1000;
+            $other->iso_code = 'zz';
+            $context->language = $other;
+
+            self::assertSame($url, $this->panel()->values()['base_url']);
+        } finally {
+            $context->language = $language;
+        }
+        self::assertStringStartsWith($context->link->getBaseLink(null, true), $url);
+        self::assertDoesNotMatchRegularExpression('#/[a-z]{2}/module/#', $url, 'no language prefix');
+        self::assertTrue(
+            (string) parse_url($url, PHP_URL_PATH) === $context->shop->getBaseURI() . 'module/smailyforprestashop/SmailyRssFeed'
+                || str_contains($url, 'controller=SmailyRssFeed'),
+            'the dispatcher\'s module route, friendly or not'
+        );
+    }
+
     public function testTheBuilderOpensWithTheValuesTheUpgradeMigrated(): void
     {
         \Configuration::updateGlobalValue(RssSettings::CATEGORY, '4');

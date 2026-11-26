@@ -70,7 +70,7 @@ final class RssPanel
                 'sort_order' => RssSettings::DEFAULT_SORT_ORDER,
                 'max_limit' => RssSettings::MAX_LIMIT,
             ],
-            'base_url' => $link->getModuleLink('smailyforprestashop', 'SmailyRssFeed'),
+            'base_url' => self::feedUrl($link),
             'sort_by' => RssSettings::SORT_BY_VALUES,
             'sort_orders' => RssSettings::SORT_ORDERS,
         ];
@@ -111,6 +111,24 @@ final class RssPanel
         $this->settings->save((int) $category, (int) $limit, $sortBy, $sortOrder);
 
         return [];
+    }
+
+    /**
+     * The feed's address without a language, as the cron line's (BackgroundTasks::tickUrl()): the
+     * shop's base address and the dispatcher's module route, which Link::getModuleLink() joins
+     * with the language prefix of the employee who opens the page. The feed then answers in the
+     * store's default language (on 8.2.8 also in one that the reader's Accept-Language names);
+     * an address with a prefix keeps answering in its language (facts file 6.10). With
+     * friendly URLs off the route carries `id_lang`, so the default language is asked for.
+     */
+    private static function feedUrl(\Link $link): string
+    {
+        return $link->getBaseLink(null, true) . \Dispatcher::getInstance()->createUrl(
+            'module',
+            (int) \Configuration::get('PS_LANG_DEFAULT'),
+            ['module' => 'smailyforprestashop', 'controller' => 'SmailyRssFeed'],
+            (bool) \Configuration::get('PS_REWRITING_SETTINGS')
+        );
     }
 
     /**

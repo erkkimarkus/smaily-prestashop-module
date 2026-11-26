@@ -711,7 +711,7 @@ parameters:
 | `…?fc=module&module=smailyforprestashop&controller=SmailyCustomerCron&token=<customer token>` | A door to the tick (section 4.3). Answers `text/plain`. |
 | `…controller=SmailyCartCron&token=<cart token>` | Same. |
 | `…controller=tick&token=<SMAILY_CONNECT_TICK_TOKEN>` | New in 3.0.0. Same. The upgrade creates its token (section 3.7). |
-| `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code (`Controller\RssFeedController`, `Model\RssFeedProductsCollection`), still wired. Story 3.3 kept it as it is and pinned its output and its parameters with `tests/Integration/Rss/RssFeedTest.php`. New parameters are additive only. |
+| `…controller=SmailyRssFeed&limit=&sort_by=&sort_order=&category_id=` | The 2.x code (`Controller\RssFeedController`, `Model\RssFeedProductsCollection`), still wired. Story 3.3 kept it as it is and pinned its output and its parameters with `tests/Integration/Rss/RssFeedTest.php`. New parameters are additive only. The language prefix chooses the language of the product names and links (and of the feed's `atom:link`): `/et/…` answers in Estonian; an address without a prefix answers in the store's default language, on 8.2.8 also in the language that `id_lang` or the reader's `Accept-Language` names (facts file 6.10); every form answers 200 without a redirect on 8.2.8 and 9.2.0. The address that Settings > RSS and the Overview show is built as the cron line's (section 4.3), without a language prefix (`Admin\Settings\RssPanel`), so it is the same for every employee; 2.x showed the employee's prefix. |
 | Friendly URL forms of the three | Unchanged: the controller names stay. |
 
 **[D]** A request whose token is empty or wrong, or a door that has no stored token or an empty one,
