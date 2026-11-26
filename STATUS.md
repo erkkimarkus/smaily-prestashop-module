@@ -12,7 +12,7 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
 
 ## Next session opens with
 
-- 26 Nov added: contract 1.37.1; cron URLs answer before the jobs; Smaily calls bounded to 30 s; a MySQL dev stack
+- 26 Nov added: contract 1.37.1, then 1.37.2; cron URLs answer before the jobs; Smaily calls bounded to 30 s; a MySQL dev stack
   and `validate.sh SHOPS=2`; CON-433 (stale contact changes skipped, privacy requests paced, rejected accounts
   refused, lost workflows dropped, refused import contacts named, the consent-mode warning); the identity-merge
   deferral; CON-435 (a console install enables every shop); Gender, Customer ID and group synced; the Campaign
@@ -110,6 +110,12 @@ segfault report (not reproduced).
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
 - The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.1 names none for a general 5xx.
+- Live walk defect (medium): after an email-link landing (`smaily_vt`), a guest checkout queues an identity merge
+  that the engine answers 404; the store never sends a guest as a customer, so the row fails for good
+  (`engine_customer_not_sent`, "the login was not linked") and the Dashboard turns to "Needs attention". Skip it,
+  or send the guest? Ask the siblings first (CON-397). PrestaShop drops the query of `/en/?…` and
+  `index.php?id_product=…&…` in its redirect: such an email link loses its attribution.
+- The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.2 names none for a general 5xx.
   `sendsmaily.net` has wildcard DNS: only the egress guard fences a shop from the real Smaily API.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
