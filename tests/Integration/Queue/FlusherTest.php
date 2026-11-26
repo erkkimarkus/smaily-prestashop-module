@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tests\Integration\Queue;
 
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
+use PrestaShop\Module\SmailyForPrestaShop\Queue\Deferred;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Failure;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\Flusher;
@@ -277,6 +278,32 @@ final class FlusherTest extends IntegrationTestCase
         self::assertSame(0, (int) $row['attempts']);
         self::assertNull($row['claim_token']);
         self::assertNull($row['last_error']);
+    }
+
+    public function testADeferredRowWaitsUntilItsTimeWithNoAttemptSpent(): void
+    {
+        $id = $this->queue->enqueue('test.trigger', 1, []);
+        $flusher = $this->flusher(['test.trigger' => new FakeHandler(fn (array $row) => (int) $row['attempts'] === 0 && $row['last_error'] === null
+            ? new Deferred($this->now + 42, 'Campaign Intelligence answered HTTP 429 (rate_limit_exceeded).')
+            : new Deferred($this->now + 60))]);
+
+        self::assertSame(1, $flusher->flush());
+        $row = $this->row($id);
+        self::assertSame(
+            [EventQueue::STATUS_PENDING, 0, gmdate('Y-m-d H:i:s', self::START + 42), 'Campaign Intelligence answered HTTP 429 (rate_limit_exceeded).', null],
+            [$row['status'], (int) $row['attempts'], $row['next_retry_at'], $row['last_error'], $row['claim_token']]
+        );
+        $this->now = self::START + 41;
+        self::assertSame(0, $flusher->flush(), 'a flush does not claim it before its time');
+
+        $this->now = self::START + 42;
+        self::assertSame(1, $flusher->flush());
+        $row = $this->row($id);
+        self::assertSame(
+            [EventQueue::STATUS_PENDING, 0, gmdate('Y-m-d H:i:s', self::START + 102), 'Campaign Intelligence answered HTTP 429 (rate_limit_exceeded).'],
+            [$row['status'], (int) $row['attempts'], $row['next_retry_at'], $row['last_error']],
+            'a deferral without a reason keeps the row\'s reason'
+        );
     }
 
     public function testFailsARowTheHandlerGaveNoOutcomeFor(): void

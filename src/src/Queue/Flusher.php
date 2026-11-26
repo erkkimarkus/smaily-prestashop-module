@@ -33,8 +33,8 @@ if (!defined('_PS_VERSION_')) {
  * Drains the event queue: claims due rows, hands the rows of each event type to that type's
  * handler, and records each row's outcome.
  *
- * A handler answers per row: true (sent), a Skipped, a Pending, a Failure, or a \Throwable (a
- * failed send handed back whole; Failure::of() reads it). A row without an answer fails and takes
+ * A handler answers per row: true (sent), a Skipped, a Pending, a Deferred, a Failure, or a
+ * \Throwable (a failed send handed back whole; Failure::of() reads it). A row without an answer fails and takes
  * the retry ladder. One poison row never owns the pass: when a handler throws for a batch, each row
  * of the batch is handed to it again alone, so only the row that throws fails. A handler therefore
  * reports a failure of the wire as that row's outcome and throws only on a fault of its own.
@@ -153,6 +153,8 @@ final class Flusher
                 }
                 if ($outcome instanceof Pending) {
                     $waiting[] = $row;
+                } elseif ($outcome instanceof Deferred) {
+                    $this->queue->defer($row, $outcome);
                 } elseif ($outcome instanceof Skipped) {
                     $this->queue->markSkipped($row, $outcome->reason());
                 } elseif ($outcome instanceof Failure) {

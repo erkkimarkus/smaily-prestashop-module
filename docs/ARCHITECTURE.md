@@ -1193,7 +1193,9 @@ holds no tick.
   `$services->set(QueueProvider::handlerId('<type>'), fn (Services $s) => new MyHandler(…))`. The
   handler implements `Queue\HandlerInterface::handle(array $events): array` and returns one outcome
   per row id: `true` (sent), a `Skipped` (closed with a reason), a `Pending` (given back, no attempt
-  spent), a `Failure`, or a `\Throwable` (read by `Failure::of()`). A row without an outcome fails and
+  spent), a `Deferred` (back to pending with its next attempt at the given time, no attempt spent,
+  and the given reason if any: `EventQueue::defer()`, which reuses `next_retry_at`, so no flush
+  claims the row before then), a `Failure`, or a `\Throwable` (read by `Failure::of()`). A row without an outcome fails and
   takes the retry ladder. A row whose event type no handler takes fails permanently.
 - **Classify.** `Failure::of($error)` reads the verdict that the Smaily client's error type carries:
   a `RequestRefusedException` (a 4xx other than 429) and an `ApiException` whose `isPermanent()` is

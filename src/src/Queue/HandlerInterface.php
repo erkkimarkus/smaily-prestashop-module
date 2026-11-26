@@ -38,8 +38,8 @@ interface HandlerInterface
      * @param list<array<string, mixed>> $events queue rows, all of one event type
      *
      * @return array<int, mixed> per queue row id, the outcome of that row: true when it was sent,
-     *                           else the outcome type that the queue defines (a failure, a skip, or
-     *                           a row given back unchanged)
+     *                           else the outcome type that the queue defines (a failure, a skip, a
+     *                           row given back unchanged, or a row deferred to a later time)
      */
     public function handle(array $events): array;
 }

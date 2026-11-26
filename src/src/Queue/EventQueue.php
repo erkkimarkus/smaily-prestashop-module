@@ -362,6 +362,23 @@ final class EventQueue
     }
 
     /**
+     * Gives a claimed row back to pending with its next attempt at the deferral's time, and no
+     * attempt spent. A deferral with a reason stores it as the row's reason.
+     *
+     * @param array<string, mixed> $row
+     */
+    public function defer(array $row, Deferred $deferred): void
+    {
+        $this->close([$row], sprintf(
+            '`status` = %s, `next_retry_at` = %s, %s`updated_at` = %s',
+            self::quote(self::STATUS_PENDING),
+            self::quote(gmdate('Y-m-d H:i:s', $deferred->until())),
+            $deferred->reason() === null ? '' : '`last_error` = ' . self::quote(self::error($deferred->reason())) . ', ',
+            $this->time(0)
+        ));
+    }
+
+    /**
      * Gives claimed rows back as they were: pending, with no attempt spent.
      *
      * @param list<array<string, mixed>> $rows
