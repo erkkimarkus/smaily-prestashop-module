@@ -580,6 +580,12 @@ abandoned-cart reminder was switched off, and the upgrade never finished).
 
   9.2.0 writes the default language's links without a prefix. Every form took `limit`, `sort_by`,
   `sort_order` and `category_id`.
+
+  With friendly URLs off (observed the same day on both versions), `index.php?fc=module&…` follows
+  `id_lang`: `id_lang=2` answered in Estonian on 8.2.8 and 9.2.0. The friendly forms answered 200
+  with no product then. So a language's address is `Link::getModuleLink()`'s for that language:
+  its prefix with friendly URLs on, `id_lang` with them off (`Admin\Settings\RssPanel`, walked
+  in a browser on both versions, 2026-11-26). `Link::getLangLink()` is protected on 9.2.0.
 - **The home page.** With two active languages, `/` answered 302 to `/en/` on 8.2.8 and 200 on 9.2.0.
 - **PrestaShop's own strings.** The module's Log takes ten strings from the core's domains
   (`Admin.Actions`, `Admin.Global`). Without a language pack they show in English in an Estonian back

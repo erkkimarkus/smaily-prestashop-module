@@ -10,7 +10,8 @@ use Tests\Integration\IntegrationTestCase;
 
 /**
  * Settings > RSS: the feed URL builder opens with the stored defaults that the upgrade migrated
- * from 2.x, or the feed's own defaults on a fresh install, and saves only values the feed takes.
+ * from 2.x, or the feed's own defaults on a fresh install, and saves only values the feed takes. It
+ * offers the shop's active languages, each with its address, and starts on the employee's.
  */
 final class RssPanelTest extends IntegrationTestCase
 {
@@ -74,6 +75,31 @@ final class RssPanelTest extends IntegrationTestCase
                 || str_contains($url, 'controller=SmailyRssFeed'),
             'the dispatcher\'s module route, friendly or not'
         );
+    }
+
+    public function testTheLanguageSelectListsTheShopsActiveLanguagesAndStartsOnTheEmployees(): void
+    {
+        $context = \Context::getContext();
+        $language = $context->language;
+        $default = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $values = $this->panel()->values();
+
+        self::assertSame(
+            array_map('intval', array_column(\Language::getLanguages(true, (int) $context->shop->id), 'id_lang')),
+            array_column($values['languages'], 'id')
+        );
+        $urls = array_column($values['languages'], 'url', 'id');
+        self::assertSame($values['base_url'], $urls[$default], 'the default language\'s address has no prefix');
+        self::assertSame((int) $language->id, $values['language'], 'the employee\'s language, active in the shop');
+        try {
+            $other = clone $language;
+            $other->id = (int) $language->id + 1000;
+            $context->language = $other;
+
+            self::assertSame($default, $this->panel()->values()['language'], 'a language the shop does not have active: the default');
+        } finally {
+            $context->language = $language;
+        }
     }
 
     public function testTheBuilderOpensWithTheValuesTheUpgradeMigrated(): void

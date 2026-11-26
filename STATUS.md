@@ -22,6 +22,8 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   last run in the employee's date format; every Initial setup step lays its sections on the page; "Subscription
   type" (`subscription_type` = `Subscriber`, opt-in) as a contact field; a stopped import stores where it stopped
   (`Failure::location()`) and its card shows that in the admin's language.
+- CON-454 (RSS): Settings > RSS has a Language select (each language's feed URL, the default one without a
+  prefix), walked on 8.2.8 and 9.2.0 with its own gates.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; the live walk against real Smaily and engine (needs a test account); CON-444's seven
   cross-connector questions (owner, later); the demo store (CON-425); the pilot. Open: Tanel's native read, CI.

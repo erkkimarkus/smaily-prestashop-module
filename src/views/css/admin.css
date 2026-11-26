@@ -1357,6 +1357,14 @@
   margin-bottom: 5px;
 }
 
+.smaily-ui .smaily-rss-builder__field--language {
+  grid-column: 1 / -1;
+}
+
+.smaily-ui .smaily-rss-builder__field--language .form-control {
+  max-width: calc(50% - 8px);
+}
+
 .smaily-ui .smaily-rss-builder__url {
   display: flex;
   gap: 8px;

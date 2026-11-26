@@ -43,7 +43,7 @@
  *   Automations tab is drawn for the saved mode, and opens it on Automations where the save
  *   removed workflows;
  * - Change of the store layout opens the choice above the tabs; to one store it asks first;
- * - the RSS builder builds the feed URL from the picked values, with Copy.
+ * - the RSS builder builds the feed URL from the picked language and values, with Copy.
  *
  * Settings also asks before a change of who is synced to Smaily on a store that already syncs,
  * so that the audience never widens unnoticed.
@@ -319,7 +319,9 @@
       if (data.sort_order !== builder.getAttribute('data-default-sort-order')) {
         params.push('sort_order=' + encodeURIComponent(data.sort_order));
       }
-      var base = builder.getAttribute('data-base-url');
+      // The picked language's address, where the shop has two or more languages.
+      var language = builder.querySelector('[data-smaily-rss-language]');
+      var base = language ? language.value : builder.getAttribute('data-base-url');
       builder.querySelector('[data-smaily-rss-url]').value = base + (params.length ? (base.indexOf('?') === -1 ? '?' : '&') + params.join('&') : '');
       result(builder.querySelector('[data-smaily-rss-copy-result]'), '', true);
     }

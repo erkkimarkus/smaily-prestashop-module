@@ -25,7 +25,9 @@
  # config/rss-builder.phtml), read and saved by Admin\Settings\RssPanel. views/js/admin/settings.js
  # builds the URL from the picked values as they change and copies it; a value equal to the feed's
  # own default is left out of the URL, so the simplest feed is the bare address. The parameters are
- # the feed's since 2.x: category_id, limit, sort_by, sort_order.
+ # the feed's since 2.x: category_id, limit, sort_by, sort_order. A shop with two or more active
+ # languages gets a Language select first, whose options carry each language's address; it is not
+ # saved, and it starts on the employee's language where the shop has it active.
  #
  # Takes `rss` (RssPanel::values()).
  #}
@@ -44,6 +46,16 @@
          data-default-limit="{{ rss.feed.limit }}" data-default-sort-by="{{ rss.feed.sort_by }}"
          data-default-sort-order="{{ rss.feed.sort_order }}" data-max-limit="{{ rss.feed.max_limit }}">
       <div class="smaily-rss-builder__grid">
+        {% if rss.languages|length > 1 %}
+          <label class="smaily-rss-builder__field smaily-rss-builder__field--language">
+            <span>{{ 'Language'|trans }}</span>
+            <select class="form-control" data-smaily-rss-language>
+              {% for language in rss.languages %}
+                <option value="{{ language.url }}"{{ language.id == rss.language ? ' selected' : '' }}>{{ language.name }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
         <label class="smaily-rss-builder__field">
           <span>{{ 'Category ID (optional)'|trans }}</span>
           <input type="number" class="form-control" min="1" data-smaily-field="category" value="{{ rss.defaults.category > 0 ? rss.defaults.category : '' }}" placeholder="{{ 'All products'|trans }}">

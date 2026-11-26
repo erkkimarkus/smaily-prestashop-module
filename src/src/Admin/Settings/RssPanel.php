@@ -36,7 +36,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * The RSS panel (Settings > RSS, Magento's panel/rss.phtml with its config/rss-builder.phtml): the
  * product feed URL builder's defaults, read and saved by this one class, and the feed's address
- * without parameters, which views/js/admin/settings.js completes from the picked values.
+ * without parameters in each active language of the shop, which views/js/admin/settings.js
+ * completes from the picked values. Magento builds the address of the store view that its scope
+ * names; a PrestaShop shop holds its languages itself, so the builder offers them in a select.
  *
  * The feed is installation-wide, as in Magento: the builder saves the global defaults whatever
  * shop PrestaShop's shop selector names. The feed's URL and parameters stay those of 2.x
@@ -55,11 +57,28 @@ final class RssPanel
     }
 
     /**
-     * @return array{defaults: array{category: int, limit: int, sort_by: string, sort_order: string}, feed: array{limit: int, sort_by: string, sort_order: string, max_limit: int}, base_url: string, sort_by: list<string>, sort_orders: list<string>}
+     * `base_url` is the address in the store's default language; `languages` lists the shop's
+     * active languages with each one's address, and `language` names the one the select starts on:
+     * the employee's language where the shop has it active, else the default.
+     *
+     * @return array{defaults: array{category: int, limit: int, sort_by: string, sort_order: string}, feed: array{limit: int, sort_by: string, sort_order: string, max_limit: int}, base_url: string, languages: list<array{id: int, name: string, url: string}>, language: int, sort_by: list<string>, sort_orders: list<string>}
      */
     public function values(): array
     {
-        $link = \Context::getContext()->link ?? new \Link();
+        $context = \Context::getContext();
+        $link = $context->link ?? new \Link();
+        $default = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $employee = (int) ($context->language->id ?? 0);
+
+        $languages = [];
+        $selected = $default;
+        foreach (\Language::getLanguages(true, (int) ($context->shop->id ?? 0) ?: false) as $row) {
+            $id = (int) $row['id_lang'];
+            $languages[] = ['id' => $id, 'name' => (string) $row['name'], 'url' => self::feedUrl($link, $id, $default)];
+            if ($id === $employee) {
+                $selected = $id;
+            }
+        }
 
         return [
             'defaults' => $this->settings->defaults(),
@@ -70,7 +89,9 @@ final class RssPanel
                 'sort_order' => RssSettings::DEFAULT_SORT_ORDER,
                 'max_limit' => RssSettings::MAX_LIMIT,
             ],
-            'base_url' => self::feedUrl($link),
+            'base_url' => self::feedUrl($link, $default, $default),
+            'languages' => $languages,
+            'language' => $selected,
             'sort_by' => RssSettings::SORT_BY_VALUES,
             'sort_orders' => RssSettings::SORT_ORDERS,
         ];
@@ -114,18 +135,23 @@ final class RssPanel
     }
 
     /**
-     * The feed's address without a language, as the cron line's (BackgroundTasks::tickUrl()): the
-     * shop's base address and the dispatcher's module route, which Link::getModuleLink() joins
-     * with the language prefix of the employee who opens the page. The feed then answers in the
-     * store's default language (on 8.2.8 also in one that the reader's Accept-Language names);
-     * an address with a prefix keeps answering in its language (facts file 6.10). With
-     * friendly URLs off the route carries `id_lang`, so the default language is asked for.
+     * The feed's address in a language. The default language's has no language prefix, as the
+     * cron line's (BackgroundTasks::tickUrl()): the shop's base address and the dispatcher's module
+     * route, which Link::getModuleLink() would join with the prefix of the employee who opens the
+     * page; it answers in the store's default language (on 8.2.8 also in one that the reader's
+     * Accept-Language names). Another language's address is Link::getModuleLink()'s for that
+     * language: with friendly URLs on, its prefix (`/et/module/…`), which 8.2.8 and 9.2.0 both
+     * follow; with them off, the route's `id_lang` (facts file 6.10).
      */
-    private static function feedUrl(\Link $link): string
+    private static function feedUrl(\Link $link, int $idLang, int $default): string
     {
+        if ($idLang !== $default) {
+            return $link->getModuleLink('smailyforprestashop', 'SmailyRssFeed', [], true, $idLang);
+        }
+
         return $link->getBaseLink(null, true) . \Dispatcher::getInstance()->createUrl(
             'module',
-            (int) \Configuration::get('PS_LANG_DEFAULT'),
+            $idLang,
             ['module' => 'smailyforprestashop', 'controller' => 'SmailyRssFeed'],
             (bool) \Configuration::get('PS_REWRITING_SETTINGS')
         );

@@ -23,7 +23,8 @@
 {#
  # Initial setup, step 5 (Overview, "Summary and last check"): what is set, each line with an Edit
  # link back to its step, then Magento's closing card (where everything lives from now on: Settings,
- # the Log, the product RSS feed with the URL builder, and the User Guide, Admin\UserGuide) and its
+ # the Log, the product RSS feed in the store's default language with the URL builder, which offers
+ # the other languages, and the User Guide, Admin\UserGuide) and its
  # two ways on, Open Settings and Go to Dashboard. The setup is finished by Finish on the step
  # before (SaveStep `finish`), as in Magento; this step only shows the result. The connection
  # state of each Smaily account is asked of Smaily when the step shows (setup.js).
@@ -189,7 +190,7 @@
     <li><a href="{{ path('smailyforprestashop_settings') }}">{{ 'Settings'|trans }}</a> — {{ 'every setting from the initial setup as always-available tabs, including the historical imports and the RSS feed URL builder'|trans }}</li>
     <li><a href="{{ path('smailyforprestashop_log') }}">{{ 'Log'|trans }}</a> — {{ 'every delivery to Smaily and Campaign Intelligence with retry; check here first if something seems off'|trans }}</li>
     <li>{{ 'Product RSS feed for the Smaily template editor:'|trans }} <code>{{ smaily_setup.rss_feed }}</code><br>
-      <span class="smaily-note">{{ 'Need a category-filtered or sorted feed? Use the URL builder under Settings > RSS.'|trans }}
+      <span class="smaily-note">{{ smaily_setup.languages|length > 1 ? 'Need a feed in another language, or a category-filtered or sorted feed? Use the URL builder under Settings > RSS.'|trans : 'Need a category-filtered or sorted feed? Use the URL builder under Settings > RSS.'|trans }}
         <a href="{{ path('smailyforprestashop_settings', {tab: 'rss'}) }}">{{ 'Open the URL builder'|trans }}</a></span></li>
     <li><a href="{{ smaily_setup.user_guide }}" target="_blank" rel="noopener noreferrer">{{ 'User Guide'|trans }}</a> — {{ 'the full merchant documentation: every feature, setting and troubleshooting steps'|trans }}</li>
   </ul>

@@ -3677,6 +3677,11 @@
         <target>Vajad kategooria järgi filtreeritud või sorditud voogu? Kasuta URL-i koostajat menüüs Seaded &gt; RSS.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="195292e4c50de3a92836b613d0914f3e">
+        <source>Need a feed in another language, or a category-filtered or sorted feed? Use the URL builder under Settings &gt; RSS.</source>
+        <target>Vajad voogu teises keeles või kategooria järgi filtreeritud või sorditud voogu? Kasuta URL-i koostajat menüüs Seaded &gt; RSS.</target>
+        <note>Line: </note>
+      </trans-unit>
       <trans-unit id="1bcff7327c2f8f48939a4d2a72c0ceae">
         <source>Open the URL builder</source>
         <target>Ava URL-i koostaja</target>
