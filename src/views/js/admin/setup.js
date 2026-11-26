@@ -38,6 +38,11 @@
  * (Automation\LostWorkflows), opens the page again on step 2. The Intelligence
  * step belongs to later work; Continue passes through it, and Finish on step 4 runs
  * window.smailyConnect.setup.finish(), which a later saver of step 4 calls after its own save.
+ *
+ * As in Magento's wizard: a finished setup opens step 1 on the connection's summary, where
+ * Continue saves nothing until "Edit credentials" shows the form; the store-layout bar's Change
+ * runs Settings' change of the layout; and the Connect, Contacts and Automations saves name in
+ * `use_shared` the shops listed under the step whose own values give way to the step's values.
  */
 (function () {
   'use strict';
@@ -67,6 +72,9 @@
       if (input.name === 'smaily-shape') {
         showShapeNotes();
       }
+      if (input.name === 'smaily-shape-change') {
+        showShapeChangeNotes();
+      }
     });
 
     /*
@@ -82,12 +90,18 @@
       return savedTests[language];
     }
 
+    /*
+     * A finished setup opens step 1 on the connection's summary (Magento PRO-3563): Continue moves
+     * on without a save until "Edit credentials" shows the form.
+     */
+    var summary = container.querySelector('[data-smaily-setup-summary]');
+
     /* Connect continues once a block passed Test connection and no filled block waits for one. */
     var storedChecked = false;
 
     function connectHint() {
       var connection = panels.panel('connection');
-      if (!connection) {
+      if (!connection || summary) {
         return '';
       }
       // The stored accounts are asked about when the page first asks: the rail asks on any step.
@@ -161,6 +175,97 @@
       });
     }
 
+    /*
+     * The bar's Change (Magento's wizard): the choice, with what each direction does, and the same
+     * change and questions as on Settings (Admin\Api\Settings\ChangeLayout). The steps wait while
+     * the choice shows, as they wait for a first answer.
+     */
+    var shapeChange = container.querySelector('[data-smaily-shape-change]');
+
+    function showShapeChangeNotes() {
+      var current = shape.getAttribute('data-shape');
+      var chosen = panels.checked(shapeChange, 'smaily-shape-change');
+      shapeChange.querySelectorAll('[data-smaily-shape-note]').forEach(function (note) {
+        note.hidden = chosen === current || note.getAttribute('data-smaily-shape-note') !== chosen;
+      });
+    }
+
+    function showShapeChange(open) {
+      container.querySelector('.smaily-steps').hidden = open;
+      container.style.gridTemplateColumns = open ? 'minmax(0, 1fr)' : '';
+      container.querySelector('.smaily-setup__pane > .smaily-footer').hidden = open;
+      container.querySelector('[data-smaily-shape-page]').hidden = open;
+      var invitation = container.querySelector('[data-smaily-invitation]');
+      if (invitation) {
+        invitation.hidden = open;
+      }
+      shapeChange.hidden = !open;
+      result(shapeChange.querySelector('[data-smaily-shape-result]'), '', true);
+      if (!open) {
+        var current = shapeChange.querySelector('input[value="' + shape.getAttribute('data-shape') + '"]');
+        current.checked = true;
+        current.dispatchEvent(new Event('change', {bubbles: true}));
+      }
+      showShapeChangeNotes();
+    }
+
+    function changeShape(button) {
+      var chosen = panels.checked(shapeChange, 'smaily-shape-change');
+      if (chosen === shape.getAttribute('data-shape')) {
+        showShapeChange(false);
+        return;
+      }
+      // What the change removes or ends: the other shops' settings, Campaign Intelligence connections.
+      var asked = [];
+      shapeChange.querySelectorAll('[data-smaily-shape-ask][data-smaily-shape-note="' + chosen + '"]').forEach(function (note) {
+        asked.push(note.textContent.trim());
+      });
+      if (asked.length && !window.confirm(asked.join('\n\n'))) {
+        return;
+      }
+      var shapeResult = shapeChange.querySelector('[data-smaily-shape-result]');
+      button.disabled = true;
+      result(shapeResult, label('saving'), true);
+      post('layout', {shape: chosen}).then(function () {
+        window.location.reload();
+      }).catch(function (error) {
+        result(shapeResult, error.message, false);
+        button.disabled = false;
+      });
+    }
+
+    /* Edit credentials: the summary of a finished setup gives way to the form, which saves again. */
+    function editCredentials(button) {
+      summary.hidden = true;
+      summary = null;
+      button.hidden = true;
+      var form = container.querySelector('[data-smaily-connect-form]');
+      form.hidden = false;
+      smailyConnect.setup.refresh();
+      var field = form.querySelector('[data-smaily-field="subdomain"]');
+      if (field) {
+        field.focus();
+      }
+    }
+
+    /* The summary's state: Smaily's answer about the stored account. */
+    function checkSummary() {
+      var pill = summary && summary.querySelector('[data-smaily-summary-state]');
+      if (!pill) {
+        return;
+      }
+      testSaved('').then(function (answer) {
+        return answer.connected === true;
+      }).catch(function () {
+        return false;
+      }).then(function (connected) {
+        if (connected) {
+          pill.classList.add('smaily-pill--active');
+        }
+        pill.querySelector('[data-smaily-pill-text]').textContent = label(connected ? 'connected' : 'not-connected');
+      });
+    }
+
     function failed(scope, error) {
       throw new Error(panels.showErrors(scope, error.fields) ? label('saving-failed') : error.message);
     }
@@ -177,13 +282,25 @@
     }
 
 
+    /* The shops listed under a step whose own values give way to the step's values (Magento CON-179). */
+    function withShared(section, data) {
+      data.use_shared = [];
+      container.querySelectorAll('[data-smaily-shop-overrides="' + section + '"] input[value="shared"]:checked').forEach(function (input) {
+        data.use_shared.push(parseInt(input.getAttribute('data-shop'), 10));
+      });
+      return data;
+    }
+
     function saveConnect() {
       var step = stepPanel(1);
       panels.clearErrors(step);
+      if (summary) {
+        return Promise.resolve();
+      }
       if (panels.panel('connection') && !panels.confirmAccountChange()) {
         return Promise.reject({declined: true});
       }
-      var data = panels.panel('connection') ? panels.connectionData() : {};
+      var data = withShared('connection', panels.panel('connection') ? panels.connectionData() : {});
       return post('save', {step: 'connect', data: data}).then(function (answer) {
         if (panels.connectionSaved(data.language_mode) || (answer.workflows_removed || []).length) {
           return reopen(2);
@@ -202,7 +319,7 @@
     function saveContacts() {
       var step = stepPanel(2);
       panels.clearErrors(step);
-      var data = panels.panel('contacts') ? panels.contactsData() : {};
+      var data = withShared('contacts', panels.panel('contacts') ? panels.contactsData() : {});
       return post('save', {step: 'contacts', data: data}).then(function () {
         panels.importCard.saved(data.enabled !== false, data.mode);
       }).catch(function (error) {
@@ -216,7 +333,7 @@
       if (!panels.panel('automations')) {
         return Promise.resolve();
       }
-      return post('save', {step: 'automations', data: panels.automationsData()}).then(panels.automationsSaved).catch(function (error) {
+      return post('save', {step: 'automations', data: withShared('automations', panels.automationsData())}).then(panels.automationsSaved).catch(function (error) {
         failed(step, error);
       });
     }
@@ -269,6 +386,14 @@
       var action = target.getAttribute('data-smaily-action');
       if (action === 'save-shape') {
         saveShape(target);
+      } else if (action === 'shape-change') {
+        showShapeChange(true);
+      } else if (action === 'shape-cancel') {
+        showShapeChange(false);
+      } else if (action === 'shape-save') {
+        changeShape(target);
+      } else if (action === 'edit-credentials') {
+        editCredentials(target);
       } else if (action === 'refresh-workflows') {
         // A list that cannot be loaded says why beside the step's buttons, as in Magento.
         panels.loadWorkflows(container.querySelector('.smaily-footer [data-smaily-result]'));
@@ -284,6 +409,7 @@
     if (!stepPanel(5).hidden) {
       checkAccounts();
     }
+    checkSummary();
     smailyConnect.setup.refresh();
     panels.loadWorkflows(null);
   });

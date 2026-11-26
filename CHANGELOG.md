@@ -61,6 +61,7 @@
 - The cron line of the Background tasks card has no language prefix in its address, so it is the same line for every employee of a store with several languages.
 - Keeps the product RSS feed at its 2.x address with its 2.x parameters (`category_id`, `limit`, `sort_by`, `sort_order`), so feed URLs in existing Smaily templates keep working.
 - The merchant guide is at https://smaily.com/connect-presta/, in English and Estonian, as the guides of the other Smaily Connect modules are. "How to add it →" under Settings > Intelligence opens its section on the recommendations block.
+- The Initial setup follows the Magento module's: a finished setup opens step 1 marked "Completed", on a summary of the Smaily account (subdomain, API username and status), where Continue moves on and "Edit credentials" shows the form again. In a multishop store run as one store, the Connect, Contacts and Automations steps list the "Shops with their own values" with those values; each keeps them unless you pick "Use this step's values" for it. The bar "Your shops" has "Change" in the Initial setup too, with the same change and questions as in Settings. Back is a button, the sentence on where to find the API credentials sits in the credentials card, and the Overview also lists the product RSS feed address, with a link to the URL builder, and the User Guide. Settings > Connection names the account in its status: Connected as "<subdomain>".
 
 ### 2.2.0
 

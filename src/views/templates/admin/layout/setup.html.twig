@@ -31,6 +31,11 @@
  # furthest step reached (both 1 by default); common.js moves between the steps, and runs the saver
  # that a step registers with window.smailyConnect.setup.onContinue(step, saver) first.
  # `smaily_invitation` shows the invitation to a store with no Smaily account above step 1.
+ #
+ # A finished setup (`smaily_setup.completed`) marks step 1 "Completed" and opens it on the
+ # connection's summary, with "Edit credentials" beside Continue on step 1 (Magento PRO-3563).
+ # Steps 1 to 3 end with the card "Shops with their own values" (macro own_values, Magento
+ # CON-179): each listed shop keeps its own values unless "Use this step's values" is picked.
  #}
 {% extends '@Modules/smailyforprestashop/views/templates/admin/layout/page.html.twig' %}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
@@ -67,16 +72,18 @@
         {% if smaily_invitation|default(false) %}
           {% include '@Modules/smailyforprestashop/views/templates/admin/layout/invitation.html.twig' with {dismissible: false} %}
         {% endif %}
-        {{ frame.head(1, 'Connect your Smaily account'|trans) }}
+        {{ frame.head(1, 'Connect your Smaily account'|trans, false, smaily_setup.completed|default(false)) }}
         {% block smaily_setup_connect %}{% include setup ~ 'connect.html.twig' ignore missing %}{% endblock %}
       </section>
       <section class="smaily-step-panel" data-step="2" data-smaily-slot="setup/contacts"{% if start != 2 %} hidden{% endif %}>
         {{ frame.head(2, 'Contact synchronization to Smaily'|trans) }}
         {% block smaily_setup_contacts %}{% include setup ~ 'contacts.html.twig' ignore missing %}{% endblock %}
+        {{ frame.own_values('contacts', smaily_setup.own_values.contacts|default([])) }}
       </section>
       <section class="smaily-step-panel" data-step="3" data-smaily-slot="setup/automations"{% if start != 3 %} hidden{% endif %}>
         {{ frame.head(3, 'Map store events to Smaily automations'|trans) }}
         {% block smaily_setup_automations %}{% include setup ~ 'automations.html.twig' ignore missing %}{% endblock %}
+        {{ frame.own_values('automations', smaily_setup.own_values.automations|default([])) }}
       </section>
       <section class="smaily-step-panel" data-step="4" data-smaily-slot="setup/intelligence"{% if start != 4 %} hidden{% endif %}>
         {{ frame.head(4, 'Campaign Intelligence (optional)'|trans, true) }}
@@ -88,9 +95,12 @@
       </section>
 
       <div class="smaily-footer"{% if start == 5 %} hidden{% endif %}>
-        <button type="button" class="btn btn-link smaily-back" data-smaily-action="setup-back"{% if start == 1 %} hidden{% endif %}>{{ 'Back'|trans }}</button>
+        <button type="button" class="btn btn-outline-secondary" data-smaily-action="setup-back"{% if start == 1 %} hidden{% endif %}>{{ 'Back'|trans }}</button>
         <div class="smaily-footer__end">
           <span class="smaily-result" data-smaily-result role="status"></span>
+          {% if smaily_setup.completed|default(false) %}
+            <button type="button" class="btn btn-outline-secondary smaily-edit-credentials" data-smaily-action="edit-credentials">{{ 'Edit credentials'|trans }}</button>
+          {% endif %}
           <button type="button" class="btn smaily-btn-primary" data-smaily-action="setup-next">{{ start == 4 ? 'Finish'|trans : 'Continue'|trans }}</button>
         </div>
       </div>
@@ -98,12 +108,56 @@
   </div>
 {% endblock %}
 
-{% macro head(number, title, intelligence = false) %}
+{% macro head(number, title, intelligence = false, completed = false) %}
   <div class="smaily-step-head">
-    <div class="smaily-step-kicker">{{ 'Step %number% of %count%'|trans({'%number%': number, '%count%': 5}, 'Modules.Smailyforprestashop.Admin') }}</div>
+    {% set kicker %}<div class="smaily-step-kicker">{{ 'Step %number% of %count%'|trans({'%number%': number, '%count%': 5}, 'Modules.Smailyforprestashop.Admin') }}</div>{% endset %}
+    {% if completed %}
+      <div class="smaily-step-kicker-row">{{ kicker }}<span class="smaily-pill smaily-pill--active"><span class="smaily-pill__dot" aria-hidden="true"></span>{{ 'Completed'|trans({}, 'Modules.Smailyforprestashop.Admin') }}</span></div>
+    {% else %}
+      {{ kicker }}
+    {% endif %}
     <h2 class="smaily-step-title">
       {%- if intelligence %}{% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 24} %}{% endif -%}
       {{ title }}
     </h2>
   </div>
+{% endmacro %}
+
+{#
+ # The shops that hold their own values of a step's section (Admin\Setup\ShopsWithOwnValues), each
+ # with "Keep its own values" or "Use this step's values" (setup.js posts the second as
+ # `use_shared`). `summary` lists the shops of a finished setup's Connect summary, without a choice.
+ #}
+{% macro own_values(section, shops, summary = false) %}
+  {% if shops is not empty %}
+    {% set domain = 'Modules.Smailyforprestashop.Admin' %}
+    <div class="smaily-card smaily-shop-overrides" data-smaily-shop-overrides="{{ section }}">
+      <h2>{{ 'Shops with their own values'|trans({}, domain) }}</h2>
+      {% if summary %}
+        <p class="smaily-note">{{ 'No Smaily account is saved for all shops, so each of these shops uses its own. Press Continue to keep them, or Edit credentials to save a Smaily account for all shops.'|trans({}, domain) }}</p>
+      {% else %}
+        <p class="smaily-note">{{ 'These shops hold their own values for the settings of this step, so the values you save here do not reach them. Each one keeps its own values unless you pick this step\'s values for it.'|trans({}, domain) }}</p>
+      {% endif %}
+      {% for shop in shops %}
+        <div class="smaily-shop-override">
+          <strong>{{ shop.name }}</strong>
+          <ul>
+            {% for line in shop.values %}
+              <li>{% if line[0] != '' %}{{ line[0] }}: {% endif %}{{ line[1] }}</li>
+            {% endfor %}
+          </ul>
+          {% if shop.required %}
+            <p class="smaily-note">{{ 'A shop with another Smaily account than the one saved for all shops keeps its own automations: their workflows come from its own account.'|trans({}, domain) }}</p>
+          {% elseif not summary %}
+            <div class="smaily-inline-toggle">
+              <label><input type="radio" name="smaily-own-{{ section }}-{{ shop.id_shop }}" value="keep" checked> {{ 'Keep its own values'|trans({}, domain) }}</label>
+            </div>
+            <div class="smaily-inline-toggle">
+              <label><input type="radio" name="smaily-own-{{ section }}-{{ shop.id_shop }}" value="shared" data-shop="{{ shop.id_shop }}"> {{ 'Use this step\'s values'|trans({}, domain) }}</label>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 {% endmacro %}

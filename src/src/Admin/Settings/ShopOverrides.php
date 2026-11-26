@@ -129,6 +129,40 @@ final class ShopOverrides extends Settings
     }
 
     /**
+     * The section's configuration values stored at exactly the shop's scope: key => value.
+     *
+     * @return array<string, string>
+     */
+    public function ownKeys(string $section, int $idShop): array
+    {
+        return $this->storedValues(self::KEYS[$section], $idShop);
+    }
+
+    /**
+     * The Initial setup's "Use this step's values" (Magento's `use_store_wide`, CON-179): each of
+     * the shops gives up its own values of the section and reads the values all shops share. A
+     * shop that keeps its own automations (keepsOwnAutomations()) keeps them, and a shop on another
+     * Smaily account loses its own automations with its account, as Settings does (TabSaver).
+     *
+     * @param list<int> $shops
+     */
+    public function returnToShared(string $section, array $shops): void
+    {
+        foreach ($shops as $idShop) {
+            if ($idShop <= 0 || !$this->hasOwn($section, $idShop)
+                || ($section === self::AUTOMATIONS && $this->keepsOwnAutomations($idShop))) {
+                continue;
+            }
+            $other = $section === self::CONNECTION && $this->usesOtherAccount($idShop);
+            $this->deleteOwn($section, $idShop);
+            if ($other) {
+                $this->deleteOwn(self::AUTOMATIONS, $idShop);
+            }
+        }
+        $this->reload();
+    }
+
+    /**
      * Separate stores to one store: removes the own values of the three sections of every shop.
      *
      * @param list<int> $shops

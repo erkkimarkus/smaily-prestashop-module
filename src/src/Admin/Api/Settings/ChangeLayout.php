@@ -40,7 +40,9 @@ use Symfony\Component\HttpFoundation\Request;
  * PrestaShop's shop selector (the default shop with "All shops") become the shared ones and every
  * shop's own values are removed; the page asks the merchant before it posts. In either direction
  * that shop's Campaign Intelligence connection is carried over and every other connection is
- * ended, which the page's question names. The same shape as now changes nothing. A store that has not said how its shops are run answers "one" through the
+ * ended, which the page's question names. The same shape as now changes nothing. The Initial
+ * setup's store-layout bar runs the same change through its own route (Magento's wizard has the
+ * bar's Change too), which needs the rights of the Initial setup. A store that has not said how its shops are run answers "one" through the
  * Initial setup's panel (Admin\Setup\StoreShapePanel), which owns that first answer.
  */
 final class ChangeLayout extends AbstractSettingsAction

@@ -7,6 +7,14 @@ smailyforprestashop_api_setup_save:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Setup\SaveStep::execute
     _legacy_controller: AdminSmailyConnectSetup
 
+# The store-layout bar's Change: the same change as on Settings (Admin\Settings\LayoutChange).
+smailyforprestashop_api_setup_layout:
+  path: /smailyforprestashop/api/setup/layout
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\Settings\ChangeLayout::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
 smailyforprestashop_api_setup_test:
   path: /smailyforprestashop/api/setup/test-smaily
   methods: [POST]

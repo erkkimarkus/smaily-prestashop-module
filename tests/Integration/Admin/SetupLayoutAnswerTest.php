@@ -39,6 +39,8 @@ final class SetupLayoutAnswerTest extends ReportTestCase
 
     private const SETTINGS_ROUTE = ['_legacy_controller' => 'AdminSmailyConnectSettings', '_route' => 'smailyforprestashop_api_settings_layout'];
 
+    private const SETUP_LAYOUT_ROUTE = ['_legacy_controller' => 'AdminSmailyConnectSetup', '_route' => 'smailyforprestashop_api_setup_layout'];
+
     private const TABLES = ['smaily_connect_account', 'smaily_connect_automation_mapping', 'smaily_connect_connection'];
 
     private bool $multistore = false;
@@ -113,6 +115,46 @@ final class SetupLayoutAnswerTest extends ReportTestCase
 
         self::assertSame($before, $this->comparable());
         self::assertSame([], $this->transport->requests);
+    }
+
+    /**
+     * The store-layout bar of the Initial setup has Magento's Change: it runs the change of
+     * Settings, through the setup's own route, in both directions.
+     */
+    public function testTheBarsChangeInTheInitialSetupIsTheChangeOfSettings(): void
+    {
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'shape', 'data' => ['shape' => 'one']], self::SETUP_ROUTE)->getStatusCode());
+        \Shop::setContext(\Shop::CONTEXT_SHOP, $this->shopB);
+
+        foreach (['separate' => true, 'one' => false] as $shape => $separate) {
+            $start = $this->rows();
+            self::assertSame(200, $this->post(new ChangeLayout(), ['shape' => $shape], self::SETUP_LAYOUT_ROUTE)->getStatusCode());
+            $setup = $this->comparable();
+            self::assertSame($separate, (new StoreLayout())->separateStores());
+
+            $this->restore($start);
+            self::assertSame(200, $this->post(new ChangeLayout(), ['shape' => $shape], self::SETTINGS_ROUTE)->getStatusCode());
+            self::assertSame($setup, $this->comparable(), 'the Initial setup and Settings leave the same rows: ' . $shape);
+        }
+        self::assertSame($this->connectionId, $this->services->get(Connections::class)->find(0)->id(), 'the connection came back to all shops');
+        self::assertSame([], $this->transport->requests, 'no connection was ended and nothing left the shop');
+    }
+
+    /**
+     * A shop listed under a step with its own values keeps them, unless the step's values are
+     * picked for it (`use_shared`, Magento's `use_store_wide`).
+     */
+    public function testAShopListedUnderAStepTakesTheStepsValuesOnlyWhenPicked(): void
+    {
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'shape', 'data' => ['shape' => 'one']], self::SETUP_ROUTE)->getStatusCode());
+        (new ContactsSettings())->setMode(new ContactSyncMode('all_customers', true), $this->shopB);
+        $contacts = ['mode' => 'subscribers', 'fields' => ['first_name'], 'guests' => false, 'enabled' => true];
+
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'contacts', 'data' => $contacts + ['use_shared' => []]], self::SETUP_ROUTE)->getStatusCode());
+        self::assertSame([[null, 'subscribers'], [$this->shopB, 'all_customers']], $this->configuration(ContactsSettings::MODE), 'shop B keeps its own mode');
+
+        self::assertSame(200, $this->post(new SaveStep(), ['step' => 'contacts', 'data' => $contacts + ['use_shared' => [$this->shopB]]], self::SETUP_ROUTE)->getStatusCode());
+        self::assertSame([[null, 'subscribers']], $this->configuration(ContactsSettings::MODE), 'shop B reads the step\'s values');
     }
 
     public function testAStoreWithOneShopIsNotAsked(): void

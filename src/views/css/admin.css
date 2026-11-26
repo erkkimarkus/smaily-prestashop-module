@@ -556,11 +556,6 @@
   margin-left: auto;
 }
 
-.smaily-ui .smaily-back {
-  padding-left: 0;
-  font-weight: 600;
-}
-
 @media (max-width: 1023px) {
   .smaily-ui .smaily-setup {
     grid-template-columns: minmax(0, 1fr);
@@ -2073,4 +2068,90 @@
 
 .smaily-ui .smaily-imports .smaily-import {
   margin-bottom: 0;
+}
+
+/*
+ * The Initial setup as Magento's wizard draws it (CON-445): the "Completed" pill beside step 1's
+ * kicker and the connection's summary of a finished setup (Magento PRO-3563), "Edit credentials"
+ * on step 1 only, the card "Shops with their own values" (CON-179) and the account in the
+ * connection's state.
+ */
+.smaily-ui .smaily-step-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.smaily-ui .smaily-step-kicker-row .smaily-step-kicker {
+  margin-bottom: 0;
+}
+
+.smaily-ui .smaily-setup-summary {
+  max-width: 460px;
+  margin-bottom: 16px;
+  padding: 12px 20px;
+  background: var(--smaily-surface);
+  border: 1px solid var(--smaily-border);
+  border-radius: 6px;
+}
+
+.smaily-ui .smaily-setup-summary__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-setup-summary__row:last-child {
+  border-bottom: 0;
+}
+
+.smaily-ui .smaily-setup-summary__label {
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-setup-summary__value {
+  font-weight: 600;
+  color: var(--smaily-text);
+  word-break: break-all;
+}
+
+.smaily-ui code.smaily-setup-summary__value {
+  padding: 0;
+  font-weight: 400;
+  background: none;
+}
+
+.smaily-ui .smaily-setup:not([data-step="1"]) .smaily-edit-credentials {
+  display: none;
+}
+
+.smaily-ui .smaily-shop-overrides {
+  max-width: 780px;
+  margin-top: 16px;
+}
+
+.smaily-ui .smaily-shop-overrides h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.smaily-ui .smaily-shop-override {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--smaily-border);
+}
+
+.smaily-ui .smaily-shop-override ul {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+}
+
+.smaily-ui .smaily-connection-status__account {
+  color: var(--smaily-text);
 }

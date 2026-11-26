@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\StoreShapePanel;
@@ -55,6 +56,11 @@ use Symfony\Component\HttpFoundation\Request;
  * - `intelligence`: the confirmation that the store's cookie banner covers Smaily tracking
  *   (IntelligencePanel); the connection itself is made at once by Api\EngineExchange.
  * - `finish`: the setup is done; the Configure button opens the Dashboard from now on.
+ *
+ * In one store of several shops, `connect`, `contacts` and `automations` save the values all
+ * shops share, and `use_shared` (a list of shop ids) names the shops listed under the step with
+ * their own values that take the step's values instead (ShopOverrides::returnToShared(), Magento's
+ * `use_store_wide`, CON-179). Every other shop keeps its own values.
  *
  * The steps after `connect` save nothing while the scope has no Smaily account stored
  * (ConnectionPanel::laterStepErrors()) and answer the words of step 1, so a request around the
@@ -97,14 +103,21 @@ final class SaveStep extends AbstractSetupAction
                 if ($result['errors'] !== []) {
                     return $this->fieldErrors($result['errors']);
                 }
+                $this->returnToShared(ShopOverrides::CONNECTION, $scope, $data);
 
                 return ['connected' => $result['connected'], 'error' => $result['error'], 'workflows_removed' => $result['workflows_removed']];
             case 'contacts':
                 $errors = $panels->contacts()->save($scope, $data);
+                if ($errors === []) {
+                    $this->returnToShared(ShopOverrides::CONTACTS, $scope, $data);
+                }
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'automations':
                 $errors = $panels->automations()->save($scope, $data);
+                if ($errors === []) {
+                    $this->returnToShared(ShopOverrides::AUTOMATIONS, $scope, $data);
+                }
 
                 return $errors === [] ? [] : $this->fieldErrors($errors);
             case 'intelligence':
@@ -117,6 +130,20 @@ final class SaveStep extends AbstractSetupAction
                 return ['dashboard' => $this->generateUrl(BaseController::PAGES['dashboard']['route'])];
             default:
                 return $this->error('unknown_step', $this->trans('Saving failed.', BaseController::DOMAIN));
+        }
+    }
+
+    /**
+     * After a saved step of one store of several shops: the shops that the post names in
+     * `use_shared` give up their own values of the step's section (Magento's `use_store_wide`).
+     *
+     * @param array<string, mixed> $data
+     */
+    private function returnToShared(string $section, SetupScope $scope, array $data): void
+    {
+        $shops = is_array($data['use_shared'] ?? null) ? array_map('intval', $data['use_shared']) : [];
+        if ($shops !== [] && $scope->multishop() && !$scope->separateStores()) {
+            $this->settings()->overrides()->returnToShared($section, $shops);
         }
     }
 

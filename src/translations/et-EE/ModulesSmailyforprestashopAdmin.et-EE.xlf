@@ -3642,6 +3642,71 @@
         <target>Loo Smailys segment</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="07ca5050e697392c9ed47e6453f1453f">
+        <source>Completed</source>
+        <target>Lõpetatud</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c98f8dfd7e317cb87d057d9e065d71d4">
+        <source>Edit credentials</source>
+        <target>Muuda kasutajaandmeid</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1b5b48004a057f753242ef9cffb99238">
+        <source>Shops with their own values</source>
+        <target>Oma väärtustega poed</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="b7e6ef941dc94399132acb9ec455658d">
+        <source>These shops hold their own values for the settings of this step, so the values you save here do not reach them. Each one keeps its own values unless you pick this step's values for it.</source>
+        <target>Nendel poodidel on selle sammu seadetele oma väärtused, seega siin salvestatud väärtused nendeni ei jõua. Iga pood jääb oma väärtuste juurde, kui sa ei vali tema jaoks selle sammu väärtusi.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cbabea063e2bccf1305a03d0db3f3cc9">
+        <source>No Smaily account is saved for all shops, so each of these shops uses its own. Press Continue to keep them, or Edit credentials to save a Smaily account for all shops.</source>
+        <target>Kõigi poodide jaoks pole Smaily kontot salvestatud, seega kasutab iga neist poodidest oma kontot. Vajuta „Jätka“, et need alles jätta, või „Muuda kasutajaandmeid“, et salvestada Smaily konto kõigile poodidele.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="4de926fc0ab084a8ad736eb68135a32b">
+        <source>Keep its own values</source>
+        <target>Jäta tema oma väärtused</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="25481342e0d1a8827f41e6c823a58815">
+        <source>Use this step's values</source>
+        <target>Kasuta selle sammu väärtusi</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="072fe7fac034c352db4ba634a8dfd388">
+        <source>as "%account%"</source>
+        <target>kontoga "%account%"</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a3e84b38ea84f257bc298a074548bcf2">
+        <source>Product RSS feed for the Smaily template editor:</source>
+        <target>Toodete RSS-voog Smaily mallide redaktori jaoks:</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="507e5e79b7cf4aeaf8928035dd306611">
+        <source>Need a category-filtered or sorted feed? Use the URL builder under Settings &gt; RSS.</source>
+        <target>Vajad kategooria järgi filtreeritud või sorditud voogu? Kasuta URL-i koostajat menüüs Seaded &gt; RSS.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="1bcff7327c2f8f48939a4d2a72c0ceae">
+        <source>Open the URL builder</source>
+        <target>Ava URL-i koostaja</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7a97419a6312bf2f5dcdb87d844f3d07">
+        <source>User Guide</source>
+        <target>Kasutusjuhend</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8a41eb3e83391a848062221fff6e9a8f">
+        <source>the full merchant documentation: every feature, setting and troubleshooting steps</source>
+        <target>täielik kaupmehe dokumentatsioon: kõik funktsioonid, seadistused ja veaotsingu sammud</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -33,8 +33,13 @@
  # A save that puts another Smaily account (another subdomain) in a stored one's place asks first
  # while an automation has a workflow picked (data-label-account-change, panels.js).
  #
+ # The state of the account of no language names its subdomain once Smaily accepted it, as Magento's
+ # 'Status: CONNECTED as "<subdomain>"'.
+ #
  # Takes `connection` (ConnectionPanel::values()), `languages` (ISO code => name), `language_modes`
  # (the modes offered) and `account_per_language_elsewhere` (mode `a` is set per shop in Settings).
+ # The Initial setup passes `intro`, its sentence on where the credentials are, which the
+ # credentials card shows (Magento's wizard).
  # Behaviour: views/js/admin/panels.js ([data-smaily-panel=connection]).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
@@ -79,6 +84,9 @@
 
   <div class="smaily-card" data-smaily-account-block="" data-has-password="{{ connection.has_password ? 1 : 0 }}"{% if mode == 'a' %} hidden{% endif %}>
     <h2>{{ 'Smaily API credentials'|trans }}</h2>
+    {% if intro|default(false) %}
+      <p>{{ 'You can find or create API credentials in Smaily under gear icon → Integrations. The password is stored encrypted and never leaves your server.'|trans }}</p>
+    {% endif %}
     <div class="smaily-fields">
       <div class="smaily-field">
         <label for="smaily-subdomain">{{ 'Subdomain'|trans }}</label>
@@ -107,6 +115,7 @@
     <div class="smaily-connection-status" data-smaily-connection-status hidden>
       <span class="smaily-connection-status__label">{{ 'Status'|trans }}:</span>
       <span class="smaily-pill" data-smaily-pill><span class="smaily-pill__dot" aria-hidden="true"></span><span data-smaily-pill-text></span></span>
+      <span class="smaily-connection-status__account" data-smaily-connection-account data-label-as="{{ 'as "%account%"'|trans }}"></span>
     </div>
   </div>
 

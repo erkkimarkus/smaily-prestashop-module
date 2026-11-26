@@ -1277,7 +1277,9 @@ Shop groups carry no settings of their own (section 2.1). A shop group matters o
 sharing (5.3). The separate-stores layout is in the first release (owner, 2026-11-20).
 
 **[D]** A configured store changes its layout in Settings (`Admin\Settings\LayoutChange`, Magento's
-`StoreLayout::toSeparateStores()` and `toOneStore()`). The values that move are the three sections a
+`StoreLayout::toSeparateStores()` and `toOneStore()`), or with the store-layout bar's "Change" in
+the Initial setup, as in Magento's wizard: the same endpoint (`Api\Settings\ChangeLayout`) under
+the setup's route `smailyforprestashop_api_setup_layout`, with the same questions. The values that move are the three sections a
 shop can hold as its own (`Admin\Settings\ShopOverrides`): the Smaily account (the language mode, the
 fallback language, the account rows), the Contacts settings and the automations (their keys and the
 mapping rows).
@@ -1377,8 +1379,18 @@ setup shows and saves the values all shops share, whichever shop PrestaShop's se
 Magento's wizard sets the whole store up (CON-179); its first step says so. A shop's own values are
 read and saved under Settings only (`Admin\Settings\SettingsScope`). The setup once read the
 selected shop and wrote the shared scope: Continue on the Contacts step then saved a shop's own
-"All customers" as the mode of every shop. Magento's wizard also lists the websites that hold own
-values and offers to return them to the shared ones; that list is not built.
+"All customers" as the mode of every shop.
+
+**[D]** As Magento's wizard (CON-179, CON-190; Linear CON-445), the Connect, Contacts and
+Automations steps of one store with several shops end with the card "Shops with their own values"
+(`Admin\Setup\ShopsWithOwnValues`): each shop that holds own values of the step's section
+(`ShopOverrides::hasOwn()`), with those values in the admin's words, and "Keep its own values" or
+"Use this step's values". The step's save names the second in `use_shared`, and after the save
+`ShopOverrides::returnToShared()` removes those shops' own values of the section, as Settings'
+unticked switch does: a shop on another Smaily account loses its own automations with its own
+account, and a shop that keeps its own automations (mode `a`, or another account) keeps them
+whatever is picked, with Magento's note. A finished setup's Connect summary lists, instead of the
+account, the shops with an account of their own while no account is saved for all shops (CON-185).
 
 **Wanted later:** `AccountStore::languages(int $idShop)`, the languages that hold an own account in a
 shop, for parity with Magento CON-190 (the admin lists them).
@@ -2997,7 +3009,7 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | PrestaShop screen | Magento source | Notes |
 |---|---|---|
 | Dashboard | `Controller/Adminhtml/Dashboard/Index.php`, `view/adminhtml/templates/dashboard/index.phtml`, `docs/internal/ADMIN_UI_TARGET_SPEC.md` §2.1 | Adds the Background tasks card (section 4). The Campaign Intelligence state as built: section 10.12. |
-| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
+| Initial setup: Connect → Contacts → Automations → Intelligence → Overview | `Controller/Adminhtml/Wizard/Index.php`, `templates/wizard/index.phtml`, `templates/panel/{connection,subscribers,automations,intelligence,store-shape}.phtml`, `Api/SaveStep.php` | Forced for `SETUP_STATE = new`; prefilled and not blocking for `upgraded`. The store-layout question comes first on a multishop install while the layout is unknown; its "Separate stores" names the Campaign Intelligence connection it carries and those it ends (section 8.9). Step 1's Continue waits until Test connection passes, and the step's save refuses an account that Smaily refuses (section 15, 2026-11-25); the step list opens no later step until then, and the saves of the later steps refuse a scope without a stored Smaily account; Magento follows in Linear CON-417. As Magento's (Linear CON-445): a finished setup opens step 1 marked "Completed" on a summary of the connection (subdomain, API username, Smaily's answer about the stored account), where Continue saves nothing until "Edit credentials" shows the form; Back is a secondary button; the step's intro sits in the credentials card; the Overview's closing card lists Settings, the Log, the product RSS feed with "Open the URL builder" and the User Guide (`Admin\UserGuide::URL`). Settings > Connection's state names the account: Connected as "<subdomain>". Invitation banner for a store without an account: `Controller/Adminhtml/Invitation`, `templates/panel/smaily-invitation-banner.phtml`. |
 | Settings: Connection, Contacts, Automations, Intelligence, RSS | `Controller/Adminhtml/Settings/Index.php`, `templates/settings/index.phtml`, the same panels, `templates/config/{engine-automations,rss-builder}.phtml` | One writer for setup and Settings (Magento `WizardStepSaver`). |
 | Log | `Controller/Adminhtml/Log/{Index,Details,MassRetry,Resend}.php`, `templates/log/*.phtml` | One list over both queues and the import jobs. As built: section 10.8. |
 

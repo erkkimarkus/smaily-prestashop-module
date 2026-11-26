@@ -21,26 +21,61 @@
  * @license   GPL3
  *#}
 {#
- # Initial setup, step 1 (Connect): how the shops are run, where that applies, then the Connection
- # panel under the setup's own intro (Magento's wizard step 1). In separate stores with "All shops"
- # selected, the step says to pick a shop instead.
+ # Initial setup, step 1 (Connect): how the shops are run, where that applies (the bar's Change runs
+ # Settings' change of the layout), then the Connection panel with the setup's own intro in its
+ # credentials card (Magento's wizard step 1), and the shops that hold their own Smaily account. In
+ # separate stores with "All shops" selected, the step says to pick a shop instead.
+ #
+ # A finished setup opens on a summary of the connection (Magento PRO-3563): the subdomain, the API
+ # username and Smaily's answer about the stored account, which setup.js asks for; with no account
+ # saved for all shops, the shops that hold their own (CON-185). "Edit credentials" shows the form.
  #
  # `smaily_setup` comes from Admin\Setup\SetupController.
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
+{% import '@Modules/smailyforprestashop/views/templates/admin/layout/setup.html.twig' as frame %}
 {% set panel = '@Modules/smailyforprestashop/views/templates/admin/panel/' %}
-{% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name, setup: true, connection_notes: smaily_setup.connection_notes} only %}
+{% include panel ~ 'store-shape.html.twig' with {shape: smaily_setup.shape, shop_name: smaily_setup.shop_name, setup: true, changeable: true, promoted_shop: smaily_setup.promoted_shop, connection_notes: smaily_setup.connection_notes} only %}
 <div data-smaily-shape-page>
   {% if smaily_setup.connection is null %}
     {# The bar of separate stores above says it already. #}
     {% include panel ~ 'separate-stores.html.twig' with {hidden: smaily_setup.shape} only %}
   {% else %}
-    <p class="smaily-intro">{{ 'You can find or create API credentials in Smaily under gear icon → Integrations. The password is stored encrypted and never leaves your server.'|trans }}</p>
-    {% include panel ~ 'connection.html.twig' with {
-      connection: smaily_setup.connection,
-      languages: smaily_setup.languages,
-      language_modes: smaily_setup.language_modes,
-      account_per_language_elsewhere: smaily_setup.account_per_language_elsewhere,
-    } only %}
+    {% if smaily_setup.completed %}
+      <div data-smaily-setup-summary>
+        {% if smaily_setup.own_accounts is not empty %}
+          {{ frame.own_values('connection', smaily_setup.own_accounts, true) }}
+        {% else %}
+          <div class="smaily-setup-summary">
+            <div class="smaily-setup-summary__row">
+              <span class="smaily-setup-summary__label">{{ 'Subdomain'|trans }}</span>
+              <code class="smaily-setup-summary__value">{{ smaily_setup.connection.subdomain != '' ? smaily_setup.connection.subdomain ~ '.sendsmaily.net' : '—' }}</code>
+            </div>
+            <div class="smaily-setup-summary__row">
+              <span class="smaily-setup-summary__label">{{ 'API username'|trans }}</span>
+              <span class="smaily-setup-summary__value">{{ smaily_setup.connection.username != '' ? smaily_setup.connection.username : '—' }}</span>
+            </div>
+            <div class="smaily-setup-summary__row">
+              <span class="smaily-setup-summary__label">{{ 'Status'|trans }}</span>
+              {% if smaily_setup.connection.has_password %}
+                <span class="smaily-pill" data-smaily-summary-state><span class="smaily-pill__dot" aria-hidden="true"></span><span data-smaily-pill-text>{{ 'Checking…'|trans }}</span></span>
+              {% else %}
+                <span class="smaily-pill smaily-pill--off"><span class="smaily-pill__dot" aria-hidden="true"></span><span>{{ 'Not connected'|trans }}</span></span>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+    <div data-smaily-connect-form{% if smaily_setup.completed %} hidden{% endif %}>
+      {% include panel ~ 'connection.html.twig' with {
+        connection: smaily_setup.connection,
+        languages: smaily_setup.languages,
+        language_modes: smaily_setup.language_modes,
+        account_per_language_elsewhere: smaily_setup.account_per_language_elsewhere,
+        intro: true,
+      } only %}
+      {{ frame.own_values('connection', smaily_setup.own_values.connection) }}
+    </div>
   {% endif %}
 </div>

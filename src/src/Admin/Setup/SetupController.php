@@ -33,6 +33,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Api\AbstractJsonAction;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\LayoutChange;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\SettingsPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\UserGuide;
 use PrestaShop\Module\SmailyForPrestaShop\Config\TickSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
@@ -46,8 +48,11 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Like Magento, the page opens on Connect with every step reached so far open in the rail
  * (SetupProgress); `?step=n` opens a step already reached, which the setup uses to show the
- * Overview after Finish. The invitation shows above step 1 while the scope has no Smaily account.
- * No password reaches the page: the panels say only whether one is stored.
+ * Overview after Finish. A finished setup opens step 1 on a summary of the connection with "Edit
+ * credentials", and in one store of several shops steps 1 to 3 list the shops that hold their own
+ * values (ShopsWithOwnValues), as Magento's wizard does. The invitation shows above step 1 while
+ * the scope has no Smaily account. No password reaches the page: the panels say only whether one
+ * is stored.
  */
 final class SetupController extends BaseController
 {
@@ -74,6 +79,9 @@ final class SetupController extends BaseController
         $import = $services->get(ContactImport::class);
         $progress = $target === null ? null : $import->progress($target);
         $intelligence = $panels->intelligence()->values($scope);
+        $settings = new SettingsPanels($services, self::translator());
+        $own = $settings->shopsWithOwnValues();
+        $promoted = LayoutChange::promotedShop($selected);
 
         return $this->renderPage('setup', [
             'smaily_setup_step' => $step,
@@ -82,10 +90,19 @@ final class SetupController extends BaseController
             'smaily_setup' => [
                 'shape' => $panels->shape()->values($scope),
                 'shop_name' => $scope->separateStores() && $target !== null ? (string) self::shopName($target) : '',
-                // The first answer "Separate stores" is Settings' change from one store (Api\Setup\SaveStep).
-                'connection_notes' => $scope->asksLayoutFirst()
-                    ? (new SettingsPanels($services, self::translator()))->connectionNotes(false, LayoutChange::promotedShop($selected))
-                    : [],
+                // The bar's Change is Settings' change of the layout (Api\Settings\ChangeLayout), and
+                // the first answer "Separate stores" is the change from one store (Api\Setup\SaveStep).
+                'promoted_shop' => (string) self::shopName($promoted),
+                'connection_notes' => $scope->multishop() ? $settings->connectionNotes($scope->separateStores(), $promoted) : [],
+                // A finished setup opens on the connection's summary (Magento's isWebsiteSetUp()).
+                'completed' => $panels->progress()->isComplete() && $connection !== null
+                    && (!$scope->separateStores() || $connection['subdomain'] !== ''),
+                'own_accounts' => $own->ownAccounts($scope),
+                'own_values' => [
+                    'connection' => $own->of($scope, ShopOverrides::CONNECTION),
+                    'contacts' => $own->of($scope, ShopOverrides::CONTACTS),
+                    'automations' => $own->of($scope, ShopOverrides::AUTOMATIONS),
+                ],
                 'connection' => $connection,
                 'languages' => $scope->languages(),
                 'language_modes' => $scope->languageModes(),
@@ -104,6 +121,8 @@ final class SetupController extends BaseController
                     'import' => $progress,
                     'last_tick' => $this->lastTick($services),
                 ],
+                'rss_feed' => $settings->rss()->values()['base_url'],
+                'user_guide' => UserGuide::URL,
             ],
         ], self::TEMPLATE);
     }

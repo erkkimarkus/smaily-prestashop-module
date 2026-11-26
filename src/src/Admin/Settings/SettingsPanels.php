@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ShopsWithOwnValues;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\WorkflowList;
 use PrestaShop\Module\SmailyForPrestaShop\Config\EngineSettings;
@@ -51,7 +52,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * Builds what the Settings page and its endpoints use from the runtime's services, with the
  * admin's translator: the Initial setup's panels (one writer for both pages), the page's scope,
- * the shops' own values, the change of the shop layout with what it does to the Campaign
+ * the shops' own values (with the Initial setup's list of them), the change of the shop layout with what it does to the Campaign
  * Intelligence connections, and the RSS panel.
  */
 final class SettingsPanels
@@ -87,6 +88,21 @@ final class SettingsPanels
         $mappings = $this->services->get(MappingRepository::class);
 
         return new ShopOverrides($accounts, $mappings);
+    }
+
+    /**
+     * The Initial setup's card "Shops with their own values" under its Connect, Contacts and
+     * Automations steps.
+     */
+    public function shopsWithOwnValues(): ShopsWithOwnValues
+    {
+        return new ShopsWithOwnValues(
+            $this->overrides(),
+            $this->services->get(AccountStore::class),
+            $this->services->get(MappingRepository::class),
+            $this->translator,
+            static fn (): array => array_map('strval', array_column(\Shop::getShops(false), 'name', 'id_shop'))
+        );
     }
 
     public function saver(): TabSaver

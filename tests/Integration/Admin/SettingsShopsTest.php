@@ -9,6 +9,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\ShopOverrides;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Settings\TabSaver;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupPanels;
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\SetupScope;
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Setup\ShopsWithOwnValues;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\MappingRepository;
 use PrestaShop\Module\SmailyForPrestaShop\Automation\Router;
 use PrestaShop\Module\SmailyForPrestaShop\Config\AutomationSettings;
@@ -535,6 +536,55 @@ final class SettingsShopsTest extends IntegrationTestCase
         \Configuration::resetStaticCache();
         \Configuration::loadConfiguration();
         self::assertTrue($overrides->keepsOwnAutomations($this->shopB));
+    }
+
+    /**
+     * The Initial setup lists, under its Connect, Contacts and Automations steps, each shop that
+     * holds its own values of the step, with those values (Magento CON-179). A listed shop keeps
+     * them unless the step's values are picked for it; a shop on another Smaily account keeps its
+     * own automations whatever is picked, and loses them with its own account (Magento CON-190).
+     */
+    public function testTheInitialSetupListsTheShopsWithTheirOwnValuesAndReturnsThePickedOnes(): void
+    {
+        $this->oneStoreConfigured();
+        $this->saver()->saveContacts($this->context($this->shopB), ['mode' => 'all_customers', 'fields' => ['first_name'], 'guests' => false, 'enabled' => true], true);
+        $this->accounts->save(new Account($this->shopC, '', 'other', self::USERNAME, self::PASSWORD));
+        $this->mappings->upsert($this->shopC, 'welcome', '', 'default', 43);
+        \Configuration::resetStaticCache();
+        \Configuration::loadConfiguration();
+        $list = new ShopsWithOwnValues($this->overrides(), $this->accounts, $this->mappings, \Context::getContext()->getTranslator(), fn (): array => [
+            $this->shopA => 'Shop A',
+            $this->shopB => 'Shop B',
+            $this->shopC => 'Shop C',
+        ]);
+        $scope = new SetupScope(true, false, true, 0, ['en' => 'English']);
+        $names = static fn (array $shops): array => array_column($shops, 'name');
+
+        self::assertSame(['Shop C'], $names($list->of($scope, ShopOverrides::CONNECTION)));
+        self::assertSame([['Subdomain', 'other'], ['API username', self::USERNAME], ['API password', '••••••••']], $list->of($scope, ShopOverrides::CONNECTION)[0]['values']);
+        $contacts = $list->of($scope, ShopOverrides::CONTACTS);
+        self::assertSame(['Shop B'], $names($contacts));
+        self::assertContains(['', 'All customers (legitimate interest)'], $contacts[0]['values']);
+        self::assertContains(['Extra fields to sync with each contact', 'First name'], $contacts[0]['values']);
+        self::assertSame([['Welcome · Smaily Workflow', '#43']], $list->of($scope, ShopOverrides::AUTOMATIONS)[0]['values']);
+        self::assertTrue($list->of($scope, ShopOverrides::AUTOMATIONS)[0]['required'], 'shop C on another account keeps its own automations');
+        self::assertSame([], $list->ownAccounts($scope), 'an account is saved for all shops');
+        self::assertSame([], $list->of(new SetupScope(true, true, true, $this->shopB, ['en' => 'English']), ShopOverrides::CONTACTS), 'separate stores list nothing');
+
+        $overrides = $this->overrides();
+        $overrides->returnToShared(ShopOverrides::AUTOMATIONS, [$this->shopC]);
+        self::assertSame(1, $this->mappingCount($this->shopC), 'a shop on another account keeps its own automations');
+        $overrides->returnToShared(ShopOverrides::CONTACTS, [$this->shopC]);
+        self::assertTrue($overrides->hasOwn(ShopOverrides::CONTACTS, $this->shopB), 'a shop that was not picked keeps its own values');
+        $overrides->returnToShared(ShopOverrides::CONTACTS, [$this->shopB]);
+        self::assertFalse($overrides->hasOwn(ShopOverrides::CONTACTS, $this->shopB));
+        self::assertSame('subscribers', (new ContactsSettings())->mode($this->shopB)->mode());
+        $overrides->returnToShared(ShopOverrides::CONNECTION, [$this->shopC]);
+        self::assertNull($this->accounts->find($this->shopC, ''));
+        self::assertSame(0, $this->mappingCount($this->shopC), 'its automations go with its own account');
+        $read = $this->whatShopsRead();
+        self::assertSame(['demo', self::USERNAME, true], $read[$this->shopC]['account']);
+        self::assertSame([true, 42], $read[$this->shopC]['welcome']);
     }
 
     public function testOneStoreToSeparateStoresKeepsWhatEveryShopReads(): void

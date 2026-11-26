@@ -42,7 +42,8 @@
  * automation has a workflow picked (confirmAccountChange()); lostWorkflows() shows on the page
  * the automations whose workflow such a save removed (Automation\LostWorkflows).
  * The edit also hides the connection state of the account of no language, and an answer about
- * values edited since shows no state (holds()), in the Initial setup and in Settings alike.
+ * values edited since shows no state (holds()), in the Initial setup and in Settings alike. A
+ * connected state names the account's subdomain (Magento's 'CONNECTED as "<subdomain>"').
  */
 (function () {
   'use strict';
@@ -279,6 +280,10 @@
       pill.classList.toggle('smaily-pill--active', connected);
       pill.classList.toggle('smaily-pill--off', !connected);
       pill.querySelector('[data-smaily-pill-text]').textContent = label(connected ? 'connected' : 'not-connected');
+      // Connected as "<subdomain>", as Magento names the account.
+      var account = status.querySelector('[data-smaily-connection-account]');
+      var subdomain = subdomainOf(value(status.closest('[data-smaily-account-block]'), 'subdomain'));
+      account.textContent = connected && subdomain !== '' ? labels(account)('as', {account: subdomain}) : '';
     }
 
     function markTested(accountBlock, passed) {
