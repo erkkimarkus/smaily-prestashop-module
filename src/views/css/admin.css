@@ -1616,6 +1616,12 @@
   color: var(--smaily-muted);
 }
 
+.smaily-ui .smaily-log-details__refused {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
 .smaily-ui .smaily-log-details__outcome {
   display: flex;
   gap: 8px;

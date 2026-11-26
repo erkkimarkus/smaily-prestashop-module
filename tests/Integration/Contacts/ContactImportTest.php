@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tests\Integration\Contacts;
 
+use PrestaShop\Module\SmailyForPrestaShop\Admin\Log\LogView;
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
@@ -12,6 +13,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Database\SqlException;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Response;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
+use PrestaShop\Module\SmailyForPrestaShop\Log\LogRows;
 use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
 use PrestaShop\Module\SmailyForPrestaShop\Scheduler\Deadline;
@@ -291,6 +293,34 @@ final class ContactImportTest extends IntegrationTestCase
         self::assertSame($id, $import->start());
         $this->tickUntilFinished($import);
         self::assertSame(['status' => JobStore::STATUS_DONE, 'sent' => 2], array_intersect_key($import->progress(), array_flip(['status', 'sent'])));
+    }
+
+    /**
+     * Linear CON-433: a contact that Smaily refuses alone is counted as refused and kept by its
+     * customer id and the reason for the Log's Details, never by its address.
+     */
+    public function testAContactThatSmailyRefusesIsKeptByItsIdForTheLog(): void
+    {
+        $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $refused = $this->addCustomer($this->shopA, '', true, $this->idLang);
+        $import = $this->import();
+
+        $id = $import->start();
+        $this->tickUntilFinished($import);
+
+        self::assertSame(
+            ['status' => JobStore::STATUS_DONE, 'sent' => 1, 'failed' => 1, 'refused' => 1],
+            array_intersect_key($import->progress(), array_flip(['status', 'sent', 'failed', 'refused']))
+        );
+        $row = self::db()->getRow('SELECT * FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id` = ' . $id, false);
+        self::assertSame([['customer', $refused, 'permanent_envelope_203: Smaily API returned code 203']], ContactImport::refusedContacts($row['counts']));
+
+        $details = (new LogView(static fn (string $text, array $parameters = []): string => strtr($text, $parameters)))
+            ->details((new LogRows(null, static fn (): array => []))->find('job-' . $id), null);
+        self::assertSame(
+            ['items' => [['source' => 'customer', 'id' => $refused, 'text' => 'Customer ' . $refused . ': Smaily API returned code 203']], 'more' => ''],
+            $details['refused']
+        );
     }
 
     public function testTheDailyRefreshSendsTheAudienceAgainOncePerRun(): void

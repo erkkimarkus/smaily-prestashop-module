@@ -30,6 +30,8 @@ if (!defined('_PS_VERSION_')) {
 }
 
 use PrestaShop\Module\SmailyForPrestaShop\Admin\Dashboard\EntityLabel;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\ContactImport;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\Import\JobStore;
 use PrestaShop\Module\SmailyForPrestaShop\Discount\AutomationDiscount;
 use PrestaShop\Module\SmailyForPrestaShop\Log\AttemptHistory;
@@ -49,7 +51,9 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\RetryPolicy;
  *
  * Details show the request and the answer in full to the admin, without secrets
  * (Log\PayloadRedactor), as Magento does. A row whose email went without its discount code says so
- * in a sentence (Discount\AutomationDiscount::NOTICE_KEY in the row's payload).
+ * in a sentence (Discount\AutomationDiscount::NOTICE_KEY in the row's payload). A contact import
+ * lists the contacts that Smaily refused by their customer or newsletter-block id and the reason,
+ * never an address (ContactImport::refusedContacts()).
  */
 final class LogView
 {
@@ -117,6 +121,7 @@ final class LogView
         if ($row['kind'] === LogRows::JOB) {
             return $details + [
                 'job' => true,
+                'refused' => in_array($row['type'], ContactImport::TYPES, true) ? $this->refused((string) $row['counts']) : null,
                 'outcome' => ['text' => $this->jobOutcome($row), 'terminal' => !in_array($row['status'], JobStore::ACTIVE, true)],
                 'error' => $this->error($row, true),
                 'error_title' => $this->trans($row['status'] === JobStore::STATUS_FAILED ? 'Last error' : 'Reason'),
@@ -281,6 +286,34 @@ final class LogView
                     ? $this->trans('Next automatic retry: %date% (attempt %attempt% of %max%).', ['%date%' => self::time($nextRetryAt), '%attempt%' => $attempts + 1, '%max%' => $max])
                     : $this->trans('Waiting for the next queue flush (runs every minute).');
         }
+    }
+
+    /**
+     * The contacts that Smaily refused in a contact import: each kept one as a line (`source` and
+     * `id` name its record), and how many more were refused; null when none was.
+     *
+     * @return array{items: list<array{source: string, id: int, text: string}>, more: string}|null
+     */
+    private function refused(string $counts): ?array
+    {
+        $kept = ContactImport::refusedContacts($counts);
+        if ($kept === []) {
+            return null;
+        }
+        $items = [];
+        foreach ($kept as [$source, $id, $reason]) {
+            $items[] = [
+                'source' => $source,
+                'id' => $id,
+                'text' => $this->trans($source === ContactAudience::SOURCE_CUSTOMER ? 'Customer %id%: %reason%' : 'Newsletter subscriber %id%: %reason%', [
+                    '%id%' => $id,
+                    '%reason%' => FailureMessage::forDisplay($reason, $this->translate, true),
+                ]),
+            ];
+        }
+        $more = (int) (json_decode($counts, true)['refused'] ?? 0) - count($kept);
+
+        return ['items' => $items, 'more' => $more > 0 ? $this->trans('…and %count% more.', ['%count%' => $more]) : ''];
     }
 
     /**

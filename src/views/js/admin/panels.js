@@ -568,6 +568,7 @@
       var timer = null;
       var pill = card.querySelector('[data-smaily-import-pill]');
       var line = card.querySelector('[data-smaily-import-line]');
+      var logLine = card.querySelector('[data-smaily-import-log]');
       var bar = card.querySelector('[data-smaily-import-bar]');
       var start = card.querySelector('[data-smaily-action="import-start"]');
       var stop = card.querySelector('[data-smaily-action="import-stop"]');
@@ -599,13 +600,16 @@
         } else if (job && job.status === 'running') {
           text = word('importing') + ' ' + word('progress', counts);
         } else if (job && job.status === 'done') {
-          text = job.last_error === 'contact_sync_off' ? word('sync-off') : word(job.failed > 0 ? 'done-failed' : 'done', counts);
+          // Contacts that Smaily refused one by one: the Log's Details list them.
+          var refused = job.failed > 0 && job.refused === job.failed;
+          text = job.last_error === 'contact_sync_off' ? word('sync-off') : word(job.failed > 0 ? (refused ? 'done-refused' : 'done-failed') : 'done', counts);
         } else if (job && job.status === 'cancelled') {
           text = word('cancelled', counts);
         } else if (job && job.status === 'failed') {
           text = word('stopped', counts);
         }
         line.textContent = text;
+        logLine.hidden = !(job && job.status === 'done' && job.failed > 0);
         start.hidden = active;
         start.textContent = word(job && !active ? 'run-again' : 'start');
         stop.hidden = !active;

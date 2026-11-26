@@ -3191,7 +3191,15 @@ the row's id, type and status; Source, Entity, Attempts, Created, Updated; the a
 as far as the row stores them (`Log\AttemptHistory`); one line that says what happens next; the last
 error with its failure class, or the reason of a skip; the payload as sent (`last_request`), or the
 queued payload while nothing was sent; the last answer (`last_response`); and "Copy payload". An
-import job shows its summary, its progress line and its last error.
+import job shows its summary, its progress line and its last error. A contact import also lists
+under "Contacts Smaily refused" each contact that Smaily refused alone in its request ("Customer
+1042: Smaily API returned code 203", "Newsletter subscriber 88: …"; a customer links to its page
+in PrestaShop, as WooCommerce links each user), by id and reason only, never an address: the job's
+`counts` keep the first 50 (`refused_contacts`, `ContactImport::REFUSED_KEPT`) and how many in all
+(`refused`), and "…and N more." counts the rest (owner, 2026-11-26; Linear CON-433). The import
+card then reads "Done, N of M synced. Smaily refused K contacts, so they were not imported. Fix
+them and run the import again." with "View them in the Log"; a failure that is not Smaily's
+refusal of single contacts keeps "Done, N of M synced — K failed." and the link.
 
 A row whose email went without its discount code (section 7) says so in one sentence above the
 attempts: "Without a discount code: cart price rule N gave no code for this shop (it was deleted,
@@ -5120,3 +5128,5 @@ the four connectors):
   every account that the tab would save passed Test connection (a stored account that Smaily
   accepts when the page opens counts), and `Api\Settings\SaveTab` asks Smaily about each account
   before it writes and saves nothing while Smaily refuses one.
+- A finished contact import counts the contacts that Smaily refused and points to the Log, whose
+  Details list them by id and reason (section 10.8).

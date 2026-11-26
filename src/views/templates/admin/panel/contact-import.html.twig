@@ -25,7 +25,8 @@
  # and one progress line, from Contacts\Import\ContactImport. It is offered once the Contacts
  # settings are saved and only in a mode that imports anyone; views/js/admin/panels.js draws the
  # state from `data-smaily-import`, in the card's own words (data-label-*), and polls the progress
- # while the import is queued or running.
+ # while the import is queued or running. A finished import whose contacts Smaily refused says so
+ # and links the Log, whose Details list them.
  #
  # Takes `contacts` (ContactsPanel::values()) and `import` (ContactImport::progress(), or null).
  #}
@@ -37,6 +38,7 @@
      data-label-progress="{{ '%sent% of %total%'|trans }}"
      data-label-done="{{ 'Done, %sent% of %total% synced.'|trans }}"
      data-label-done-failed="{{ 'Done, %sent% of %total% synced — %failed% failed.'|trans }}"
+     data-label-done-refused="{{ 'Done, %sent% of %total% synced. Smaily refused %failed% contacts, so they were not imported. Fix them and run the import again.'|trans }}"
      data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
      data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
      data-label-sync-off="{{ 'Contact synchronization is off for this shop, so an import would send nothing. Turn it on and save to import.'|trans }}"
@@ -58,6 +60,7 @@
     <p class="smaily-note">{{ 'The import sends the contacts that your Contacts settings sync. It runs in the background, a chunk per minute, and never slows the storefront down.'|trans }}</p>
     <div class="smaily-progress" data-smaily-import-bar hidden><div class="smaily-progress__fill"></div></div>
     <p class="smaily-import__line" data-smaily-import-line role="status"></p>
+    <p class="smaily-import__line" data-smaily-import-log hidden><a href="{{ path('smailyforprestashop_log') }}">{{ 'View them in the Log'|trans }}</a></p>
     <div class="smaily-actions">
       <button type="button" class="btn smaily-btn-primary" data-smaily-action="import-start">{{ 'Start import'|trans }}</button>
       <button type="button" class="btn btn-outline-secondary" data-smaily-action="import-stop" hidden>{{ 'Cancel import'|trans }}</button>

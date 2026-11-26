@@ -24,7 +24,8 @@
  # The Details of one row of the Log, as the Magento connector's log/details.phtml draws them: the
  # row's id, type and status; its summary; the attempts in order; what happens next; the last error
  # or the skip reason; the payload as it was sent; the last answer. An import job shows its summary,
- # its progress line and its last error.
+ # its progress line, for a contact import the contacts that Smaily refused (by id, a customer
+ # linked to its page), and its last error.
  #
  # `details` comes from Admin\Log\LogView::details() through Admin\Log\Details. The payload and the
  # answer are already without secrets (Log\PayloadRedactor); the contact's data shows in full.
@@ -89,6 +90,18 @@
   <div class="smaily-log-details__outcome{{ details.outcome.terminal ? ' is-terminal' }}">
     <span aria-hidden="true">&#8635;</span><span>{{ details.outcome.text }}</span>
   </div>
+
+  {% if details.refused|default(null) is not null %}
+    <h3>{{ 'Contacts Smaily refused'|trans }}</h3>
+    <ul class="smaily-log-details__refused" data-smaily-refused>
+      {% for item in details.refused.items %}
+        <li>{% if item.source == 'customer' %}<a href="{{ path('admin_customers_view', {customerId: item.id}) }}">{{ item.text }}</a>{% else %}{{ item.text }}{% endif %}</li>
+      {% endfor %}
+      {% if details.refused.more != '' %}
+        <li>{{ details.refused.more }}</li>
+      {% endif %}
+    </ul>
+  {% endif %}
 
   {% if details.error != '' %}
     <h3>{{ details.error_title }}</h3>

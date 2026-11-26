@@ -60,6 +60,11 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * goes on; a temporary failure (a 5xx, a 429, the network) ends the run as failed before the page,
  * and start() resumes it from there. The counts, the cursor and `last_error` hold numbers, ids and
  * reason codes only, never a contact.
+ *
+ * A contact that Smaily refuses alone in its request (its answer code, as 203) is a refused
+ * contact: the counts keep how many (`refused`) and, for the Log, the first REFUSED_KEPT of them
+ * as [source, id, reason] (`refused_contacts`): the record's ContactAudience source and its
+ * customer or newsletter-block id, never its address (owner, 2026-11-26; Linear CON-433).
  */
 final class ContactImport
 {
@@ -72,6 +77,9 @@ final class ContactImport
     public const TYPES = [self::TYPE_IMPORT, self::TYPE_REFRESH];
 
     public const PAGE_SIZE = 500;
+
+    /** How many refused contacts a run keeps by id for the Log; the rest are counted. */
+    public const REFUSED_KEPT = 50;
 
     /** No shop of the run has an active contact sync. */
     public const REASON_SYNC_OFF = 'contact_sync_off';
@@ -164,9 +172,10 @@ final class ContactImport
     /**
      * The newest run of a type for one shop (0 = every shop), or null when none ran. `status` is a
      * JobStore status; `total` is the audience when the run started; `skipped` counts the contacts
-     * of the audience whose account is missing or has no credentials; the times are UTC.
+     * of the audience whose account is missing or has no credentials; `refused` those of `failed`
+     * that Smaily refused one by one; the times are UTC.
      *
-     * @return array{id: int, type: string, id_shop: int, status: string, total: int, sent: int, failed: int, skipped: int, started_at: ?string, updated_at: string, finished_at: ?string, last_error: ?string}|null
+     * @return array{id: int, type: string, id_shop: int, status: string, total: int, sent: int, failed: int, skipped: int, refused: int, started_at: ?string, updated_at: string, finished_at: ?string, last_error: ?string}|null
      */
     public function progress(int $idShop = 0, string $type = self::TYPE_IMPORT): ?array
     {
@@ -185,6 +194,7 @@ final class ContactImport
             'sent' => $counts['sent'],
             'failed' => $counts['failed'],
             'skipped' => $counts['skipped'],
+            'refused' => $counts['refused'],
             'started_at' => $job['started_at'] === null ? null : (string) $job['started_at'],
             'updated_at' => (string) $job['updated_at'],
             'finished_at' => $job['finished_at'] === null ? null : (string) $job['finished_at'],
@@ -241,6 +251,7 @@ final class ContactImport
         }
         $cursor = $job['cursor'] === null ? null : (string) $job['cursor'];
         $counts = self::decodeCounts($job['counts']);
+        $refused = self::refusedContacts($job['counts']);
 
         do {
             $current = $this->jobs->find($id);
@@ -267,8 +278,10 @@ final class ContactImport
             foreach (['sent', 'failed', 'skipped'] as $count) {
                 $counts[$count] += $outcome[$count];
             }
+            $counts['refused'] += count($outcome['refused']);
+            $refused = array_slice(array_merge($refused, $outcome['refused']), 0, self::REFUSED_KEPT);
             $cursor = $next;
-            $columns = ['cursor' => $cursor, 'counts' => $counts];
+            $columns = ['cursor' => $cursor, 'counts' => $counts + ['refused_contacts' => $refused]];
             if ($outcome['reason'] !== null) {
                 $columns['last_error'] = self::cut($outcome['reason']);
             }
@@ -281,12 +294,12 @@ final class ContactImport
      *
      * @param list<array<string, mixed>> $records
      *
-     * @return array{sent: int, failed: int, skipped: int, reason: ?string, temporary: ?string}
+     * @return array{sent: int, failed: int, skipped: int, refused: list<array{0: string, 1: int, 2: string}>, reason: ?string, temporary: ?string}
      */
     private function sendPage(array $records): array
     {
-        $outcome = ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'reason' => null, 'temporary' => null];
-        /** @var array<string, array{client: Client, contacts: list<array<string, string|int>>}> $groups */
+        $outcome = ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'refused' => [], 'reason' => null, 'temporary' => null];
+        /** @var array<string, array{client: Client, contacts: list<array<string, string|int>>, records: list<array{0: string, 1: int}>}> $groups */
         $groups = [];
         foreach ($records as $record) {
             $idShop = (int) $record['id_shop'];
@@ -312,10 +325,11 @@ final class ContactImport
                 $record['customer'],
                 $shop['audience']->unsubscribedStatus((bool) $record['newsletter'], false)
             );
+            $groups[$key]['records'][] = [(string) $record['source'], (int) $record['id']];
         }
 
         foreach ($groups as $group) {
-            [$sent, $failure] = $this->send($group['client'], $group['contacts']);
+            [$sent, $failure, $refused] = $this->send($group['client'], $group['contacts'], $group['records']);
             if ($failure !== null && !$failure->isPermanent()) {
                 $outcome['temporary'] = $failure->reason();
 
@@ -323,6 +337,7 @@ final class ContactImport
             }
             $outcome['sent'] += $sent;
             $outcome['failed'] += count($group['contacts']) - $sent;
+            $outcome['refused'] = array_merge($outcome['refused'], $refused);
             if ($failure !== null) {
                 $outcome['reason'] = $failure->reason();
             }
@@ -332,37 +347,42 @@ final class ContactImport
     }
 
     /**
-     * Posts contacts in one request; a group refused as invalid data goes again one by one.
+     * Posts contacts in one request; a group refused as invalid data goes again one by one. A
+     * contact that Smaily refuses alone is a refused contact: [source, id, reason] of its record.
      *
      * @param list<array<string, string|int>> $contacts
+     * @param list<array{0: string, 1: int}> $records each contact's source and id
      *
-     * @return array{0: int, 1: ?Failure} how many Smaily took, and the last failure
+     * @return array{0: int, 1: ?Failure, 2: list<array{0: string, 1: int, 2: string}>} how many Smaily took, the last failure, and the refused contacts
      */
-    private function send(Client $client, array $contacts): array
+    private function send(Client $client, array $contacts, array $records): array
     {
         try {
             $client->post(Client::ENDPOINT_CONTACT, $contacts);
 
-            return [count($contacts), null];
+            return [count($contacts), null, []];
         } catch (ApiException $error) {
             if (count($contacts) > 1 && $error->getSmailyCode() === ApiException::CODE_INVALID_DATA) {
                 $sent = 0;
                 $last = null;
-                foreach ($contacts as $contact) {
-                    [$one, $failure] = $this->send($client, [$contact]);
+                $refused = [];
+                foreach ($contacts as $index => $contact) {
+                    [$one, $failure, $alone] = $this->send($client, [$contact], [$records[$index]]);
                     if ($failure !== null && !$failure->isPermanent()) {
-                        return [$sent, $failure];
+                        return [$sent, $failure, $refused];
                     }
                     $sent += $one;
                     $last = $failure ?? $last;
+                    $refused = array_merge($refused, $alone);
                 }
 
-                return [$sent, $last];
+                return [$sent, $last, $refused];
             }
+            $failure = Failure::of($error);
 
-            return [0, Failure::of($error)];
+            return [0, $failure, count($contacts) === 1 && $failure->isPermanent() ? [[$records[0][0], $records[0][1], $failure->reason()]] : []];
         } catch (SmailyClientException $error) {
-            return [0, Failure::of($error)];
+            return [0, Failure::of($error), []];
         }
     }
 
@@ -425,17 +445,37 @@ final class ContactImport
     }
 
     /**
-     * @return array{total: int, sent: int, failed: int, skipped: int}
+     * @return array{total: int, sent: int, failed: int, skipped: int, refused: int}
      */
     private static function counts(int $total): array
     {
-        return ['total' => $total, 'sent' => 0, 'failed' => 0, 'skipped' => 0];
+        return ['total' => $total, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'refused' => 0];
+    }
+
+    /**
+     * The refused contacts that a job's counts keep for the Log: [source, id, reason] each.
+     *
+     * @param mixed $json
+     *
+     * @return list<array{0: string, 1: int, 2: string}>
+     */
+    public static function refusedContacts($json): array
+    {
+        $counts = is_string($json) ? json_decode($json, true) : null;
+        $refused = [];
+        foreach ((array) ($counts['refused_contacts'] ?? []) as $entry) {
+            if (is_array($entry) && count($entry) === 3 && in_array($entry[0], ContactAudience::SOURCES, true)) {
+                $refused[] = [(string) $entry[0], (int) $entry[1], (string) $entry[2]];
+            }
+        }
+
+        return $refused;
     }
 
     /**
      * @param mixed $json
      *
-     * @return array{total: int, sent: int, failed: int, skipped: int}
+     * @return array{total: int, sent: int, failed: int, skipped: int, refused: int}
      */
     private static function decodeCounts($json): array
     {
