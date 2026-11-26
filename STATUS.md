@@ -52,14 +52,13 @@ both (the console-install defect in the queue). **Two shops** walked on 8.2.8 an
 (`docs/internal/walks/2026-11-26-two-shops.md`): Module Manager's install, one shared connection, a connection per
 shop, the layout change both ways, capabilities 8 to 11 per shop: 91 of 91 and 91 of 92 (the one a walk fault).
 
-**Run of 2026-11-26 (CON-433c: workflows after an account or mode change, Settings refuses a rejected account, refused
-import contacts in the Log, the consent-mode warning).** Host 2305 tests, 4054 assertions, 1169 skipped; JS 55; CS 0 of
-361; PHP 8.0.30 lint of the 18 changed PHP files. Fresh shops behind the guard: 2305 tests on 8.2.8 (12350) and 9.2.0
-(12355), leftovers silent (one earlier 9.2.0 run under heavy machine load failed `RssFeedTest` once on an HTML error
-page; RSS alone and the full rerun passed). Browser walk on both, EN and ET, Smaily mock, two shops: 35 of 35 checks on
-8.2.8 and 9.2.0 (the Initial setup, the refused test and endpoint, the account-change question with Cancel and OK, the
-names after the save, both banners and the pills, the import card and the Log's refused list, the warning on Settings
-and step 2).
+**Run of 2026-11-26 (CON-433c on `effe744`: workflows after an account or mode change, Settings refuses a rejected
+account, refused import contacts in the Log and in a privacy request, the consent-mode warning).** Host 2324 tests,
+4121 assertions, 1175 skipped; JS 55; CS 0 of 364; PHP 8.0.30 lint of the 22 changed PHP files. Fresh shops behind
+the guard: 2324 tests on 8.2.8 (12510) and 9.2.0 (12515), leftovers silent. Browser walk on both, EN and ET, Smaily
+mock, two shops: 35 of 35 checks on each (the Initial setup, the refused test and endpoint, the account-change
+question with Cancel and OK, the plain "Saved." after it, both banners and the pills, the import card and the Log's
+refused list, the warning on Settings and step 2).
 
 **Run of 2026-11-26 (CON-433b, privacy requests paced).** Host 2317 tests, 4121 assertions; JS 55; CS 0 of 362; PHP
 8.0 lint of 23 files. Fresh shops behind the guard: 2317 tests on 9.2.0 (12474) and 8.2.8 (12469), leftovers silent.
