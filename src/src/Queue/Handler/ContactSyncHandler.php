@@ -51,7 +51,8 @@ use PrestaShop\Module\SmailyForPrestaShop\Smaily\Exception\SmailyClientException
  * are read when the row is sent:
  *   {"email": string, "source": "customer"|"newsletter_block", "subscribed": bool,
  *    "consent_changed": bool, "checkout": bool, "guest": bool, "id_lang": int,
- *    "customer": {"firstname", "lastname", "birthday", "website"}}
+ *    "customer": {"firstname", "lastname", "birthday", "website", "id_customer", "id_gender",
+ *    "id_default_group"}}
  * (ContactAudience::syncs() describes each value; `guest` is true for a guest-checkout customer;
  * `checkout`, `guest`, `id_lang` and `customer` may be left out.)
  *

@@ -44,8 +44,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * post switches it off (`enabled` false, the switch that a store with sync off sees). A fresh
  * install sends nothing to Smaily before this save.
  *
- * Defaults where nothing is stored: subscribers only, every field, guests off (the narrowest
- * audience), and the checkout checkbox on (ARCHITECTURE 6.1).
+ * Defaults where nothing is stored: subscribers only, the fields of 2.x (Gender, Customer ID and
+ * Customer group are the merchant's choice), guests off (the narrowest audience), and the
+ * checkout checkbox on (ARCHITECTURE 6.1).
  *
  * `shared_account_modes` lists the shops on the scope's Smaily account with their consent modes
  * where those modes differ (SharedAccountModes), which the panel warns about.
@@ -90,7 +91,7 @@ final class ContactsPanel
             'active' => $this->settings->syncActive($shop),
             'mode' => $mode->mode(),
             'guests' => $stored && $mode->includesGuests(),
-            'fields' => $stored ? $this->settings->fields($shop) : SubscriberPayloadBuilder::FIELDS,
+            'fields' => $stored ? $this->settings->fields($shop) : SubscriberPayloadBuilder::DEFAULT_FIELDS,
             'checkout_checkbox' => $this->settings->checkoutCheckbox($shop) ?? true,
             'newsletter_module' => (bool) ($this->newsletterModuleActive)(),
             'shared_account_modes' => $this->sharedAccountModes->of($shop),

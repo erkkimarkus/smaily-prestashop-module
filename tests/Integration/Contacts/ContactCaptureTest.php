@@ -82,7 +82,15 @@ final class ContactCaptureTest extends IntegrationTestCase
                 'checkout' => false,
                 'guest' => false,
                 'id_lang' => $this->idLang,
-                'customer' => ['firstname' => 'Testfirst', 'lastname' => 'Testlast', 'birthday' => '0000-00-00', 'website' => ''],
+                'customer' => [
+                    'firstname' => 'Testfirst',
+                    'lastname' => 'Testlast',
+                    'birthday' => '0000-00-00',
+                    'website' => '',
+                    'id_customer' => (int) $customer->id,
+                    'id_gender' => (int) $customer->id_gender,
+                    'id_default_group' => (int) $customer->id_default_group,
+                ],
             ],
         ]], $this->rows());
     }

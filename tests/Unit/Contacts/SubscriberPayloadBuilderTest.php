@@ -23,7 +23,61 @@ final class SubscriberPayloadBuilderTest extends TestCase
 
     private function builder(): SubscriberPayloadBuilder
     {
-        return new SubscriberPayloadBuilder(static fn (int $idShop): string => [1 => 'shop1.example.test', 2 => 'shop2.example.test'][$idShop] ?? '');
+        return new SubscriberPayloadBuilder(
+            static fn (int $idShop): string => [1 => 'shop1.example.test', 2 => 'shop2.example.test'][$idShop] ?? '',
+            // PrestaShop's demo genders: 1 Mr. (male), 2 Mrs. (female), 3 a neutral one.
+            static fn (int $idGender): ?string => [1 => '0', 2 => '1', 3 => '2'][$idGender] ?? null,
+            // Group 0 is the shop's guest group.
+            static fn (int $idGroup, int $idShop): ?string => [0 => 'Guest', 3 => 'Customer', 4 => 'Wholesale'][$idGroup] ?? null
+        );
+    }
+
+    public function testCarriesGenderCustomerIdAndCustomerGroupWhenSelected(): void
+    {
+        $customer = self::CUSTOMER + ['id_customer' => 42, 'id_gender' => 2, 'id_default_group' => 4];
+
+        $contact = $this->builder()->build('shopper1@example.test', 1, 'en', ['user_gender', 'customer_id', 'customer_group'], $customer, null);
+
+        self::assertSame([
+            'email' => 'shopper1@example.test',
+            'store' => 'shop1.example.test',
+            'language' => 'en',
+            'customer_id' => '42',
+            'user_gender' => 'Female',
+            'customer_group' => 'Wholesale',
+        ], $contact);
+    }
+
+    public function testLeavesOutAGenderThatIsNeitherMaleNorFemale(): void
+    {
+        $male = $this->builder()->build('shopper1@example.test', 1, 'en', ['user_gender'], ['id_gender' => 1], null);
+        $neutral = $this->builder()->build('shopper1@example.test', 1, 'en', ['user_gender'], ['id_gender' => 3], null);
+        $none = $this->builder()->build('shopper1@example.test', 1, 'en', ['user_gender'], ['id_gender' => 0], null);
+
+        self::assertSame('Male', $male['user_gender']);
+        self::assertArrayNotHasKey('user_gender', $neutral);
+        self::assertArrayNotHasKey('user_gender', $none);
+    }
+
+    /**
+     * The Contacts panel and the Overview label every field; Twig refuses a field without a label.
+     */
+    public function testEveryTemplateThatLabelsTheFieldsLabelsEachOne(): void
+    {
+        foreach (['panel/contacts.html.twig', 'setup/overview.html.twig'] as $template) {
+            $text = (string) file_get_contents(__DIR__ . '/../../../src/views/templates/admin/' . $template);
+            preg_match('/\{% set field_labels = \{(.*?)\} %\}/s', $text, $map);
+            self::assertNotEmpty($map, $template);
+            foreach (SubscriberPayloadBuilder::FIELDS as $field) {
+                self::assertMatchesRegularExpression('/\b' . $field . ':/', $map[1], $template . ' labels ' . $field);
+            }
+        }
+    }
+
+    public function testTheDefaultFieldsAreThoseOf2x(): void
+    {
+        self::assertSame(['first_name', 'last_name', 'birthday', 'website'], SubscriberPayloadBuilder::DEFAULT_FIELDS);
+        self::assertSame([], array_diff(SubscriberPayloadBuilder::DEFAULT_FIELDS, SubscriberPayloadBuilder::FIELDS));
     }
 
     public function testCarriesTheStoreTheLanguageAndEverySelectedField(): void
@@ -67,11 +121,11 @@ final class SubscriberPayloadBuilderTest extends TestCase
         self::assertSame(['email' => 'shopper1@example.test'], $contact);
     }
 
-    public function testANewsletterBlockGuestCarriesNoCustomerField(): void
+    public function testANewsletterBlockGuestCarriesNoCustomerFieldButTheGuestGroup(): void
     {
         $contact = $this->builder()->build('guest1@example.test', 1, 'en', SubscriberPayloadBuilder::FIELDS, [], null);
 
-        self::assertSame(['email' => 'guest1@example.test', 'store' => 'shop1.example.test', 'language' => 'en'], $contact);
+        self::assertSame(['email' => 'guest1@example.test', 'store' => 'shop1.example.test', 'language' => 'en', 'customer_group' => 'Guest'], $contact);
     }
 
     public function testCarriesTheSubscriptionStatusOnlyWhenOneIsGiven(): void

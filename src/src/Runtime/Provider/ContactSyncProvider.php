@@ -47,7 +47,9 @@ final class ContactSyncProvider implements ProviderInterface
     {
         $services->set(ContactsSettings::class, fn (): ContactsSettings => new ContactsSettings());
         $services->set(SubscriberPayloadBuilder::class, fn (): SubscriberPayloadBuilder => new SubscriberPayloadBuilder(
-            [\ShopUrl::class, 'getMainShopDomain']
+            [\ShopUrl::class, 'getMainShopDomain'],
+            [SubscriberPayloadBuilder::class, 'genderType'],
+            [SubscriberPayloadBuilder::class, 'groupName']
         ));
         $services->set(QueueProvider::handlerId(ContactSyncHandler::EVENT_TYPE), fn (Services $services): ContactSyncHandler => new ContactSyncHandler(
             $services->get(ScopeResolver::class),

@@ -107,7 +107,7 @@ final class ContactSource
     private function customers(int $afterId, int $idShop, int $limit): array
     {
         $rows = Sql::rows(
-            'SELECT `id_customer`, `id_shop`, `id_lang`, `email`, `newsletter`, `is_guest`, `firstname`, `lastname`, `birthday`, `website`'
+            'SELECT `id_customer`, `id_shop`, `id_lang`, `email`, `newsletter`, `is_guest`, `firstname`, `lastname`, `birthday`, `website`, `id_gender`, `id_default_group`'
             . ' FROM `' . _DB_PREFIX_ . 'customer`'
             . ' WHERE `id_customer` > ' . $afterId . ' AND `deleted` = 0' . self::shopFilter($idShop)
             . ' ORDER BY `id_customer` LIMIT ' . $limit
@@ -126,6 +126,9 @@ final class ContactSource
                 'lastname' => $row['lastname'],
                 'birthday' => $row['birthday'],
                 'website' => $row['website'],
+                'id_customer' => (int) $row['id_customer'],
+                'id_gender' => (int) $row['id_gender'],
+                'id_default_group' => (int) $row['id_default_group'],
             ],
         ], $rows);
     }

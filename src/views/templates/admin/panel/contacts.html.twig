@@ -24,7 +24,10 @@
  # The Contacts panel: shared by the Initial setup (step 2) and Settings > Contacts, read and saved
  # by Admin\Setup\ContactsPanel. Magento's panel/subscribers.phtml with the fields and the guest
  # rule PrestaShop has; no "Let Smaily send the opt-in confirmation emails" switch, because
- # PrestaShop's newsletter module keeps its own emails.
+ # PrestaShop's newsletter module keeps its own emails. The extra fields are Magento's, in its order,
+ # less Name prefix and Phone (a PrestaShop customer has neither; they belong to an address) and
+ # Subscription type, plus 2.x's Website; Gender, Customer ID and Customer group are off until the
+ # merchant ticks them.
  #
  # Above the card, a warning where shops on this Smaily account use different consent modes
  # (`contacts.shared_account_modes`, Admin\Setup\SharedAccountModes), named by the cards' labels.
@@ -44,7 +47,10 @@
 {% set field_labels = {
   first_name: 'First name'|trans,
   last_name: 'Last name'|trans,
+  user_gender: 'Gender'|trans,
   birthday: 'Date of birth'|trans,
+  customer_id: 'Customer ID'|trans,
+  customer_group: 'Customer group'|trans,
   website: 'Website'|trans,
 } %}
 <div class="smaily-panel" data-smaily-panel="contacts" data-active="{{ contacts.active ? 1 : 0 }}">

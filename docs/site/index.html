@@ -766,7 +766,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
           </ul>
         </li>
         <li><strong>Include guests</strong> also syncs customers who checked out as guests. In <strong>Checkout opt-in only</strong>, a guest who ticks the checkout newsletter checkbox is synced either way. A newsletter subscriber who signed up in the newsletter block without an account is synced whatever this setting says, except in <strong>Checkout opt-in only</strong>.</li>
-        <li>Under <strong>Extra fields to sync with each contact</strong>, pick the fields that personalize your newsletters: <strong>First name</strong>, <strong>Last name</strong>, <strong>Date of birth</strong>, <strong>Website</strong>. Empty values are never sent, so existing Smaily data is not wiped (see <a href="#ef-contact">Contact fields</a>).</li>
+        <li>Under <strong>Extra fields to sync with each contact</strong>, pick the fields that personalize your newsletters: <strong>First name</strong>, <strong>Last name</strong>, <strong>Gender</strong>, <strong>Date of birth</strong>, <strong>Customer ID</strong>, <strong>Customer group</strong>, <strong>Website</strong>. <strong>Gender</strong>, <strong>Customer ID</strong> and <strong>Customer group</strong> are off until you tick them; an upgraded store keeps the fields it had. Empty values are never sent, so existing Smaily data is not wiped (see <a href="#ef-contact">Contact fields</a>).</li>
         <li>Press <strong>Save Contacts</strong>. When the save changes who is synced, the page tells you what will be sent from now on and asks you to confirm.</li>
       </ol>
       <p><strong>Show a newsletter checkbox at checkout</strong> reads <strong>PrestaShop's newsletter module shows it</strong>: PrestaShop's newsletter module (<code>ps_emailsubscription</code>) already shows a newsletter checkbox at checkout, so Smaily Connect adds none of its own.</p>
@@ -785,7 +785,7 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
           </ul>
         </li>
         <li><strong>Kaasa külalised</strong> sünkroonib ka kliendid, kes vormistasid ostu külalisena. Valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral sünkroonitakse kassas uudiskirja märkeruudu märkinud külaline igal juhul. Uudiskirja plokis ilma kontota liitunud tellija sünkroonitakse sellest seadest olenemata, välja arvatud valiku <strong>Ainult kassas turunduskirjade nõusoleku andnud kontaktid</strong> korral.</li>
-        <li>Vali jaotises <strong>Lisaväljad, mis sünkroonitakse iga kontaktiga</strong> väljad, mis isikupärastavad sinu uudiskirju: <strong>Eesnimi</strong>, <strong>Perenimi</strong>, <strong>Sünnikuupäev</strong>, <strong>Veebisait</strong>. Tühje väärtusi ei saadeta kunagi, nii et Smailys olevaid andmeid ei kustutata (vt <a href="#ef-contact">Kontakti väljad</a>).</li>
+        <li>Vali jaotises <strong>Lisaväljad, mis sünkroonitakse iga kontaktiga</strong> väljad, mis isikupärastavad sinu uudiskirju: <strong>Eesnimi</strong>, <strong>Perenimi</strong>, <strong>Sugu</strong>, <strong>Sünnikuupäev</strong>, <strong>Kliendi ID</strong>, <strong>Kliendigrupp</strong>, <strong>Veebisait</strong>. <strong>Sugu</strong>, <strong>Kliendi ID</strong> ja <strong>Kliendigrupp</strong> on välja lülitatud, kuni sa need märgid; uuendatud pood jätab alles väljad, mis tal olid. Tühje väärtusi ei saadeta kunagi, nii et Smailys olevaid andmeid ei kustutata (vt <a href="#ef-contact">Kontakti väljad</a>).</li>
         <li>Vajuta <strong>Salvesta kontaktid</strong>. Kui salvestamine muudab seda, keda sünkroonitakse, ütleb leht, mida edaspidi saadetakse, ja palub kinnitust.</li>
       </ol>
       <p>Valiku <strong>Näita kassas uudiskirja märkeruutu</strong> juures on kirjas <strong>Seda näitab PrestaShopi uudiskirjamoodul</strong>: PrestaShopi uudiskirjamoodul (<code>ps_emailsubscription</code>) näitab juba kassas uudiskirja märkeruutu, seega Smaily Connect oma märkeruutu ei lisa.</p>
@@ -1098,7 +1098,10 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td><code>store</code></td><td>The domain of the shop the contact came from (<code>shop.example.com</code>), as version 2.x sent it.</td></tr>
             <tr><td><code>language</code></td><td>The contact's language code (<code>et</code>, <code>en</code>…). Contact syncs, and automations under <strong>One workflow branching by language</strong>.</td></tr>
             <tr><td><code>first_name</code>, <code>last_name</code></td><td>First name, Last name.</td></tr>
+            <tr><td><code>user_gender</code></td><td>Gender: <code>Male</code> or <code>Female</code>; another title sends nothing.</td></tr>
             <tr><td><code>birthday</code></td><td>Date of birth, <code>YYYY-MM-DD</code>.</td></tr>
+            <tr><td><code>customer_id</code></td><td>The customer's id in PrestaShop.</td></tr>
+            <tr><td><code>customer_group</code></td><td>The name of the customer's default group, in the shop's default language. A newsletter subscriber without an account is in the shop's guest group.</td></tr>
             <tr><td><code>website</code></td><td>The website the customer entered on their account.</td></tr>
           </tbody>
         </table>
@@ -1115,7 +1118,10 @@ pre code{background:none; border:0; padding:0; font-size:inherit}
             <tr><td><code>store</code></td><td>Selle poe domeen, kust kontakt tuli (<code>shop.example.com</code>), nagu versioon 2.x selle saatis.</td></tr>
             <tr><td><code>language</code></td><td>Kontakti keelekood (<code>et</code>, <code>en</code>…). Kontaktide sünkroonimisel ja automaatikates valiku <strong>Üks töövoog, mis hargneb keele järgi</strong> korral.</td></tr>
             <tr><td><code>first_name</code>, <code>last_name</code></td><td>Eesnimi, perekonnanimi.</td></tr>
+            <tr><td><code>user_gender</code></td><td>Sugu: <code>Male</code> või <code>Female</code>; muu pöördumise korral ei saadeta midagi.</td></tr>
             <tr><td><code>birthday</code></td><td>Sünnikuupäev, <code>YYYY-MM-DD</code>.</td></tr>
+            <tr><td><code>customer_id</code></td><td>Kliendi ID PrestaShopis.</td></tr>
+            <tr><td><code>customer_group</code></td><td>Kliendi vaikegrupi nimi poe vaikekeeles. Ilma kontota uudiskirja tellija kuulub poe külaliste gruppi.</td></tr>
             <tr><td><code>website</code></td><td>Veebisait, mille klient oma kontole sisestas.</td></tr>
           </tbody>
         </table>

@@ -3732,6 +3732,21 @@
         <target>Saatmise üksikasjade laadimine ebaõnnestus — proovi uuesti.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="019ec3132cdf8ee0f2e2a75cf5d3e459">
+        <source>Gender</source>
+        <target>Sugu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d37c2bf1bd3143847fca087b354f920e">
+        <source>Customer ID</source>
+        <target>Kliendi ID</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c38266740494aa4980d05c606fccac10">
+        <source>Customer group</source>
+        <target>Kliendigrupp</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

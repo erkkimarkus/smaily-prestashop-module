@@ -403,7 +403,11 @@ final class ContactSyncHandlerTest extends TestCase
         return new ContactSyncHandler(
             $scopes,
             new FakeContactsSettings([0 => self::SETTINGS] + $settings),
-            new SubscriberPayloadBuilder(static fn (int $idShop): string => 'shop' . $idShop . '.example.test'),
+            new SubscriberPayloadBuilder(
+                static fn (int $idShop): string => 'shop' . $idShop . '.example.test',
+                static fn (int $idGender): ?string => null,
+                static fn (int $idGroup, int $idShop): ?string => null
+            ),
             $this->transport(),
             function (array $rows): array {
                 $this->askedForOvertaken[] = array_keys($rows);

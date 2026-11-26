@@ -1617,7 +1617,8 @@ the handler reads the mode, the fields and the account when it sends the row:
 
     {"email": "<address>", "source": "customer" | "newsletter_block", "subscribed": true,
      "consent_changed": false, "checkout": false, "guest": false, "id_lang": 1,
-     "customer": {"firstname": "…", "lastname": "…", "birthday": "…", "website": "…"}}
+     "customer": {"firstname": "…", "lastname": "…", "birthday": "…", "website": "…",
+                  "id_customer": 7, "id_gender": 1, "id_default_group": 3}}
 
 | Field | Required | Meaning |
 |---|---|---|
@@ -1635,7 +1636,12 @@ A payload that does not fit this shape fails permanently with `malformed_payload
 **What Smaily receives** (`Contacts\SubscriberPayloadBuilder`, Smaily's `contact.php`): `email`
 (trimmed, lower case); `store`, the domain of the contact's shop as 2.x sent it; `language`, the ISO
 code of the contact's language; the selected fields of `first_name`, `last_name`, `birthday` and
-`website`; and `is_unsubscribed` (`1` or `0`) only when `unsubscribedStatus()` gives a status, that is
+`website` (the fields of 2.x, which a fresh install selects) and of Magento's `user_gender`
+(`Male` or `Female` by the gender's type; another type is left out), `customer_id` and
+`customer_group` (the name of the customer's default group in the shop's default language; a
+newsletter-block subscriber without an account is in the shop's guest group, `PS_GUEST_GROUP`,
+where Magento sends `Guest`), which the merchant ticks (CON-445; an upgraded store keeps its list,
+section 3.3); and `is_unsubscribed` (`1` or `0`) only when `unsubscribedStatus()` gives a status, that is
 on a consent change. An empty value is left out, so Smaily keeps the field it has. A birthday that was
 never entered (`0000-00-00`) counts as empty.
 
