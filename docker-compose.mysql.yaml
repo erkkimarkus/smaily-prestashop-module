@@ -1,0 +1,30 @@
+# MySQL 8.0, the database that PrestaShop 8 and 9 document, in place of the MariaDB of
+# docker-compose.yaml (docs/DEV_ENVIRONMENT.md, section 4c). Name both files, for example with
+#   COMPOSE_FILE=docker-compose.yaml:docker-compose.mysql.yaml
+# so that every docker compose command of the stack, also the egress guard's scripts, uses them.
+services:
+  prestashop:
+    environment:
+    # Written into the shop's parameters.php as Doctrine's server_version (flashlight's default is 5.7).
+    - MYSQL_VERSION=8.0
+    configs:
+    - source: mariadb-client
+      target: /etc/my.cnf.d/smaily-mysql-client.cnf
+
+  mysql:
+    image: mysql:8.0
+    # The shop image's command-line client is MariaDB's, which restores the demo dump: it has no
+    # caching_sha2_password plugin, so the users get MySQL's older password plugin. PHP takes either.
+    # MySQL keeps its binary log on, as a live server does; a test that makes a trigger then needs
+    # log_bin_trust_function_creators (the module itself makes none).
+    command: ["--default-authentication-plugin=mysql_native_password", "--log-bin-trust-function-creators=1"]
+    healthcheck:
+      # The image's first start runs a server without TCP; this answers only once the real one runs.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uprestashop", "-pprestashop"]
+
+configs:
+  # MariaDB's client of the 9.2.0 image refuses MySQL's self-signed certificate.
+  mariadb-client:
+    content: |
+      [client]
+      ssl-verify-server-cert=off

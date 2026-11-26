@@ -56,6 +56,10 @@ guard, debug mode on: 2284 tests on 8.2.8 (12214 assertions with a tick state at
 9.2.0 (12219 both ways); the leftovers check, now with the tick state, silent on every run. `tests/ci/validate.sh`
 with the zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off 2284 tests on both (12214 and
 12219 assertions).
+2026-11-26 (release verification part 1, `docs/internal/walks/2026-11-26-release-verification-part-1.md`): the suite on
+MySQL 8.0.46 (`docker-compose.mysql.yaml`), 2284 tests on 8.2.8 (12214) and 9.2.0 (12219) after one fix (the Log's ingest
+rows ordered by `id`); Module Manager's Reset and Uninstall in a browser, 8 of 8 checks on each lane; the zip of `91acd79`
+uploaded over a genuine 1.6.2 on 8.2.8, 10 of 10.
 
 **Run of 2026-11-26 (the cron URL answers before the jobs, `739a01d`).** Host: 2289 tests, 4035 assertions, 1158
 skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files; PHP 8.0 lint of the changed files. In a
@@ -66,8 +70,7 @@ tick URL answered nginx's 504 after 30.0 s on 9.2.0; after, `OK: the tick is run
 
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
-MySQL (only MariaDB ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; Module
-Manager's own Uninstall and Reset buttons; an upload over 1.6.2 on the current tip; the install check with two
+MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; the install check with two
 shops; two shops that share one Campaign Intelligence connection, and capabilities 9 to 11 with two shops; an
 export in psgdpr's admin screen on 9.2.0 (psgdpr 1.4.3 fails there); the guide page on its web root; one
 unexplained PHP 8.0.30 segfault report (not reproduced).

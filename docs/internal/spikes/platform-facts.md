@@ -327,7 +327,9 @@ in a redirect has not written its cookie at that point: section 6.8.
 
 **Confirmed on 8.2.8 and 9.2.0** (`Db` class `DbPDO`, MariaDB 12.3.3): `Db::getInstance()->getValue(
 "SELECT GET_LOCK('<db>_smaily_tick', 0)")` returned `1`; `IS_USED_LOCK()` equalled `CONNECTION_ID()`; a
-second PHP process got `0` while the first held it; `RELEASE_LOCK()` returned `1`. MySQL was not tried.
+second PHP process got `0` while the first held it; `RELEASE_LOCK()` returned `1`. On MySQL 8.0.46 the
+probe did not run, but the suite's lock tests (`DoorTest`, `TickTest` with `lock-holder.php`) passed on
+both lanes (2026-11-26, `docs/DEV_ENVIRONMENT.md` 4c).
 
 ### 3.4 Admin translations (section 1.5, 10.4)
 
@@ -360,7 +362,8 @@ toggle), the catalog rows of section 7.
 
 - **PrestaShop 8.0.x at runtime.** Run the install, hook and upgrade checks on a flashlight 8.0.x image
   (the CI matrix of section 12).
-- **MySQL** (`GET_LOCK`, `NULL` handling): the same probes on a MySQL 5.7/8 container.
+- **MySQL 5.7** (`GET_LOCK`, `NULL` handling): the same probes on a MySQL 5.7 container. MySQL 8.0 ran
+  the whole suite on 2026-11-26 (`docs/DEV_ENVIRONMENT.md` 4c).
 - **Hooks not exercised:** `actionOrderEdited`, v2 "New product" (`actionObjectProductAddAfter`),
   `actionObjectCustomerDeleteAfter`, `actionObjectShopDeleteAfter`, `displayCustomerAccount`, psgdpr
   export/erasure hooks. Each needs one admin or front action with the probe module.

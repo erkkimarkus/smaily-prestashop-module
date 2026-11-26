@@ -466,6 +466,37 @@ order without the shopper's session. A walk copies a throwaway payment module in
 customer's `secure_key`, as a provider's webhook does, and asks for it without a cookie; the same
 address asked for with the shopper's cookie jar stands for an order in the shopper's own browser.
 
+## 4c. MySQL in place of MariaDB (verified on 8.2.8 and 9.2.0)
+
+`docker-compose.mysql.yaml` swaps the database for MySQL 8.0, the version PrestaShop 8 and 9
+document. Name both files in `COMPOSE_FILE`, so that every `docker compose` command of the stack,
+also those of the egress guard's scripts, uses them; give the stack its own project name, as a
+MariaDB volume does not open in MySQL:
+
+    COMPOSE_FILE=docker-compose.yaml:docker-compose.mysql.yaml
+    COMPOSE_PROJECT_NAME=smaily-presta-mysql
+
+The override starts MySQL with `mysql_native_password` and `log_bin_trust_function_creators`, and
+gives the shop's MariaDB client a setting that accepts MySQL's self-signed certificate: without them
+the shop's start cannot restore its demo dump (the client of the 9.2.0 image has no
+`caching_sha2_password` plugin and refuses the certificate), and a test that makes a trigger fails
+(MySQL keeps its binary log on, as a live server does; the module itself makes no trigger). It also
+writes `server_version` 8.0 into the shop's `parameters.php`. The database's client is `mysql`, not
+`mariadb`: `docker compose exec mysql mysql -uprestashop -pprestashop prestashop`. The fixture
+loading of `tests/fixtures/legacy/README.md` and `tests/ci/validate.sh` name `mariadb`, and the
+latter runs on its own Compose file with MariaDB.
+
+Verified on 2026-11-26 with MySQL 8.0.46 (global `sql_mode` MySQL's default, with
+`ONLY_FULL_GROUP_BY` and `STRICT_TRANS_TABLES`; server collation `utf8mb4_0900_ai_ci`): the whole
+suite of section 4, in a shop made from scratch behind the egress guard with debug mode on, 2284
+tests on 8.2.8 (12214 assertions) and on 9.2.0 (12219), the leftovers check silent. The first run
+found two differences from MariaDB, both fixed since: the trigger of `CodeIssuerTest` (above), and
+`LogRows::ingestRows()`, whose rows came in the order of a secondary index (MySQL read the covering
+index `entity_key_domain_status`) where MariaDB read the primary key; it now orders by `id`. The
+queue's `FORCE INDEX` and its concurrent flushes (`ConcurrentFlushTest`), `GET_LOCK`,
+`ON DUPLICATE KEY UPDATE`, `INSERT IGNORE`, the upgrade tests and the module's tables
+(`utf8mb4_general_ci` beside the server's default collation) behaved as on MariaDB.
+
 ## 5. PrestaShop 8
 
 Set `PS_IMAGE=prestashop/prestashop-flashlight:8.2.8-8.0-nginx` (PrestaShop 8.2.8 on PHP 8.0) or
@@ -597,6 +628,17 @@ the tick URL, a console uninstall told the subscription mock `deactivated` and t
 mock the disconnect, and left no key, table, tab, hook registration, authorization role or cache
 folder of the module; a console install worked afterwards.
 
+Module Manager's own Reset and Uninstall buttons were pressed in a browser on 2026-11-26, on 8.2.8
+and 9.2.0 with debug mode on, behind the egress guard, each on a store configured through the
+Initial setup (an account, a Campaign Intelligence connection, a contact row of the newsletter
+block, the cache folder of the storefront). Reset answered 200 and left the module installed, active
+and clean: the 10 tables empty, of the module's keys only `SMAILY_CONNECT_SCHEMA_VERSION` and the
+tick state of the next request, 30 hooks, no cache folder; the subscription mock got `deactivated`
+and the engine mock the uninstall call. Right after a Reset, PrestaShop's copy
+`AdminSmailyConnect_MTR` is the menu's parent (6 tabs) until the first page of the module repairs
+the menu (`Admin\Menu`); its link opens the module. Uninstall (the folder kept) left no `SMAILY_*`
+key, table, tab, hook, authorization role or cache folder, and told both mocks the same.
+
 To upgrade that shop to a newer build (not verified): build the new zip, then
 
     docker compose -f tests/ci/docker-compose.yaml exec prestashop sh -c \
@@ -615,7 +657,9 @@ To start from a legacy state, install the matching release and load a fixture fr
 The first upgrade walks ran this way on 8.0.0, 8.2.8 and 9.2.0 (ARCHITECTURE section 3.7). The
 commands below follow those walks. Steps 1 to 6 ran again on 2026-11-23 on 8.2.8 and 9.2.0, with
 a 2.2.0 that the console installed in a shop without the module and the upload of step 5: the
-migration ended `done`.
+migration ended `done`. On 2026-11-26 the zip of `v3` at `91acd79` was uploaded in a browser over a
+1.6.2 that its own installer had installed on 8.2.8 (debug mode off for that command), with part 1
+of `1.6.2-configured.sql`: the migration ended `done` from 1.6.2 with its 15 steps.
 
 1. **Build the 3.0.0 zip:** `composer --working-dir src package`. The script works in
    `build/package/` and replaces `dist/smailyforprestashop.zip`; it leaves everything else under
