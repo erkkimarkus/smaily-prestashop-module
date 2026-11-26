@@ -8,10 +8,13 @@
 > and CHANGELOG.md, not here — replace a finished handoff, do not append to
 > it.
 
-_Last updated: 2026-11-25 (night). Gauge 14/14._
+_Last updated: 2026-11-26. Gauge 14/14._
 
 ## Next session opens with
 
+- 2026-11-26: the engine contract copy is v1.37.1 (CON-413; wording only). A reconnect already sends the stored
+  `previous_prefix`, and `site_url` carries the shop's path. The one GDPR limit (10 a minute per engine store) is
+  not paced: bulk opt-outs take 429s and can park (ARCHITECTURE 14, row 60; open question 2).
 **All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0.** That is not a
 release: no live service was called, no pilot store has upgraded, and CI has never run ("NOT verified" below).
 Everything is on `v3`; no worker branch or worktree is left.
@@ -123,7 +126,9 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
    Settings tabs while the connection is broken; PrestaShop does not. The server gate of the later steps checks only
    that an account is stored, as Shopify does: a stored account Smaily refuses can still save steps 2–4 around the
    page. A Done contact import keeps its refusal reason in the Log (owner, 2026-11-25); Magento and WooCommerce keep
-   no error on a completed import.
+   no error on a completed import. Whether the GDPR calls are paced to the engine's one limit of 10 a minute per
+   store (contract 1.37.1), so that a bulk of opt-outs is not parked after five 429s; Magento does not pace them
+   either (ARCHITECTURE 14, row 60).
 3. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
 
 **Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also

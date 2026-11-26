@@ -28,7 +28,7 @@ Short names for sibling sources:
 |---|---|
 | `magento:` | `/Users/erkkimarkus/Downloads/smaily/connect-magento/` (Smaily Connect for Magento, 3.0.0, the closest analog: a PHP module rewritten in place with a legacy upgrade) |
 | `woo:` | `/Users/erkkimarkus/Downloads/smaily/connect-woo/` (Smaily Connect for WooCommerce, the reference for platform-neutral parts) |
-| contract | `docs/RECENGINE_API_CONTRACT.md` v1.37.0, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
+| contract | `docs/RECENGINE_API_CONTRACT.md` v1.37.1, a byte copy of the engine repository's `docs/RECENGINE_API_CONTRACT.md` (`/Users/erkkimarkus/Downloads/smaily/intelligence/`, the source of truth). Never edited here. |
 | report contract | `docs/contracts/installation-report-v1.md` v1.2.0, a byte copy of the subscription repository's `docs/contracts/installation-report-v1.md` (`/Users/erkkimarkus/Downloads/smaily/subscription/`, the source of truth). Never edited here. |
 
 A sentence about "the module today" describes 2.2.0 (git tag `2.2.0`); the sources that section 0
@@ -2224,7 +2224,7 @@ data.
 
 | Call | Contract | Leaves the shop |
 |---|---|---|
-| `Setup::connect()` | §1 `POST /api/setup/exchange`, no key | `setup_token`; `plugin_info`: `name` (`smaily-connect-prestashop`), `version` (the module's), `platform` and `ecommerce_platform` (`prestashop`), `platform_version` and `ecommerce_platform_version` (PrestaShop's), `site_url` (the storefront address of the shop that connects, the default shop's for the installation-wide connection); `store_config.customer_account_scope` (`global` or `website`, section 5.3) only while multishop is on; `capabilities: ["connection_prefix"]`; `connection.previous_prefix` on a reconnect. |
+| `Setup::connect()` | §1 `POST /api/setup/exchange`, no key | `setup_token`; `plugin_info`: `name` (`smaily-connect-prestashop`), `version` (the module's), `platform` and `ecommerce_platform` (`prestashop`), `platform_version` and `ecommerce_platform_version` (PrestaShop's), `site_url` (the storefront address of the shop that connects, the default shop's for the installation-wide connection, with the shop's path, `Shop::getBaseURI()`: since v1.37.1 the engine matches a reconnect without `previous_prefix` by origin and path); `store_config.customer_account_scope` (`global` or `website`, section 5.3) only while multishop is on; `capabilities: ["connection_prefix"]`; `connection.previous_prefix` on a reconnect. |
 | `HealthCheck` | §2 `GET /api/v1/ingest/ping` | The connection's key as a Bearer token; no body, no query. |
 | `Disconnector` | §16 `POST /api/v1/store/uninstall` | The connection's key as a Bearer token; no body. |
 
@@ -4043,11 +4043,14 @@ three). Every Story also owns its tests under `tests/Unit/<Area>/` and `tests/In
    listener, left `Install\HookList` and the main class (section 7).
 
 The contract copy `docs/RECENGINE_API_CONTRACT.md` was re-synced three times on 2026-11-20 (`docs:`
-commits), and again on 2026-11-25. It is v1.37.0 now: 1.36.0 adds price groups (§3 `group_prices`,
-§4 `price_group`), §6c is switched on at the engine, and the list of synchronized repositories names
-this repository; 1.36.1 names PrestaShop's keys (§3) and one currency per store (§5, section 8.3);
-1.37.0 adds customers without an email address (§4 `external_id` and `loyalty_id`, §5
-`customer_external_id`, §8b–§10b), switched off at the engine and not built in 3.0.0.
+commits), again on 2026-11-25, and on 2026-11-26. It is v1.37.1 now: 1.36.0 adds price groups
+(§3 `group_prices`, §4 `price_group`), §6c is switched on at the engine, and the list of
+synchronized repositories names this repository; 1.36.1 names PrestaShop's keys (§3) and one
+currency per store (§5, section 8.3); 1.37.0 adds customers without an email address (§4
+`external_id` and `loyalty_id`, §5 `customer_external_id`, §8b–§10b), switched off at the engine
+and not built in 3.0.0; 1.37.1 is wording only: a reconnect without `previous_prefix` is matched
+by the shop's origin and path (§1), and every GDPR request shares one limit of 10 requests per 60
+seconds per store (section 14, row 60).
 
 **[D]** The main class (`src/smailyforprestashop.php`). After Story 1.1, only these Stories edit it,
 each for its named wiring only, and each in a commit of its own:
@@ -4684,6 +4687,7 @@ has one owner:
 | 56 | An automation list whose configuration cannot be read | The module lists nothing and offers no Save while either the catalogue (§11) or the configuration (§12) cannot be read (section 10.10). Magento's `AutomationsForm::getRows()` lists the catalogue with every row off and the defaults when only the configuration read fails, without a notice, and a save then writes those defaults over the stored rows. The PrestaShop behaviour differs only in that failure; whether Magento follows is not decided. | Cross-connector analysis (Linear CON-397) |
 | 57 | The engine's setup states are not shown | The card shows Off, Test mode or Active from the configuration row, as Magento does. The engine's `setup[]` of §12 (since v1.15.0) also knows `stopped` with its reason, the go-live blockers and the notice "starts when your sender domain is verified": a stopped automation shows as Test mode here, without a word of the stop. The WooCommerce plugin and the Shopify app show more of it. With "Edit design", the test send and the go-live action, it is out of 3.0.0. | Owner; cross-connector analysis (Linear CON-397) |
 | 59 | The engine does not hear that a carried connection serves other shops | A layout change moves a connection without a call to the engine (section 8.9). The engine keeps the `site_url` and the `customer_account_scope` of the setup exchange, and the contract has no call that changes them; a connection that now serves every shop still names one shop's address there. Rows carry their shop as `website` once a connection serves two shops or more (section 8.2). | Engine team |
+| 60 | Bulk GDPR calls above the engine's one limit | Contract v1.37.1: the export (§8), the erasure (§9) and the opt-out (§10) share one limit, 10 requests per 60 seconds per engine store; §10 said 100 per second before. The module paces nothing: a flush hands a handler up to 200 rows, and the tick's `queue_flush` job flushes again while rows are claimed. One shopper's choice or erasure makes one row per connection. Bulk rows come from a marketing unsubscribe of many shoppers at once (the reconcile of Smaily's unsubscriber list, `ProfilingConsent::onContactEvent()`) and from the opt-outs sent again after an ingest flush (`ProfilingConsent::resendOptOuts()`). Above 10 a minute the engine answers 429; the row takes the retry ladder (`Privacy\EngineFailure`), and after its fifth 429 (about 81 minutes) it is parked as failed and waits for "Send again" in the Log. Each 429 also reaches the report's health of the engine store. The export makes one call per connection with no retry, so more than 10 connections to one engine store would show "Not available" for the rest. Magento's `ProfilingConsentHandler` behaves the same way. | Owner; cross-connector analysis (Linear CON-397) |
 
 Row 11 (the reconcile writes a re-subscribe in Smaily back to the store) and row 19 (the guest rule
 and the abandoned-cart reminder) were decided on 2026-11-20, and row 22 (a 2.x cart delay of a day or

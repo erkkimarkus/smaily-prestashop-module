@@ -14,7 +14,7 @@ require_once __DIR__ . '/EngineTestCase.php';
 
 /**
  * The three calls of a connection go over HTTP to the engine mock, and the mock's answers hold
- * the fields that docs/RECENGINE_API_CONTRACT.md v1.37.0 names: §1 the setup exchange, §2 the
+ * the fields that docs/RECENGINE_API_CONTRACT.md v1.37.1 names: §1 the setup exchange, §2 the
  * ping, §16 the disconnect, and the errors of "Authentication" and §1.
  */
 final class ClientMockTest extends EngineTestCase

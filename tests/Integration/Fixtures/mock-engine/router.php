@@ -1,7 +1,7 @@
 <?php
 /**
  * A mock of the Campaign Intelligence engine for `php -S`: the three calls of the connection,
- * answered as docs/RECENGINE_API_CONTRACT.md v1.37.0 states them. Each answer below names the
+ * answered as docs/RECENGINE_API_CONTRACT.md v1.37.1 states them. Each answer below names the
  * contract section its shape comes from; the shapes were taken from the contract text, not from
  * another connector's mock.
  *
