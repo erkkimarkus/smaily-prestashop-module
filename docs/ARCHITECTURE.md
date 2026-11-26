@@ -976,6 +976,30 @@ on the old schema).
 | The upgrade script throws | Keeps the old version; a zip upload disables the module, the CLI does not. | Never happens: the script catches every error (3.7). |
 | Uninstall 2.x, install 3.0.0 | 2.x uninstall deletes all `SMAILY_*` keys and `smaily_cart`. | A new install. The user guide warns against this path ("Upgrading from version 2.x"). |
 
+### 3.9 The shops that an install enables
+
+**[D]** PrestaShop enables a module in the shops of the context that `Module::install()` runs in
+(`ps_module_shop`), and registers its hooks in every shop. The main class's `install()` selects
+all shops before `parent::install()` only on a command-line install (`Tools::isPHPCLI()`) while
+multistore is on; after `parent::install()` it selects all shops in every case, so that
+`Install\Installer` writes its settings for all shops.
+
+| Path | Shops where the module is enabled |
+|---|---|
+| Module Manager, "All shops" selected | Every shop. |
+| Module Manager, one shop selected | That shop alone (PrestaShop's own behaviour, kept); the merchant enables it in another shop in Module Manager with that shop selected. |
+| `bin/console prestashop:module install`, and the flashlight images' `INSTALL_MODULES_DIR`, which calls it | Every shop. The console has no shop selection and runs in the default shop; 2.2.0, and 3.0.0 before this rule, enabled the module there alone. |
+| An upgrade from 2.x (section 3.8) | Unchanged: an upgrade runs no `install()`, and no upgrade step enables the module in a shop. A shop where the merchant had it off stays off, so the upgrade never widens the synced audience. |
+
+Demonstrated on 2026-11-26 on 8.2.8 and 9.2.0, in stores of two shops behind the egress guard:
+the console install and Module Manager's install with "All shops" and with the second shop
+selected, each shop's feed and cron URLs answering where the module is enabled and 404 where it
+is not; and a console upgrade over a genuine 2.2.0 that its own console install had left off in
+the second shop: after the upgrade and a tick the second shop still had no `ps_module_shop` row.
+The upgrade by Module Manager's upload was not walked with two shops.
+`tests/Integration/Install/ConsoleInstallTest.php` and `tests/ci/validate.sh` with `SHOPS=2`
+check the console install.
+
 ---
 
 ## 4. Scheduling without a platform scheduler
@@ -4189,6 +4213,7 @@ each for its named wiring only, and each in a commit of its own:
 | 3.1 | The `$tabs` menu, and `getContent()` opens the Dashboard or the Initial setup (done). |
 | — | The hook methods of `actionCartSave` and `actionObjectCustomerDeleteAfter` removed (owner, 2026-11-21; section 15) (done). |
 | 5.5 | `WidgetInterface` (section 8.7) (done). |
+| — | `install()` selects all shops before PrestaShop's own install on a command-line install (owner, 2026-11-26; section 3.9) (done). |
 
 These Stories never run in parallel with each other.
 

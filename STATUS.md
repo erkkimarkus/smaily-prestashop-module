@@ -52,7 +52,7 @@ assertions) and on 8.2.8 (12253), leftovers check silent. Slow-Smaily walk (mock
 tick URL answered nginx's 504 after 30.0 s on 9.2.0; after, `OK: the tick is running.` in 0.03–0.06 s on 9.2.0 and
 0.7 s on 8.2.8, rows back on the retry ladder and the lock free about 30 s later. `tests/ci/validate.sh` not run.
 2026-11-26 on `91acd79`: `validate.sh` 10 of 10 on both with its new `SHOPS` switch, and with `SHOPS=2` 10 of 12 on
-both (the console-install defect in the queue). **Two shops** walked on 8.2.8 and 9.2.0
+both (the console-install defect, fixed by CON-435 below). **Two shops** walked on 8.2.8 and 9.2.0
 (`docs/internal/walks/2026-11-26-two-shops.md`): Module Manager's install, one shared connection, a connection per
 shop, the layout change both ways, capabilities 8 to 11 per shop: 91 of 91 and 91 of 92 (the one a walk fault).
 
@@ -70,6 +70,14 @@ Walk on both, Smaily and engine mocks, tick URL: 25 opt-outs from the reconcile 
 most 10 in any 60 s), attempts 0; a 429 with `retry_after_seconds` 90 held all three rows 90 s after one request,
 attempts 0, engine health unchanged, then delivered.
 
+**Run of 2026-11-26 (CON-435, a console install enables every shop; ARCHITECTURE 3.9).** Host 2301 tests, 4054
+assertions; JS 55; CS 0 of 359; PHP 8.0 lint. Fresh shops behind the guard: 2301 tests on 9.2.0 (12331) and 8.2.8
+(12326), leftovers silent. `validate.sh` 10 of 10 on both (suite with debug mode off 2301 tests, 12331 and 12326),
+with `SHOPS=2` 12 of 12 on both. Two shops behind the guard on both: the console install enables both shops, each
+feed and cron URL answers; Module Manager with shop 2 selected enables shop 2 alone (as before the fix, seen on
+9.2.0), with "All shops" both. A console upgrade over a genuine 2.2.0 off in shop 2: `done` from 2.2.0, shop 2 still
+without a `ps_module_shop` row after a tick.
+
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
 MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; two shops in two shop
@@ -85,10 +93,6 @@ page on its web root; one unexplained PHP 8.0.30 segfault report (not reproduced
 5. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
 
 ## Queue (technical, for the orchestrator)
-
-- **Defect (2026-11-26):** `install()` sets `Shop::CONTEXT_ALL` after `parent::install()`: a console install in a
-  store of several shops enables the module in the default shop only (no `ps_module_shop` row elsewhere, their feed
-  404s); Module Manager with "All shops" is fine. The fix changes the main class. The in-shop suite deletes shop 2.
 
 - Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next
   nightly list; ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").

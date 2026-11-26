@@ -240,6 +240,12 @@ ask (Linear discipline below).
   `Configuration` reads and writes the global row whatever shop a call
   names, while `Shop::getShops()` still lists every row of `shop`: never
   write a value per shop in a loop over the shops (facts file 6.9).
+- **The shops an install enables.** PrestaShop enables a module in the
+  shops of the context `install()` runs in. Module Manager keeps the
+  employee's selection (one shop selected: that shop alone); the console
+  runs in the default shop, so `install()` selects all shops first on a
+  command line. An upgrade never enables the module in another shop
+  (ARCHITECTURE 3.9).
 - **Admin cache.** Stale `var/cache` breaks module routes and service
   configuration (CONTRIBUTING.md, "Invalidating cache").
 - **The selected shop is one cookie.** Another tab, or a late answer of

@@ -617,11 +617,10 @@ module enabled with its hooks in each shop, and the second shop's storefront and
 own address. It skips the unit and integration tests: they expect a shop of one shop (10 tests
 fail on that premise in a store of two shops), and the legacy fixtures' clean-up
 (`LegacyStore::removeSecondShop()`) deletes shop 2 and switches multistore off, whichever shop
-it is. Result on 2026-11-26, at `91acd79`, on flashlight 8.2.8 and 9.2.0: 10 of 12 checks. The
-two that fail are one defect: the console install enables the module in the default shop only
-(`ps_module_shop`), though it registers the hooks in both, so shop 2's storefront runs nothing of
-the module and its feed answers 404. An install from Module Manager with "All shops" selected
-enables it in both shops (walk of 2026-11-26, `docs/internal/walks/`).
+it is. On 2026-11-26, at `91acd79`, 10 of 12 checks passed on flashlight 8.2.8 and 9.2.0: the
+console install enabled the module in the default shop only (`ps_module_shop`), though it
+registered the hooks in both, so shop 2's feed answered 404. Since the install selects all shops on
+a command line (ARCHITECTURE section 3.9): 12 of 12 on both, on 2026-11-26.
 
 The script's shop is not behind the egress guard. A fresh install holds no account and no
 connection, so it calls no Smaily service. Its storefront request runs the fallback tick, and
