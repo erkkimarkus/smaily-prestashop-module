@@ -33,8 +33,8 @@
  # (`contacts.shared_account_modes`, Admin\Setup\SharedAccountModes), named by the cards' labels.
  #
  # Takes `contacts` (ContactsPanel::values()), `context` ('setup' or 'settings'), `all_shops` (the
- # shop names when one save starts sync on every shop of a multishop store, else empty) and
- # `import` (ContactImport::progress() of the scope, or null).
+ # shop names when one save starts sync on every shop of a multishop store, else empty), `import`
+ # (ContactImport::progress() of the scope, or null) and `estimate` (ContactImport::estimate()).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set settings_page = context|default('setup') == 'settings' %}

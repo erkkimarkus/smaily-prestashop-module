@@ -57,6 +57,13 @@ smailyforprestashop_api_setup_engine_exchange:
     _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EngineExchange::execute
     _legacy_controller: AdminSmailyConnectSetup
 
+smailyforprestashop_api_setup_engine_ping:
+  path: /smailyforprestashop/api/setup/engine-ping
+  methods: [POST]
+  defaults:
+    _controller: PrestaShop\Module\SmailyForPrestaShop\Admin\Api\EnginePing::execute
+    _legacy_controller: AdminSmailyConnectSetup
+
 smailyforprestashop_api_setup_backfill:
   path: /smailyforprestashop/api/setup/backfill
   methods: [POST]

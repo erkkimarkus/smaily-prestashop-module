@@ -377,6 +377,18 @@ final class AutomationsPanelTest extends IntegrationTestCase
         $match = $this->router()->resolve('welcome', $shop, 'et');
         self::assertSame([21, 'demo-et'], [$match->workflowId(), $match->account()->subdomain()]);
         self::assertSame(['en' => '12', 'et' => '21', 'lv' => ''], $this->panel()->values($scope)['triggers']['welcome']['languages']);
+        // The warning "Some languages have no workflow" reads the rows as the Router does (CON-445).
+        self::assertSame('en', $this->panel()->values($scope)['account_fallback']);
+    }
+
+    public function testOutsideAnAccountPerLanguageNoFallbackAccountIsNamed(): void
+    {
+        (new StoreLayout())->setFallbackLanguage('en', 0);
+
+        $values = $this->panel()->values($this->scope(['en' => 'English', 'et' => 'Eesti']));
+
+        self::assertSame('', $values['account_fallback']);
+        self::assertIsString($values['cart_rule_url']);
     }
 
     public function testAnAutomationsDiscountCodeSavesItsSwitchRuleAndDaysAndReadsBack(): void

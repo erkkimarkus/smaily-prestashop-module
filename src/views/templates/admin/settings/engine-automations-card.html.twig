@@ -35,13 +35,15 @@
  # `row.name` and `row.description` are Campaign Intelligence's own text (contract §11), the one
  # text of the engine that a screen shows; Twig escapes it as any other value. A row carries the
  # `language_mode` and the workflow map it was drawn with, which the save hands back, so that a
- # per-language setup of another connector stays (Engine\Automations\ConfigRow).
+ # per-language setup of another connector stays (Engine\Automations\ConfigRow). `card.account`
+ # names the connection's Smaily account where it is not the shop's own, whose workflows are listed.
  #
  # Takes `card` (Admin\Settings\EngineAutomationsPanel::card()).
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% if card.state == 'not_connected' %}
   <div class="smaily-engine-empty">
+    <div class="smaily-engine-empty__icon" aria-hidden="true">i</div>
     <div class="smaily-engine-empty__title">{{ 'Connect Campaign Intelligence to set up these automations'|trans }}</div>
     <div class="smaily-note">{{ 'These engine-run automations (replenishment reminders, win-back and more) become available once Campaign Intelligence is connected.'|trans }}</div>
   </div>

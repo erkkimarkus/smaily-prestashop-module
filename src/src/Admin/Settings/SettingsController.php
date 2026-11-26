@@ -105,6 +105,9 @@ final class SettingsController extends BaseController
                 'account_per_language_elsewhere' => $context->accountPerLanguageElsewhere(),
                 'contacts' => $contacts,
                 'import' => $target === null ? null : $import->progress($target),
+                'estimate' => $target === null ? [] : $import->estimate($target),
+                // One store with several shops: the import, and its estimate, take every shop.
+                'all_shops' => $shared->multishop() && !$shared->separateStores() ? $shared->shopNames() : [],
                 'automations' => $setup->automations()->values($automationsScope),
                 'automations_languages' => $automationsScope->languages(),
                 'pick_workflows' => $ownShop !== null && $overrides->needsOwnWorkflows($ownShop),

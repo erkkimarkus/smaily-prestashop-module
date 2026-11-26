@@ -70,6 +70,12 @@ both (the console-install defect, fixed by CON-435 below). **Two shops** walked 
 (`docs/internal/walks/2026-11-26-two-shops.md`): Module Manager's install, one shared connection, a connection per
 shop, the layout change both ways, capabilities 8 to 11 per shop: 91 of 91 and 91 of 92 (the one a walk fault).
 
+**Run of 2026-11-26 (CON-445 part 3: Contacts, Automations and Intelligence as Magento draws them).** Host 2335
+tests, 4143 assertions; JS 55; CS 0 of 364; PHP 8.0.30 lint of the 23 changed PHP files. Fresh shops behind the guard:
+2335 tests on 8.2.8 (12567) and 9.2.0 (12572), leftovers silent. Headless walk on both, EN and ET, Smaily and engine
+mocks, a second shop for the shared engine store: 30 of 30 checks on 8.2.8, 30 of 30 on 9.2.0 (one check re-run alone:
+the tick had not taken the catalog import yet). The Smaily mock got `user_gender`, `customer_id` and `customer_group`.
+
 **Run of 2026-11-26 (CON-433c on `effe744`: workflows after an account or mode change, Settings refuses a rejected
 account, refused import contacts in the Log and in a privacy request, the consent-mode warning).** Host 2324 tests,
 4121 assertions, 1175 skipped; JS 55; CS 0 of 364; PHP 8.0.30 lint of the 22 changed PHP files. Fresh shops behind

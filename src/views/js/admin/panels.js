@@ -193,6 +193,46 @@
     return changed;
   }
 
+  /*
+   * One import card as Magento draws its Backfill card (PRO-3564), shared by the first contact
+   * import and the Campaign Intelligence imports (intelligence.js): the state pill, the bar with
+   * "X of Y" and the percentage under it, and the line, which for an outcome has its icon (done ✓,
+   * failures and stalled !, stopped ×, cancelled —) and the finish time in brackets. `view` holds
+   * `pill` (a pill class, or '' for none) and `pillText`, `bar` ('' for none, else running, done,
+   * failed or stopped), `count` ("X of Y") and `percent`, `text`, `outcome` (a key of
+   * IMPORT_ICONS, or '') and `finished`. The card's parts carry data-smaily-import-*.
+   */
+  var IMPORT_ICONS = {done: '✓', failures: '!', stalled: '!', stopped: '×', cancelled: '—'};
+
+  smailyConnect.drawImport = function (card, view) {
+    var pill = card.querySelector('[data-smaily-import-pill]');
+    pill.hidden = !view.pill;
+    if (view.pill) {
+      pill.className = 'smaily-pill smaily-pill--' + view.pill;
+      pill.querySelector('[data-smaily-import-pill-text]').textContent = view.pillText;
+    }
+    var progress = card.querySelector('[data-smaily-import-progress]');
+    progress.hidden = !view.bar;
+    if (view.bar) {
+      progress.querySelector('.smaily-progress').className = 'smaily-progress is-' + view.bar;
+      progress.querySelector('.smaily-progress__fill').style.width = view.percent + '%';
+      progress.querySelector('[data-smaily-import-count]').textContent = view.count;
+      progress.querySelector('[data-smaily-import-pct]').textContent = view.percent + '%';
+    }
+    var verdict = card.querySelector('[data-smaily-import-verdict]');
+    var icon = verdict.querySelector('[data-smaily-import-icon]');
+    verdict.setAttribute('data-state', view.outcome || '');
+    icon.hidden = !view.outcome;
+    icon.textContent = IMPORT_ICONS[view.outcome] || '';
+    verdict.querySelector('[data-smaily-import-line]').textContent = view.text
+      + (view.outcome && view.finished ? ' (' + view.finished + ')' : '');
+  };
+
+  /* How far an import got, in percent: what it sent, failed or skipped of its total. */
+  smailyConnect.importPercent = function (job) {
+    return job.total > 0 ? Math.min(100, Math.floor(100 * (job.sent + job.failed + (job.skipped || 0)) / job.total)) : 100;
+  };
+
   smailyConnect.panels = function (root, connectedLabel) {
     var show = smailyConnect.show;
     var label = labels(root);
@@ -466,6 +506,7 @@
         });
       })).then(function (errors) {
         selects.forEach(fillWorkflows);
+        showUnmappedLanguages();
         var failure = errors.filter(Boolean)[0];
         show(line, failure || '', !failure);
       });
@@ -493,6 +534,49 @@
         languages.querySelector('[data-smaily-language-trigger="' + trigger + '"]').hidden = !on;
         languages.hidden = !automations.querySelector('[data-smaily-trigger].is-active');
       }
+      showUnmappedLanguages();
+    }
+
+    /*
+     * An account per language (mode `a`): the banner "Some languages have no workflow" names, for
+     * each automation that is on, the languages whose contacts get no workflow, read as the
+     * Router reads the rows: the language's own row, else the automation's default fallback, else
+     * the row of the fallback account's language (Magento's showUnmappedLanguages(), CON-188). A
+     * list not loaded yet counts its saved workflow.
+     */
+    function showUnmappedLanguages() {
+      var banner = automations ? automations.querySelector('[data-smaily-unmapped]') : null;
+      if (!banner) {
+        return;
+      }
+      var accountFallback = automations.getAttribute('data-account-fallback') || '';
+      var list = banner.querySelector('[data-smaily-unmapped-list]');
+      list.textContent = '';
+      automations.querySelectorAll('[data-smaily-language-trigger]').forEach(function (table) {
+        var trigger = table.getAttribute('data-smaily-language-trigger');
+        var workflow = function (language) {
+          var select = table.querySelector('select[data-language="' + language + '"]');
+          return select ? workflowValue(select) : '';
+        };
+        var fallback = checked(table, 'smaily-fallback-' + trigger);
+        if (!automations.querySelector('[data-smaily-field="' + trigger + '.enabled"]').checked
+          || (fallback !== '' && workflow(fallback) !== '')
+          || (accountFallback !== '' && workflow(accountFallback) !== '')) {
+          return;
+        }
+        var missing = [];
+        table.querySelectorAll('select[data-language]').forEach(function (select) {
+          if (workflowValue(select) === '') {
+            missing.push(select.getAttribute('data-language').toUpperCase());
+          }
+        });
+        if (missing.length) {
+          var item = document.createElement('li');
+          item.textContent = automations.querySelector('[data-smaily-trigger="' + trigger + '"] .smaily-trigger__name').textContent.trim() + ': ' + missing.join(', ');
+          list.appendChild(item);
+        }
+      });
+      banner.hidden = list.children.length === 0;
     }
 
     /*
@@ -562,63 +646,77 @@
       });
     }
 
-    /* The first contact import: its state, Start, Cancel, and the progress while it runs. */
+    /*
+     * The first contact import: its state, Start, Cancel, and the progress while it runs. A queued
+     * or running import that nothing has moved for an hour is stalled (`stalled`): Run again
+     * starts a fresh one, and Cancel import stays. Start stays, disabled, while the Contacts
+     * settings are not saved or the mode imports nobody.
+     */
     var importCard = (function (card) {
       if (!card) {
-        return {saved: function () {}};
+        return {saved: function () {}, mode: function () {}};
       }
       var word = labels(card);
       var job = JSON.parse(card.getAttribute('data-smaily-import') || 'null');
+      var estimates = JSON.parse(card.getAttribute('data-smaily-import-estimates') || '{}');
       var timer = null;
-      var pill = card.querySelector('[data-smaily-import-pill]');
-      var line = card.querySelector('[data-smaily-import-line]');
       var logLine = card.querySelector('[data-smaily-import-log]');
-      var bar = card.querySelector('[data-smaily-import-bar]');
       var start = card.querySelector('[data-smaily-action="import-start"]');
       var stop = card.querySelector('[data-smaily-action="import-stop"]');
       var importResult = card.querySelector('[data-smaily-import-result]');
-      var states = {
-        queued: ['pending', 'state-pending'],
-        running: ['pending', 'state-running'],
-        done: ['active', 'state-done'],
-        failed: ['failed', 'state-stopped'],
-        cancelled: ['off', 'state-cancelled']
+      var startable = !start.disabled;
+      // A job's look: the pill, its word, the bar and the outcome (smailyConnect.drawImport()).
+      var looks = {
+        queued: ['pending', 'state-pending', '', ''],
+        running: ['pending', 'state-running', 'running', ''],
+        done: ['active', 'state-done', 'done', 'done'],
+        failures: ['active', 'state-done', 'failed', 'failures'],
+        failed: ['failed', 'state-stopped', 'failed', 'stopped'],
+        stalled: ['failed', 'state-stalled', 'failed', 'stalled'],
+        cancelled: ['off', 'state-cancelled', 'stopped', 'cancelled']
       };
 
       function draw() {
-        var active = job && (job.status === 'queued' || job.status === 'running');
+        var active = !!job && (job.status === 'queued' || job.status === 'running');
         var counts = job ? {sent: job.sent, total: job.total, failed: job.failed} : {};
-        pill.hidden = !job;
-        if (job) {
-          var state = states[job.status] || states.done;
-          pill.className = 'smaily-pill smaily-pill--' + state[0];
-          pill.querySelector('[data-smaily-import-pill-text]').textContent = word(state[1]);
-        }
-        bar.hidden = !job;
-        if (job) {
-          bar.querySelector('.smaily-progress__fill').style.width = (job.total > 0 ? Math.min(100, Math.round(100 * (job.sent + job.failed + job.skipped) / job.total)) : 100) + '%';
-        }
+        var state = !job ? '' : (job.stalled ? 'stalled' : (job.status === 'done' && job.failed > 0 ? 'failures' : job.status));
+        var shown = looks[state] || ['', '', '', ''];
         var text = '';
-        if (job && job.status === 'queued') {
+        if (state === 'stalled') {
+          text = word('stalled', counts);
+        } else if (state === 'queued') {
           text = word('queued');
-        } else if (job && job.status === 'running') {
-          text = word('importing') + ' ' + word('progress', counts);
-        } else if (job && job.status === 'done') {
+        } else if (state === 'running') {
+          text = word('importing');
+        } else if (state === 'done' || state === 'failures') {
           // Contacts that Smaily refused one by one: the Log's Details list them.
           var refused = job.failed > 0 && job.refused === job.failed;
           text = job.last_error === 'contact_sync_off' ? word('sync-off') : word(job.failed > 0 ? (refused ? 'done-refused' : 'done-failed') : 'done', counts);
-        } else if (job && job.status === 'cancelled') {
+        } else if (state === 'cancelled') {
           text = word('cancelled', counts);
-        } else if (job && job.status === 'failed') {
-          text = word('stopped', counts);
+        } else if (state === 'failed') {
+          // Where it stopped, as its stored reason code; never a text of Smaily (Magento CON-233).
+          text = word('stopped', counts) + (job.last_error ? ' ' + word('details', {details: job.last_error}) : '');
         }
-        line.textContent = text;
-        logLine.hidden = !(job && job.status === 'done' && job.failed > 0);
-        start.hidden = active;
-        start.textContent = word(job && !active ? 'run-again' : 'start');
+        smailyConnect.drawImport(card, {
+          pill: shown[0],
+          pillText: shown[1] ? word(shown[1]) : '',
+          bar: shown[2],
+          count: job ? word('progress', counts) : '',
+          percent: !job ? 0 : (state === 'done' ? 100 : smailyConnect.importPercent(job)),
+          text: text,
+          outcome: shown[3],
+          finished: job ? job.finished : ''
+        });
+        // The estimate stands before and during a run; an outcome takes its place (Magento's card).
+        card.querySelector('[data-smaily-import-estimate]').hidden = !startable || !!shown[3];
+        logLine.hidden = state !== 'failures';
+        start.hidden = active && state !== 'stalled';
+        start.textContent = word(job && (!active || state === 'stalled') ? 'run-again' : 'start');
+        start.disabled = !startable;
         stop.hidden = !active;
         window.clearTimeout(timer);
-        if (active) {
+        if (active && state !== 'stalled') {
           timer = window.setTimeout(poll, POLL_MS);
         }
       }
@@ -638,11 +736,11 @@
         post('import', {action: action}).then(function (answer) {
           job = answer.import;
           show(importResult, '', true);
-          draw();
         }).catch(function (error) {
           show(importResult, error.message, false);
         }).then(function () {
-          button.disabled = false;
+          stop.disabled = false;
+          draw();
         });
       }
 
@@ -656,12 +754,19 @@
 
       return {
         saved: function (enabled, mode) {
+          startable = enabled && mode !== 'checkout_optin';
           card.querySelector('[data-smaily-import-unsaved]').hidden = enabled;
           card.querySelector('[data-smaily-import-nobody]').hidden = !enabled || mode !== 'checkout_optin';
-          card.querySelector('[data-smaily-import-body]').hidden = !enabled || mode === 'checkout_optin';
+          draw();
+        },
+        // The estimate of the mode picked on the panel, saved or not (Magento PRO-3582).
+        mode: function (mode) {
+          card.querySelector('[data-smaily-import-estimate]').textContent = estimates[mode] || '';
         }
       };
     }(root.querySelector('[data-smaily-import]')));
+
+    showUnmappedLanguages();
 
     /*
      * An edited account field undoes the block's passed test, and the state of the account of no
@@ -712,6 +817,12 @@
         root.querySelectorAll('input[name="' + input.name + '"]').forEach(function (other) {
           other.closest('.smaily-choice').classList.toggle('is-selected', other.checked);
         });
+      }
+      if (input.name === 'smaily-contacts-mode') {
+        importCard.mode(input.value);
+      }
+      if (automations && automations.contains(input)) {
+        showUnmappedLanguages();
       }
     });
 

@@ -153,6 +153,20 @@ final class IntelligencePanelTest extends EngineTestCase
         self::assertSame(0, self::connectionRows());
     }
 
+    /**
+     * CON-445: the panel says when two shops share one Campaign Intelligence store, which the
+     * Dashboard said before (the condition of CatalogManifest::suppressed()).
+     */
+    public function testThePanelSaysWhenTwoShopsShareOneEngineStore(): void
+    {
+        $connection = $this->connect();
+        self::assertFalse($this->panel()->values($this->scope())['shared_store']);
+
+        $this->connections()->save(2, 'demo', $connection->tenantId(), 'invented-key-2', []);
+
+        self::assertTrue($this->panel()->values($this->scope())['shared_store']);
+    }
+
     private function panel(): IntelligencePanel
     {
         return (new SetupPanels($this->services, \Context::getContext()->getTranslator()))->intelligence();

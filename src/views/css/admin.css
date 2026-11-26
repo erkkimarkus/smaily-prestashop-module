@@ -2245,4 +2245,111 @@
 
 .smaily-ui .smaily-connection-status__account {
   color: var(--smaily-text);
+
+/* CON-445 part 3: the Contacts, Automations and Intelligence steps and tabs as Magento draws them. */
+
+/* Initial setup step 2: the intro, the consent-mode cards and the fields sit on the step's page,
+ * not in a card; the import stays a card (Magento's step panels, PRO-2456). */
+.smaily-ui .smaily-step-panel[data-step="2"] .smaily-panel > .smaily-card:not(.smaily-import) {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* The import cards: "X of Y" and the percentage under the bar, the outcome line with its icon. */
+.smaily-ui .smaily-import__progress .smaily-progress {
+  margin-bottom: 0;
+}
+
+.smaily-ui .smaily-import__count {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0 10px;
+  font-size: 12px;
+}
+
+.smaily-ui .smaily-import__count > :first-child {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.smaily-ui .smaily-import__pct {
+  color: var(--smaily-muted);
+  font-family: monospace;
+}
+
+.smaily-ui .smaily-progress.is-done .smaily-progress__fill {
+  background: var(--smaily-success);
+}
+
+.smaily-ui .smaily-progress.is-failed .smaily-progress__fill {
+  background: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-progress.is-stopped .smaily-progress__fill {
+  background: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-import__verdict {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.smaily-ui .smaily-import__icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-import__icon[hidden] {
+  display: none;
+}
+
+.smaily-ui .smaily-import__verdict[data-state="done"] .smaily-import__icon {
+  background: var(--smaily-success);
+}
+
+.smaily-ui .smaily-import__verdict[data-state="failures"] .smaily-import__icon,
+.smaily-ui .smaily-import__verdict[data-state="stalled"] .smaily-import__icon {
+  background: var(--smaily-warning);
+}
+
+.smaily-ui .smaily-import__verdict[data-state="stopped"] .smaily-import__icon {
+  background: var(--smaily-danger);
+}
+
+.smaily-ui .smaily-import__verdict[data-state="cancelled"] .smaily-import__icon {
+  color: var(--smaily-muted);
+  background: var(--smaily-surface-2);
+  border: 1px solid var(--smaily-border);
+}
+
+/* The Campaign Intelligence Automations card without a connection: Magento's round "i". */
+.smaily-ui .smaily-engine-empty__icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 12px;
+  border: 1px solid var(--smaily-tint-border);
+  border-radius: 50%;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 42px;
+  color: var(--smaily-primary);
+  background: var(--smaily-tint);
 }

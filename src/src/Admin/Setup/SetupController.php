@@ -111,6 +111,7 @@ final class SetupController extends BaseController
                 'automations' => $panels->automations()->values($scope),
                 'all_shops' => $scope->multishop() && !$scope->separateStores() ? $scope->shopNames() : [],
                 'import' => $progress,
+                'estimate' => $target === null ? [] : $import->estimate($target),
                 'intelligence' => $intelligence,
                 'overview' => $connection === null || $contacts === null ? null : [
                     'intelligence' => $intelligence,

@@ -43,8 +43,9 @@
     {% include '@Modules/smailyforprestashop/views/templates/admin/panel/contacts.html.twig' with {
       contacts: s.contacts,
       context: 'settings',
-      all_shops: [],
+      all_shops: s.all_shops,
       import: s.import,
+      estimate: s.estimate,
     } only %}
   </div>
   <div class="smaily-tab-footer">

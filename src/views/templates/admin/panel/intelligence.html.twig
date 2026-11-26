@@ -32,8 +32,17 @@
  # again from each answer of Admin\Api, so nothing reloads. `data-ci-show` names the states a part
  # shows in: `none` (no connection), `connected`, `not_active`, `key_refused`, `update_required`.
  #
- # Takes `intelligence`, `context` (`setup` shows no recommendations card, no import cards, no
- # Check again and no Disconnect, as Magento's step), `shops` (the shops one connection serves)
+ # Above the invitation, the notice that two shops share one Campaign Intelligence store
+ # (`intelligence.shared_store`), so no nightly product list goes out for them.
+ #
+ # The import cards are drawn as the first contact import's (smailyConnect.drawImport(),
+ # panels.js): "X of Y" and the percentage, the outcome with its icon and finish time, a stopped
+ # import's reason code for a developer, and a stalled import that waits behind another one names
+ # that import's card.
+ #
+ # Takes `intelligence`, `context` (`setup` shows no recommendations card, no import cards and no
+ # Disconnect, as Magento's step; the refused banner has Check again there too), `shops` (the
+ # shops one connection serves)
  # and, for `settings`, `guide` (the guide's section on the recommendations block,
  # Admin\UserGuide::link()).
  #}
@@ -57,6 +66,11 @@
      data-label-cancelled="{{ 'Canceled — %sent% of %total% synced. Starting again begins a fresh import.'|trans }}"
      data-label-stopped="{{ 'Stopped before an error — %sent% of %total% synced so far. Press Run again to run it again.'|trans }}"
      data-label-stalled="{{ 'Stalled — nothing has moved this import for over an hour; %sent% of %total% synced so far. Press Run again to start a fresh import. If it stalls again, check that the background tasks run.'|trans }}"
+     data-label-stalled-behind="{{ 'Stalled — this import waits behind another import that nothing has moved for over an hour: Settings > %import%. Cancel that import, or press Run again on its card, and this one follows.'|trans }}"
+     data-label-card-catalog="{{ 'Intelligence'|trans }} > {{ 'Catalog'|trans }}"
+     data-label-card-customers="{{ 'Intelligence'|trans }} > {{ 'Customers'|trans }}"
+     data-label-card-orders="{{ 'Intelligence'|trans }} > {{ 'Orders'|trans }}"
+     data-label-details="{{ 'Details for your developer: %details%'|trans }}"
      data-label-canceling="{{ 'Canceling…'|trans }}"
      data-label-start="{{ 'Start import'|trans }}"
      data-label-run-again="{{ 'Run again'|trans }}"
@@ -68,6 +82,16 @@
      data-label-state-cancelled="{{ 'Canceled'|trans }}">
   {% if shops is not empty %}
     <p class="smaily-note smaily-note--strong">{{ 'Campaign Intelligence is one connection for the whole installation, whichever shop you pick: it covers every shop (%shops%).'|trans({'%shops%': shops|join(', ')}) }}</p>
+  {% endif %}
+
+  {# Magento has one connection per installation; two shops here can share one engine store. #}
+  {% if intelligence.shared_store %}
+    <div class="smaily-banner" role="status" data-ci-shared-store>
+      <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+      <div class="smaily-banner__body">
+        <div class="smaily-banner__message">{{ 'Two shops of this installation share one Campaign Intelligence store, so the nightly product list is not sent for them: a deleted product or a stock change reaches Campaign Intelligence only with the product’s next change.'|trans }}</div>
+      </div>
+    </div>
   {% endif %}
 
   {# The siblings' invitation card, while the store has no connection. #}
@@ -90,14 +114,15 @@
     <div class="smaily-banner__body">
       <div class="smaily-banner__title">{{ 'Your Campaign Intelligence account is not active'|trans }}</div>
       <div class="smaily-banner__message">{{ 'Campaign Intelligence has stopped accepting data from this store, so product, customer and order data is no longer being sent and recommendations will go stale. Waiting will not fix it — the account has to be made active again on the Smaily side. Your Smaily email sending is unaffected; everything queued here waits and is sent once the account is active.'|trans }}</div>
-      {% if settings %}
-        <div class="smaily-actions">
-          <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-check">{{ 'Check again'|trans }}</button>
+      {# Check again on the setup step too, as Magento's refused block; Disconnect on Settings only. #}
+      <div class="smaily-actions">
+        <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-check">{{ 'Check again'|trans }}</button>
+        {% if settings %}
           <button type="button" class="btn btn-outline-secondary" data-smaily-action="ci-disconnect">{{ 'Disconnect'|trans }}</button>
-          <span class="smaily-result" data-ci-check-result role="status"></span>
-        </div>
-        <div class="smaily-banner__message">{{ 'Once Smaily tells you the account is active, press Check again — sending resumes on the next run of the background tasks.'|trans }}</div>
-      {% endif %}
+        {% endif %}
+        <span class="smaily-result" data-ci-check-result role="status"></span>
+      </div>
+      <div class="smaily-banner__message">{{ 'Once Smaily tells you the account is active, press Check again — sending resumes on the next run of the background tasks.'|trans }}</div>
     </div>
     <a class="smaily-banner__action" data-ci-account-url href="#" target="_blank" rel="noopener noreferrer" hidden>{{ 'Open your Smaily account'|trans }}</a>
   </div>
@@ -197,10 +222,13 @@
             <div class="smaily-card smaily-import" data-ci-import="{{ entity }}">
               <div class="smaily-import__head">
                 <strong class="smaily-import__title">{{ title }}</strong>
-                <span class="smaily-pill" data-ci-pill hidden><span class="smaily-pill__dot" aria-hidden="true"></span><span data-ci-pill-text></span></span>
+                <span class="smaily-pill" data-smaily-import-pill hidden><span class="smaily-pill__dot" aria-hidden="true"></span><span data-smaily-import-pill-text></span></span>
               </div>
-              <div class="smaily-progress" data-ci-bar hidden><div class="smaily-progress__fill"></div></div>
-              <p class="smaily-import__line" data-ci-line role="status"></p>
+              <div class="smaily-import__progress" data-smaily-import-progress hidden>
+                <div class="smaily-progress"><div class="smaily-progress__fill"></div></div>
+                <div class="smaily-import__count"><span data-smaily-import-count></span><span class="smaily-import__pct" data-smaily-import-pct></span></div>
+              </div>
+              <div class="smaily-import__verdict" data-smaily-import-verdict><span class="smaily-import__icon" data-smaily-import-icon aria-hidden="true" hidden></span><span data-smaily-import-line role="status"></span></div>
               <p class="smaily-import__line" data-ci-log hidden><a href="{{ path('smailyforprestashop_log') }}">{{ 'View them in the Log'|trans }}</a></p>
               <div class="smaily-actions">
                 <button type="button" class="btn smaily-btn-primary" data-smaily-action="ci-import-start">{{ 'Start import'|trans }}</button>

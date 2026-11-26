@@ -274,9 +274,11 @@ final class HistoryJobs
     /**
      * Where the three imports of a connection stand, for the import cards: per entity null (no
      * import yet) or `status` (a job status, or STALLED), `total`, `sent`, `failed`, `phase`
-     * (of a running orders import), `start_months`, `horizon_months`, `reason` and
-     * `finished_at`. Counts and codes only. Only the import that the tick works on can stall:
-     * one that waits behind it is queued.
+     * (of a running orders import), `start_months`, `horizon_months`, `reason`, `finished_at`
+     * (UTC), `finished` (the end in the shop's time zone, '' while the import goes on) and
+     * `blocked_by`. Counts and codes only. Only the import that the tick works on can stall; one
+     * that waits behind a stalled import shows as stalled too, with that import's entity in
+     * `blocked_by` (Magento's PRO-3923), else `blocked_by` is ''.
      *
      * @return array<string, array<string, mixed>|null>
      */
@@ -284,6 +286,7 @@ final class HistoryJobs
     {
         $progress = [];
         $first = true;
+        $ahead = '';
         foreach (self::ENTITIES as $entity) {
             $job = $this->latest($connection->id(), $entity);
             if ($job === null) {
@@ -293,10 +296,14 @@ final class HistoryJobs
             $active = in_array($job['status'], JobStore::ACTIVE, true);
             $stalled = ($active && $first && $this->isStalled($job))
                 || ($job['status'] === JobStore::STATUS_FAILED && $job['last_error'] === self::REASON_STALLED);
+            $blockedBy = $active && !$first ? $ahead : '';
+            if ($active && $first && $stalled) {
+                $ahead = $entity;
+            }
             $first = $first && !$active;
             $state = $job['state'];
             $progress[$entity] = [
-                'status' => $stalled ? self::STALLED : (string) $job['status'],
+                'status' => $stalled || $blockedBy !== '' ? self::STALLED : (string) $job['status'],
                 'active' => $active,
                 'total' => (int) ($state['total'] ?? 0),
                 'sent' => (int) ($state['sent'] ?? 0),
@@ -306,6 +313,8 @@ final class HistoryJobs
                 'horizon_months' => $state['horizon_months'] ?? null,
                 'reason' => $job['last_error'],
                 'finished_at' => $job['finished_at'],
+                'finished' => $job['finished_at'] === null ? '' : date('Y-m-d H:i', (int) strtotime($job['finished_at'] . ' UTC')),
+                'blocked_by' => $blockedBy,
             ];
         }
 

@@ -31,6 +31,7 @@ if (!defined('_PS_VERSION_')) {
 
 use PrestaShop\Module\SmailyForPrestaShop\Config\ContactsSettings;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactAudience;
+use PrestaShop\Module\SmailyForPrestaShop\Contacts\ContactSyncMode;
 use PrestaShop\Module\SmailyForPrestaShop\Contacts\SubscriberPayloadBuilder;
 use PrestaShop\Module\SmailyForPrestaShop\Database\Sql;
 use PrestaShop\Module\SmailyForPrestaShop\Http\Transport;
@@ -84,6 +85,9 @@ final class ContactImport
     /** No shop of the run has an active contact sync. */
     public const REASON_SYNC_OFF = 'contact_sync_off';
 
+    /** An import that has not moved for this long is stalled (as Magento's, PRO-3915). */
+    public const STALLED_SECONDS = 3600;
+
     public const REASON_NO_ACCOUNT = 'no_account';
 
     public const REASON_NO_CREDENTIALS = 'no_credentials';
@@ -121,9 +125,11 @@ final class ContactImport
 
     /**
      * Starts the first import of one shop (0 = every shop), or resumes the one that was stopped or
-     * failed, from its cursor. An import that is queued or running is left as it is. After a
-     * finished import, a start imports again from the first contact. With no active contact sync in
-     * its shops, the import is done at once with REASON_SYNC_OFF.
+     * failed, from its cursor. An import that is queued or running is left as it is, unless it is
+     * stalled: that one is cancelled and a fresh import starts from the first contact ("Run
+     * again" on its card; Magento's JobManager::startIfIdle()). After a finished import, a start
+     * imports again from the first contact. With no active contact sync in its shops, the import
+     * is done at once with REASON_SYNC_OFF.
      *
      * @return int the job id
      */
@@ -131,7 +137,15 @@ final class ContactImport
     {
         $latest = $this->jobs->latest(self::TYPE_IMPORT, $idShop);
         if ($latest !== null && in_array($latest['status'], JobStore::ACTIVE, true)) {
-            return (int) $latest['id'];
+            if (!self::isStalled($latest)) {
+                return (int) $latest['id'];
+            }
+            $this->jobs->update(
+                (int) $latest['id'],
+                ['status' => JobStore::STATUS_CANCELLED, 'finished_at' => JobStore::now()],
+                JobStore::ACTIVE
+            );
+            $latest = null;
         }
         if ($latest !== null && in_array($latest['status'], [JobStore::STATUS_CANCELLED, JobStore::STATUS_FAILED], true)) {
             $this->jobs->update((int) $latest['id'], ['status' => JobStore::STATUS_QUEUED, 'finished_at' => null, 'last_error' => null]);
@@ -171,11 +185,13 @@ final class ContactImport
 
     /**
      * The newest run of a type for one shop (0 = every shop), or null when none ran. `status` is a
-     * JobStore status; `total` is the audience when the run started; `skipped` counts the contacts
+     * JobStore status; `stalled` whether nothing has moved a queued or running run for
+     * STALLED_SECONDS; `total` is the audience when the run started; `skipped` counts the contacts
      * of the audience whose account is missing or has no credentials; `refused` those of `failed`
-     * that Smaily refused one by one; the times are UTC.
+     * that Smaily refused one by one; the times are UTC, but `finished`, the end in the shop's time
+     * zone for the import card ('' while the run goes on).
      *
-     * @return array{id: int, type: string, id_shop: int, status: string, total: int, sent: int, failed: int, skipped: int, refused: int, started_at: ?string, updated_at: string, finished_at: ?string, last_error: ?string}|null
+     * @return array{id: int, type: string, id_shop: int, status: string, stalled: bool, total: int, sent: int, failed: int, skipped: int, refused: int, started_at: ?string, updated_at: string, finished_at: ?string, finished: string, last_error: ?string}|null
      */
     public function progress(int $idShop = 0, string $type = self::TYPE_IMPORT): ?array
     {
@@ -190,6 +206,7 @@ final class ContactImport
             'type' => (string) $job['type'],
             'id_shop' => (int) $job['id_shop'],
             'status' => (string) $job['status'],
+            'stalled' => self::isStalled($job),
             'total' => $counts['total'],
             'sent' => $counts['sent'],
             'failed' => $counts['failed'],
@@ -198,8 +215,45 @@ final class ContactImport
             'started_at' => $job['started_at'] === null ? null : (string) $job['started_at'],
             'updated_at' => (string) $job['updated_at'],
             'finished_at' => $job['finished_at'] === null ? null : (string) $job['finished_at'],
+            'finished' => $job['finished_at'] === null ? '' : date('Y-m-d H:i', (int) strtotime($job['finished_at'] . ' UTC')),
             'last_error' => $job['last_error'] === null ? null : (string) $job['last_error'],
         ];
+    }
+
+    /**
+     * How many contacts the first import of one shop (0 = every shop) sends in each consent mode,
+     * by each shop's "include guests" (Magento's estimate on the import card, PRO-3582): the
+     * counts of ContactSource::groups(), weighed by ContactAudience as the import weighs them.
+     * Whether contact sync is active is not asked: the card says that on its own.
+     *
+     * @return array<string, int> by mode
+     */
+    public function estimate(int $idShop = 0): array
+    {
+        $groups = $this->source->groups($idShop);
+        $estimate = [];
+        foreach ([ContactSyncMode::SUBSCRIBERS, ContactSyncMode::ALL_CUSTOMERS, ContactSyncMode::CHECKOUT_OPTIN] as $mode) {
+            $estimate[$mode] = 0;
+            foreach ($groups as $group) {
+                $guests = $this->settings->mode($group['id_shop'])->includesGuests();
+                if (self::inAudience(new ContactAudience(new ContactSyncMode($mode, $guests)), $group)) {
+                    $estimate[$mode] += $group['count'];
+                }
+            }
+        }
+
+        return $estimate;
+    }
+
+    /**
+     * Whether nothing has moved a queued or running import for STALLED_SECONDS.
+     *
+     * @param array<string, mixed> $job
+     */
+    private static function isStalled(array $job): bool
+    {
+        return in_array($job['status'], JobStore::ACTIVE, true)
+            && (int) strtotime($job['updated_at'] . ' UTC') <= time() - self::STALLED_SECONDS;
     }
 
     /**

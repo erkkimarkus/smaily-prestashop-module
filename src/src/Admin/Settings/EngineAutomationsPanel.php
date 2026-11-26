@@ -33,7 +33,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Admin\BaseController;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Automations\EngineAutomations;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
-use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -60,7 +60,7 @@ final class EngineAutomationsPanel
 
     private EngineAutomations $automations;
 
-    private StoreLayout $layout;
+    private AccountResolver $accounts;
 
     /** @var callable(string): string */
     private $workflowListError;
@@ -72,10 +72,10 @@ final class EngineAutomationsPanel
      *                                    of Automation\WorkflowList
      *                                    (Admin\Setup\AutomationsPanel::listError())
      */
-    public function __construct(EngineAutomations $automations, StoreLayout $layout, callable $workflowListError, TranslatorInterface $translator)
+    public function __construct(EngineAutomations $automations, AccountResolver $accounts, callable $workflowListError, TranslatorInterface $translator)
     {
         $this->automations = $automations;
-        $this->layout = $layout;
+        $this->accounts = $accounts;
         $this->workflowListError = $workflowListError;
         $this->translator = $translator;
     }
@@ -139,8 +139,12 @@ final class EngineAutomationsPanel
     private function worded(array $view, int $idShop): array
     {
         $workflowError = $view['workflow_error'] ?? null;
-        // With an account per language, the card says whose workflows it lists.
-        $perLanguage = $this->layout->languageMode($idShop) === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE;
+        // Where the connection belongs to another Smaily account than the shop's, the card says
+        // whose workflows it lists (the shop's account: of no language, in mode `a` of the
+        // fallback language, AccountResolver).
+        $account = (string) ($view['account'] ?? '');
+        $own = $this->accounts->for($idShop, '');
+        $other = $account !== '' && ($own === null || strcasecmp($own->subdomain(), $account) !== 0);
 
         return [
             'state' => $view['state'],
@@ -148,7 +152,7 @@ final class EngineAutomationsPanel
             'rows' => $view['rows'] ?? [],
             'workflows' => $view['workflows'] ?? [],
             'workflow_error' => $workflowError === null ? '' : ($this->workflowListError)($workflowError),
-            'account' => $perLanguage ? ($view['account'] ?? '') : '',
+            'account' => $other ? $account : '',
         ];
     }
 

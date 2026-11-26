@@ -36,7 +36,12 @@
  #
  # In the language modes `a` and `b`, the card "Per-language workflows" follows: one table per
  # automation that is on, with a workflow per language and the default fallback. In mode `a` the
- # cards' own workflow is not drawn: it belongs to no language's account.
+ # cards' own workflow is not drawn: it belongs to no language's account, and Magento's warning
+ # "Some languages have no workflow" names the languages whose contacts get none (panels.js reads
+ # the rows as the Router does, with `data-account-fallback`).
+ #
+ # A discount block whose picker lists no cart rule says so with Magento's link "Add a cart price
+ # rule", which opens PrestaShop's new cart rule page (`automations.cart_rule_url`).
  #
  # An automation that is on and has no workflow picked shows "No workflow" in place of "Active".
  # Above the cards, the banner "Some automations have no workflow" names the automations whose
@@ -57,7 +62,7 @@
 } %}
 {% set any_on = automations.triggers|filter(saved => saved.enabled)|length > 0 %}
 {% set lost_names = automations.lost|map(entry => triggers[entry.trigger][0] ~ (entry.language != '' ? ' (' ~ entry.language|upper ~ ')' : ''))|join(', ') %}
-<div class="smaily-panel" data-smaily-panel="automations" data-mode="{{ mode }}"
+<div class="smaily-panel" data-smaily-panel="automations" data-mode="{{ mode }}" data-account-fallback="{{ automations.account_fallback }}"
      data-label-active="{{ 'Active'|trans }}"
      data-label-no-workflow="{{ 'No workflow'|trans }}"
      data-label-off="{{ 'Off'|trans }}"
@@ -126,7 +131,12 @@
                 <p class="smaily-note">{{ 'The discount\'s percentage or amount, its conditions and its dates come from the cart price rule you pick. The module only makes each shopper\'s own single-use code from it.'|trans }}</p>
                 <p class="smaily-note">{{ 'A code works until the end of the day that many days after the email, and never after the rule\'s own end date.'|trans }}</p>
                 <p class="smaily-note">{{ 'Keep the rule itself disabled, or give it a code that you do not share, so that shoppers cannot use it directly. The codes made from it work either way.'|trans }}</p>
-                <p class="smaily-note" data-smaily-discount-empty hidden>{{ 'No cart price rule can be picked yet. Add one in Catalog > Discounts with the discount you want, then press Refresh workflows: the rule appears in the list.'|trans }}</p>
+                <div data-smaily-discount-empty hidden>
+                  <p class="smaily-note">{{ 'No cart price rule can be picked yet. Add one in Catalog > Discounts with the discount you want, then press Refresh workflows: the rule appears in the list.'|trans }}</p>
+                  {% if automations.cart_rule_url %}
+                    <p class="smaily-note"><a href="{{ automations.cart_rule_url }}" target="_blank" rel="noopener">{{ 'Add a cart price rule'|trans }}</a></p>
+                  {% endif %}
+                </div>
               </div>
             </div>
           </div>
@@ -150,6 +160,14 @@
       {% if mode == 'a' %}
         <p class="smaily-note">{{ 'Each language row lists the workflows of that language\'s own Smaily account (Connection panel) and fires through it.'|trans }}</p>
         <p class="smaily-note">{{ 'The default fallback handles contacts whose language has no workflow. Leave it on "None" to use the workflow of the default fallback account\'s language (Connection panel). With neither, these contacts get no automation.'|trans }}</p>
+        <div class="smaily-banner" role="status" data-smaily-unmapped hidden>
+          <span class="smaily-banner__icon" aria-hidden="true">&#9888;</span>
+          <div class="smaily-banner__body">
+            <div class="smaily-banner__title">{{ 'Some languages have no workflow'|trans }}</div>
+            <div class="smaily-banner__message">{{ 'Contacts in these languages get no automation. Pick a workflow for them, or a default fallback.'|trans }}</div>
+            <ul class="smaily-banner__message" data-smaily-unmapped-list></ul>
+          </div>
+        </div>
       {% else %}
         <p class="smaily-note">{{ 'All languages share one Smaily account; each language fires its own workflow from the list.'|trans }}</p>
         <p class="smaily-note">{{ 'The default fallback handles contacts whose language is not mapped. Leave it on "None" to fall back to the default workflow above.'|trans }}</p>

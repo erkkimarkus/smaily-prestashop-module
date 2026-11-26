@@ -1779,9 +1779,19 @@ daily refresh are rows of `smaily_connect_job`:
 
 | Call | Does |
 |---|---|
-| `start(int $idShop = 0): int` | Starts the first import of one shop (`0` = every shop) and returns the job id. A `queued` or `running` import is left as it is. A `cancelled` or `failed` import is queued again and resumes from its cursor. After a `done` import, a start imports again from the first contact. With no active contact sync in its shops, the import is `done` at once with `last_error` `contact_sync_off`. |
+| `start(int $idShop = 0): int` | Starts the first import of one shop (`0` = every shop) and returns the job id. A `queued` or `running` import is left as it is, unless it is stalled: that one is cancelled and a fresh import starts ("Run again", Magento's `JobManager::startIfIdle()`). A `cancelled` or `failed` import is queued again and resumes from its cursor. After a `done` import, a start imports again from the first contact. With no active contact sync in its shops, the import is `done` at once with `last_error` `contact_sync_off`. |
 | `stop(int $idShop = 0): bool` | Stops the import after the page it is sending (`cancelled`); `false` when none was `queued` or `running`. |
-| `progress(int $idShop = 0, string $type = 'contacts_import'): ?array` | The newest run of that type and shop, or `null`: `{"id", "type", "id_shop", "status", "total", "sent", "failed", "skipped", "started_at", "updated_at", "finished_at", "last_error"}`; times are UTC. |
+| `progress(int $idShop = 0, string $type = 'contacts_import'): ?array` | The newest run of that type and shop, or `null`: `{"id", "type", "id_shop", "status", "stalled", "total", "sent", "failed", "skipped", "refused", "started_at", "updated_at", "finished_at", "finished", "last_error"}`; times are UTC, but `finished`, the end in the shop's time zone for the import card. `stalled`: nothing has moved a `queued` or `running` run for an hour (`STALLED_SECONDS`, as Magento's PRO-3915). |
+| `estimate(int $idShop = 0): array` | How many contacts the import sends in each consent mode, by each shop's "include guests" (Magento's estimate, PRO-3582): the counts of `ContactSource::groups()`, weighed by `ContactAudience` as the import weighs them, whether or not contact sync runs. The import card shows the saved mode's and swaps it as the mode changes. |
+
+**The import card** (`panel/contact-import.html.twig`, `panels.js`; CON-445, as Magento's
+Backfill card) draws a run as the Campaign Intelligence import cards do (section 10.11): the pill,
+"X of Y" and the percentage, the outcome with its mark and finish time, and for a `failed` run
+"Details for your developer: <last_error>", the stored reason code. A stalled run shows "Stalled"
+with Run again and Cancel import. While the Contacts settings are not saved, and in checkout opt-in
+only, the card says why and keeps Start import, disabled. On step 2 of the Initial setup the
+intro, the mode cards and the fields stand on the step's page, the import card below them, as in
+Magento's setup.
 
 ---
 
@@ -3034,10 +3044,10 @@ through PrestaShop's context translator, `Admin\BaseController::translator()` (f
 | The Automations tab and step are drawn for the saved language mode and list the workflows of the saved Smaily account. A Connection save that changes the mode loads the page again (the Initial setup opens again on step 2, as after a save that removed workflows). Magento redraws both live from what is typed. | One page load is simpler than a second copy of every mode's rows in the page; nothing unsaved decides a workflow. |
 | The abandoned-cart notes name PrestaShop's "Customer follow-up" module as an example of another tool, and say that the automation receives the cart contents, without Magento's recovery link. | The 2.x payload, which 3.0.0 keeps (section 7), carries no link. |
 | A workflow list that cannot be loaded shows Magento's sentence ("Could not load the workflow list: …") with the module's own sentence for the reason, not Smaily's text. | `Automation\WorkflowList` never hands on Smaily's text: it answers a reason code, and `Admin\Setup\AutomationsPanel` words each code. |
-| The Automations tab has no "Edit design" and no transactional emails, and in mode `a` no notice of the languages without a workflow. | Out of 3.0.0. |
+| The Automations tab has no "Edit design" and no transactional emails. | Out of 3.0.0. |
 | The card "Campaign Intelligence Automations" is asked of the engine once the Automations tab shows, and drawn again from the engine's answer after its save. Magento draws it with the page and changes the pills in place. | A slow engine never holds the Settings page, which draws every tab at once (section 10.10). |
 | A field that the engine refuses at a save of that card, and the reason of a failed read or save, are the module's own sentences. Magento prints the engine's message. | No screen shows the engine's text but the automations' names and descriptions (section 11.2). |
-| With an account per language, that card names the Smaily account whose workflows it lists. | The connection belongs to one Smaily account; Magento has one account per installation here (section 10.10). |
+| Where the connection's Smaily account is not the shop's own, that card names the account whose workflows it lists (CON-445). | The connection belongs to one Smaily account, which a shop with its own account or an account per language may not use; Magento has one account per installation here (section 10.10). |
 | The discount block of a card lists cart rules, enabled and disabled alike, and tells the merchant to keep the rule disabled or to give it a code that is not shared. Magento lists rules with "Use Auto Generation". | A PrestaShop cart rule has one code or none: an enabled rule without a code applies to every cart, and its code works for anyone (section 7). |
 | The cron line and Background tasks card. | Section 4. |
 
@@ -3356,6 +3366,11 @@ picked), "Enabled" and, while the card is on, "Smaily Workflow"; the abandoned c
 modes `a` and `b` the card "Per-language workflows" follows, one table per automation that is on:
 Language, Workflow, Default fallback, and the row "None". In mode `a` a card has no workflow of its
 own: it belongs to no language's account. The panel is drawn for the saved mode (section 10.3).
+In mode `a` the card holds Magento's warning "Some languages have no workflow" (CON-445): for each
+automation that is on, the languages whose contacts get no workflow, read as the Router reads the
+rows (the language's own row, else the automation's default fallback, else the row of the
+fallback account's language, `values()['account_fallback']`); `panels.js` redraws it on every
+change and once the lists have loaded.
 
 **Lost workflows** (owner, 2026-11-26; section 5.1). Above the cards, the banner "Some automations
 have no workflow" names the automations, and in the modes `a` and `b` their language ("Abandoned
@@ -3377,8 +3392,10 @@ coded. The picker's list comes from `Admin\Api\DiscountRules` with the workflow 
 per page, the right to read its menu tab; `{"own": bool}` answers `{"rules": [{"id", "name"}]}`):
 the cart rules that can be a template in the shop that the panel saves for, and for the values all
 shops share the rules that every shop can use. A stored rule that the list no longer offers shows
-as "Pick a rule". While the card and the switch are on, a save without a rule, or with days outside
-1 to 365, is refused at the field; with either off the block is hidden, and a value at fault is
+as "Pick a rule". While the list offers no rule, the block says so with Magento's link "Add a cart
+price rule" to PrestaShop's new cart rule page (`AdminCartRules&addcart_rule`,
+`values()['cart_rule_url']`; CON-445). While the card and the switch are on, a save without a
+rule, or with days outside 1 to 365, is refused at the field; with either off the block is hidden, and a value at fault is
 left unsaved and refuses nothing.
 
 **The workflow lists** come live from Smaily through `Admin\Api\Workflows` (one route per page,
@@ -3483,8 +3500,9 @@ keeps its values in the form.
 (`Connection::smailySubdomain()`; owner, 2026-11-23): the first stored account with that subdomain
 among the shops that the connection serves, the account of no language before a language's; a
 connection that names no account takes the account of no language of its shop. The list is read
-live (`Automation\WorkflowList`) at every load and every save. With an account per language (mode
-`a`) the card names the account. A list that cannot be loaded shows the Automations panel's
+live (`Automation\WorkflowList`) at every load and every save. Where that account is not the
+shop's own (`AccountResolver::for()` of no language: in mode `a` the fallback language's), the
+card names it (CON-445). A list that cannot be loaded shows the Automations panel's
 sentence ("Could not load the workflow list: …"), and the stored workflows then show as "Workflow
 #N (not in your Smaily list — kept)". One workflow per automation, whatever the language mode, as
 in Magento.
@@ -3559,7 +3577,7 @@ again. While an import is queued or running, the Settings tab asks for the state
 | Endpoint (`Admin\Api`) | Right | Does |
 |---|---|---|
 | `EngineExchange` | update | Exchanges the pasted setup link (section 8.9) and queues the three imports (section 8.12). A link that is not taken answers 422 `link_refused` with the module's sentence. While the scope has no Smaily account stored it sends nothing and answers 422 `invalid_fields` with step 1's words (section 15, 2026-11-25). |
-| `EnginePing` | update | "Check again": `HealthCheck::check()` now; answers a sentence when the engine refuses the store or does not answer. Settings only. |
+| `EnginePing` | update | "Check again": `HealthCheck::check()` now; answers a sentence when the engine refuses the store or does not answer. Settings, and the Initial setup's refused notice (CON-445). |
 | `EngineDisconnect` | update | "Disconnect": `Disconnector::disconnect()`, after the page's question. Settings only. |
 | `BackfillState` | read | The panel's state, for the cards of an open page. Settings only. |
 | `BackfillAction` | update | `start` or `cancel` of one import; "Hold back the import" is a cancel of the catalog import. |
@@ -3577,9 +3595,23 @@ while the engine does not answer for the moment. `not_active` (the engine answer
 `tenant_inactive`) shows Magento's red notice, "Check again" and the link to the Smaily account,
 and in place of the import cards the sentence that imports are unavailable. `key_refused` (the
 key does not read, or the engine refuses it) and `update_required` show their notice, and
-`key_refused` shows the setup field again. The Initial setup's step has no "Check again", no
-"Disconnect", no recommendations card and no import cards, as Magento's; its Overview lists the
-connection with its state, the confirmation and the three imports.
+`key_refused` shows the setup field again. The Initial setup's step has no "Disconnect", no
+recommendations card and no import cards, as Magento's, and "Check again" only on the
+`not_active` notice, as Magento's refused block (CON-445); its Overview lists the connection with
+its state, the confirmation and the three imports.
+
+**Two shops on one engine store** (CON-445, moved here from the Dashboard's verdict). Where the
+scope's connection shares its Campaign Intelligence store with another stored connection while
+either holds no prefix (`CatalogManifest::suppressed()`, section 5.3), the panel says above the
+setup field that the nightly product list is not sent for them (`values()['shared_store']`).
+
+**The import cards** are drawn as Magento's Backfill card, the first contact import's too
+(`smailyConnect.drawImport()` in `panels.js`, CON-445): the pill; "X of Y" and the percentage
+under the bar; the outcome line with its mark (✓ done, ! failures or stalled, × stopped, —
+cancelled) and the finish time in the shop's time zone (`finished`); a stopped import adds
+"Details for your developer: <its reason code>", never the engine's text. An import that waits
+behind a stalled one is stalled too and names that import's card (`HistoryJobs::progress()`,
+`blocked_by`, Magento's PRO-3923); its card offers Cancel import, not Run again.
 
 **The invitation card** of the sibling connectors ("Connect your store with Smaily …", "Contact
 Smaily") stands above the setup field while the scope has no connection, and cannot be closed

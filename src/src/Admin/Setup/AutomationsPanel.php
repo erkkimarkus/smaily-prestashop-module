@@ -144,8 +144,12 @@ final class AutomationsPanel
      * automation's default fallback ('' for none). `discount` is the automation's discount code:
      * its switch, its cart rule (0 for none) and its days. `lost` lists the automations (and in
      * the modes `a` and `b` their language) that lost a workflow and have none picked again.
+     * `account_fallback` is, in mode `a`, the language whose account takes a contact of a language
+     * without a workflow (the Connection panel's fallback; '' otherwise), which the warning "Some
+     * languages have no workflow" reads as the Router does. `cart_rule_url` opens PrestaShop's new
+     * cart rule page ('' outside the back office).
      *
-     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string, discount: array{enabled: bool, rule: int, days: int}}>, lost: list<array{trigger: string, language: string}>}|null
+     * @return array{mode: string, cart_delay: int, triggers: array<string, array{enabled: bool, workflow: string, languages: array<string, string>, fallback: string, discount: array{enabled: bool, rule: int, days: int}}>, lost: list<array{trigger: string, language: string}>, account_fallback: string, cart_rule_url: string}|null
      */
     public function values(SetupScope $scope): ?array
     {
@@ -189,7 +193,17 @@ final class AutomationsPanel
                 : ($triggers[$entry['trigger']]['languages'][$entry['language']] ?? null) === ''
         ));
 
-        return ['mode' => $mode, 'cart_delay' => $this->settings->cartDelayMinutes($target), 'triggers' => $triggers, 'lost' => $lost];
+        $link = \Context::getContext()->link;
+
+        return [
+            'mode' => $mode,
+            'cart_delay' => $this->settings->cartDelayMinutes($target),
+            'triggers' => $triggers,
+            'lost' => $lost,
+            'account_fallback' => $mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE ? $this->layout->fallbackLanguage($target) : '',
+            // PrestaShop 8 answers the address HTML-escaped (`&amp;`); the template escapes it once.
+            'cart_rule_url' => $link instanceof \Link ? str_replace('&amp;', '&', $link->getAdminLink('AdminCartRules', true, [], ['addcart_rule' => 1])) : '',
+        ];
     }
 
     /**

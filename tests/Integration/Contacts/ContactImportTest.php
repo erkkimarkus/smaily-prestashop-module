@@ -190,6 +190,76 @@ final class ContactImportTest extends IntegrationTestCase
     }
 
     /**
+     * CON-445: Gender, Customer ID and Customer group, which the merchant ticks, go with Magento's
+     * names; a newsletter-block subscriber without an account is in the shop's guest group.
+     */
+    public function testTheFieldsOfMagentoGoWithTheirValuesWhenTicked(): void
+    {
+        \Configuration::updateGlobalValue(ContactsSettings::FIELDS, 'store,user_gender,customer_id,customer_group');
+        $customer = $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang, ['id_gender' => 2, 'id_default_group' => (int) \Configuration::get('PS_CUSTOMER_GROUP')]);
+        $this->addNewsletterRow($this->shopA, 'block@example.test', true, $this->idLang);
+        $import = $this->import();
+
+        $import->start($this->shopA);
+        $this->tickUntilFinished($import);
+
+        $sent = array_column($this->sentContacts(), null, 'email');
+        $group = static fn (string $key): string => (string) (new \Group((int) \Configuration::get($key), (int) \Configuration::get('PS_LANG_DEFAULT')))->name;
+        self::assertSame(
+            ['customer_id' => (string) $customer, 'user_gender' => 'Female', 'customer_group' => $group('PS_CUSTOMER_GROUP')],
+            array_intersect_key($sent['shopper1@example.test'], array_flip(['customer_id', 'user_gender', 'customer_group']))
+        );
+        self::assertSame(['customer_group' => $group('PS_GUEST_GROUP')], array_intersect_key($sent['block@example.test'], array_flip(['customer_id', 'user_gender', 'customer_group'])));
+    }
+
+    /**
+     * CON-445: the import card's estimate is each mode's audience, by the shop's "include guests",
+     * whether or not contact sync runs.
+     */
+    public function testTheEstimateCountsTheAudienceOfEachMode(): void
+    {
+        $this->addCustomer($this->shopA, 'subscriber@example.test', true, $this->idLang);
+        $this->addCustomer($this->shopA, 'customer@example.test', false, $this->idLang);
+        $this->addCustomer($this->shopA, 'deleted@example.test', true, $this->idLang, ['deleted' => 1]);
+        $this->addNewsletterRow($this->shopA, 'inactive-block@example.test', false, $this->idLang);
+        $this->addCustomer($this->shopB, 'guest-checkout@example.test', false, $this->idLang, ['is_guest' => 1]);
+        $this->addCustomer($this->shopB, 'subscribed-guest@example.test', true, $this->idLang, ['is_guest' => 1]);
+        $this->addNewsletterRow($this->shopB, 'block@example.test', true, $this->idLang);
+        $this->writeShopValue(ContactsSettings::ENABLED, '0', $this->shopB);
+        $import = $this->import();
+
+        self::assertSame(['subscribers' => 1, 'all_customers' => 2, 'checkout_optin' => 0], $import->estimate($this->shopA));
+        self::assertSame(['subscribers' => 2, 'all_customers' => 3, 'checkout_optin' => 0], $import->estimate($this->shopB));
+        $this->writeShopValue(ContactsSettings::GUESTS, '0', $this->shopB);
+        self::assertSame(['subscribers' => 1, 'all_customers' => 1, 'checkout_optin' => 0], $import->estimate($this->shopB), 'without guests');
+    }
+
+    /**
+     * CON-445: an import that nothing has moved for an hour is stalled; Run again cancels it and
+     * starts a fresh one. A finished import tells when it finished, in the shop's time.
+     */
+    public function testAnImportThatNothingMovesForAnHourIsStalledAndRunAgainStartsAFreshOne(): void
+    {
+        $this->addCustomer($this->shopA, 'shopper1@example.test', true, $this->idLang);
+        $import = $this->import();
+        $first = $import->start($this->shopA);
+        self::assertFalse($import->progress($this->shopA)['stalled']);
+
+        self::db()->update(JobStore::TABLE, ['updated_at' => gmdate('Y-m-d H:i:s', time() - ContactImport::STALLED_SECONDS - 60)], '`id` = ' . $first);
+        self::assertTrue($import->progress($this->shopA)['stalled']);
+
+        $second = $import->start($this->shopA);
+        self::assertNotSame($first, $second);
+        self::assertSame(JobStore::STATUS_CANCELLED, self::db()->getValue('SELECT `status` FROM `' . _DB_PREFIX_ . JobStore::TABLE . '` WHERE `id` = ' . $first, false));
+        self::assertSame(['id' => $second, 'status' => JobStore::STATUS_QUEUED, 'stalled' => false, 'finished' => ''], array_intersect_key($import->progress($this->shopA), array_flip(['id', 'status', 'stalled', 'finished'])));
+
+        $this->tickUntilFinished($import);
+        $progress = $import->progress($this->shopA);
+        self::assertSame(JobStore::STATUS_DONE, $progress['status']);
+        self::assertSame(date('Y-m-d H:i', (int) strtotime($progress['finished_at'] . ' UTC')), $progress['finished']);
+    }
+
+    /**
      * Acceptance 7: a few thousand contacts span several ticks, survive a stop between ticks and
      * a second start, and each reaches Smaily once.
      */

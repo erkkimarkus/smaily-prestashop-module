@@ -82,6 +82,7 @@ final class EngineAutomationsTest extends EngineTestCase
     {
         if (defined('_PS_ROOT_DIR_')) {
             \Configuration::deleteByName(StoreLayout::LANGUAGE_MODE);
+            \Configuration::deleteByName(StoreLayout::FALLBACK_LANGUAGE);
             if ($this->savedLanguageMode !== false) {
                 \Configuration::updateGlobalValue(StoreLayout::LANGUAGE_MODE, (string) $this->savedLanguageMode);
             }
@@ -114,7 +115,7 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame([true, true], array_column($card['rows'], 'test_mode'));
         self::assertSame([['id' => 21, 'name' => 'Workflow 21'], ['id' => 24, 'name' => 'Workflow 24']], $card['workflows']);
         self::assertSame('', $card['workflow_error']);
-        self::assertSame('', $card['account'], 'the account is named with an account per language only');
+        self::assertSame('', $card['account'], 'the shop\'s own account is not named');
     }
 
     public function testAnAutomationThatTheEngineAddsLaterIsListedAtTheNextRead(): void
@@ -381,18 +382,22 @@ final class EngineAutomationsTest extends EngineTestCase
         self::assertSame('refused', $this->panel()->card(0, 'en')['state']);
     }
 
-    public function testWithAnAccountPerLanguageTheCardNamesTheConnectionsAccount(): void
+    public function testTheCardNamesTheConnectionsAccountWhereItIsNotTheShopsOwn(): void
     {
         $this->connect();
-        $this->services->get(StoreLayout::class)->setLanguageMode(StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, 0);
+        $layout = $this->services->get(StoreLayout::class);
+        $layout->setLanguageMode(StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, 0);
         $this->storeAccount(0, 'another', 'et');
+        self::assertSame('', $this->panel()->card(0, 'en')['account'], 'the account of no language is the shop\'s own');
 
+        // With an account per language the shop's own account is the fallback language's (CON-445, T9).
+        $layout->setFallbackLanguage('et', 0);
         $card = $this->panel()->card(0, 'en');
 
         self::assertSame('demo', $card['account']);
         self::assertCount(2, $card['workflows']);
         $lists = array_values(array_filter($this->smaily->requests(), static fn (array $request): bool => $request['path'] === '/api/workflows.php'));
-        self::assertCount(1, $lists);
+        self::assertCount(2, $lists, 'one list for each read of the card');
     }
 
     public function testTheWorkflowsComeFromTheLanguageAccountThatTheConnectionBelongsTo(): void

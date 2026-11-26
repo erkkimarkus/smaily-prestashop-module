@@ -3747,6 +3747,51 @@
         <target>Kliendigrupp</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="9b29d35cc6f44f214c7de89317fd97fb">
+        <source>This import sends %count% contact from all shops. It runs in the background, a chunk per minute, and never slows the storefront down.</source>
+        <target>See import saadab kõigist poodidest %count% kontakti. Import töötab taustal, üks tükk minutis, ega aeglusta kunagi poe tööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c814ec341809e7acb3db375988323162">
+        <source>This import sends %count% contacts from all shops. It runs in the background, a chunk per minute, and never slows the storefront down.</source>
+        <target>See import saadab kõigist poodidest %count% kontakti. Import töötab taustal, üks tükk minutis, ega aeglusta kunagi poe tööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="3c89f235a9df658f9c6809a33c446f27">
+        <source>This import sends %count% contact from this shop. It runs in the background, a chunk per minute, and never slows the storefront down.</source>
+        <target>See import saadab sellest poest %count% kontakti. Import töötab taustal, üks tükk minutis, ega aeglusta kunagi poe tööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7684b130099ff0f227e7d59f3c0ca2db">
+        <source>This import sends %count% contacts from this shop. It runs in the background, a chunk per minute, and never slows the storefront down.</source>
+        <target>See import saadab sellest poest %count% kontakti. Import töötab taustal, üks tükk minutis, ega aeglusta kunagi poe tööd.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="61394a8a0da02dddb65a90b1576675a8">
+        <source>Details for your developer: %details%</source>
+        <target>Üksikasjad arendajale: %details%</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="a55baf844bbd9c84e0177623cfea5e93">
+        <source>Stalled — this import waits behind another import that nothing has moved for over an hour: Settings &gt; %import%. Cancel that import, or press Run again on its card, and this one follows.</source>
+        <target>Seiskunud — see import ootab teise impordi taga, mida pole üle tunni edasi viidud: Seaded &gt; %import%. Katkesta see import või vajuta selle kaardil „Käivita uuesti“, siis jätkub see import.</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="8975bf71bad49a39c30adb62f5f4f2de">
+        <source>Add a cart price rule</source>
+        <target>Lisa ostukorvi hinnareegel</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="cb443fd65df9654a2d900dd0490bac01">
+        <source>Some languages have no workflow</source>
+        <target>Mõnel keelel pole töövoogu</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="e3abc109fd9a179b36a56a8de7e91e42">
+        <source>Contacts in these languages get no automation. Pick a workflow for them, or a default fallback.</source>
+        <target>Nende keelte kontaktid ei saa automaatikat. Vali neile töövoog või vaikimisi varuvalik.</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

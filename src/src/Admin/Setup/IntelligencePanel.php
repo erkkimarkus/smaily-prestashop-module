@@ -39,6 +39,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Exception\EngineTransportException;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
+use PrestaShop\Module\SmailyForPrestaShop\Engine\Ingest\CatalogManifest;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\Setup;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -83,7 +84,10 @@ final class IntelligencePanel
     }
 
     /**
-     * @return array{connected: bool, name: string, engine_version: string, state: string, account_url: string, consent: bool, imports: array<string, array<string, mixed>|null>|null}|null null when the scope saves nothing; `state` is Connection::state(), '' without a connection
+     * `shared_store`: the connection shares its Campaign Intelligence store with another stored
+     * connection, so no nightly product list goes out for it (CatalogManifest::suppressed()).
+     *
+     * @return array{connected: bool, name: string, engine_version: string, state: string, account_url: string, consent: bool, shared_store: bool, imports: array<string, array<string, mixed>|null>|null}|null null when the scope saves nothing; `state` is Connection::state(), '' without a connection
      */
     public function values(SetupScope $scope): ?array
     {
@@ -101,6 +105,7 @@ final class IntelligencePanel
             'state' => $connection === null ? '' : $connection->state(),
             'account_url' => $connection !== null && $connection->smailySubdomain() !== '' ? 'https://' . $connection->smailySubdomain() . '.sendsmaily.net' : '',
             'consent' => $this->settings->consentConfirmed($shop),
+            'shared_store' => $connection !== null && CatalogManifest::suppressed($connection, $this->connections->all()),
             'imports' => $connection === null ? null : $this->jobs->progress($connection),
         ];
     }

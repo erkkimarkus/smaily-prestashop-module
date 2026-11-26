@@ -81,32 +81,49 @@
     }
 
     function drawImport(card, job) {
-      var pill = card.querySelector('[data-ci-pill]');
-      var bar = card.querySelector('[data-ci-bar]');
       var start = card.querySelector('[data-smaily-action="ci-import-start"]');
       var counts = job ? {sent: job.sent, total: job.total, failed: job.failed, months: job.start_months, horizon: job.horizon_months} : {};
       var text = '';
-      pill.hidden = !job;
-      bar.hidden = !job || job.status === 'queued';
+      // The bar and the outcome of each state, as the first contact import draws them (panels.js).
+      var shown = !job ? ['', ''] : ({
+        queued: ['', ''],
+        running: ['running', ''],
+        done: job.failed > 0 ? ['failed', 'failures'] : ['done', 'done'],
+        stalled: ['failed', 'stalled'],
+        cancelled: ['stopped', 'cancelled']
+      }[job.status] || ['failed', 'stopped']);
+      // An import that waits behind a stalled one: Run again here would queue it behind that again.
+      var blocked = !!job && job.status === 'stalled' && !!job.blocked_by;
       if (job) {
-        var look = PILLS[job.status] || PILLS.done;
-        pill.className = 'smaily-pill smaily-pill--' + look[0];
-        pill.querySelector('[data-ci-pill-text]').textContent = word(look[1]);
-        bar.querySelector('.smaily-progress__fill').style.width = (job.total > 0 ? Math.min(100, Math.round(100 * (job.sent + job.failed) / job.total)) : 100) + '%';
         if (job.status === 'queued') {
           text = word('queued');
         } else if (job.status === 'running') {
-          text = (job.phase ? word(job.phase === 'older' ? 'orders-older' : 'orders-start', counts) : word('importing')) + ' ' + word('progress', counts);
+          text = job.phase ? word(job.phase === 'older' ? 'orders-older' : 'orders-start', counts) : word('importing');
         } else if (job.status === 'done') {
           text = word(job.failed > 0 ? 'done-failed' : 'done', counts);
+        } else if (blocked) {
+          text = word('stalled-behind', {import: word('card-' + job.blocked_by)});
+        } else if (job.status === 'stalled' || job.status === 'cancelled') {
+          text = word(job.status, counts);
         } else {
-          text = word({cancelled: 'cancelled', stalled: 'stalled'}[job.status] || 'stopped', counts);
+          // Where it stopped, as its stored reason code; never a text of the engine (Magento CON-233).
+          text = word('stopped', counts) + (job.reason ? ' ' + word('details', {details: job.reason}) : '');
         }
       }
-      card.querySelector('[data-ci-line]').textContent = text;
+      var look = job ? (PILLS[job.status] || PILLS.done) : null;
+      smailyConnect.drawImport(card, {
+        pill: look ? look[0] : '',
+        pillText: look ? word(look[1]) : '',
+        bar: shown[0],
+        count: job ? word('progress', counts) : '',
+        percent: !job ? 0 : (shown[1] === 'done' ? 100 : smailyConnect.importPercent(job)),
+        text: text,
+        outcome: shown[1],
+        finished: job ? job.finished : ''
+      });
       card.querySelector('[data-ci-log]').hidden = !(job && job.status === 'done' && job.failed > 0);
       // A stalled import that is still to run offers both: Run again and Cancel import.
-      start.hidden = !!job && job.active && job.status !== 'stalled';
+      start.hidden = (!!job && job.active && job.status !== 'stalled') || blocked;
       start.textContent = word(job ? 'run-again' : 'start');
       card.querySelector('[data-smaily-action="ci-import-cancel"]').hidden = !(job && job.active);
     }

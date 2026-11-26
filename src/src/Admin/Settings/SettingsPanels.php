@@ -45,6 +45,7 @@ use PrestaShop\Module\SmailyForPrestaShop\Engine\HealthCheck;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\History\HistoryJobs;
 use PrestaShop\Module\SmailyForPrestaShop\Engine\LayoutConnections;
 use PrestaShop\Module\SmailyForPrestaShop\Runtime\Services;
+use PrestaShop\Module\SmailyForPrestaShop\Scope\AccountResolver;
 use PrestaShop\Module\SmailyForPrestaShop\Scope\StoreLayout;
 use PrestaShop\Module\SmailyForPrestaShop\Smaily\AccountStore;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -191,7 +192,7 @@ final class SettingsPanels
                 $this->services->get(AccountStore::class),
                 $this->services->get(WorkflowList::class)
             ),
-            $this->layout(),
+            $this->services->get(AccountResolver::class),
             fn (string $reason): string => $this->setup()->automations()->listError($reason),
             $this->translator
         );

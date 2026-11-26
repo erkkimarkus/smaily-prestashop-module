@@ -262,6 +262,29 @@ final class HistoryImportTest extends IngestTestCase
         self::assertSame('stalled', end($calls)['stop_reason']);
     }
 
+    /**
+     * CON-445: the imports that wait behind a stalled one are stalled too, and name it (Magento's
+     * PRO-3923); a finished import tells when it finished, in the shop's time.
+     */
+    public function testTheImportsBehindAStalledOneNameIt(): void
+    {
+        $connection = $this->connect();
+        $this->jobs()->startAll($connection);
+        self::assertSame(['queued', 'queued', 'queued'], array_column($this->jobs()->progress($connection), 'status'));
+        self::assertSame(['', '', ''], array_column($this->jobs()->progress($connection), 'blocked_by'));
+
+        $this->now += HistoryJobs::STALLED_SECONDS + 1;
+
+        $progress = $this->jobs()->progress($connection);
+        self::assertSame(['stalled', 'stalled', 'stalled'], array_column($progress, 'status'));
+        self::assertSame(['', HistoryJobs::CATALOG, HistoryJobs::CATALOG], array_column($progress, 'blocked_by'));
+        self::assertSame(['', '', ''], array_column($progress, 'finished'));
+
+        $this->jobs()->cancel($connection, HistoryJobs::CATALOG);
+        $catalog = $this->jobs()->progress($connection)[HistoryJobs::CATALOG];
+        self::assertSame(date('Y-m-d H:i', (int) strtotime($catalog['finished_at'] . ' UTC')), $catalog['finished']);
+    }
+
     public function testAnImportOfAConnectionThatIsGoneIsCancelledWithoutACall(): void
     {
         $connection = $this->connect();
