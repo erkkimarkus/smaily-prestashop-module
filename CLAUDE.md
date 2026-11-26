@@ -7,7 +7,7 @@ the Story list, its section 15 the owner's decisions.
 `docs/internal/spikes/platform-facts.md` holds the observed behaviour of
 PrestaShop 8 and 9; where it and ARCHITECTURE differ, the facts file wins.
 `docs/DEV_ENVIRONMENT.md` holds the verified local setup. README gives the
-30-second orientation of the module as it ships today (2.2.0).
+30-second orientation of 3.0.0, the repository's public front page.
 
 ## Mission
 

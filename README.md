@@ -1,107 +1,180 @@
-# Smaily for PrestaShop
+# Smaily Connect for PrestaShop
 
-## Description
+[Smaily](https://smaily.com) email marketing, automations and Campaign
+Intelligence for PrestaShop. The module syncs your store's contacts with
+Smaily both ways, starts your Smaily workflows from store events, and
+connects the store to **Smaily Campaign Intelligence**, which turns the
+catalog, customers, orders and browsing into personalized product
+recommendations for your emails and your storefront. Feature-aligned with
+the Smaily Connect connectors for WooCommerce, Magento and Shopify.
 
-Smaily email marketing and automation extension module for PrestaShop.
-
-Automatically subscribe newsletter subscribers to a Smaily subscribers list, generate an RSS feed based on products for easy template import and use PrestaShop's Newsletter Subscription form as an opt-in sign-up form.
+**Status: 3.0.0 — release candidate.** Not released yet; the latest
+release is 2.2.0 (Smaily for PrestaShop). The module's home is the
+official repository
+[`sendsmaily/smaily-prestashop-module`](https://github.com/sendsmaily/smaily-prestashop-module).
 
 ## Features
 
-### PrestaShop Newsletter Subscribers
-
-- Use the Subscribe Newsletter modules form to send subscribers directly to the Smaily subscribers list
-
-### PrestaShop Products RSS-feed
-
-Generate an RSS feed with the 50 latest updated active products for easy import to the Smaily template
-
-### Two-way synchronization between Smaily and PrestaShop
-
-- Remove PrestaShop subscribers based on the Smaily unsubscribed list
-- Update unsubscribed status in PrestaShop users database
-- Collect and send new user data to Smaily for subscribers in the store
-- Generate data log for each update
-
-### Abandoned cart
-
-- Get customer abandoned cart info and send recovery e-mails with Smaily templates.
-- Set preferred delay time when the cart is considered abandoned.
-
-### Installation report (from version 3.0.0)
-
-When a Smaily account is connected, Smaily Connect sends Smaily an installation report when you save the setup or the Settings, once a day, and when you remove a connection or uninstall or reset the module, authenticated with the connected Smaily account's API credentials, which Smaily only checks and never stores: the shop addresses, the PrestaShop, PHP and module versions, the connected Smaily accounts, the switched-on features, whether each connection works (error codes only) and the time of the last successful sync — never customer, subscriber or order data.
-
-### New-version notice (from version 3.0.0)
-
-When a newer version of the module is out, the Smaily Connect pages say so, with links to download it and to read what is new. The module asks GitHub for the latest version once a day and sends no store data.
+- **Upgrade in place** — a store on 2.x upgrades without reinstalling and
+  keeps its Smaily account, contact sync, automations with their
+  workflows, RSS defaults, cron URLs and feed addresses, and the record of
+  reminded carts. Settings that 1.6.x left behind are carried over too.
+- **Smaily account connection** — subdomain and API user, with a
+  connection test before anything is saved. A store without a Smaily
+  account sees an invitation to connect one or to create one.
+- **Multilingual stores** — one Smaily account for every language, a
+  Smaily account per language, one account with a workflow per language,
+  or one workflow that branches on the contact's language.
+- **Multishop stores** — the shops run as one store in several versions,
+  set up once (a shop can still have its own account, contact settings or
+  automations), or as separate stores, each set up on its own.
+- **Consent modes** — subscribers only (consent), all customers
+  (legitimate interest) or checkout opt-in only, with an "include guests"
+  choice. An upgraded store starts in subscribers only.
+- **Two-way contact sync** — contacts reach Smaily in the background, and
+  unsubscribes in Smaily come back to the store. A first import sends the
+  existing contacts. The Log lists every delivery, with its details and
+  retry for failed rows.
+- **Store automations** — welcome, first order and abandoned cart start
+  your Smaily workflows, per language where the store has several. Each
+  can carry a single-use discount code made from one of your cart rules.
+- **Campaign Intelligence** *(optional)* — connect with the setup link
+  from Smaily; the catalog, the customers and the orders are imported once,
+  and every later change follows in the background.
+- **Campaign Intelligence automations** — the automated emails that
+  Campaign Intelligence sends itself, listed live from it, each with its
+  Smaily workflow, cooldown, daily cap and a test mode with test
+  addresses.
+- **Browse tracking and attribution** — product, category and search
+  views and cart changes, only with the visitor's consent; an order is
+  credited to the Smaily email or the recommendation the shopper clicked.
+- **Recommendations and the product feed** — a "Recommended for you" block
+  for the storefront, placed in Design > Positions or with a theme widget,
+  and the product RSS feed for the Smaily template editor, by language,
+  category, limit and sort order.
+- **Installation report** — tells Smaily which versions and features the
+  store runs (see [Privacy and data](#privacy-and-data)).
+- **Privacy** — export and erasure of a customer's data, through
+  PrestaShop's Official GDPR compliance module or the Log's "Privacy
+  request" form, and a Personalization page where a signed-in customer can
+  opt out of personalized recommendations.
+- **English and Estonian** — the administration pages and the texts the
+  module shows to shoppers.
 
 ## Requirements
 
-Smaily for PrestaShop requires PHP 8.0+ (PrestaShop 9 itself needs PHP 8.1+). You'll also need to be running PrestaShop 8.0+ or 9.x.
+| Component | Supported |
+|---|---|
+| PrestaShop | 8.0 – 9.x |
+| PHP | 8.0 or newer (PrestaShop 9 itself needs 8.1 or newer) |
+| Database | MySQL or MariaDB, as your PrestaShop version requires |
+| Smaily | An account whose package includes API access |
+| Background tasks | A cron line every minute (recommended), or visitors' page views |
 
-## Documentation & Support
+The background tasks — contact sync, automations, imports and deliveries
+to Campaign Intelligence — run after a page of the store is sent, while
+visitors browse it. A cron line, which the Dashboard's Background tasks
+card shows, runs them every minute whatever the traffic; a server that
+cannot send a page before the work is done (PHP without PHP-FPM or
+LiteSpeed) needs it.
 
-The user guide of Smaily Connect for PrestaShop is at [smaily.com/connect-presta](https://smaily.com/connect-presta/), in English and Estonian. More documentation and code samples are available via our [Help Center](https://smaily.com/help/user-manuals/).
+PrestaShop 1.7 cannot run Smaily Connect 3; such a store stays on version
+1.6.x of the module.
 
-## Contribute
+## Installation and upgrading
 
-All development for Smaily for PrestaShop is [handled via GitHub](https://github.com/sendsmaily/smaily-prestashop-module). Opening new issues and submitting pull requests are welcome.
+1. Download `smailyforprestashop.zip` from the repository's
+   [Releases](https://github.com/sendsmaily/smaily-prestashop-module/releases).
+2. In the back office, open **Modules > Module Manager**, click **Upload a
+   module** and drop the zip there.
+3. Open **Customers > Smaily Connect**. A new store starts in the
+   five-step Initial setup: Connect, Contacts, Automations, Intelligence,
+   Overview.
 
-## Installation
+**Upgrading from 2.x:** upload the new zip over the old module in the same
+way. **Do not uninstall the old version first** — uninstalling removes
+every setting of the module, the cron tokens and the record of reminded
+carts. The module keeps its technical name `smailyforprestashop` and its
+folder, so PrestaShop upgrades it in place. Your settings carry over, and
+your cron URLs and RSS feed addresses keep working; a 2.x cron URL with no
+token gets a new one, and a notice says so. Notices on the Smaily Connect
+pages tell what else the upgrade changed or left switched off. The
+[upgrade section](https://smaily.com/connect-presta/#upgrading) of the
+guide has the details.
 
-1. Upload or extract the `smailyforprestashop` folder to your site's `/modules/` directory.
-2. Install the plugin from the **Modules** - menu in PrestaShop.
+## Documentation
 
-## Usage
+The merchant guide is at **[smaily.com/connect-presta](https://smaily.com/connect-presta/)**,
+in English and Estonian. Its source is
+[`docs/site/index.html`](docs/site/index.html), one self-contained page.
 
-1. Go to Modules -> Module Manager -> Smaily for PrestaShop and click Configure
-2. Insert your Smaily API authentication information and click **Connect** to get started.
-3. Under the **Customer Sync** tab select if you want to enable customer synchronization.
-4. Select additional fields you want to synchronize (email is automatic) and change the cron token if you like your own.
-5. New customers who sign up with the newsletter enabled can be added to Smaily by enabling trigger opt-in on customer signup.
-6. An autoresponder can be selected for "opt-in on customer sign-up", this will only be triggered if the previous option is enabled.
-7. Click **Save** to save customer synchronization settings.
-8. Under the **Abandoned Cart** tab select if you want to enable abandoned cart synchronization.
-9. Select autoresponder for abandoned cart.
-10. Select additional fields to send to the abandoned cart template.
-11. Add delay time when the cart is considered abandoned. Minimum time 15 minutes. Change the cron token if you like your own.
-12. Click **Save** to save abandoned cart settings.
-13. Cron is set up to synchronize contacts when cron-URL is visited. Use host cPanel, PrestaShop cron tasks manager or external cron service to automate the process.
-14. That's it, your PrestaShop store is now integrated with the Smaily Plugin!
+| Section | What it covers |
+|---|---|
+| [Getting started](https://smaily.com/connect-presta/#getting-started) | Installation and the five steps of the Initial setup |
+| [Settings](https://smaily.com/connect-presta/#settings) | Every tab: Connection, Contacts, Automations, Intelligence, RSS |
+| [Email fields](https://smaily.com/connect-presta/#email-fields) | The fields each automation sends to your Smaily templates |
+| [Importing](https://smaily.com/connect-presta/#importing) | The first contact import and the Campaign Intelligence imports |
+| [Background tasks](https://smaily.com/connect-presta/#background) | Their states, the cron line and the cron URLs of 2.x |
+| [The Log and errors](https://smaily.com/connect-presta/#errors) | Reading the Log, every error message and retry |
+| [FAQ](https://smaily.com/connect-presta/#faq) | Common questions |
+| [Data and privacy](https://smaily.com/connect-presta/#privacy) | What is sent where, cookies, export and erasure |
+| [Upgrading from 2.x](https://smaily.com/connect-presta/#upgrading) | What the upgrade carries over and what changes |
 
-## Using the Newsletter Subscription form
+For developers: [CONTRIBUTING.md](CONTRIBUTING.md) and
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (how the module works
+inside). Changes by version are in [CHANGELOG.md](CHANGELOG.md).
 
-1. Navigate to Design -> Positions -> Transplant a Module section.
-2. Select the **Newsletter subscription** module in the Module field.
-3. Select a hook where you would like to transplant the newsletter form.
+Questions about Smaily Connect or your Smaily account: info@smaily.com.
+Bugs and feature requests:
+[GitHub issues](https://github.com/sendsmaily/smaily-prestashop-module/issues).
 
-## Frequently Asked Questions
+## Privacy and data
 
-### How can I access additional Abandoned cart parameters in the Smaily template editor?
+- **Smaily** (`https://<subdomain>.sendsmaily.net`) receives the contacts
+  that your consent mode covers — the email address, the subscription
+  status, the language and the extra fields you tick — and the fields of
+  the automations you switch on.
+- **Campaign Intelligence** (`https://intelligence.smaily.com`) receives
+  data only while the store is connected: the products, the customers
+  (email address, name, language, country and phone number; no street
+  address or birthday), the orders and, with consent, browse events.
+- **Browse tracking and the recommendations block are off** until you
+  confirm in Settings that your store's cookie banner covers Smaily
+  tracking, or your theme's `window.smailyConnect.consentOverride()`
+  allows it. The cookies of an email click, which credit an order to that
+  email, are listed in the guide's
+  [cookies section](https://smaily.com/connect-presta/#pr-cookies).
+- **The installation report** goes to `https://subscription.smaily.com`
+  while a Smaily account is connected: when you save the setup or the
+  Settings, once a day, and when you remove a connection or uninstall or
+  reset the module. It holds the shop addresses, the PrestaShop, PHP and
+  module versions, the connected Smaily accounts, the switched-on
+  features, whether each connection works (error codes only) and the time
+  of the last successful sync — never customer, subscriber or order data.
+  It is authenticated with the Smaily account's API credentials, which
+  Smaily only checks and never stores.
+- **The new-version check** asks GitHub once a day for the latest release
+  and sends no store data.
+- The Smaily API password is stored encrypted, and the Log never stores or
+  shows a password or key. Uninstalling removes every setting, table and
+  cache file of the module.
 
-Here is a list of all the parameters available in the Smaily email templating engine:
+## Development
 
-Customer first name: `{{ first_name }}`.
+```bash
+composer install --working-dir src/
+src/vendor/bin/phpunit                                    # unit tests; integration tests skip on the host
+(cd src && vendor/bin/php-cs-fixer fix --dry-run --using-cache=no)
+node --test tests/js/                                     # storefront scripts and the guide page
+composer --working-dir src package                        # writes dist/smailyforprestashop.zip
+```
 
-Customer last name: `{{ last_name }}`.
+The integration tests run inside a PrestaShop shop in Docker, and
+`tests/ci/validate.sh` installs the built zip on a fresh shop and runs
+them there. [CONTRIBUTING.md](CONTRIBUTING.md) starts the development
+environment; [`docs/DEV_ENVIRONMENT.md`](docs/DEV_ENVIRONMENT.md) has the
+full setup, the test commands and the upgrade walk from 2.x.
 
-Is abandoned cart: `{{ is_abandoned_cart }}`.
+## License
 
-Up to 10 products can be received in the Smaily templating engine. You can reference each product with a number 1-10 behind the parameter name.
-
-Product name: `{{ product_name_[1-10] }}`.
-
-Product description: `{{ product_description_[1-10] }}`.
-
-Product SKU/Reference: `{{ product_sku_[1-10] }}`.
-
-Product quantity: `{{ product_quantity_[1-10] }}`.
-
-Product price: `{{ product_price_[1-10] }}`.
-
-Product base price : `{{ product_base_price_[1-10] }}`.
-
-Also, you can determine if a customer had more than 10 items in the cart
-
-More than 10 items: `{{ over_10_products }}`.
+GPL-3.0 — see [LICENCE.txt](LICENCE.txt).
