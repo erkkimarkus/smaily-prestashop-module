@@ -617,7 +617,11 @@ Results on 2026-11-20:
 - On 2026-11-26, on the merged `v3` with that day's changes and the stylesheet fix `0011857`: 10 of 10
   checks on flashlight 8.2.8 and 9.2.0 with the packaged zip, and 2346 tests in the shop on each (12620
   assertions on 8.2.8, 12625 on 9.2.0); with `SHOPS=2` 12 of 12 on both.
-- The official image did not run with any code after the event queue.
+- On 2026-11-26, the release-candidate check of the merged `v3` at `1d997b6`: 10 of 10 checks on flashlight
+  8.2.8 and 9.2.0 with the packaged zip, and 2417 tests in the shop on each (12963 assertions on 8.2.8,
+  12968 on 9.2.0); with `SHOPS=2` 12 of 12 on both.
+- The official image ran locally last with the event queue; CI runs it on every push since 2026-11-26
+  (section 10).
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
 redirect: a shop with two languages answers 302 at `/`, and a redirect runs no tick. The fallback tick
@@ -740,6 +744,10 @@ of `1.6.2-configured.sql`: the migration ended `done` from 1.6.2 with its 15 ste
      runs the tick (ARCHITECTURE section 3.7).
 6. **Check** `SMAILY_CONNECT_MIGRATION` (`status` `done`), `SMAILY_CONNECT_SCHEMA_VERSION`, the
    account, mapping and cart rows, and that the legacy keys except the two tokens are gone.
+   `ps_module.version` reads 3.0.0 after an upload or a console upgrade (verified on 2026-11-26 over
+   2.2.0 and 1.6.2). A walk that stages a legacy store by writing `ps_module.version` and lets the tick
+   run the migration keeps the staged version there, as an FTP copy does (ARCHITECTURE section 3.8):
+   PrestaShop alone writes that row, at its upgrade.
 
 Seen in the walks of 2026-11-23 (8.2.8 and 9.2.0), on a machine that ran two other stacks:
 
@@ -810,9 +818,10 @@ checkout that a shop mounts under the home directory.
 
 `.github/workflows/validate.yaml` runs on pull requests and on pushes to `master` and `v3`: PHP syntax
 on 8.0 and 8.5, PHP CS Fixer, PHPUnit on the host, and `tests/ci/validate.sh` on 8.2.8 (flashlight,
-PHP 8.0) and 9.2.0 (official image, PHP 8.1). No workflow run exists on the fork yet: GitHub keeps a
-fork's workflows off until the owner enables them once in the repository's Actions tab. Until then, CI
-on `v3` is unverified, and the local `validate.sh` runs of section 6 are the evidence.
+PHP 8.0) and 9.2.0 (official image, PHP 8.1), and the storefront scripts' Node tests. The owner
+enabled the fork's workflows on 2026-11-26; the runs on `v3` are green since `1d997b6` (all six jobs,
+the 9.2.0 lane on the official image). Read them with
+`gh run list --repo erkkimarkus/smaily-prestashop-module` and `gh run view <id>`.
 
 ## Disk
 

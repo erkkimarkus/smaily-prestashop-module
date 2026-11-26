@@ -444,12 +444,24 @@ site's address and each `SECTION_*` an id on the page; `UserGuide::link()`
 builds a section's address, which the controller passes to the template;
 `tests/Unit/Admin/UserGuideTest.php` and the JS check pin
 them. Renaming a site id breaks those links: search the repo first.
-**Publishing it live** goes to https://smaily.com/connect-presta/ (a new
-web root, as the siblings' guides at `/connect-woo/` and
-`/connect-magento/`). It waits for the owner's FTP account: the credentials
-file will be `~/smaily_ftp_presta` on Erkki's Mac, which agents never
-print, copy or commit, and the first upload waits for Erkki's go-ahead.
-Until then the page is not published.
+**The guide is live** at https://smaily.com/connect-presta/ since
+2026-11-26 (its own web root, as the siblings' guides at `/connect-woo/`
+and `/connect-magento/`). The FTP account is chrooted to that web root;
+its credentials are `~/Downloads/smaily/ftp-presta` on Erkki's Mac, three
+lines (host, user, password), which agents never print, copy, read into
+a report or commit. Agents' outbound FTP is refused on this machine, so
+the owner runs every upload, from this command, which the orchestrator
+hands him after the page's commit is on `v3`:
+
+    (umask 077; d=$(mktemp -d)
+     { read -r host; read -r user; read -r pass; } < ~/Downloads/smaily/ftp-presta
+     printf 'user = "%s:%s"\n' "$user" "$pass" > "$d/curl.cfg"
+     git show v3:docs/site/index.html > "$d/index.html"
+     curl -K "$d/curl.cfg" --ssl-reqd -k --disable-epsv \
+       -T "$d/index.html" "ftp://$host/index.html"
+     rm -rf "$d")
+    curl -s https://smaily.com/connect-presta/ | md5
+    git show v3:docs/site/index.html | md5    # the two sums match
 
 ## Build / test commands
 
@@ -506,10 +518,11 @@ Verified on 2026-11-20; the full recipe, ports and pitfalls are in
 - Release zip: `composer --working-dir src package` writes
   `dist/smailyforprestashop.zip`; `release.yaml` attaches it to a GitHub
   release.
-- `validate.yaml` runs on pull requests and on pushes to `master` and `v3`,
-  once the fork's Actions are enabled (the owner enables them once in the
-  Actions tab; until then CI on `v3` is unverified). Read a PR's result
-  with `gh pr checks <number> --watch`.
+- `validate.yaml` runs on pull requests and on pushes to `master` and `v3`;
+  the fork's Actions are on since 2026-11-26 and its runs on `v3` are
+  green. Read a run with `gh run list --repo
+  erkkimarkus/smaily-prestashop-module`, a PR's result with
+  `gh pr checks <number> --watch`.
 
 ## Commits
 
