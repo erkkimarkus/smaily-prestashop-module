@@ -253,7 +253,7 @@ final class IdentityMergeHandler implements HandlerInterface, ExchangeSource
         if (is_string($payload['merge_ts'] ?? null)) {
             $body['merge_ts'] = $payload['merge_ts'];
         }
-        if (in_array($payload['merge_reason'] ?? null, [IdentityCapture::REASON_SIGNED_IN, IdentityCapture::REASON_CHECKOUT], true)) {
+        if (($payload['merge_reason'] ?? null) === IdentityCapture::REASON_SIGNED_IN) {
             $body['merge_reason'] = $payload['merge_reason'];
         }
         try {

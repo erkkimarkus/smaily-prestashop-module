@@ -1835,7 +1835,7 @@ for steps 1 and 3 to 5); Settings keeps its cards.
 
 | Hook | Queue event(s) | Story |
 |---|---|---|
-| `actionCustomerAccountAdd` | `contact.sync`; `automation.welcome` (a storefront registration with `newsletter = 1`); engine customer row; engine `identity_merge` and `vs_` token at registration and guest checkout, where `actionAuthentication` does not fire | 2.3, 4.2, 5.2, 5.5 |
+| `actionCustomerAccountAdd` | `contact.sync`; `automation.welcome` (a storefront registration with `newsletter = 1`); engine customer row; engine `identity_merge` at registration, where `actionAuthentication` does not fire; `vs_` token at registration and guest checkout | 2.3, 4.2, 5.2, 5.5 |
 | `actionObjectCustomerUpdateBefore`, `actionObjectCustomerUpdateAfter`, `actionCustomerAccountUpdate` | `contact.sync` (with status only on change); `automation.welcome` on 0→1 in the storefront; engine customer row from `actionObjectCustomerUpdateAfter`, while the customer scope holds the customer (section 8.11) | 2.3, 4.2, 5.2 |
 | `actionObjectCustomerDeleteAfter` | Not registered (owner, 2026-11-21; section 15). The deleted customer is handled at send time: the cart reminder reads no address of a deleted customer (`CartAddress`), and sends none to a cart whose customer is gone (`customer_deleted`, below). Nothing to Smaily: erasure goes through psgdpr. | — |
 | `actionNewsletterRegistrationBefore` | `contact.sync` for a block unsubscribe (`action = '1'`), after the stored state confirms it (6.3). | 2.3 |
@@ -2662,8 +2662,8 @@ guest-checkout customer (`customer.is_guest`): the merchant's setting alone, wha
 newsletter box of the checkout's customer step says, as the WooCommerce plugin reads the banner's
 answer for a guest too. Until then a guest also needed that box. The rule asks nothing of the
 customer, so no path hands it one. A guest's token reaches the engine with the order's row, which
-binds it to the order's address: group (c) of section 8.11 holds no guest, so the identity merge
-of a guest checkout carries an engine `vt_` token only, and the guest is sent as a customer only
+binds it to the order's address: group (c) of section 8.11 holds no guest, a guest checkout queues
+no identity merge (section 8.11, "The identity merge"), and the guest is sent as a customer only
 where the contact sync takes the guest (group (a)). Walked over HTTP on 8.2.8 and 9.2.0 against
 the engine mock (2026-11-23), five guests per lane. With the setting on and the box empty, the
 customer step set the cookie, the order went out with that token and the mock bound it to the
@@ -2761,7 +2761,7 @@ combination "Save list" make one catalog row.
 | `CatalogCapture` | Product add and update, `actionUpdateQuantity`, combination update and delete, specific price add, update and delete, product delete | The product is marked for the connection of every shop that holds it. A deleted product becomes a removal for the connection of each shop it left. |
 | `CustomerCapture` | `actionCustomerAccountAdd`, `actionObjectCustomerUpdateAfter`, `actionValidateOrder`, `actionNewsletterRegistrationAfter` | Only while the customer scope holds the customer (below). |
 | `OrderCapture` | `actionValidateOrder`, `actionOrderStatusPostUpdate`, `actionOrderEdited`, `actionOrderSlipAdd` | The whole order goes again, with its status and its returned lines. An order also marks its products, through the stock change. |
-| `IdentityCapture` | `actionAuthentication`, `actionCustomerAccountAdd` | One `engine.identity_merge` row of the event queue, only in the shopper's own storefront request. |
+| `IdentityCapture` | `actionAuthentication`, `actionCustomerAccountAdd` | One `engine.identity_merge` row of the event queue, only in the shopper's own storefront request; none for a guest checkout. |
 
 **Which customers** (`Engine\Ingest\CustomerScope`; contract §4 "Which customers to send"). Exactly
 three groups, asked when the row is noted and again when it is sent:
@@ -2795,7 +2795,7 @@ value.
 | §3c `POST /api/v1/ingest/catalog/manifest`, `products[]` | `sku`, `in_stock` |
 | §4 `POST /api/v1/ingest/customers`, `customers[]` | `event_id`, `email`, [`first_name`], [`last_name`], [`country`], [`language`], [`phone`], [`first_seen_at`], `external_id`, [`website`] |
 | §5 `POST /api/v1/ingest/orders`, `orders[]` | `event_id`, `external_order_id`, `customer_email`, `ordered_at`, `total_amount`, [`discount_amount`], `currency`, `status`, [`smaily_rec_id`], [`smaily_visitor_token`], [`smaily_rec_ctx`], [`website`], `items[]`: `sku`, `qty`, `unit_price`, `line_total`, [`discount_amount`], [`returned_at`] |
-| §7 `POST /api/v1/identity/merge` | `smaily_visitor_token`, `customer_email`, `customer_external_id`, [`merge_ts`], [`merge_reason`] (`user_logged_in`, `email_provided_at_checkout`) |
+| §7 `POST /api/v1/identity/merge` | `smaily_visitor_token`, `customer_email`, `customer_external_id`, [`merge_ts`], [`merge_reason`] (`user_logged_in`) |
 
 `country` and `phone` of a customer come from the customer's first active address, as the siblings
 send the billing address's. No street, city, postcode, company, birthday or note leaves the shop.
@@ -2847,8 +2847,13 @@ Each row keeps what was sent for it and the answer for it (`last_request`, `last
 without the engine's `message` at any depth, which can name a shopper; a stored reason is a code.
 
 **The identity merge** (`Engine\Capture\IdentityCapture`, `Engine\Ingest\IdentityMergeHandler`;
-event type `engine.identity_merge`). Queued at a sign-in, and at a registration and a guest
-checkout, where PrestaShop signs the shopper in without `actionAuthentication`. The row names the
+event type `engine.identity_merge`). Queued at a sign-in, and at a registration, where PrestaShop
+signs the shopper in without `actionAuthentication`. A guest checkout queues none, as the
+WooCommerce and Magento connectors merge at a login only: the guest's visitor token reaches the
+engine with the order's row, which binds it to the order's address (contract §5). Until
+2026-11-26 a guest checkout queued a merge; the live walk showed that the engine answers it
+`404 customer_not_found` for a guest whom the store does not send as a customer, and the row
+failed for good (`engine_customer_not_sent`) and turned the Dashboard to "Needs attention". The row names the
 customer by id; its entity is the contact's (`Queue\ContactEntity::of()`), so the privacy erasure
 finds it. The handler sends the customer of group (c) first, in the same run, and then the merge
 when the row has a visitor token; a `404 customer_not_found` sends a customer of group (a) or (b)
@@ -4763,8 +4768,9 @@ has one owner:
   4. Every key carries the connection prefix.
   5. No nightly manifest is sent for a connection that shares its `tenant_id` with another
      connection while either holds the prefix `""` (section 5.3).
-  6. The engine `identity_merge` also runs at registration and at guest checkout, from
-     `actionCustomerAccountAdd`, because `actionAuthentication` fires on login only (section 7).
+  6. The engine `identity_merge` also runs at registration, from `actionCustomerAccountAdd`,
+     because `actionAuthentication` fires on login only (section 7); a guest checkout queues none,
+     as on the siblings (2026-11-26, section 8.11).
 - **Done.** As built: section 8.11, with the keys of section 8.2 and the money of section 8.3;
   `src/src/Runtime/Provider/EngineIngestProvider.php`; the Log's ingest rows (section 10.8), the
   retention sweep (section 11.3) and the privacy coverage of the ingest rows (section 11.2).

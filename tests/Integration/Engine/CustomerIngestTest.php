@@ -323,28 +323,47 @@ final class CustomerIngestTest extends IngestTestCase
         self::assertSame([[IngestQueue::DOMAIN_CUSTOMERS, (string) $customer->id, EventQueue::STATUS_SENT]], self::summary(), 'the Log has the customer that the merge sent');
     }
 
-    public function testARegistrationAndAGuestCheckoutAlsoQueueTheMerge(): void
+    public function testARegistrationAlsoQueuesTheMerge(): void
     {
         $this->connect();
         $this->confirmTracking();
         $this->storefront();
         $this->token = self::ENGINE_TOKEN;
         $registered = $this->customer('shopper12@example.test', true);
-        $guest = $this->customer('shopper13@example.test', true, ['is_guest' => 1]);
 
-        // PrestaShop signs both in without actionAuthentication (facts file part 2).
+        // PrestaShop signs the shopper in without actionAuthentication (facts file part 2).
         $this->fire('actionCustomerAccountAdd', ['newCustomer' => $registered]);
-        $this->fire('actionCustomerAccountAdd', ['newCustomer' => $guest]);
 
         $payloads = array_map(static fn (array $row): array => json_decode((string) $row['payload'], true), self::mergeRows());
         self::assertSame(
-            [
-                [(int) $registered->id, IdentityCapture::REASON_SIGNED_IN, self::ENGINE_TOKEN, true],
-                [(int) $guest->id, IdentityCapture::REASON_CHECKOUT, self::ENGINE_TOKEN, null],
-            ],
-            array_map(static fn (array $payload): array => [$payload['id_customer'], $payload['merge_reason'], $payload['visitor_token'], $payload['send_customer'] ?? null], $payloads),
-            'a guest has no account to sign in to: group (c) does not send a guest'
+            [[(int) $registered->id, IdentityCapture::REASON_SIGNED_IN, self::ENGINE_TOKEN, true]],
+            array_map(static fn (array $payload): array => [$payload['id_customer'], $payload['merge_reason'], $payload['visitor_token'], $payload['send_customer'] ?? null], $payloads)
         );
+    }
+
+    /**
+     * A guest who came from an email link (an engine token) and checked out, the newsletter box
+     * empty or ticked: the WooCommerce and Magento connectors merge at a login only, and the
+     * guest's token reaches the engine with the order's row. Without a merge no row can fail
+     * because the store does not send the guest as a customer (the live walk of 2026-11-26).
+     *
+     * @testWith [false]
+     *           [true]
+     */
+    public function testAGuestCheckoutQueuesNoMerge(bool $newsletter): void
+    {
+        $this->connect();
+        $this->confirmTracking();
+        $this->contactSync(ContactSyncMode::SUBSCRIBERS, true);
+        $this->storefront();
+        $this->token = self::ENGINE_TOKEN;
+        $guest = $this->customer('shopper13@example.test', $newsletter, ['is_guest' => 1]);
+
+        $this->fire('actionCustomerAccountAdd', ['newCustomer' => $guest]);
+        $this->services->get(QueueProvider::FLUSHER)->flush();
+
+        self::assertSame([], self::mergeRows());
+        self::assertSame([], $this->engine->requestsTo(self::MERGE));
     }
 
     /**

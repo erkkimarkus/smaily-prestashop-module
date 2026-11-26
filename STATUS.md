@@ -29,13 +29,17 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   prefix), walked on 8.2.8 and 9.2.0 with its own gates.
 - Live walk (owner's request, 26 Nov, `docs/internal/walks/2026-11-26-live.md`): the live shop against the real
   Smaily test account, engine and report receiver. Every capability the owner's settings switch on works; one
-  defect: a guest who orders after an email click leaves a failed identity merge (`engine_customer_not_sent`) and
-  the Dashboard says "Needs attention" (Queue below). The engine answers no recommendations yet.
+  defect: a guest who orders after an email click left a failed identity merge (`engine_customer_not_sent`) and
+  the Dashboard said "Needs attention". Fixed: a guest checkout queues no merge, as Woo and Magento merge at a
+  login only; the guest's token reaches the engine with the order (ARCHITECTURE 8.11). The redirect that drops a
+  link's query (`/en/?…`, `index.php?id_product=…` with friendly URLs on) touches no link the engine builds: the
+  catalog sends `Link::getProductLink()`, which keeps the query with friendly URLs on and off (8.2.8, 9.2.0). The
+  engine answers no recommendations yet.
 - CON-454 part b: each import card's finish time in the employee's date format (`Admin\AdminTime`); the Initial
   setup's "Shops with their own values" lists every contact field the Contacts step offers
   (`ContactsPanel::FIELD_LABELS`, which the step reads too).
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
-  and go-ahead exist; the guest-merge defect; CON-444's seven cross-connector questions (owner, later); the demo
+  and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.
 
 **All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0**, and those the
@@ -74,6 +78,12 @@ guard, debug mode on: 2353 tests on 9.2.0 (12642 assertions) and on 8.2.8 (12637
 on a store of two shops, EN and ET, on both: the contact and the three Campaign Intelligence import cards show the
 finish time as `m/d/Y H:i:s` and `d.m.Y H:i:s`; the second shop's own values list First name, Last name, Gender,
 Customer ID, Customer group and Subscription type; no PHP error, 5xx or module JS error.
+The guest-merge fix, on `ed5cce9` with its commit: host 2386 tests, 4195 assertions, 1219 skipped; `node --test
+tests/js/` 55 pass; PHP CS Fixer 0 of 368 files; PHP 8.0.30 lint of 599 files; `tests/ci/validate.sh` with the zip,
+debug mode off: 10 of 10 on 9.2.0 (2386 tests, 12799 assertions) and 8.2.8 (2386, 12794), leftovers silent. Headless
+walk behind the guard on both: email-link landing, guest checkout with the box empty: no merge row, no failed row,
+the order's link values at the engine mock, Dashboard "All systems normal" (the old code: failed row, "Needs
+attention", on 9.2.0).
 
 **NOT verified — keep these visible:** against the live services (walked on 9.2.0 only, never on 8.2.8): a change
 made in Smaily reaching the store, the First order and Abandoned cart triggers and discount codes (off in the live
@@ -87,7 +97,7 @@ segfault report (not reproduced).
 
 1. The owner's walk of the two test shops, with the upgrade of shop B from the new zip; findings come back as fixes.
 2. Publish the merchant guide (CON-424) once the owner has the web root and the FTP account and gives the go-ahead.
-3. The guest-merge defect of the live walk (Queue), a cross-connector question; then the live walk's waiting parts.
+3. The live walk's waiting parts.
 4. CON-444's seven cross-connector questions (owner, later).
 5. The PrestaShop demo store (CON-425, under GRO-310), after the live walk.
 6. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
@@ -99,11 +109,6 @@ segfault report (not reproduced).
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
-- Live walk defect (medium): after an email-link landing (`smaily_vt`), a guest checkout queues an identity merge
-  that the engine answers 404; the store never sends a guest as a customer, so the row fails for good
-  (`engine_customer_not_sent`, "the login was not linked") and the Dashboard turns to "Needs attention". Skip it,
-  or send the guest? Ask the siblings first (CON-397). PrestaShop drops the query of `/en/?…` and
-  `index.php?id_product=…&…` in its redirect: such an email link loses its attribution.
 - The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.1 names none for a general 5xx.
   `sendsmaily.net` has wildcard DNS: only the egress guard fences a shop from the real Smaily API.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user

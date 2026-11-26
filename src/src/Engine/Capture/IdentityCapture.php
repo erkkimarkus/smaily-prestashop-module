@@ -36,11 +36,14 @@ use PrestaShop\Module\SmailyForPrestaShop\Queue\EventQueue;
 use PrestaShop\Module\SmailyForPrestaShop\Storefront\Shape;
 
 /**
- * Queues the identity merge (contract §7) when a shopper becomes known in the storefront: at a
- * sign-in (actionAuthentication), and at a registration or a guest checkout
- * (actionCustomerAccountAdd), where PrestaShop signs the shopper in without that hook (facts file
- * part 2). The queue's handler (Engine\Ingest\IdentityMergeHandler) sends it, so a sign-in never
- * waits for the engine.
+ * Queues the identity merge (contract §7) when a shopper signs in to an account: at a sign-in
+ * (actionAuthentication), and at a registration (actionCustomerAccountAdd), where PrestaShop signs
+ * the shopper in without that hook (facts file part 2). The queue's handler
+ * (Engine\Ingest\IdentityMergeHandler) sends it, so a sign-in never waits for the engine.
+ *
+ * A guest checkout queues none, as the WooCommerce and Magento connectors merge at a login only: a
+ * guest has no account to sign in to, and the guest's visitor token reaches the engine with the
+ * order's row, which binds it to the order's address (contract §5).
  *
  * One row of the event queue carries both things that the contract ties to that moment:
  *  - the customer of group (c): a registered customer who signs in or registers in a shop whose
@@ -62,9 +65,6 @@ final class IdentityCapture
 
     /** The contract's `merge_reason` of a sign-in and of a registration. */
     public const REASON_SIGNED_IN = 'user_logged_in';
-
-    /** The contract's `merge_reason` of a guest who gave an address at the checkout. */
-    public const REASON_CHECKOUT = 'email_provided_at_checkout';
 
     private Connections $connections;
 
@@ -103,15 +103,15 @@ final class IdentityCapture
     }
 
     /**
-     * actionCustomerAccountAdd: a registration, or a guest at the order step.
+     * actionCustomerAccountAdd: a registration. A guest at the order step queues nothing.
      *
      * @param array<string, mixed> $params
      */
     public function accountAdded(array $params): void
     {
         $customer = $params['newCustomer'] ?? null;
-        if ($customer instanceof \Customer) {
-            $this->identified((int) $customer->id, (int) $customer->is_guest === 1 ? self::REASON_CHECKOUT : self::REASON_SIGNED_IN);
+        if ($customer instanceof \Customer && (int) $customer->is_guest !== 1) {
+            $this->identified((int) $customer->id, self::REASON_SIGNED_IN);
         }
     }
 
