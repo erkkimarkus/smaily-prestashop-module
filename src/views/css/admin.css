@@ -305,7 +305,7 @@
 
 .smaily-ui .smaily-invitation__row-text {
   flex: 1 1 auto;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .smaily-ui .smaily-invitation__chip {
@@ -321,10 +321,14 @@
   top: 10px;
   right: 14px;
   padding: 0;
-  color: var(--smaily-brand-text);
+  color: #6b6577;
   text-decoration: underline;
   background: none;
   border: 0;
+}
+
+.smaily-ui .smaily-invitation__dismiss:hover {
+  color: var(--smaily-plum);
 }
 
 /* Dashboard. */
@@ -408,9 +412,12 @@
   .smaily-ui .smaily-columns {
     grid-template-columns: minmax(0, 1fr);
   }
+}
 
-  .smaily-ui .smaily-invitation {
-    flex-direction: column;
+/* As Magento's: the invitation never stacks; at 960 px and below its preview is hidden. */
+@media (max-width: 960px) {
+  .smaily-ui .smaily-invitation__panel {
+    display: none;
   }
 }
 
