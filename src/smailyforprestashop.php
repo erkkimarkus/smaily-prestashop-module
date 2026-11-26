@@ -121,6 +121,13 @@ class SmailyForPrestaShop extends Module implements WidgetInterface
             return false;
         }
 
+        // PrestaShop enables a module in the shops of the context it installs in. Module Manager's
+        // context is the employee's shop selection; a command-line install has none, so it
+        // enables the module in every shop.
+        if (Shop::isFeatureActive() && Tools::isPHPCLI()) {
+            Shop::setContext(Shop::CONTEXT_ALL);
+        }
+
         if (!parent::install()) {
             return false;
         }
