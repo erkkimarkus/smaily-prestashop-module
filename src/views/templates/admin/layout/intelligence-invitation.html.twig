@@ -23,7 +23,8 @@
 {#
  # The invitation to Campaign Intelligence, as the sibling connectors draw it (Magento's
  # panel/intelligence-banner.phtml): shown to a store that has no Campaign Intelligence connection,
- # and gone once it has one. "Contact Smaily" opens Smaily's consultation page.
+ # and gone once it has one. "Contact Smaily" opens Smaily's consultation page. The "Engine in
+ # action" preview only illustrates (assistive technology skips it); below 960 px it is hidden.
  #
  # In the Intelligence panel (the Intelligence tab and step 4 of the Initial setup) the card
  # stands above the setup link field and cannot be closed; the panel's script shows it while the
@@ -35,13 +36,41 @@
  #}
 {% trans_default_domain 'Modules.Smailyforprestashop.Admin' %}
 {% set dismissible = dismissible|default(false) %}
-<div class="smaily-card smaily-ci-invite{% if dismissible %} smaily-ci-invite--top{% if aside|default(false) %} is-aside{% endif %}{% endif %}"
-     {% if dismissible %}data-smaily-invitation="intelligence"{% else %}data-ci-show="none" hidden{% endif %}>
-  {# The product name: not translated. #}
-  <strong class="smaily-ci-invite__title">{% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 24} %} Campaign <span>Intelligence</span></strong>
-  <p>{{ 'Connect your store with Smaily, and add personalized product recommendations to your campaigns, tailored to each customer’s interests.'|trans }}</p>
-  <a class="btn smaily-btn-primary" href="https://smaily.com/consultation/" target="_blank" rel="noopener noreferrer">{{ 'Contact Smaily'|trans }}</a>
+<section class="smaily-invitation smaily-invitation--intelligence{% if dismissible %} smaily-invitation--top{% if aside|default(false) %} is-aside{% endif %}{% endif %}" aria-label="Campaign Intelligence"
+         {% if dismissible %}data-smaily-invitation="intelligence"{% else %}data-ci-show="none" hidden{% endif %}>
+  <div class="smaily-invitation__main">
+    <div class="smaily-invitation__head">
+      {% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 44} %}
+      {# The product name: not translated. #}
+      <h2 class="smaily-invitation__title">Campaign <span class="smaily-invitation__accent">Intelligence</span></h2>
+    </div>
+    <p class="smaily-invitation__body">{{ 'Connect your store with Smaily, and add personalized product recommendations to your campaigns, tailored to each customer’s interests.'|trans }}</p>
+    <div class="smaily-invitation__actions">
+      <a class="btn smaily-invitation__cta" href="https://smaily.com/consultation/" target="_blank" rel="noopener noreferrer">{{ 'Contact Smaily'|trans }}</a>
+    </div>
+  </div>
+  <div class="smaily-invitation__panel" aria-hidden="true">
+    <span class="smaily-invitation__panel-label">
+      {% include '@Modules/smailyforprestashop/views/templates/admin/layout/ci-icon.html.twig' with {size: 16} %}
+      {{ 'Engine in action'|trans }}
+    </span>
+    <p class="smaily-invitation__panel-heading">{{ 'What the engine recommends you do next'|trans }}</p>
+    <div class="smaily-invitation__row">
+      <span class="smaily-invitation__icon smaily-invitation__icon--clock">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+      </span>
+      <span class="smaily-invitation__row-text">{{ '56 customers are due to reorder'|trans }}</span>
+      <span class="smaily-invitation__chip">{{ 'Create segment in Smaily'|trans }}</span>
+    </div>
+    <div class="smaily-invitation__row smaily-invitation__row--faded">
+      <span class="smaily-invitation__icon smaily-invitation__icon--undo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M9 6L5 10l4 4"/><path d="M5 10h9a5 5 0 0 1 0 10h-3"/></svg>
+      </span>
+      <span class="smaily-invitation__row-text">{{ '12 customers are slipping away'|trans }}</span>
+      <span class="smaily-invitation__chip">{{ 'Create segment in Smaily'|trans }}</span>
+    </div>
+  </div>
   {% if dismissible %}
     <button type="button" class="smaily-invitation__dismiss" data-smaily-action="dismiss-invitation">{{ 'Dismiss'|trans }}</button>
   {% endif %}
-</div>
+</section>

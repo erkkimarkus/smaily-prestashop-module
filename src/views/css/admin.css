@@ -1959,33 +1959,110 @@
   margin: 8px 0 4px;
 }
 
-.smaily-ui .smaily-ci-invite {
-  background: var(--smaily-tint);
-  border: 1px dashed var(--smaily-tint-border);
+/* The invitation to Campaign Intelligence on the invitation's card, as Magento draws it
+ * (panel/intelligence-banner.phtml): a wider gradient, a 44 px logo, a 22 px title, a gradient
+ * call to action, and a panel that runs into the card's corner and fades out. The card never
+ * stacks: below 960 px the panel is hidden. */
+.smaily-ui .smaily-invitation--intelligence {
+  flex-direction: row;
+  padding: 28px;
+  overflow: hidden;
+  background: linear-gradient(100deg, var(--smaily-surface) 0%, var(--smaily-tint) 100%);
+  border-radius: 16px;
 }
 
-.smaily-ui .smaily-ci-invite__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 16px;
-  color: var(--smaily-plum);
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__main {
+  max-width: 440px;
 }
 
-.smaily-ui .smaily-ci-invite__title span {
+.smaily-ui .smaily-invitation .smaily-ci-icon {
+  margin-right: 0;
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__title {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.smaily-ui .smaily-invitation__accent {
   color: var(--smaily-primary);
 }
 
-/* The copy on top of the Dashboard and of the Settings tabs, which Dismiss closes. */
-.smaily-ui .smaily-ci-invite--top {
-  position: relative;
-  margin-bottom: 20px;
+.smaily-ui .smaily-invitation__cta,
+.smaily-ui .smaily-invitation__cta:visited {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--smaily-on-primary);
+  background: linear-gradient(90deg, var(--smaily-plum) 0%, var(--smaily-primary) 100%);
+  border: 0;
+  border-radius: 8px;
 }
 
-.smaily-ui .smaily-ci-invite--top.is-aside,
-.smaily-ui .smaily-ci-invite--top.is-connected {
+.smaily-ui .smaily-invitation__cta:hover,
+.smaily-ui .smaily-invitation__cta:focus {
+  color: var(--smaily-on-primary);
+  background: linear-gradient(90deg, var(--smaily-primary-hover) 0%, var(--smaily-primary) 100%);
+  text-decoration: none;
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__panel {
+  margin: 8px -28px -28px 0;
+  padding: 20px 0 20px 20px;
+  background: rgba(255, 255, 255, .6);
+  border-right: 0;
+  border-bottom: 0;
+  border-radius: 16px 0 0 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+}
+
+.smaily-ui .smaily-invitation__panel-heading {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--smaily-muted);
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__row {
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
+  margin-top: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__row-text {
+  font-weight: 500;
+}
+
+.smaily-ui .smaily-invitation__icon--undo {
+  color: #b7791f;
+  background: #fdf3e1;
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__dismiss {
+  color: #6b6577;
+}
+
+.smaily-ui .smaily-invitation--intelligence .smaily-invitation__dismiss:hover {
+  color: var(--smaily-plum);
+}
+
+/* On top of the Dashboard and of the Settings tabs: hidden beside the Intelligence tab's own
+ * copy (common.js) and once the store is connected (intelligence.js). */
+.smaily-ui .smaily-invitation--top.is-aside,
+.smaily-ui .smaily-invitation--top.is-connected {
   display: none;
+}
+
+@media (max-width: 960px) {
+  .smaily-ui .smaily-invitation--intelligence .smaily-invitation__panel {
+    display: none;
+  }
 }
 
 .smaily-ui .smaily-imports {

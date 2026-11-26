@@ -3617,6 +3617,31 @@
         <target>Nõusolekurežiimid sellel Smaily kontol: %shops%. Smaily hoiab iga e-posti aadressi kohta üht tellimise olekut, seega võidakse kontakt, mille üks pood saadab, ka teises poes tellijaks märkida. Anna neile poodidele sama nõusolekurežiim või igale poele oma Smaily konto.</target>
         <note>Line: </note>
       </trans-unit>
+      <trans-unit id="9b457986f0083f6bd88f74a10d016adc">
+        <source>Engine in action</source>
+        <target>Mootor töös</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="7b1ef71ba1b64a681cfac820c1cc8349">
+        <source>What the engine recommends you do next</source>
+        <target>Mida mootor soovitab järgmisena teha</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="c12e8207d5bb272ec9b7b3ec896b1837">
+        <source>56 customers are due to reorder</source>
+        <target>56 klienti on uuesti ostmas</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="d94db12b9591bbad2ef71380489f1558">
+        <source>12 customers are slipping away</source>
+        <target>12 klienti on eemaldumas</target>
+        <note>Line: </note>
+      </trans-unit>
+      <trans-unit id="5fcc0726af61490576b1a9928f8e9e4a">
+        <source>Create segment in Smaily</source>
+        <target>Loo Smailys segment</target>
+        <note>Line: </note>
+      </trans-unit>
     </body>
   </file>
 </xliff>

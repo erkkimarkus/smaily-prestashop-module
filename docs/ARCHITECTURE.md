@@ -3546,7 +3546,13 @@ invitation's place (question 3, option C) on 2026-11-23.
 **The invitation to Campaign Intelligence** (`views/templates/admin/layout/intelligence-invitation.html.twig`,
 one partial for every place; Magento's `panel/intelligence-banner.phtml`, CON-363, and the
 WooCommerce plugin's CON-350). It shows to a store that has no connection, and never to a
-connected one.
+connected one. Its look is Magento's (owner, 2026-11-26): the invitation's card
+(`.smaily-invitation`, as the invitation to a Smaily account) with the modifier
+`.smaily-invitation--intelligence` — the 44 px Campaign Intelligence logo, "Campaign
+Intelligence" in 22 px, the pitch, a gradient "Contact Smaily", and the "Engine in action" preview
+("What the engine recommends you do next", two sample rows with "Create segment in Smaily"), which
+only illustrates, runs into the card's corner and fades out. Below 960 px the preview is hidden
+and the card does not stack; Dismiss is Magento's grey link in the corner.
 
 | Place | Shown | Dismiss |
 |---|---|---|

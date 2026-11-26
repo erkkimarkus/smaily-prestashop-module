@@ -15,6 +15,10 @@ _Last updated: 2026-11-26. Gauge 14/14._
 - 2026-11-26: the engine contract copy is v1.37.1 (CON-413; wording only). A reconnect already sends the stored
   `previous_prefix`, and `site_url` carries the shop's path. The privacy requests keep to the engine's one limit (10 a
   minute per engine store); a 429 waits as asked and spends no attempt (CON-433b, ARCHITECTURE 11.2).
+- 2026-11-26: the Campaign Intelligence card has Magento's design, with the "Engine in action" preview, which is
+  hidden below 960 px (owner-approved sketch; ARCHITECTURE 10.12). Host 2318 tests, 4121 assertions; JS 55; CS 0 of
+  362. Fresh shops behind the guard: 2318 tests on 9.2.0 (12481) and 8.2.8 (12476). Headless walk on both, EN and ET:
+  the card on the Dashboard, Settings and step 4; Dismiss and a connection still hide it.
 **All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0.** That is not a
 release: no live service was called, no pilot store has upgraded, and CI has never run ("NOT verified" below).
 Everything is on `v3`; no worker branch or worktree is left.
