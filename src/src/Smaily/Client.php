@@ -179,6 +179,7 @@ class Client
                 $options + [
                     'auth_basic' => [$this->username, $this->password],
                     'timeout' => self::TIMEOUT_SECONDS,
+                    'max_duration' => self::TIMEOUT_SECONDS,
                 ]
             );
         } catch (NetworkException $exception) {

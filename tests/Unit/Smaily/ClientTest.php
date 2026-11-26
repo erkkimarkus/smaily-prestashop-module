@@ -25,7 +25,7 @@ final class ClientTest extends TestCase
 {
     private const PASSWORD = 'not-a-real-password';
 
-    /** @var list<array{method: string, url: string, headers: array<string, list<string>>, body: string}> */
+    /** @var list<array{method: string, url: string, headers: array<string, list<string>>, body: string, timeout: float, max_duration: float}> */
     private array $requests = [];
 
     public function testPostsJsonToTheAccountHostAsTheApiUser(): void
@@ -209,6 +209,14 @@ final class ClientTest extends TestCase
         }
     }
 
+    public function testAnAnswerThatTricklesInStopsAtTheSameThirtySeconds(): void
+    {
+        $this->client([new MockResponse('{"code": 101, "message": "OK"}')])->get(Client::ENDPOINT_CONTACT, ['email' => 'contact@example.test']);
+
+        self::assertSame(30.0, $this->requests[0]['timeout']);
+        self::assertSame(30.0, $this->requests[0]['max_duration']);
+    }
+
     public function testASubdomainThatIsNotOnePlainLabelSendsNoRequest(): void
     {
         $client = new Client(new SymfonyTransport($this->recorder([])), 'evil.example.test/x', 'api-user', self::PASSWORD);
@@ -326,6 +334,8 @@ final class ClientTest extends TestCase
                 'url' => $url,
                 'headers' => $options['normalized_headers'],
                 'body' => (string) ($options['body'] ?? ''),
+                'timeout' => (float) $options['timeout'],
+                'max_duration' => (float) $options['max_duration'],
             ];
 
             return array_shift($responses);
