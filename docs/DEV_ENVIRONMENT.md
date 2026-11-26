@@ -171,7 +171,9 @@ The suite expects a shop that nobody has set up by hand, and these conventions k
 
 - Run it on a fresh or reset shop (section 8). The suite is not green on a shop that was walked by
   hand: after a walk of the admin screens that added a second shop, 27 migration tests failed on
-  what the walk left.
+  what the walk left. In a store of two shops, 10 tests fail on the premise of one shop, and the
+  legacy fixtures' clean-up deletes the store's own shop 2 and switches multistore off (seen on
+  9.2.0, 2026-11-26).
 - The abandoned-cart integration tests (`tests/Integration/Automation/AbandonedCart/`) expect a
   shop with no leftover carts; a reset shop is green.
 - A storefront with more than one language can answer `/` with a 302 (flashlight 8.2.8 does; 9.2.0
@@ -591,6 +593,9 @@ Results on 2026-11-20:
 - Late on 2026-11-25, at `5f1db54` with the shop leftovers check: 10 of 10 checks on flashlight
   8.2.8 and 9.2.0 with the packaged zip, and 2284 tests in the shop on each (12213 assertions on
   8.2.8, 12218 on 9.2.0).
+- On 2026-11-26, at `91acd79` with the script's `SHOPS` switch (below): 10 of 10 checks on
+  flashlight 8.2.8 and 9.2.0 with the packaged zip, and 2284 tests in the shop on each (12214
+  assertions on 8.2.8, 12219 on 9.2.0).
 - The official image did not run with any code after the event queue.
 
 The storefront check (step 6) deletes the schema version and opens the storefront, following a
@@ -602,6 +607,20 @@ it, so the shop keeps exactly one schema-version row.
 The script uses the Compose project `ci` on port 8000. Set `COMPOSE_PROJECT_NAME` and `CI_PORT` to run
 it beside another stack, for example `COMPOSE_PROJECT_NAME=smaily-presta-ci2 CI_PORT=8090`. It removes
 its containers, volumes and network at the end; `KEEP=1` leaves the shop up.
+
+**Two shops** (`SHOPS=2`). After the shop is up, `tests/ci/second-shop.php` turns multistore on
+and adds "Second shop" at `http://127.0.0.1:$CI_PORT`, with the data of shop 1 (the back office's
+"Add new shop" with every data type imported). The script then uninstalls and installs the module
+again with the console, the command flashlight uses, and adds three checks: that install, the
+module enabled with its hooks in each shop, and the second shop's storefront and RSS feed on its
+own address. It skips the unit and integration tests: they expect a shop of one shop (10 tests
+fail on that premise in a store of two shops), and the legacy fixtures' clean-up
+(`LegacyStore::removeSecondShop()`) deletes shop 2 and switches multistore off, whichever shop
+it is. Result on 2026-11-26, at `91acd79`, on flashlight 8.2.8 and 9.2.0: 10 of 12 checks. The
+two that fail are one defect: the console install enables the module in the default shop only
+(`ps_module_shop`), though it registers the hooks in both, so shop 2's storefront runs nothing of
+the module and its feed answers 404. An install from Module Manager with "All shops" selected
+enables it in both shops (walk of 2026-11-26, `docs/internal/walks/`).
 
 The script's shop is not behind the egress guard. A fresh install holds no account and no
 connection, so it calls no Smaily service. Its storefront request runs the fallback tick, and

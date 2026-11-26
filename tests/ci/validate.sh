@@ -12,6 +12,10 @@
 #
 # CI_PORT moves the shop off port 8000, and COMPOSE_PROJECT_NAME off the Compose project "ci", so that
 # two checkouts can run this script at the same time.
+#
+# SHOPS=2 turns multistore on and adds a second shop at http://127.0.0.1:$CI_PORT before the checks
+# (second-shop.php), installs the module again in that store of two shops, adds three checks, and
+# skips the unit and integration tests, which need a shop of one shop.
 set -u
 cd "$(dirname "$0")"
 COMPOSE="docker compose -f ${PS_COMPOSE:-docker-compose.yaml}"
@@ -47,6 +51,15 @@ until curl -sfo /dev/null "$URL/"; do
     sleep 5
 done
 
+if [ "${SHOPS:-1}" = 2 ]; then
+    echo "* Adding a second shop, then installing the module again in the store of two shops"
+    $COMPOSE exec -T -u www-data prestashop php /smaily/tests/ci/second-shop.php "127.0.0.1:${CI_PORT:-8000}" >/dev/null
+    $COMPOSE exec -T -u www-data -w /var/www/html prestashop sh -c 'rm -rf var/cache/prod var/cache/dev \
+        && php bin/console prestashop:module --no-interaction uninstall smailyforprestashop \
+        && php bin/console prestashop:module --no-interaction install smailyforprestashop'
+    report $? "the module installs in a store of two shops"
+fi
+
 echo "* Checking the installation"
 expected=$(sed -n "s/.*\$this->version = '\([^']*\)'.*/\1/p" ../../src/smailyforprestashop.php)
 installed=$(sql "SELECT version FROM ps_module WHERE name='smailyforprestashop' AND active=1")
@@ -55,6 +68,11 @@ installed=$(sql "SELECT version FROM ps_module WHERE name='smailyforprestashop' 
 expected=$(sed -n '/HOOKS = \[/,/\];/p' ../../src/src/Install/HookList.php | grep -c "^ *'")
 hooks=$(sql "SELECT COUNT(DISTINCT h.name) FROM ps_hook_module hm JOIN ps_hook h ON h.id_hook = hm.id_hook JOIN ps_module m ON m.id_module = hm.id_module WHERE m.name = 'smailyforprestashop'")
 [ "$hooks" = "$expected" ]; report $? "the $expected hooks of Install\\HookList are registered (got ${hooks:-none})"
+if [ "${SHOPS:-1}" = 2 ]; then
+    shops=$(sql "SELECT COUNT(*) FROM ps_shop")
+    hooked=$(sql "SELECT COUNT(*) FROM (SELECT hm.id_shop FROM ps_hook_module hm JOIN ps_hook h ON h.id_hook = hm.id_hook JOIN ps_module m ON m.id_module = hm.id_module JOIN ps_module_shop ms ON ms.id_module = m.id_module AND ms.id_shop = hm.id_shop WHERE m.name = 'smailyforprestashop' GROUP BY hm.id_shop HAVING COUNT(DISTINCT h.name) = $expected) s")
+    [ "$shops" = 2 ] && [ "$hooked" = 2 ]; report $? "the module is enabled with its $expected hooks in each of the $shops shops (got $hooked)"
+fi
 
 expected=$(grep -c "^ *'smaily_connect_[a-z_]*' => '" ../../src/src/Install/Schema.php)
 tables=$(sql "SHOW TABLES LIKE 'ps\_smaily\_connect\_%'" | wc -l | tr -d ' ')
@@ -63,17 +81,22 @@ tables=$(sql "SHOW TABLES LIKE 'ps\_smaily\_connect\_%'" | wc -l | tr -d ' ')
 schema=$(sql "SELECT value FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'")
 [ -n "$schema" ]; report $? "the schema version is stored (got '${schema:-none}')"
 
-echo "* Running the unit and integration tests inside the shop"
-# The zip's vendor/ and the repository's src/vendor/ come from one composer.lock, so both declare the
-# same ComposerAutoloaderInit class, and PrestaShop includes the module's autoloader when it builds a
-# container. While the tests run, the module folder points at the repository's src/ (as in the dev
-# shop), so only one autoloader is ever loaded; the zip's folder is put back afterwards.
-module=/var/www/html/modules/smailyforprestashop
-$COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-zip && ln -s /smaily/src $module"
-$COMPOSE exec -T -u www-data -e PS_ROOT_DIR=/var/www/html -w /var/www/html prestashop \
-    php $module/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
-report $? "unit and integration tests"
-$COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-repo && mv /tmp/smailyforprestashop-zip $module"
+if [ "${SHOPS:-1}" = 2 ]; then
+    # The suite expects a shop of one shop: its legacy fixtures remove shop 2 and switch multistore off.
+    echo "* Skipping the unit and integration tests: they need a shop of one shop (SHOPS=2)"
+else
+    echo "* Running the unit and integration tests inside the shop"
+    # The zip's vendor/ and the repository's src/vendor/ come from one composer.lock, so both declare the
+    # same ComposerAutoloaderInit class, and PrestaShop includes the module's autoloader when it builds a
+    # container. While the tests run, the module folder points at the repository's src/ (as in the dev
+    # shop), so only one autoloader is ever loaded; the zip's folder is put back afterwards.
+    module=/var/www/html/modules/smailyforprestashop
+    $COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-zip && ln -s /smaily/src $module"
+    $COMPOSE exec -T -u www-data -e PS_ROOT_DIR=/var/www/html -w /var/www/html prestashop \
+        php $module/vendor/bin/phpunit --configuration /smaily/phpunit.xml.dist
+    report $? "unit and integration tests"
+    $COMPOSE exec -T prestashop sh -c "mv $module /tmp/smailyforprestashop-repo && mv /tmp/smailyforprestashop-zip $module"
+fi
 
 echo "* Opening the storefront while the schema version is unset"
 sql "DELETE FROM ps_configuration WHERE name = 'SMAILY_CONNECT_SCHEMA_VERSION'"
@@ -103,6 +126,14 @@ for controller in SmailyCustomerCron SmailyCartCron; do
     body=$(curl -s "$URL/index.php?fc=module&module=smailyforprestashop&controller=$controller&token=wrong")
     [ "$body" = 'Access denied!' ]; report $? "$controller refuses a wrong token (got '$body')"
 done
+
+if [ "${SHOPS:-1}" = 2 ]; then
+    URL2="http://127.0.0.1:${CI_PORT:-8000}"
+    code=$(curl -s -L -o /dev/null -w '%{http_code}' "$URL2/")
+    rss=$(curl -s "$URL2/index.php?fc=module&module=smailyforprestashop&controller=SmailyRssFeed")
+    [ "$code" = 200 ] && echo "$rss" | grep -q '<rss' && echo "$rss" | grep -q "$URL2/"
+    report $? "the second shop's storefront answers 200 and its RSS feed links to its own address (got $code)"
+fi
 
 if [ $fails -gt 0 ]; then
     echo "* $fails check(s) failed. Last PrestaShop log lines:"
