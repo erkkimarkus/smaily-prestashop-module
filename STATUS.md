@@ -24,12 +24,17 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
   (`Failure::location()`) and its card shows that in the admin's language.
 - CON-454 (RSS): Settings > RSS has a Language select (each language's feed URL, the default one without a
   prefix), walked on 8.2.8 and 9.2.0 with its own gates.
+- Live walk (owner's request, 26 Nov, `docs/internal/walks/2026-11-26-live.md`): the live shop against the real
+  Smaily test account, engine and report receiver. Every capability the owner's settings switch on works; one
+  defect: a guest who orders after an email click leaves a failed identity merge (`engine_customer_not_sent`) and
+  the Dashboard says "Needs attention" (Queue below). The engine answers no recommendations yet.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
-  and go-ahead exist; the live walk against real Smaily and engine (needs a test account); CON-444's seven
-  cross-connector questions (owner, later); the demo store (CON-425); the pilot. Open: Tanel's native read, CI.
+  and go-ahead exist; the guest-merge defect; CON-444's seven cross-connector questions (owner, later); the demo
+  store (CON-425); the pilot. Open: Tanel's native read, CI.
 
-**All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0.** That is not a
-release: no live service was called, no pilot store has upgraded, and CI has never run ("NOT verified" below).
+**All 14 first-release capabilities are demonstrated against mocks on PrestaShop 8.2.8 and 9.2.0**, and those the
+live shop's settings switch on against the real services on 9.2.0 (2026-11-26). That is not a release: no pilot
+store has upgraded, and CI has never run ("NOT verified" below).
 
 **The owner's test environment** (workers never touch these stacks): two long-lived local shops behind the egress
 guard, mocks only, and a third, live one. `build/testkeskkond/lahtesta.sh a|b` builds one (git-ignored); guide `build/testkeskkond/JUHEND.md`.
@@ -58,17 +63,19 @@ Automations, Intelligence and RSS, the Log and its Details), EN and ET, Smaily a
 one store and a store of two shops: 104 of 104 screens without a PHP error, a 5xx, a JS error of the module or an
 untranslated module string, each with its cards. PrestaShop's own words stay English without a language pack.
 
-**NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
-check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
-MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; two shops in two shop
-groups or with shared customers; an export in psgdpr's admin screen on 9.2.0 (psgdpr 1.4.3 fails there); the guide
-page on its web root; one unexplained PHP 8.0.30 segfault report (not reproduced).
+**NOT verified — keep these visible:** against the live services (walked on 9.2.0 only, never on 8.2.8): a change
+made in Smaily reaching the store, the First order and Abandoned cart triggers and discount codes (off in the live
+shop), recommendations that render (the engine answered 0 slots), the invitation, a retried failure; GitHub
+Actions on the fork are not enabled, so CI has never run; MySQL 5.7 (8.0 ran); LiteSpeed; the official `9.2.0-8.1`
+image; PrestaShop's online validator; two shops in two shop groups or with shared customers; an export in psgdpr's
+admin screen on 9.2.0 (psgdpr 1.4.3 fails there); the guide page on its web root; one unexplained PHP 8.0.30
+segfault report (not reproduced).
 
 ## Next, in this order
 
 1. The owner's walk of the two test shops, with the upgrade of shop B from the new zip; findings come back as fixes.
 2. Publish the merchant guide (CON-424) once the owner has the web root and the FTP account and gives the go-ahead.
-3. The live walk against the real Smaily service and engine: INT-306 is answered, only the test account is missing.
+3. The guest-merge defect of the live walk (Queue), a cross-connector question; then the live walk's waiting parts.
 4. CON-444's seven cross-connector questions (owner, later).
 5. The PrestaShop demo store (CON-425, under GRO-310), after the live walk.
 6. The pilot store (owner). Price groups (CON-385) and stock alerts (CON-371) come after 3.0.0.
@@ -80,6 +87,11 @@ page on its web root; one unexplained PHP 8.0.30 segfault report (not reproduced
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
+- Live walk defect (medium): after an email-link landing (`smaily_vt`), a guest checkout queues an identity merge
+  that the engine answers 404; the store never sends a guest as a customer, so the row fails for good
+  (`engine_customer_not_sent`, "the login was not linked") and the Dashboard turns to "Needs attention". Skip it,
+  or send the guest? Ask the siblings first (CON-397). PrestaShop drops the query of `/en/?…` and
+  `index.php?id_product=…&…` in its redirect: such an email link loses its attribution.
 - The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.1 names none for a general 5xx.
   `sendsmaily.net` has wildcard DNS: only the egress guard fences a shop from the real Smaily API.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
@@ -124,13 +136,14 @@ Workers' notes: ARCHITECTURE 14; decisions: 15. Before recommending on a behavio
    2026-11-25); Magento and WooCommerce keep no error on a completed import.
 5. The Estonian names of PrestaShop's own menus on the guide page wait for a native read after publishing.
 
-**Only the owner can do:** enable GitHub Actions on the fork; give a Smaily test account for the live walk (it also
-shows whether the real service takes an installation report); make the web root https://smaily.com/connect-presta/
+**Only the owner can do:** enable GitHub Actions on the fork; for the live walk's waiting parts, unsubscribe a
+`walk.*@example.com` address in Smaily (the store follows within 15 minutes) and, if wanted, switch on First order
+and Abandoned cart in the live shop; make the web root https://smaily.com/connect-presta/
 and its FTP account (`~/smaily_ftp_presta`) and give the go-ahead for the guide's first upload; answer GRO-310's
 questions on the demo store's hosting, cost and demo account; choose a pilot store. Also, when he wants: the engine
 team's answer on the `source` value of browse events; psgdpr's defect on 9.x reported to PrestaShop.
 
 Linear: Feature P-CON-324. Open Epics: CON-373 (upgrade; waits for the pilot), CON-398 (Campaign Intelligence),
-CON-403 (installation report; waits for the live service), CON-379 (Marketplace). Done Epics: CON-370, CON-378,
+CON-403 (installation report; the live receiver took it in), CON-379 (Marketplace). Done Epics: CON-370, CON-378,
 CON-380, CON-381, CON-402. Asks to the sibling connectors: CON-417 to CON-422 and CON-427; analysis CON-397 and
 CON-444; the guide page CON-424; the demo store CON-425 (under GRO-310); engine INT-306 (answered).
