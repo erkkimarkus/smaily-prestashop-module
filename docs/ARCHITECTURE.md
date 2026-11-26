@@ -3454,15 +3454,22 @@ radio on the stored fallback; without one, on the first language without a workf
 whose row then shows the workflow of no language; else on the first language with a workflow. A
 save of that row stores a copy of the row of no language (its workflow, also one that the list no
 longer offers, or the 2.x opt-in trigger) with the fallback flag, so the same workflows are sent
-(`AutomationsPanelTest`). In mode `a` the card "Per-language workflows" follows, as Magento draws
-it, one table per automation that is on: Language, Workflow, Default fallback, and the row "None";
-a card has no workflow of its own there: it belongs to no language's account. The panel is drawn
+(`AutomationsPanelTest`). Mode `a` draws the same cards, as WooCommerce's and Shopify's mode A
+(owner, 2026-11-26): each language's row lists and sends through that language's own account, and
+the card has no workflow of its own (the row of no language belongs to no language's account and
+stays stored). Until then mode `a` drew Magento's separate card "Per-language workflows" with the
+row "None", which left the automation without a default fallback, so the Router took the row of
+the fallback account's language. Without a stored fallback the page therefore puts the radio on
+that language (`values()['account_fallback']`), whose row the Router takes in either case, and
+where the store names no such language among its languages, on the first language without a
+workflow, whose row sends nothing, as "None"; a save of what the page shows sends the same
+(`AutomationsPanelTest`). The panel is drawn
 for the saved mode (section 10.3). In the modes `a` and `b` the panel holds Magento's warning "Some
 languages have no workflow" (CON-445): for each automation that is on, the languages whose
 contacts get no workflow, read as the Router reads the rows (the language's own row, else the
 automation's default fallback, else in mode `a` the row of the fallback account's language,
 `values()['account_fallback']`); `panels.js` redraws it on every change and once the lists have
-loaded. A lost workflow of no language is not listed in mode `b`, which draws no select for it.
+loaded. A lost workflow of no language is not listed in the modes `a` and `b`, which draw no select for it.
 
 **Lost workflows** (owner, 2026-11-26; section 5.1). Above the cards, the banner "Some automations
 have no workflow" names the automations, and in the modes `a` and `b` their language ("Abandoned
@@ -5422,3 +5429,9 @@ the guest's events that change no consent, the same rule as a checkout with the 
 "Include guests" then matters in all customers only, for the guests without a tick. A store that
 had it off sends its earlier subscribed guests at its next import or daily refresh, without a
 notice (owner's choice); an upgraded store has it on and sends what it sent (section 6.2).
+
+Decision of 2026-11-26 (the owner, after CON-460): in mode `a` (separate Smaily accounts) the
+Automations panel follows WooCommerce's and Shopify's mode A as mode `b` does: one card per
+automation with a row per language and the default-fallback radio on one of them, each row on its
+language's account; no separate card "Per-language workflows" and no "None". A store that saved
+"None" sends the same after a save of the page (section 10.9).

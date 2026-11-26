@@ -439,6 +439,76 @@ final class AutomationsPanelTest extends IntegrationTestCase
         self::assertSame('en', $this->panel()->values($scope)['account_fallback']);
     }
 
+    /**
+     * Mode `a` draws the cards of mode `b` (WooCommerce's and Shopify's): no "None". A store that
+     * saved its mode-`a` rows with "None" (no default fallback) keeps sending the same workflows
+     * through a save of what the page shows: the radio stands on the fallback account's language,
+     * whose row the Router took before, or, without one among the languages, on a language without
+     * a workflow, which sends nothing as "None" did.
+     *
+     * @dataProvider accountFallbacks
+     *
+     * @param array<string, string> $fallbacks the radio of each automation
+     * @param list<string> $expected what is sent to en, et and lv, before and after
+     */
+    public function testAStoredModeAWithNoneAsTheFallbackSendsTheSameAfterASaveOfThePage(string $accountFallback, array $fallbacks, array $expected): void
+    {
+        $layout = new StoreLayout();
+        $layout->setLanguageMode(StoreLayout::MODE_ACCOUNT_PER_LANGUAGE, 0);
+        if ($accountFallback !== '') {
+            $layout->setFallbackLanguage($accountFallback, 0);
+        }
+        $this->accounts->save(new Account(0, 'en', 'demo', 'api-user', 'not-a-real-password'));
+        $this->accounts->save(new Account(0, 'et', 'demo-et', 'api-user', 'not-a-real-password'));
+        $settings = new AutomationSettings();
+        $settings->setEnabled('welcome', true, 0);
+        $settings->setEnabled('first_order', true, 0);
+        // As a mode-`a` save stored it before: a workflow per language, "None" as the fallback.
+        $this->mappings->upsert(0, 'welcome', 'en', 'en', 12);
+        $this->mappings->upsert(0, 'first_order', 'et', 'et', 21);
+        $this->mappings->upsert(0, 'first_order', '', 'default', 11);
+        $scope = $this->scope(['en' => 'English', 'et' => 'Eesti', 'lv' => 'Latviešu']);
+        $shop = (int) \Configuration::get('PS_SHOP_DEFAULT');
+        $sent = function () use ($shop): array {
+            $router = $this->router();
+            $sent = [];
+            foreach (['welcome', 'first_order'] as $trigger) {
+                foreach (['en', 'et', 'lv'] as $language) {
+                    $match = $router->resolve($trigger, $shop, $language);
+                    $sent[] = $match === null ? '-' : $match->workflowId() . '@' . $match->account()->subdomain();
+                }
+            }
+
+            return $sent;
+        };
+        $before = $sent();
+        self::assertSame($expected, $before);
+
+        $values = $this->panel()->values($scope)['triggers'];
+        self::assertSame($fallbacks, ['welcome' => $values['welcome']['fallback'], 'first_order' => $values['first_order']['fallback']]);
+        self::assertSame(['en' => '12', 'et' => '', 'lv' => ''], $values['welcome']['languages']);
+
+        // What the page posts in mode `a`: each language's select and the fallback radio.
+        $data = ['cart_delay' => '30', 'triggers' => []];
+        foreach (['welcome', 'first_order'] as $trigger) {
+            $data['triggers'][$trigger] = ['enabled' => true, 'languages' => $values[$trigger]['languages'], 'fallback' => $values[$trigger]['fallback']];
+        }
+        self::assertSame([], $this->panel()->save($scope, $data));
+
+        self::assertSame($before, $sent());
+        self::assertContains('first_order||default 11', $this->rows(0), 'the workflow of no language stays for the modes single and c');
+        self::assertSame($values, $this->panel()->values($scope)['triggers']);
+    }
+
+    /**
+     * @return iterable<string, array{string, array<string, string>, list<string>}>
+     */
+    public static function accountFallbacks(): iterable
+    {
+        yield 'the fallback account is English' => ['en', ['welcome' => 'en', 'first_order' => 'en'], ['12@demo', '12@demo', '12@demo', '-', '21@demo-et', '-']];
+        yield 'no fallback account' => ['', ['welcome' => 'et', 'first_order' => 'en'], ['12@demo', '-', '-', '-', '21@demo-et', '-']];
+    }
+
     public function testOutsideAnAccountPerLanguageNoFallbackAccountIsNamed(): void
     {
         (new StoreLayout())->setFallbackLanguage('en', 0);

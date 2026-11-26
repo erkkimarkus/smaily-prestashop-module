@@ -1981,10 +1981,6 @@
   margin: 8px 0;
 }
 
-.smaily-ui .smaily-ml-trigger {
-  margin-top: 16px;
-}
-
 .smaily-ui .smaily-ml-table {
   width: 100%;
   border-collapse: collapse;
@@ -2006,10 +2002,6 @@
 .smaily-ui .smaily-ml-table th:last-child,
 .smaily-ui .smaily-ml-table td:last-child {
   text-align: center;
-}
-
-.smaily-ui .smaily-ml-none {
-  color: var(--smaily-muted);
 }
 
 /*

@@ -53,9 +53,15 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *   In both, at most one language row of an automation is its default fallback. A save replaces
  *   only the rows of the shop's current mode; the other mode's rows stay for a switch back.
  *
- * Mode `b` draws one card per automation with a row per language and the default-fallback radio
- * on one of them, as WooCommerce and Shopify (owner, 2026-11-26; Linear CON-460): the page shows
- * no workflow of no language and no "None". That row stays stored for the modes `single` and `c`,
+ * The modes `a` and `b` draw one card per automation with a row per language and the
+ * default-fallback radio on one of them, as WooCommerce and Shopify (owner, 2026-11-26; Linear
+ * CON-460 for `b`, then for `a`): the page shows no workflow of no language and no "None". In
+ * mode `a` each row lists and sends through its language's account. Where no fallback is stored
+ * (mode `a`'s "None"), the radio stands on the fallback account's language
+ * (accountFallbackLanguage()), whose row the Router takes for a language without its own row in
+ * either case, so a save sends the same.
+ *
+ * The row of no language stays stored for the modes `single` and `c`,
  * and the Router still reads it last in mode `b`, so a store that saved its mode-`b` rows before
  * keeps sending as before until it saves this page. The page then shows what the Router does
  * (fallbackLanguage()): the radio on the stored fallback; without one, on the first language
@@ -190,6 +196,9 @@ final class AutomationsPanel
                 if ($fallback !== '' && $languages[$fallback] === '') {
                     $languages[$fallback] = $workflow;
                 }
+            }
+            if ($mode === StoreLayout::MODE_ACCOUNT_PER_LANGUAGE && $fallback === '') {
+                $fallback = self::accountFallbackLanguage($languages, $this->layout->fallbackLanguage($target));
             }
             $triggers[$trigger] = [
                 'enabled' => $this->settings->enabled($trigger, $target),
@@ -479,6 +488,28 @@ final class AutomationsPanel
         }
         foreach ($languages as $iso => $own) {
             if ($own !== '') {
+                return (string) $iso;
+            }
+        }
+
+        return (string) (array_key_first($languages) ?? '');
+    }
+
+    /**
+     * Mode `a`'s default fallback where none is stored (the earlier page's "None"): the language
+     * of the fallback account, whose row the Router reads after a language's own row, so a save of
+     * the radio there sends the same; without such a language the first one without its own
+     * workflow, whose row never sends (no fallback, as "None"), else the first language.
+     *
+     * @param array<string, string> $languages each language's own workflow ('' for none)
+     */
+    private static function accountFallbackLanguage(array $languages, string $accountFallback): string
+    {
+        if (array_key_exists($accountFallback, $languages)) {
+            return $accountFallback;
+        }
+        foreach ($languages as $iso => $own) {
+            if ($own === '') {
                 return (string) $iso;
             }
         }

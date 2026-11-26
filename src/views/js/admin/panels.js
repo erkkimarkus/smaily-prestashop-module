@@ -529,11 +529,6 @@
       pill.classList.toggle('smaily-pill--active', on && picked);
       pill.classList.toggle('smaily-pill--pending', on && !picked);
       pill.querySelector('[data-smaily-pill-text]').textContent = labels(automations)(on ? (picked ? 'active' : 'no-workflow') : 'off');
-      var languages = automations.querySelector('[data-smaily-language-workflows]');
-      if (languages) {
-        languages.querySelector('[data-smaily-language-trigger="' + trigger + '"]').hidden = !on;
-        languages.hidden = !automations.querySelector('[data-smaily-trigger].is-active');
-      }
       showUnmappedLanguages();
     }
 

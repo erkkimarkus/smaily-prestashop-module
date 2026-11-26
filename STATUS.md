@@ -68,6 +68,13 @@ _Last updated: 2026-11-26. Gauge 14/14 (2026-11-26)._
 - Owner, 26 Nov (CON-397; after CON-460): a guest buyer with the newsletter box ticked is sent in Subscribers only and
   All customers whatever "include guests" says, by the first import and the daily refresh too (earlier guests included,
   no status); the switch only adds unticked guests in All customers, and Campaign Intelligence's customers follow.
+- Owner, 26 Nov (after CON-460): mode a's Automations panel draws mode b's cards (WooCommerce's and Shopify's mode A,
+  each row on its language's account); a stored "None" shows the radio on the fallback account's language and a save
+  sends the same. Both items, on this tip: host 2417 tests (4249 assertions, 1239 skipped); `node --test` 55; CS 0 of
+  370; PHP 8.0 lint of the 7 changed PHP files; fresh shops behind the guard: 2417 tests on 9.2.0 (12968 assertions)
+  and 8.2.8 (12963), leftovers silent. Walked headless, EN and ET, on both: a past subscribed guest order imported in
+  Subscribers only with guests off, the unticked guest not; mode a's cards; a 2.2.0 fixture upgraded, mode a stored
+  with "None", routes the same after the Automations save.
 - Next, in order: the owner's walk of the two test shops with the new zip; the guide (CON-424) once web root, FTP
   and go-ahead exist; CON-444's seven cross-connector questions (owner, later); the demo
   store (CON-425); the pilot. Open: Tanel's native read, CI.

@@ -34,16 +34,14 @@
  # `data-saved` holds what it posts until then. `data-smaily-workflows` names the account whose
  # list a select takes: `default`, or in mode `a` its language.
  #
- # In mode `b` (one account, per-language automations) each card holds, in place of its one
- # workflow, a row per language with its workflow and the default-fallback radio on one of the
- # rows, as WooCommerce's and Shopify's cards (owner, 2026-11-26; Linear CON-460): no workflow of
- # no language and no "None" row. AutomationsPanel::values() puts the radio on the stored fallback,
- # else where the stored workflow of no language keeps serving (it shows on that row), else on the
- # first language with a workflow.
- #
- # In mode `a` the card "Per-language workflows" follows, as Magento draws it: one table per
- # automation that is on, with a workflow per language and the default fallback. The cards' own
- # workflow is not drawn: it belongs to no language's account.
+ # In the modes `a` (separate Smaily accounts) and `b` (one account, per-language automations)
+ # each card holds, in place of its one workflow, a row per language with its workflow and the
+ # default-fallback radio on one of the rows, as WooCommerce's and Shopify's cards (owner,
+ # 2026-11-26; Linear CON-460): no workflow of no language and no "None" row. In mode `a` a row's
+ # list is its language's account's. AutomationsPanel::values() puts the radio on the stored
+ # fallback; else in mode `b` where the stored workflow of no language keeps serving (it shows on
+ # that row), else on the first language with a workflow; in mode `a` on the fallback account's
+ # language.
  #
  # In both, Magento's warning "Some languages have no workflow" names the languages whose contacts
  # get none (panels.js reads the rows as the Router does, with `data-account-fallback`).
@@ -78,7 +76,6 @@
   first_order: ['First order'|trans, 'Fires on a customer\'s first purchase.'|trans],
   abandoned_cart: ['Abandoned cart'|trans, 'Fires when a cart is left behind.'|trans],
 } %}
-{% set any_on = automations.triggers|filter(saved => saved.enabled)|length > 0 %}
 {% set lost_names = automations.lost|map(entry => triggers[entry.trigger][0] ~ (entry.language != '' ? ' (' ~ entry.language|upper ~ ')' : ''))|join(', ') %}
 <div class="smaily-panel" data-smaily-panel="automations" data-mode="{{ mode }}" data-account-fallback="{{ automations.account_fallback }}"
      data-label-active="{{ 'Active'|trans }}"
@@ -104,8 +101,11 @@
       {{ 'Each event triggers the Smaily automation workflow you pick. The lists below come live from your Smaily account — create the workflows there first if they are missing, then press Refresh.'|trans }}
       <button type="button" class="btn btn-link smaily-triggers__refresh" data-smaily-action="refresh-workflows">{{ 'Refresh workflows'|trans }}</button>
     </p>
-    {% if mode == 'b' %}
+    {% if per_language %}
       <p class="smaily-note">{{ 'Pick a workflow for each language. The default fallback handles contacts whose language has no workflow.'|trans }}</p>
+      {% if mode == 'a' %}
+        <p class="smaily-note">{{ 'Each language row lists the workflows of that language\'s own Smaily account (Connection panel) and fires through it.'|trans }}</p>
+      {% endif %}
       {{ unmapped_banner }}
     {% endif %}
 
@@ -123,7 +123,7 @@
             <label class="smaily-trigger__enable"><input type="checkbox" data-smaily-field="{{ trigger }}.enabled"{{ saved.enabled ? ' checked' : '' }}> {{ 'Enabled'|trans }}</label>
           </div>
           <div class="smaily-trigger__settings" data-smaily-trigger-settings{% if not saved.enabled %} hidden{% endif %}>
-            {% if mode == 'b' %}
+            {% if per_language %}
               <table class="smaily-ml-table" data-smaily-language-trigger="{{ trigger }}">
                 <thead>
                   <tr>
@@ -136,7 +136,7 @@
                   {% for iso in languages|keys %}
                     <tr>
                       <td>{{ iso|upper }}</td>
-                      <td><select class="form-control" data-smaily-field="{{ trigger }}.languages.{{ iso }}" data-language="{{ iso }}" data-smaily-workflows="default" data-saved="{{ saved.languages[iso]|default('') }}" aria-label="{{ card[0] }}, {{ iso|upper }}"></select></td>
+                      <td><select class="form-control" data-smaily-field="{{ trigger }}.languages.{{ iso }}" data-language="{{ iso }}" data-smaily-workflows="{{ mode == 'a' ? iso : 'default' }}" data-saved="{{ saved.languages[iso]|default('') }}" aria-label="{{ card[0] }}, {{ iso|upper }}"></select></td>
                       <td><input type="radio" name="smaily-fallback-{{ trigger }}" value="{{ iso }}"{{ saved.fallback == iso ? ' checked' : '' }} aria-label="{{ 'Default fallback'|trans }}, {{ iso|upper }}"></td>
                     </tr>
                   {% endfor %}
@@ -195,42 +195,4 @@
       {% endif %}
     </p>
   </div>
-
-  {% if mode == 'a' %}
-    <div class="smaily-card" data-smaily-language-workflows{% if not any_on %} hidden{% endif %}>
-      <h2>{{ 'Per-language workflows'|trans }}</h2>
-      <p class="smaily-note">{{ 'Each language row lists the workflows of that language\'s own Smaily account (Connection panel) and fires through it.'|trans }}</p>
-      <p class="smaily-note">{{ 'The default fallback handles contacts whose language has no workflow. Leave it on "None" to use the workflow of the default fallback account\'s language (Connection panel). With neither, these contacts get no automation.'|trans }}</p>
-      {{ unmapped_banner }}
-
-      {% for trigger, card in triggers %}
-        {% set saved = automations.triggers[trigger] %}
-        <div class="smaily-field smaily-ml-trigger" data-smaily-language-trigger="{{ trigger }}"{% if not saved.enabled %} hidden{% endif %}>
-          <label>{{ card[0] }}</label>
-          <table class="smaily-ml-table">
-            <thead>
-              <tr>
-                <th>{{ 'Language'|trans }}</th>
-                <th>{{ 'Workflow'|trans }}</th>
-                <th>{{ 'Default fallback'|trans }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for iso in languages|keys %}
-                <tr>
-                  <td>{{ iso|upper }}</td>
-                  <td><select class="form-control" data-smaily-field="{{ trigger }}.languages.{{ iso }}" data-language="{{ iso }}" data-smaily-workflows="{{ iso }}" data-saved="{{ saved.languages[iso]|default('') }}" aria-label="{{ card[0] }}, {{ iso|upper }}"></select></td>
-                  <td><input type="radio" name="smaily-fallback-{{ trigger }}" value="{{ iso }}"{{ saved.fallback == iso ? ' checked' : '' }} aria-label="{{ 'Default fallback'|trans }}, {{ iso|upper }}"></td>
-                </tr>
-              {% endfor %}
-              <tr>
-                <td colspan="2" class="smaily-ml-none">{{ 'None (use the default fallback account\'s language)'|trans }}</td>
-                <td><input type="radio" name="smaily-fallback-{{ trigger }}" value=""{{ saved.fallback == '' ? ' checked' : '' }} aria-label="{{ 'Default fallback'|trans }}"></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
 </div>
