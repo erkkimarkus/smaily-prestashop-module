@@ -1056,7 +1056,8 @@ report of Story 6.1 is `installation_report`.
    answered nginx's `504 Gateway Time-out` after 30.0 s, so `curl -fsS` of the cron line failed on
    every run; the rows stayed `processing` and the lock held until the call gave up, and PHP-FPM
    then closed them (`pending`, one attempt more, on the retry ladder) and released the lock. With
-   the answer first, the URL answered `OK: the tick is running.` in 0.03–0.06 s, the same rows and
+   the answer first, the URL answered `OK: the tick is running.` in 0.03–0.06 s (8.2.8: 0.7 s;
+   the 2.x customer cron URL the same), the same rows and
    the lock ended the same way about 30 s later, and a second request during that tick answered
    `Busy` in 0.34 s. After `fastcgi_finish_request()` nginx no longer waits, and PHP-FPM's
    `request_terminate_timeout` does not apply (`request_terminate_timeout_track_finished = no` by

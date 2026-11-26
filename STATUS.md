@@ -57,6 +57,13 @@ guard, debug mode on: 2284 tests on 8.2.8 (12214 assertions with a tick state at
 with the zip: 10 of 10 on flashlight 8.2.8 and 9.2.0, its suite with debug mode off 2284 tests on both (12214 and
 12219 assertions).
 
+**Run of 2026-11-26 (the cron URL answers before the jobs, `739a01d`).** Host: 2289 tests, 4035 assertions, 1158
+skipped; `node --test tests/js/` 55 pass; PHP CS Fixer 0 of 358 files; PHP 8.0 lint of the changed files. In a
+shop made from scratch behind the guard, debug mode on, no tick state at the start: 2289 tests on 9.2.0 (12258
+assertions) and on 8.2.8 (12253), leftovers check silent. Slow-Smaily walk (mock answers after 35 s): before, the
+tick URL answered nginx's 504 after 30.0 s on 9.2.0; after, `OK: the tick is running.` in 0.03–0.06 s on 9.2.0 and
+0.7 s on 8.2.8, rows back on the retry ladder and the lock free about 30 s later. `tests/ci/validate.sh` not run.
+
 **NOT verified — keep these visible:** the live Smaily service and the live engine have never been called (every
 check used a mock, also the installation report's); GitHub Actions on the fork are not enabled, so CI has never run;
 MySQL (only MariaDB ran); LiteSpeed; the official `9.2.0-8.1` image; PrestaShop's online validator; Module
