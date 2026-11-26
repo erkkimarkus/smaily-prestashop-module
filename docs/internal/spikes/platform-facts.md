@@ -557,6 +557,15 @@ abandoned-cart reminder was switched off, and the upgrade never finished).
   `/module/smailyforprestashop/tick?token=…`, answered 200 without a redirect on both versions, and
   so did `index.php?fc=module&module=smailyforprestashop&controller=tick&token=…`; a wrong token
   answered 403 on each form.
+- **The tab names that a request has read** (observed 2026-11-26). On 8.2.8, with the four Estonian
+  names stored in English, the first Dashboard that an Estonian employee opened showed its tab bar
+  in English and its breadcrumb and title in Estonian; the next page showed the tab bar in Estonian.
+  The request reads the tabs before the page's controller runs, and builds the tab bar from that read:
+  `Tab::resetStaticCache()` empties only the cache of `Tab::getIdFromClassName()`, and
+  `Tab::getTabs()` keeps its rows until `Tab::resetTabCache()` or a `Tab` add, update or delete.
+  9.2.0 has the same `Tab` class and showed the Estonian tab bar at once. 8.0.0's `Tab` has no
+  `resetTabCache()`. With `Admin\Menu::name()` calling `resetTabCache()`, the first page of 8.2.8
+  showed the Estonian tab bar.
 - **The home page.** With two active languages, `/` answered 302 to `/en/` on 8.2.8 and 200 on 9.2.0.
 - **PrestaShop's own strings.** The module's Log takes ten strings from the core's domains
   (`Admin.Actions`, `Admin.Global`). Without a language pack they show in English in an Estonian back

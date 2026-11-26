@@ -63,8 +63,6 @@ page on its web root; one unexplained PHP 8.0.30 segfault report (not reproduced
 
 ## Queue (technical, for the orchestrator)
 
-- On 8.2.8 the first module page that an employee opens in a language whose menu names are still English shows
-  the page's tab bar in English once (`Admin\Menu::name()` writes after 8.2.8 built the bar); 9.2.0 is right at once.
 - Campaign Intelligence keys: a product that gets its first combination keeps its old row (`ps-<id>`) until the next
   nightly list; ending it at the save needs a new hook, so the main class changes (ARCHITECTURE 8.11, "Not built").
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row

@@ -90,6 +90,20 @@ final class MenuTest extends IntegrationTestCase
         self::assertSame(array_column(self::EXPECTED, 3), array_column(self::menu(), 3), 'an empty translation changes nothing');
     }
 
+    public function testTheNamesReachTheTabsThatTheRequestHadAlreadyRead(): void
+    {
+        Menu::install(self::module()->getTabs());
+        $idLang = (int) \Configuration::get('PS_LANG_DEFAULT');
+        $parent = (int) \Tab::getIdFromClassName('AdminSmailyConnect');
+        // PrestaShop 8.2.8 reads the tabs before the page's controller runs, and builds the page's
+        // tab bar from what it read.
+        self::assertSame(['Dashboard', 'Initial setup', 'Settings', 'Log'], array_column(\Tab::getTabs($idLang, $parent), 'name'));
+
+        Menu::name(self::module()->getTabs(), $idLang, static fn (string $wording): string => ['Dashboard' => 'Töölaud', 'Initial setup' => 'Algseadistus', 'Settings' => 'Seaded', 'Log' => 'Logi'][$wording] ?? $wording);
+
+        self::assertSame(['Töölaud', 'Algseadistus', 'Seaded', 'Logi'], array_column(\Tab::getTabs($idLang, $parent), 'name'));
+    }
+
     /**
      * @return list<array{string, string, string, string}> class, parent class, route and name of each module tab
      */

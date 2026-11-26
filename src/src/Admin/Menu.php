@@ -101,6 +101,11 @@ final class Menu
         }
         if ($changed) {
             \Tab::resetStaticCache();
+            // On 8.2.8 resetStaticCache() keeps the names that Tab::getTabs() read earlier in the
+            // request, and the page's tab bar would show them once (facts file 6.10).
+            if (method_exists(\Tab::class, 'resetTabCache')) {
+                \Tab::resetTabCache();
+            }
         }
     }
 

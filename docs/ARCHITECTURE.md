@@ -2997,7 +2997,11 @@ The module's "Configure" button opens the Dashboard, or the Initial setup while 
 PrestaShop gives a module's tab the one `name` of `$tabs` in every language and translates it from
 the tab's `wording` only when a language is installed or updated afterwards, so each page of the
 module gives the tabs their wording in its employee's language (`Admin\Menu::name()`): the menu,
-the breadcrumb and the tab bar then read as the page does.
+the breadcrumb and the tab bar then read as the page does, from the first page on 8.2.8 and 9.2.0.
+On 8.2.8 the request
+has read the tabs before the page's controller runs, and `Tab::resetStaticCache()` keeps what
+`Tab::getTabs()` read, so `name()` also calls `Tab::resetTabCache()` where it exists (8.0.0 has
+none; facts file 6.10).
 Each page needs the right to read its menu tab: an employee without it gets the refusal page (HTTP
 403). Each of the four page controllers asks `BaseController::opens()` first, and reads nothing
 that only the opened page shows for a page that does not open.

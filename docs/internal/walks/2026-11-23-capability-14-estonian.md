@@ -121,6 +121,13 @@ The module's menu entries, breadcrumb and page title are in Estonian from the fi
 Estonian employee opens ("Töölaud", "Algseadistus", "Seaded", "Logi", "Smaily Connect —
 Töölaud"), on both versions.
 
+**Correction (2026-11-26, Linear CON-454).** On 8.2.8 that held for the breadcrumb and the page
+title, not for the page's tab bar, which holds the four entries: with the four Estonian names
+stored in English, as an install leaves them, the first page showed "Dashboard", "Initial setup",
+"Settings" and "Log" there once, and the next page "Töölaud", "Algseadistus", "Seaded" and "Logi".
+`Admin\Menu::name()` now empties 8.2.8's cache of the tabs too, and the first page reads Estonian
+(facts file 6.10). 9.2.0 was right from the first page.
+
 The 8.2.8 lane ran before two late additions to the scripts: it has one state less on Settings >
 Automations (a save whose state cannot be read back) and walked three of its Log's four pages.
 That is the difference between 570 and 565 units seen.
