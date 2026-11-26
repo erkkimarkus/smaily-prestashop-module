@@ -87,8 +87,12 @@ unexplained PHP 8.0.30 segfault report (not reproduced).
   With `PS_COMBINATION_FEATURE_ACTIVE` = 0 the cart and order lines use `ps-<id>` while the catalog still sends a row
   per combination. The product page's `product_view` key uses `Product::getDefaultAttribute($id)` without the
   page's availability fallback.
-- The engine mock's default 5xx code `internal_error` is not a contract code. `sendsmaily.net` has wildcard DNS:
-  only the egress guard fences a shop from the real Smaily API.
+- The engine mock's default 5xx code `internal_error` is no contract code, but 1.37.1 names none for a general 5xx.
+  `sendsmaily.net` has wildcard DNS: only the egress guard fences a shop from the real Smaily API.
+- Campaign Intelligence 429s (contract 1.37.1 check, waits for open question 2's GDPR pacing; not built):
+  `Engine\Client` ignores a 429's `retry_after_seconds`, which the contract says to honour; the ladder's first step
+  of 60 s covers the GDPR window, not the general case. Each 429 counts against the installation report's engine
+  health, so a bulk of opt-outs makes a store look unhealthy.
 - Clean-up (ARCHITECTURE 13): `Upgrade300`; the mock's transport passes other hosts on; screenshots for the user
   guide. The 2.x tab row stays in `tab`, inactive.
 - After 3.0.0, from the simplification review: a shared base of the two queues; index use in the ingest queue's
