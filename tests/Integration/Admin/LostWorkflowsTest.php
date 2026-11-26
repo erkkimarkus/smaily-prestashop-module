@@ -199,8 +199,9 @@ final class LostWorkflowsTest extends IntegrationTestCase
 
         self::assertSame([['trigger' => 'welcome', 'language' => ''], ['trigger' => 'welcome', 'language' => 'et']], $saved['workflows_removed']);
         self::assertSame(['welcome|en' => 42], $this->languageWorkflows(0));
+        // Mode `b` draws no workflow of no language (CON-460): the page names the language only.
         self::assertSame(
-            [['trigger' => 'welcome', 'language' => ''], ['trigger' => 'welcome', 'language' => 'et']],
+            [['trigger' => 'welcome', 'language' => 'et']],
             $this->panels()->automations()->values($scope)['lost']
         );
     }

@@ -347,11 +347,69 @@ final class AutomationsPanelTest extends IntegrationTestCase
             $router->resolve('welcome', $shop, 'lv')->workflowId(),
         ], 'each language its own, and an unmapped language the default fallback');
 
+        // A post without a fallback (as the page posted it before CON-460) leaves the row of no
+        // language to serve the languages without a workflow.
         $data['triggers']['welcome']['fallback'] = '';
         $data['triggers']['welcome']['languages']['en'] = '';
         self::assertSame([], $this->panel()->save($scope, $data));
         self::assertSame(['welcome|et|default 13', 'welcome|et|et 21', 'welcome||default 11'], $this->rows(0));
-        self::assertSame(11, $this->router()->resolve('welcome', $shop, 'en')->workflowId(), '"None" falls back to the default workflow above');
+        self::assertSame(11, $this->router()->resolve('welcome', $shop, 'en')->workflowId(), 'the workflow of no language serves English');
+        $values = $this->panel()->values($scope)['triggers']['welcome'];
+        self::assertSame([['en' => '11', 'et' => '13'], 'en'], [$values['languages'], $values['fallback']], 'the page shows it on the row it serves');
+    }
+
+    /**
+     * CON-460 criterion 3: mode `b` draws no workflow of no language and no "None". A store that
+     * saved a workflow of no language with no default fallback keeps sending the same workflows
+     * through a save of what the page shows, the 2.x opt-in trigger included.
+     */
+    public function testAStoredModeBWithADefaultWorkflowAndNoFallbackSendsTheSameAfterASaveOfThePage(): void
+    {
+        (new StoreLayout())->setLanguageMode(StoreLayout::MODE_WORKFLOW_PER_LANGUAGE, 0);
+        $settings = new AutomationSettings();
+        $settings->setEnabled('welcome', true, 0);
+        $settings->setEnabled('first_order', true, 0);
+        // As a mode-`b` save stored it before: a workflow of no language, "None" as the fallback.
+        $this->mappings->upsert(0, 'first_order', '', 'default', 11);
+        $this->mappings->upsert(0, 'first_order', 'en', 'default', 12);
+        $this->mappings->upsert(0, 'welcome', '', 'default', null, true);
+        $scope = $this->scope(['en' => 'English', 'et' => 'Eesti']);
+        $shop = (int) \Configuration::get('PS_SHOP_DEFAULT');
+        $sent = function () use ($shop): array {
+            $router = $this->router();
+            $workflow = static fn ($match): string => $match->isOptInTrigger() ? 'optin' : (string) $match->workflowId();
+
+            return [
+                $workflow($router->resolve('first_order', $shop, 'en')),
+                $workflow($router->resolve('first_order', $shop, 'et')),
+                $workflow($router->resolve('first_order', $shop, 'lv')),
+                $workflow($router->resolve('welcome', $shop, 'en')),
+                $workflow($router->resolve('welcome', $shop, 'et')),
+            ];
+        };
+        $before = $sent();
+        self::assertSame(['12', '11', '11', 'optin', 'optin'], $before);
+
+        $values = $this->panel()->values($scope)['triggers'];
+        self::assertSame([['en' => '12', 'et' => '11'], 'et'], [$values['first_order']['languages'], $values['first_order']['fallback']], 'Estonian, which the workflow of no language serves, shows it and is the fallback');
+        self::assertSame([['en' => AutomationsPanel::OPTIN, 'et' => ''], 'en'], [$values['welcome']['languages'], $values['welcome']['fallback']]);
+
+        // What the page posts in mode `b`: each language's select and the fallback radio.
+        $data = ['cart_delay' => '30', 'triggers' => []];
+        foreach (['welcome', 'first_order'] as $trigger) {
+            $data['triggers'][$trigger] = ['enabled' => true, 'languages' => $values[$trigger]['languages'], 'fallback' => $values[$trigger]['fallback']];
+        }
+        self::assertSame([], $this->panel()->save($scope, $data));
+
+        self::assertSame([
+            'first_order|en|default 12',
+            'first_order|et|default 11 fallback',
+            'first_order||default 11',
+            'welcome|en|default optin fallback',
+            'welcome||default optin',
+        ], $this->rows(0), 'the workflow of no language stays for the modes single and c');
+        self::assertSame($before, $sent());
+        self::assertSame($values, $this->panel()->values($scope)['triggers']);
     }
 
     public function testAnAccountPerLanguageChecksEachLanguageAgainstItsOwnAccountsList(): void

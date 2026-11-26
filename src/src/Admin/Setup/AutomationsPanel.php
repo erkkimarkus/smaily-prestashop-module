@@ -53,6 +53,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *   In both, at most one language row of an automation is its default fallback. A save replaces
  *   only the rows of the shop's current mode; the other mode's rows stay for a switch back.
  *
+ * Mode `b` draws one card per automation with a row per language and the default-fallback radio
+ * on one of them, as WooCommerce and Shopify (owner, 2026-11-26; Linear CON-460): the page shows
+ * no workflow of no language and no "None". That row stays stored for the modes `single` and `c`,
+ * and the Router still reads it last in mode `b`, so a store that saved its mode-`b` rows before
+ * keeps sending as before until it saves this page. The page then shows what the Router does
+ * (fallbackLanguage()): the radio on the stored fallback; without one, on the first language
+ * without its own workflow, whose row shows the stored workflow of no language, which keeps
+ * serving every language without a workflow; else on the first language with a workflow. A
+ * save posts that row unchanged, and it is stored as a copy of the row of no language (also
+ * the 2.x opt-in trigger, and a workflow that the list no longer offers): what was sent, is
+ * sent.
+ *
  * A workflow is taken only from the live list of the account that sends it (WorkflowList), read
  * once per account and save. As in Magento (PRO-1286), a stored workflow stays where the page
  * posts it unchanged, and also where the page posts none while the list does not offer it (it
@@ -163,6 +175,7 @@ final class AutomationsPanel
         foreach (Trigger::ALL as $trigger) {
             $languages = [];
             $fallback = '';
+            $workflow = self::value($rows[self::key($trigger, '', MappingRepository::ACCOUNT_DEFAULT)] ?? null);
             if (in_array($mode, self::PER_LANGUAGE_MODES, true)) {
                 foreach (array_keys($scope->languages()) as $iso) {
                     $row = $rows[self::key($trigger, $iso, self::accountKey($mode, $iso))] ?? null;
@@ -172,9 +185,15 @@ final class AutomationsPanel
                     }
                 }
             }
+            if ($mode === StoreLayout::MODE_WORKFLOW_PER_LANGUAGE && $fallback === '') {
+                $fallback = self::fallbackLanguage($languages, $workflow);
+                if ($fallback !== '' && $languages[$fallback] === '') {
+                    $languages[$fallback] = $workflow;
+                }
+            }
             $triggers[$trigger] = [
                 'enabled' => $this->settings->enabled($trigger, $target),
-                'workflow' => self::value($rows[self::key($trigger, '', MappingRepository::ACCOUNT_DEFAULT)] ?? null),
+                'workflow' => $workflow,
                 'languages' => $languages,
                 'fallback' => $fallback,
                 'discount' => [
@@ -189,7 +208,7 @@ final class AutomationsPanel
             $this->settings->lostWorkflows($target),
             // Only what the page shows: a language's row in the modes `a` and `b`, else the card's own.
             static fn (array $entry): bool => $entry['language'] === ''
-                ? $mode !== StoreLayout::MODE_ACCOUNT_PER_LANGUAGE && $triggers[$entry['trigger']]['workflow'] === ''
+                ? !in_array($mode, self::PER_LANGUAGE_MODES, true) && $triggers[$entry['trigger']]['workflow'] === ''
                 : ($triggers[$entry['trigger']]['languages'][$entry['language']] ?? null) === ''
         ));
 
@@ -313,6 +332,7 @@ final class AutomationsPanel
                     $selects[] = [$iso, self::accountKey($mode, $iso), (string) ($card['languages'][$iso] ?? ''), ($card['fallback'] ?? '') === $iso, $trigger . '.languages.' . $iso];
                 }
             }
+            $none = $stored[self::key($trigger, '', MappingRepository::ACCOUNT_DEFAULT)] ?? null;
             foreach ($selects as [$language, $accountKey, $value, $fallback, $field]) {
                 $row = $stored[self::key($trigger, $language, $accountKey)] ?? null;
                 if ($value === self::value($row)) {
@@ -320,6 +340,11 @@ final class AutomationsPanel
                     if ($row !== null) {
                         $writes[] = [$trigger, $language, $accountKey, $row['workflow_id'], $row['optin_trigger'], $fallback];
                     }
+                    continue;
+                }
+                if ($mode === StoreLayout::MODE_WORKFLOW_PER_LANGUAGE && $language !== '' && $row === null && $value !== '' && $value === self::value($none)) {
+                    // Mode `b` shows the workflow of no language on the row that it serves (values()).
+                    $writes[] = [$trigger, $language, $accountKey, $none['workflow_id'], $none['optin_trigger'], $fallback];
                     continue;
                 }
                 $lists[$accountKey] ??= $this->workflows->of($this->router->accountFor($target, $accountKey));
@@ -434,6 +459,31 @@ final class AutomationsPanel
                 $this->mappings->delete($target, $row['trigger'], $row['language'], $row['account_key']);
             }
         }
+    }
+
+    /**
+     * Mode `b`'s default fallback where none is stored: the language that the stored workflow of
+     * no language serves as the Router reads it, the first one without its own workflow, else the
+     * first language with a workflow (WooCommerce's first mapped row), else the first language.
+     *
+     * @param array<string, string> $languages each language's own workflow ('' for none)
+     */
+    private static function fallbackLanguage(array $languages, string $workflow): string
+    {
+        if ($workflow !== '') {
+            foreach ($languages as $iso => $own) {
+                if ($own === '') {
+                    return (string) $iso;
+                }
+            }
+        }
+        foreach ($languages as $iso => $own) {
+            if ($own !== '') {
+                return (string) $iso;
+            }
+        }
+
+        return (string) (array_key_first($languages) ?? '');
     }
 
     private static function accountKey(string $mode, string $language): string
